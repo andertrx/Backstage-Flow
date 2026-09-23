@@ -6,50 +6,61 @@ Imagine uma **biblioteca**:
 
 1. **As APIs (Meta e Google)** são as editoras que publicam os livros. Elas sabem os
    números, mas só mostram por um tempo e têm regras de quantas vezes você pode pedir.
-2. **O Firebase** é a nossa **estante**. Toda vez que chega um livro novo, a gente
+2. **O Supabase** é a nossa **estante**. Toda vez que chega um livro novo, a gente
    guarda uma cópia. Mesmo que a editora pare de vender, a cópia continua na estante.
+   E essa estante é "inteligente": ela sabe **somar e comparar** sozinha (é uma
+   planilha gigante chamada PostgreSQL).
 3. **O dashboard** é a **sala de leitura**. O leitor (usuário) nunca vai até a
    editora: ele lê o que está na estante, rápido e organizado.
 
 E existe um **bibliotecário** (o backend) que é o único que tem a chave do depósito
 das editoras (os tokens). O leitor nunca vê essa chave.
 
-## 2. Stack escolhida (e por quê)
+## 2. Por que Supabase
+
+O nosso sistema é quase todo feito de **somas, médias, comparações de período e
+relatórios**. O PostgreSQL (banco do Supabase) responde perguntas como "some o gasto
+de agosto por cliente e compare com julho" numa única consulta. Com isso:
+
+- o código fica **menor** (não precisamos manter "somas prontas" à mão);
+- perguntas históricas (Etapa 23) funcionam para **qualquer** período;
+- o custo é por **tamanho do plano**, não por cada leitura — mais previsível.
+
+## 3. Stack escolhida
 
 | Parte | Escolha | Por que |
 |---|---|---|
-| Linguagem | **TypeScript** em tudo | Uma só linguagem no site e no servidor; o "corretor ortográfico" do código (tipos) evita muitos erros bobos |
-| Frontend | **React + Vite** (SPA) | Moderno, rápido, enorme ecossistema. Como o backend já é o Firebase, não precisamos de um segundo servidor (por isso não usamos Next.js) |
-| Visual | **Tailwind CSS + shadcn/ui** (componentes Radix) | Aparência de SaaS profissional, acessível, fácil de manter consistente |
-| Gráficos | **Recharts** | Gráficos responsivos com tooltips exatos, simples de trocar a métrica |
+| Linguagem | **TypeScript** em tudo | Uma só linguagem no site e no servidor; os "tipos" funcionam como corretor ortográfico do código |
+| Frontend | **React + Vite** (SPA) | Moderno, rápido, enorme ecossistema |
+| Visual | **Tailwind CSS + shadcn/ui** | Aparência de SaaS profissional, acessível e consistente |
+| Gráficos | **Recharts** | Responsivos, tooltips com valores exatos, fácil trocar a métrica |
 | Tabelas | **TanStack Table** | Ordenar por qualquer coluna, busca, paginação, scroll horizontal no celular |
 | Dados no navegador | **TanStack Query** | Cache no navegador: não pede de novo o que acabou de pedir |
 | Validação | **Zod** | Confere todo dado que entra (formulários e respostas das APIs) |
-| Datas | **date-fns + date-fns-tz** | Cálculos de período respeitando fuso horário |
-| Login | **Firebase Authentication** (e-mail/senha) | Recuperação de senha e sessão persistente prontas |
-| Banco | **Cloud Firestore** | Escala para milhões de documentos, regras de segurança por usuário |
-| Backend | **Cloud Functions for Firebase (2ª geração, Node.js)** | Roda no servidor do Google; guarda segredos; agenda tarefas |
-| Agendamento | **Scheduler (`onSchedule`) + Task Queues (`onTaskDispatched`)** | Sincroniza de hora em hora, uma conta por vez, com limite de velocidade e novas tentativas automáticas |
-| Segredos | **Google Secret Manager** (`defineSecret`) | Cofre para client secrets, developer token e chave de criptografia |
-| Proteção extra | **Firebase App Check** | Garante que só o nosso site chama o backend |
-| Arquivos | **Firebase Storage** (só quando necessário) | Relatórios PDF/Excel gerados |
-| Hospedagem | **Firebase Hosting** | HTTPS, CDN, deploy simples |
-| Testes | **Vitest** (unidade), **Firebase Emulator Suite** (banco/regras/funções locais), **Playwright** (telas) | Testar sem tocar em dados reais |
+| Datas | **date-fns + date-fns-tz** | Períodos respeitando fuso horário |
+| Banco | **Supabase PostgreSQL** | Consultas analíticas, particionamento para milhões de linhas |
+| Login | **Supabase Auth** (e-mail/senha) | Recuperação de senha e sessão persistente prontas |
+| Segurança do banco | **Row Level Security (RLS)** | O próprio banco recusa dados que o usuário não pode ver |
+| Backend | **Supabase Edge Functions** (TypeScript/Deno) | Roda no servidor; guarda segredos; chama as APIs |
+| Agendamento | **Supabase Cron** (pg_cron) | Dispara a sincronização de hora em hora |
+| Fila | **Supabase Queues** (pgmq) | Uma tarefa por conta, com novas tentativas automáticas |
+| Segredos | **Edge Function Secrets** + **Supabase Vault** | Cofre para chaves da agência e tokens de cada conexão |
+| Tempo real | **Supabase Realtime** | Tela de sincronização atualiza sozinha |
+| Arquivos | **Supabase Storage** | Relatórios PDF/Excel gerados |
+| Hospedagem do site | **Vercel** | O Supabase não hospeda o site; a Vercel publica com HTTPS e CDN (você já tem conta conectada) |
+| Estrutura do banco | **Migrações SQL versionadas** (Supabase CLI) | Toda mudança no banco fica registrada no Git e pode ser refeita |
+| Testes | **Vitest** (lógica), **pgTAP** (regras de segurança do banco), **Playwright** (telas) | Testar sem tocar em dados reais |
 
-> **Importante:** Cloud Functions que chamam APIs externas exigem o **plano Blaze**
-> (pague pelo uso) do Firebase. Para o volume inicial o custo tende a ser baixo, mas
-> é obrigatório cadastrar um cartão. Detalhes em `07-dificuldades-e-decisoes.md`.
+## 4. Estrutura de pastas (monorepo)
 
-## 3. Estrutura de pastas (monorepo)
-
-"Monorepo" = uma única caixa com três gavetas: o **site**, o **servidor** e as
-**peças compartilhadas** (como as fórmulas das métricas, que precisam ser iguais nos dois).
+"Monorepo" = uma única caixa com gavetas: o **site**, o **Supabase** (banco + servidor)
+e as **peças compartilhadas** (como as fórmulas das métricas, que precisam ser iguais
+em todo lugar).
 
 ```
 Backstage-Flow/
 ├── apps/
 │   └── web/                         # SITE (o que o usuário vê)
-│       ├── index.html
 │       └── src/
 │           ├── app/                 # rotas, layout com sidebar, provedores (auth, query)
 │           ├── components/
@@ -59,66 +70,53 @@ Backstage-Flow/
 │           │   ├── filters/         # filtro global (cliente, plataforma, período...)
 │           │   └── feedback/        # mensagens amigáveis, estados vazios, "MODO DEMONSTRAÇÃO"
 │           ├── features/            # uma pasta por área do menu
-│           │   ├── auth/            # login, recuperar senha
-│           │   ├── dashboard/       # resumo geral
-│           │   ├── executive/       # dashboard executivo
-│           │   ├── clients/
-│           │   ├── accounts/        # contas + saúde das contas
-│           │   ├── balance/         # saldo
-│           │   ├── campaigns/       # campanhas → conjuntos/grupos → anúncios
-│           │   ├── meta/            # visão Meta Ads
-│           │   ├── google/          # visão Google Ads
-│           │   ├── comparison/      # comparação de períodos
-│           │   ├── alerts/
-│           │   ├── sync/            # sincronização + botão "sincronizar agora"
-│           │   ├── logs/
-│           │   ├── reports/
-│           │   ├── search/          # busca global
-│           │   ├── client-portal/   # visão simplificada do cliente
-│           │   └── settings/        # usuários, permissões, preferências
-│           ├── lib/                 # firebase client, formatação de moeda/data
+│           │   ├── auth/  dashboard/  executive/  clients/  accounts/  balance/
+│           │   ├── campaigns/  meta/  google/  comparison/  alerts/  sync/
+│           │   └── logs/  reports/  search/  client-portal/  settings/
+│           ├── lib/                 # cliente Supabase, formatação de moeda/data
 │           └── hooks/
 │
-├── functions/                       # SERVIDOR (Cloud Functions)
-│   └── src/
-│       ├── index.ts                 # exporta as funções
-│       ├── config/                  # segredos e parâmetros (nunca valores fixos no código)
-│       ├── platforms/               # ADAPTADORES por plataforma
-│       │   ├── adapter.ts           # "contrato" que toda plataforma precisa cumprir
-│       │   ├── registry.ts          # lista de plataformas habilitadas
-│       │   ├── meta/                # cliente HTTP, mapeamentos, normalização
-│       │   └── google/
-│       ├── sync/                    # orquestrador, fila, trava por conta, backfill
-│       ├── aggregation/             # rollups (somatórios diários/mensais)
-│       ├── alerts/                  # regras de alerta
-│       ├── api/                     # funções chamadas pelo site (callables)
-│       ├── auth/                    # papéis, custom claims, verificação de acesso
-│       ├── security/                # criptografia de tokens, rate limit
-│       └── logging/                 # logs estruturados e tradução de erros
+├── supabase/                        # BANCO + SERVIDOR
+│   ├── config.toml                  # configuração do projeto
+│   ├── migrations/                  # criação das tabelas, índices e regras (SQL, em ordem)
+│   ├── seed.sql                     # dados de DEMONSTRAÇÃO (nunca vai para produção)
+│   ├── tests/                       # testes das regras de segurança (pgTAP)
+│   └── functions/                   # EDGE FUNCTIONS
+│       ├── _shared/                 # código comum do servidor
+│       │   ├── platforms/           # ADAPTADORES por plataforma
+│       │   │   ├── adapter.ts       # "contrato" que toda plataforma precisa cumprir
+│       │   │   ├── registry.ts      # plataformas habilitadas
+│       │   │   ├── meta/            # cliente HTTP, mapeamentos, normalização
+│       │   │   └── google/
+│       │   ├── auth.ts              # confere usuário e papel
+│       │   ├── errors.ts            # tradução de erros técnicos em mensagens amigáveis
+│       │   ├── logger.ts            # logs estruturados, sem segredos
+│       │   └── rate-limit.ts
+│       ├── sync-orchestrator/       # decide quais contas sincronizar e enfileira
+│       ├── sync-worker/             # processa a fila, conta por conta
+│       ├── sync-now/                # botão "SINCRONIZAR AGORA"
+│       ├── admin-users/             # criar/editar usuários (só administrador)
+│       ├── connect-meta/            # conectar conta Meta
+│       ├── connect-google/          # login OAuth do Google + retorno
+│       └── export-report/           # gerar CSV / Excel / PDF
 │
 ├── packages/
-│   └── shared/                      # PEÇAS COMPARTILHADAS
+│   └── shared/                      # PEÇAS COMPARTILHADAS (TypeScript puro, sem dependências)
 │       └── src/
-│           ├── types/               # formatos dos documentos do banco
-│           ├── schemas/             # validações Zod
 │           ├── metrics/             # fórmulas (CTR, CPC, CPL...) — uma única fonte da verdade
 │           ├── periods/             # "últimos 7 dias", "mês anterior", comparação
 │           ├── currency/            # moedas e formatação
-│           └── constants/           # papéis, status, plataformas
+│           ├── constants/           # papéis, status, plataformas
+│           └── types/               # tipos gerados a partir do banco
 │
-├── firestore.rules                  # regras de segurança do banco
-├── firestore.indexes.json           # índices do banco
-├── storage.rules
-├── firebase.json                    # configuração do Firebase e dos emuladores
 ├── .env.example                     # modelo de variáveis (sem valores secretos!)
 └── docs/                            # esta documentação, etapa por etapa
 ```
 
-## 4. Por que "adaptadores" (preparação para TikTok, LinkedIn, Pinterest)
+## 5. Por que "adaptadores" (preparação para TikTok, LinkedIn, Pinterest)
 
 Pense numa **tomada universal**. Cada plataforma tem um "plugue" diferente, mas todas
-precisam encaixar na mesma tomada. No código isso vira um contrato (`PlatformAdapter`)
-com funções como:
+encaixam na mesma tomada. No código isso vira um contrato (`PlatformAdapter`):
 
 - `listAccounts()` — quais contas existem nesta conexão
 - `getAccountInfo()` — status, moeda, fuso, cobrança
@@ -126,26 +124,28 @@ com funções como:
 - `getDailyMetrics(periodo, nivel)` — números por dia
 - `getBalance()` — saldo/limites, **quando a API oferecer**
 
-O resto do sistema (banco, dashboard, alertas) só conversa com a tomada, nunca com o
-plugue. Para adicionar TikTok Ads no futuro, basta criar `platforms/tiktok/` cumprindo
-o contrato. Nada mais muda.
+No banco, as plataformas ficam numa tabela (`platforms`), não "chumbadas" no código.
+Para adicionar TikTok Ads no futuro: cria `platforms/tiktok/` cumprindo o contrato e
+insere uma linha na tabela. Nada mais muda.
 
-## 5. Fluxo do dashboard (o que acontece quando você abre uma tela)
+## 6. Fluxo do dashboard (o que acontece quando você abre uma tela)
 
 ```
 Usuário escolhe filtros (cliente, plataforma, período)
    ▼
-Site calcula as datas (ex.: "últimos 7 dias" no fuso da conta) e o período anterior
+Site calcula as datas (ex.: "últimos 7 dias" no fuso do cliente) e o período anterior
    ▼
-Site lê os ROLLUPS do Firestore (somatórios já prontos por dia) — poucas leituras
+Site chama UMA função do banco (ex.: dashboard_summary) com os filtros
    ▼
-Regras do Firestore conferem: "esse usuário pode ver esse cliente?"
+RLS confere: "esse usuário pode ver esse cliente?" — linhas proibidas nem aparecem
    ▼
-Site calcula CTR, CPL etc. a partir das somas (fórmulas do pacote shared)
+PostgreSQL soma gasto, cliques, leads... dos dois períodos e devolve pronto
    ▼
-Cards, gráficos e tabelas são exibidos + data da "última sincronização"
+Site aplica as fórmulas (CTR, CPL...) e mostra cards, gráficos e tabelas
+   + "Última sincronização: 23/09/2026 18:20"
 ```
 
-O site **lê** direto do Firestore (rápido e barato), mas **nunca escreve** métricas:
-só o servidor escreve dados vindos das APIs. Ações sensíveis (criar usuário, conectar
-conta, sincronizar agora) passam por funções do servidor que conferem permissão.
+O site **lê** pelo Supabase com a chave pública (protegida pelo RLS), mas **nunca
+escreve** métricas: só o servidor grava dados vindos das APIs. Ações sensíveis (criar
+usuário, conectar conta, sincronizar agora) passam por Edge Functions que conferem a
+permissão.

@@ -44,7 +44,7 @@ Regras:
 
 - A moeda vem da conta (`currency`). Suporte inicial completo para **BRL**; estrutura
   pronta para **USD** e **EUR**.
-- Rollups são **separados por moeda**. O sistema **nunca soma BRL com USD**.
+- Todas as somas são **agrupadas por moeda**. O sistema **nunca soma BRL com USD**.
 - Se um dia fizermos conversão, ela será opcional, com a cotação e a data exibidas e o
   aviso "valor convertido".
 - Formatação: `R$ 1.250,00` (pt-BR), `US$ 1,250.00`, `€ 1.250,00`.

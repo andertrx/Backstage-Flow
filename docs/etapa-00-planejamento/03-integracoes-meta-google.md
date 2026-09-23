@@ -59,7 +59,7 @@ sensato. A lista original fica guardada em `rawActions` para auditoria.
   lemos texto de tela**.
 - Limites de uso (rate limit) por conta de anúncio → fila com velocidade controlada.
 - Dados de insights antigos têm janela de retenção limitada (em torno de 37 meses) —
-  mais um motivo para guardar tudo no Firebase.
+  mais um motivo para guardar tudo no Supabase.
 - Números dos últimos dias podem mudar (atribuição atrasada) → ressincronizamos os
   últimos dias.
 
@@ -86,7 +86,7 @@ Se as contas dos clientes estão sob a MCC da agência, usamos o
 O Google oferece bibliotecas oficiais para Java, .NET, PHP, Python, Ruby e Perl, **mas
 não para Node.js**. Para cumprir a regra "somente oficial", chamaremos a **interface
 REST oficial** da Google Ads API diretamente (endpoint `googleAds:searchStream` com
-consultas GAQL), usando a biblioteca oficial `google-auth-library` para autenticação.
+consultas GAQL). A autenticação usa o fluxo OAuth 2.0 oficial do Google (troca do refresh token por um access token no endpoint de tokens do Google), feito pela Edge Function.
 
 ### O que buscamos
 
@@ -98,7 +98,7 @@ consultas GAQL), usando a biblioteca oficial `google-auth-library` para autentic
 | Orçamento | `campaign_budget` (`amount_micros`) |
 | Métricas diárias | `metrics.cost_micros`, `impressions`, `clicks`, `ctr`, `average_cpc`, `average_cpm`, `conversions`, `conversions_value`, `cost_per_conversion` com `segments.date` |
 | Cobrança | `billing_setup`, `account_budget` (limite aprovado, valor já consumido) |
-| Histórico de alterações | `change_event` (a API só guarda ~30 dias → gravamos no Firebase) |
+| Histórico de alterações | `change_event` (a API só guarda ~30 dias → gravamos no Supabase) |
 
 ### Limitações importantes (Google)
 

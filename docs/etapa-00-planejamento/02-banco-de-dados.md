@@ -1,139 +1,163 @@
-# 02 — Banco de dados (Firestore)
+# 02 — Banco de dados (Supabase / PostgreSQL)
 
-> Esta é a **proposta inicial**. Conforme a regra do projeto, cada coleção será
-> explicada de novo (campos, tipos, índices, retenção) e aprovada **antes** de ser
-> criada de verdade, na etapa correspondente.
+> Esta é a **proposta inicial**. Conforme a regra do projeto, cada tabela será
+> explicada de novo (campos, tipos, relacionamentos, índices, retenção) e aprovada
+> **antes** de ser criada de verdade, na etapa correspondente.
 
-## 1. Como o Firestore funciona (versão simples)
+## 1. Como o PostgreSQL funciona (versão simples)
 
-- Uma **coleção** é uma gaveta (ex.: "clientes").
-- Um **documento** é uma ficha dentro da gaveta (ex.: "Excalibur Fitness").
-- Cada ficha tem **campos** (nome, telefone...).
-- O Firestore cobra por **leitura** e **escrita** de fichas. Por isso guardamos
-  **somas prontas** (rollups): em vez de ler 3.000 fichas de anúncios para mostrar o
-  gasto do mês, lemos 30 fichas (uma por dia).
+- Uma **tabela** é uma aba de planilha (ex.: "clientes").
+- Cada **linha** é um registro (ex.: "Excalibur Fitness").
+- Cada **coluna** tem um tipo fixo (texto, número, data...). O banco **recusa** dado no
+  formato errado — isso evita lixo.
+- Tabelas se ligam por **chaves** (a conta de anúncio aponta para o cliente dono dela).
+- Um **índice** é como o índice de um livro: acha o que você quer sem ler tudo.
 
 ## 2. Decisões que fazem o banco aguentar milhões de registros
 
-1. **IDs determinísticos**: a ficha de métricas do anúncio X no dia 23/09 sempre tem o
-   mesmo nome (`meta_act123_ad_456_2026-09-23`). Sincronizar de novo **atualiza** a
-   ficha em vez de duplicar.
-2. **Coleções de métricas no nível raiz** com os campos `clientId`, `accountId`,
-   `platform`, `date` — permite filtrar por qualquer um sem "varrer" tudo.
-3. **Data como texto `AAAA-MM-DD` no fuso da conta** — "dia 23" é o dia 23 para o
-   anunciante, não para o servidor em outro país.
-4. **Dinheiro em "micros" (número inteiro)**: R$ 12,34 vira `12340000`. Evita erros de
-   arredondamento de números quebrados. (O Google já entrega assim; o Meta é convertido.)
-5. **Rollups** (somas prontas) por conta/dia, cliente/dia e mês.
-6. **Escrever só quando mudou**: guardamos um "resumo" (hash) do dado; se nada mudou,
-   não escrevemos — economiza dinheiro.
-7. **Nunca apagar histórico automaticamente.** Só os logs técnicos terão regra de
-   expiração, e somente se você aprovar.
+1. **Particionamento por mês**: a tabela de métricas diárias é dividida em "gavetas"
+   mensais (2026-08, 2026-09...). Uma consulta de setembro só abre a gaveta de setembro.
+   Gavetas futuras são criadas automaticamente por um agendamento.
+2. **Chave única natural**: (nível, entidade, data). Sincronizar de novo **atualiza** a
+   linha em vez de duplicar (`INSERT ... ON CONFLICT DO UPDATE`).
+3. **Data como `date` no fuso da conta** — "dia 23" é o dia 23 do anunciante.
+4. **Dinheiro em "micros" (`bigint`)**: R$ 12,34 vira `12340000`. Sem erro de
+   arredondamento. (O Google já entrega assim; o Meta é convertido.)
+5. **Linhas no nível "conta" já são o total da conta** (a API entrega pronto), então o
+   dashboard soma poucas linhas mesmo com milhares de anúncios.
+6. **Visões mensais materializadas**: totais por mês, recalculados após cada sync.
+7. **Escrever só quando mudou**: guardamos um `hash` da linha; se nada mudou, não gravamos.
+8. **Nunca apagar histórico automaticamente.** Só logs técnicos terão regra de
+   expiração, e somente com sua aprovação.
 
-## 3. Coleções propostas
+## 3. Organização em "schemas" (áreas do banco)
+
+| Schema | O que guarda | Quem acessa |
+|---|---|---|
+| `public` | Dados do negócio (clientes, contas, métricas, alertas) | Site, **sempre filtrado pelo RLS** |
+| `private` | Conexões com as plataformas e referências a tokens | **Somente o servidor.** Não é exposto pela API do Supabase |
+| `vault` | Tokens criptografados (Supabase Vault) | Somente o servidor |
+
+## 4. Tabelas propostas
 
 Legenda de retenção: **Permanente** = nunca apagado automaticamente.
 
 ### Cadastro e acesso
 
-| Coleção | Para que serve | Campos principais | Retenção |
+| Tabela | Para que serve | Colunas principais | Retenção |
 |---|---|---|---|
-| `users/{uid}` | Perfil do usuário | `name`, `email`, `role` (admin/gestor/operador/visualizador/cliente), `clientIds[]` (clientes permitidos), `active`, `createdAt` | Permanente (desativar em vez de apagar) |
-| `clients/{clientId}` | Cliente da agência | `name`, `company`, `cnpj?`, `ownerName`, `phone`, `email`, `notes`, `status`, `timezone`, `createdAt`, `searchTokens[]` | Permanente |
-| `settings/{docId}` | Configurações gerais (limites de alerta, intervalo de sync, modo demonstração) | variam | Permanente |
+| `profiles` | Perfil de cada usuário (ligado ao login) | `id` (= usuário do Auth), `full_name`, `role` (admin/gestor/operador/visualizador/cliente), `active`, `created_at` | Permanente (desativar em vez de apagar) |
+| `clients` | Cliente da agência | `id`, `name`, `company`, `cnpj` (opcional, validado), `owner_name`, `phone`, `email`, `notes`, `status`, `timezone`, `is_demo`, `created_at` | Permanente |
+| `user_client_access` | Quais clientes cada usuário pode ver | `user_id`, `client_id` | Permanente |
+| `platforms` | Plataformas suportadas (meta, google; futuramente tiktok...) | `id`, `name`, `enabled` | Permanente |
+| `settings` | Limites de alerta, intervalo de sync, mapeamentos padrão | `key`, `value` (jsonb) | Permanente |
 
 ### Conexões e contas
 
-| Coleção | Para que serve | Campos principais | Retenção |
+| Tabela | Para que serve | Colunas principais | Retenção |
 |---|---|---|---|
-| `connections/{connectionId}` | Uma "conexão" com Meta (ex.: System User do Business Manager) ou Google (login OAuth/MCC). **Somente o servidor lê.** | `platform`, `label`, `status`, `scopes[]`, `encryptedToken` (criptografado), `tokenExpiresAt?`, `loginCustomerId?` (MCC), `createdBy` | Enquanto ativa |
-| `adAccounts/{accountId}` | Conta de anúncio vinculada a um cliente | `platform`, `externalId` (act_… ou Customer ID), `clientId`, `connectionId`, `name`, `currency`, `timezone`, `status` (normalizado), `rawStatus`, `businessId?`, `businessName?`, `pageIds[]?`, `instagramIds[]?`, `managerCustomerId?`, `lastSyncAt`, `isDemo` | Permanente |
-
-Na regra de segurança, `connections` é **proibida para qualquer usuário** — só o
-servidor (Admin SDK) enxerga. Assim o token nunca chega ao navegador.
+| `private.platform_connections` | Uma conexão com o Meta (System User do BM) ou Google (OAuth/MCC). **Invisível para o site.** | `id`, `platform_id`, `label`, `status`, `scopes`, `vault_secret_id` (aponta para o token no cofre), `token_expires_at`, `login_customer_id` (MCC), `created_by` | Enquanto ativa |
+| `ad_accounts` | Conta de anúncio vinculada a um cliente | `id`, `platform_id`, `external_id` (act_… ou Customer ID), `client_id`, `connection_id`, `name`, `currency`, `timezone`, `status` (normalizado), `raw_status`, `business_id`, `business_name`, `manager_customer_id`, `result_mapping` (jsonb: o que conta como lead/mensagem/conversão), `is_demo`, `last_sync_at` | Permanente |
+| `ad_account_assets` | Páginas e perfis do Instagram ligados à conta Meta | `ad_account_id`, `asset_type`, `external_id`, `name` | Permanente |
 
 ### Estrutura das campanhas (estado atual)
 
-| Coleção | Campos principais |
+| Tabela | Colunas principais |
 |---|---|
-| `campaigns/{id}` | `platform`, `clientId`, `accountId`, `externalId`, `name`, `objective`, `status`, `effectiveStatus`, `budgetMicros?`, `budgetType` (diário/vitalício), `startDate?`, `endDate?`, `updatedAt` |
-| `adGroups/{id}` | Conjuntos (Meta) **e** grupos de anúncios (Google) numa só coleção, com `campaignId` |
-| `ads/{id}` | `adGroupId`, `campaignId`, nome, status, tipo de criativo, status de revisão/política |
+| `campaigns` | `id`, `ad_account_id`, `client_id`, `external_id`, `name`, `objective`, `status`, `effective_status`, `budget_micros`, `budget_type` (diário/vitalício), `start_date`, `end_date`, `updated_at` |
+| `ad_groups` | Conjuntos (Meta) **e** grupos de anúncios (Google), com `campaign_id` |
+| `ads` | `ad_group_id`, `campaign_id`, nome, status, tipo de criativo, status de revisão/política |
 
-Usamos um só nome (`adGroups`) para "conjunto" e "grupo" porque têm o mesmo papel;
-na tela o rótulo muda conforme a plataforma.
+Um só nome (`ad_groups`) para "conjunto" e "grupo" porque têm o mesmo papel; na tela
+o rótulo muda conforme a plataforma.
 
 ### Métricas (o coração do histórico)
 
-| Coleção | Para que serve | Granularidade | Retenção |
-|---|---|---|---|
-| `metricsDaily/{id}` | Números de **um dia** de **uma** conta/campanha/grupo/anúncio | `level` = account \| campaign \| adGroup \| ad | Permanente |
-| `rollupsDaily/{id}` | Soma pronta por **conta/dia** e **cliente/dia** (separada por moeda) | dia | Permanente |
-| `rollupsMonthly/{id}` | Soma pronta por conta/mês e cliente/mês | mês | Permanente |
-| `periodReach/{id}` | Alcance e frequência de **períodos** (7d, 30d, mês) buscados direto da API — veja o aviso abaixo | período | Permanente |
+| Tabela | Para que serve | Retenção |
+|---|---|---|
+| `metrics_daily` (**particionada por mês**) | Números de **um dia** de **uma** conta/campanha/grupo/anúncio | Permanente |
+| `metrics_monthly` (visão materializada) | Totais por conta/mês e cliente/mês, separados por moeda | Recalculada; origem permanente |
+| `period_reach` | Alcance e frequência de **períodos** (7d, 30d, mês) buscados prontos da API | Permanente |
 
-Campos de `metricsDaily`:
-`platform`, `clientId`, `accountId`, `level`, `entityId`, `campaignId?`, `adGroupId?`,
-`date` (AAAA-MM-DD, fuso da conta), `currency`, `spendMicros`, `impressions`, `reach?`,
-`clicks`, `linkClicks?`, `leads`, `messages`, `conversions`, `conversionValueMicros`,
-`videoViews?`, `platformMetrics` (valores oficiais da plataforma como CTR/CPC informados),
-`rawActions` (lista original de ações do Meta para auditoria), `syncedAt`, `hash`.
+Colunas de `metrics_daily`:
+`date`, `level` (account/campaign/ad_group/ad), `entity_id`, `ad_account_id`,
+`client_id`, `campaign_id`, `ad_group_id`, `platform_id`, `currency`,
+`spend_micros`, `impressions`, `reach`, `clicks`, `link_clicks`, `leads`, `messages`,
+`conversions`, `conversion_value_micros`, `video_views`,
+`platform_metrics` (jsonb: CTR/CPC oficiais informados pela plataforma),
+`raw_actions` (jsonb: lista original de ações do Meta, para auditoria),
+`synced_at`, `hash`.
 
 > **Aviso sobre alcance:** alcance **não pode ser somado** entre dias (a mesma pessoa
 > vista na segunda e na terça contaria duas vezes). Por isso o alcance de um período é
-> buscado pronto da API e guardado em `periodReach`. Para intervalos personalizados
-> antigos, se a API não fornecer mais, mostraremos "Informação não disponível pela API."
+> buscado pronto da API e guardado em `period_reach`. Para intervalos personalizados
+> antigos, se a API não fornecer mais, mostramos "Informação não disponível pela API."
 
 ### Fotografias históricas (snapshots)
 
-| Coleção | O que registra | Quando grava | Retenção |
+| Tabela | O que registra | Quando grava | Retenção |
 |---|---|---|---|
-| `accountSnapshots/{id}` | Status da conta, saldo/limites/gasto acumulado **como a API informou naquele momento** | A cada sincronização (1 por hora no máximo) + 1 "fechamento" por dia | Permanente |
-| `entityChanges/{id}` | Mudanças detectadas: campanha pausada, orçamento alterado, status da conta mudou | Somente quando algo muda | Permanente |
-| `dailySummaries/{id}` | A "fotografia do dia" por cliente (ex.: Excalibur, 23/09: R$ 1.250, 350 leads, CPL R$ 3,57) | Fechamento diário | Permanente |
+| `account_snapshots` | Status, saldo/limites/gasto acumulado **como a API informou naquele momento** | A cada sync + 1 "fechamento" por dia | Permanente |
+| `entity_changes` | Mudanças: campanha pausada, orçamento alterado, status da conta mudou | Somente quando algo muda | Permanente |
+| `daily_summaries` | "Fotografia do dia" por cliente (ex.: Excalibur, 23/09: R$ 1.250, 350 leads, CPL R$ 3,57) | Fechamento diário | Permanente |
 
 ### Operação
 
-| Coleção | Para que serve | Retenção proposta |
+| Tabela | Para que serve | Retenção proposta |
 |---|---|---|
-| `syncState/{accountId}` | Última sincronização, próxima, trava (para não rodar duas ao mesmo tempo), último erro | Permanente (1 ficha por conta) |
-| `syncRuns/{id}` | Log de cada sincronização: início, fim, status, registros, erro técnico | **Sugestão**: 400 dias (só com sua aprovação) |
-| `alerts/{id}` | Alertas: tipo, gravidade, cliente, conta, descrição, status (aberto/reconhecido/resolvido), datas | Permanente |
-| `auditLogs/{id}` | Quem fez o quê (criou usuário, conectou conta, mudou permissão) | Permanente |
-| `reports/{id}` | Relatórios gerados (arquivo fica no Storage) | Sugestão: 180 dias para o arquivo; registro permanente |
+| `sync_state` | Por conta: última sync, próxima, trava (evita duas ao mesmo tempo), último erro | Permanente (1 linha por conta) |
+| `sync_runs` | Log de cada sincronização: início, fim, status, registros, erro técnico | **Sugestão**: 400 dias (só com sua aprovação) |
+| `alerts` | Tipo, gravidade, cliente, conta, descrição, status (aberto/reconhecido/resolvido), datas | Permanente |
+| `audit_logs` | Quem fez o quê (criou usuário, conectou conta, mudou permissão) | Permanente |
+| `reports` | Relatórios gerados (arquivo fica no Supabase Storage) | Sugestão: 180 dias para o arquivo; registro permanente |
 
-## 4. Relacionamentos
+## 5. Relacionamentos
 
 ```
-clients ─┬─< adAccounts ─┬─< campaigns ─< adGroups ─< ads
-         │               ├─< metricsDaily (por nível e dia)
-         │               ├─< accountSnapshots
-         │               ├── syncState
-         │               └─< syncRuns
-         ├─< rollupsDaily / rollupsMonthly / dailySummaries
+clients ─┬─< ad_accounts ─┬─< campaigns ─< ad_groups ─< ads
+         │                ├─< metrics_daily (por nível e dia)
+         │                ├─< account_snapshots
+         │                ├── sync_state
+         │                └─< sync_runs
+         ├─< daily_summaries
          └─< alerts
-connections ─< adAccounts   (uma conexão pode dar acesso a várias contas)
-users >─< clients           (via users.clientIds)
+private.platform_connections ─< ad_accounts   (uma conexão pode dar acesso a várias contas)
+profiles >─< clients                          (via user_client_access)
 ```
 
-## 5. Índices previstos (exemplos)
+## 6. Índices previstos (exemplos)
 
-- `metricsDaily`: (`accountId`, `level`, `date`), (`clientId`, `level`, `date`), (`campaignId`, `date`)
-- `rollupsDaily`: (`clientId`, `date`), (`accountId`, `date`), (`platform`, `date`)
-- `alerts`: (`status`, `severity`, `createdAt`), (`clientId`, `status`, `createdAt`)
-- `syncRuns`: (`accountId`, `startedAt` desc), (`status`, `startedAt` desc)
-- `campaigns`: (`clientId`, `status`), (`accountId`, `status`)
+- `metrics_daily`: (`ad_account_id`, `level`, `date`), (`client_id`, `level`, `date`), (`campaign_id`, `date`)
+- `alerts`: (`status`, `severity`, `created_at`), (`client_id`, `status`, `created_at`)
+- `sync_runs`: (`ad_account_id`, `started_at` desc)
+- `campaigns`: (`client_id`, `status`), (`ad_account_id`, `status`)
+- **Busca global**: índices de trigramas (`pg_trgm`) em nomes de clientes, contas,
+  campanhas e anúncios — acha "Excalib" mesmo digitando só parte do nome.
 
-## 6. Estimativa de volume (para mostrar que escala)
+## 7. Funções do banco para o dashboard
 
-200 contas × ~100 entidades ativas (campanhas+grupos+anúncios) × 365 dias ≈
-**7,3 milhões de fichas diárias por ano**. O Firestore lida bem com isso porque o
-dashboard lê os **rollups** (centenas de fichas), e não as fichas de anúncio.
-As fichas por anúncio só são lidas quando alguém abre o detalhe daquele anúncio.
+Em vez de o site montar dezenas de consultas, o banco terá funções prontas
+(executadas **com as permissões do usuário**, então o RLS continua valendo):
 
-## 7. Dados de demonstração
+- `dashboard_summary(filtros, período, período_anterior)` — cards do resumo
+- `metrics_timeseries(filtros, período, agrupamento: dia/semana/mês)` — gráficos
+- `campaign_table(filtros, período, ordenação, página)` — tabela de campanhas
+- `global_search(texto)` — busca global
 
-Dados fictícios terão `isDemo: true` e ficarão num **projeto Firebase separado de
-desenvolvimento** (ou no emulador local). A interface mostra a faixa
-**"MODO DEMONSTRAÇÃO"** sempre que houver qualquer dado demo na tela. Assim é
-impossível confundir com dados reais.
+## 8. Estimativa de volume e custo
+
+200 contas × ~100 entidades ativas × 365 dias ≈ **7,3 milhões de linhas por ano**.
+Estimativa de espaço: **3 a 5 GB por ano**, contando índices. O particionamento mantém
+as consultas rápidas mesmo depois de anos.
+
+- **Plano Free** do Supabase: 500 MB e o projeto **pausa após 1 semana sem uso** →
+  serve só para testes/demonstração.
+- **Plano Pro** (US$ 25/mês): 8 GB inclusos, backups diários → recomendado para produção.
+  Espaço extra é cobrado por GB.
+
+## 9. Dados de demonstração
+
+Dados fictícios terão `is_demo = true` e só existirão no **projeto de
+desenvolvimento** (via `seed.sql`). A interface mostra a faixa
+**"MODO DEMONSTRAÇÃO"** sempre que houver dado demo na tela. Assim é impossível
+confundir com dados reais.
