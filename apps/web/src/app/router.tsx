@@ -3,6 +3,8 @@ import { ComingSoon } from "@/components/feedback/ComingSoon.tsx";
 import { AppLayout } from "@/components/layout/AppLayout.tsx";
 import { NAV_ITEMS } from "@/components/layout/navigation.ts";
 import { AccountPage } from "@/features/account/AccountPage.tsx";
+import { ClientDetailPage } from "@/features/clients/ClientDetailPage.tsx";
+import { ClientsPage } from "@/features/clients/ClientsPage.tsx";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage.tsx";
 import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/features/auth/guards.tsx";
 import { LoginPage } from "@/features/auth/LoginPage.tsx";
@@ -36,6 +38,22 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "minha-conta", element: <AccountPage /> },
+      {
+        path: "clientes",
+        element: (
+          <RequirePermission permission="clients.view">
+            <ClientsPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "clientes/:id",
+        element: (
+          <RequirePermission permission="clients.view">
+            <ClientDetailPage />
+          </RequirePermission>
+        ),
+      },
       { path: "configuracoes", element: <Navigate to="/configuracoes/usuarios" replace /> },
       {
         path: "configuracoes/usuarios",

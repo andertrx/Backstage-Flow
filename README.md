@@ -5,13 +5,14 @@ Dashboard de performance de tráfego pago (Meta Ads + Google Ads) com histórico
 O projeto é construído em etapas. A documentação de cada etapa fica em [`docs/`](docs/).
 
 - [Etapa 0 — Planejamento](docs/etapa-00-planejamento/README.md) ✅ aprovada
-- [Etapa 1 — Login e usuários](docs/etapa-01-login-usuarios/README.md) *(aguardando validação)*
+- [Etapa 1 — Login e usuários](docs/etapa-01-login-usuarios/README.md) ✅ concluída
+- [Etapa 2 — Clientes](docs/etapa-02-clientes/README.md) *(aguardando validação)*
 
 ## Estrutura
 
 ```
 apps/web/          site (React + Vite + Tailwind)
-packages/shared/   código compartilhado (papéis, permissões; futuramente métricas e períodos)
+packages/shared/   código compartilhado (papéis, permissões, CNPJ, telefone; futuramente métricas e períodos)
 supabase/          migrações do banco, testes de segurança e Edge Functions
 docs/              documentação etapa por etapa
 ```

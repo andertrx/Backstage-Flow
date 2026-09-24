@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { friendlyAuthError, friendlyFunctionError } from "./errors.ts";
+import { friendlyAuthError, friendlyDbError, friendlyFunctionError } from "./errors.ts";
 
 describe("friendlyAuthError", () => {
   it("traduz códigos conhecidos", () => {
@@ -29,5 +29,21 @@ describe("friendlyFunctionError", () => {
   it("cai na mensagem genérica quando não há detalhe", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(await friendlyFunctionError(new Error("boom"))).toMatch(/Tente novamente/);
+  });
+});
+
+describe("friendlyDbError", () => {
+  it("traduz erros conhecidos do banco", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(friendlyDbError({ code: "23505", message: 'duplicate key value violates unique constraint "clients_cnpj_key"' })).toBe(
+      "Já existe um cliente com este CNPJ.",
+    );
+    expect(friendlyDbError({ code: "42501", message: "new row violates row-level security policy" })).toMatch(/permissão/);
+    expect(friendlyDbError({ code: "23514", message: "violates check constraint" })).toMatch(/formato inválido/);
+  });
+
+  it("usa a mensagem padrão informada, nunca o texto técnico", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(friendlyDbError({ code: "XX000", message: "internal error" }, "Falhou ao salvar.")).toBe("Falhou ao salvar.");
   });
 });

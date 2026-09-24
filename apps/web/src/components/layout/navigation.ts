@@ -27,7 +27,7 @@ export interface NavItem {
 /** Menu lateral, na ordem pedida na Etapa 21. */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard, step: 0 },
-  { label: "Clientes", path: "/clientes", icon: Building2, step: 2, permission: "clients.view" },
+  { label: "Clientes", path: "/clientes", icon: Building2, step: 0, permission: "clients.view" },
   { label: "Contas", path: "/contas", icon: Wallet, step: 8, permission: "internal.view" },
   { label: "Meta Ads", path: "/meta-ads", icon: Megaphone, step: 13, permission: "internal.view" },
   { label: "Google Ads", path: "/google-ads", icon: Search, step: 14, permission: "internal.view" },

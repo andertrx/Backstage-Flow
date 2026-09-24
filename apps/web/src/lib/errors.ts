@@ -46,3 +46,28 @@ export async function friendlyFunctionError(error: unknown): Promise<string> {
   console.error("[function]", error);
   return GENERIC;
 }
+
+/**
+ * Erros do banco (PostgREST/PostgreSQL) → mensagem amigável.
+ * Códigos: https://www.postgresql.org/docs/current/errcodes-appendix.html
+ */
+export function friendlyDbError(error: unknown, fallback = GENERIC): string {
+  const e = error as { code?: string; message?: string; details?: string };
+  console.error("[db]", error);
+  const text = `${e.message ?? ""} ${e.details ?? ""}`;
+  switch (e.code) {
+    case "23505":
+      if (text.includes("cnpj")) return "Já existe um cliente com este CNPJ.";
+      if (text.includes("user_client_access")) return "Este usuário já tem acesso a este cliente.";
+      return "Este registro já existe.";
+    case "23514":
+      return "Algum campo está em formato inválido. Confira os dados e tente de novo.";
+    case "42501":
+      return "Você não tem permissão para esta ação.";
+    case "PGRST301":
+    case "PGRST303":
+      return "Sua sessão expirou. Faça login novamente.";
+  }
+  if (e.message === "Failed to fetch" || e.message?.includes("NetworkError")) return NETWORK;
+  return fallback;
+}
