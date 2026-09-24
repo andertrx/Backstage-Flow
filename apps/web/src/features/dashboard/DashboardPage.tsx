@@ -2,6 +2,9 @@ import { computeKpis, DEFAULT_TIMEZONE, KPI_DEFINITIONS, type MetricTotals } fro
 import { useMemo } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
+import { useAccountBalances } from "@/features/balance/api.ts";
+import { BalanceSection } from "@/features/balance/BalanceSection.tsx";
+import { summarizeBalances } from "@/features/balance/summary.ts";
 import { useClients } from "@/features/clients/api.ts";
 import { cn } from "@/lib/cn.ts";
 import { useDashboardSummary } from "./api.ts";
@@ -32,6 +35,10 @@ export function DashboardPage() {
   const kpis = computeKpis(totals);
   const previousKpis = previousRow ? computeKpis(previousRow) : null;
   const hasData = Boolean(row);
+
+  const balanceFilters = { clientId: filters.clientId, platform: filters.platform, accountId: filters.accountId };
+  const balances = useAccountBalances(balanceFilters);
+  const balanceTotals = summarizeBalances(balances.data ?? [], currency ?? filters.currency);
 
   const card = (key: (typeof KPI_DEFINITIONS)[number]["key"]) => {
     const definition = KPI_DEFINITIONS.find((d) => d.key === key)!;
@@ -100,7 +107,7 @@ export function DashboardPage() {
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
           {card("spend")}
-          <BalanceCard />
+          <BalanceCard totals={balanceTotals} loading={balances.isLoading} />
           {card("leads")}
           {card("messages")}
           {card("conversions")}
@@ -111,6 +118,8 @@ export function DashboardPage() {
           {card("roas")}
         </div>
       </section>
+
+      <BalanceSection filters={balanceFilters} />
     </div>
   );
 }

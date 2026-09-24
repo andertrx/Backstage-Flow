@@ -3,6 +3,7 @@ import type { PlatformAdapter } from "../adapter.ts";
 import type { PlatformAccount } from "../types.ts";
 import { listAccessibleCustomers, search } from "./client.ts";
 import { MAX_ACCESSIBLE_CUSTOMERS } from "./config.ts";
+import { ACCOUNT_BUDGET_QUERY, BILLING_SETUP_QUERY, mapGoogleFunding, type RawAccountBudget, type RawBillingSetup } from "./funding.ts";
 import { mapCustomer, type RawCustomer } from "./mapping.ts";
 import { fetchUserInfo, refreshAccessToken } from "./oauth.ts";
 
@@ -23,6 +24,19 @@ export function createGoogleAdapter(fetchImpl: typeof fetch = fetch): PlatformAd
     const rows = await search<{ customer: RawCustomer }>(customerId, CUSTOMER_QUERY, { accessToken: token, loginCustomerId, fetchImpl });
     if (!rows[0]) throw new AppError(404, "NOT_FOUND", "Conta do Google Ads não encontrada.");
     return rows[0].customer;
+  }
+
+  const assertCustomerId = (id: string) => {
+    if (!/^\d+$/.test(id)) throw new AppError(400, "INVALID_INPUT", "Customer ID do Google Ads inválido.");
+  };
+
+  async function accountWithToken(token: string, externalId: string, managerId: string | null): Promise<PlatformAccount> {
+    const customer = await getCustomer(token, externalId, managerId ?? externalId);
+    let managerName: string | null = null;
+    if (managerId) {
+      managerName = (await getCustomer(token, managerId, managerId).catch(() => null))?.descriptiveName ?? null;
+    }
+    return mapCustomer(customer, managerId ? { id: managerId, name: managerName } : null);
   }
 
   return {
@@ -67,15 +81,28 @@ export function createGoogleAdapter(fetchImpl: typeof fetch = fetch): PlatformAd
     },
 
     async getAccount(refreshToken, externalId, access) {
-      if (!/^\d+$/.test(externalId)) throw new AppError(400, "INVALID_INPUT", "Customer ID do Google Ads inválido.");
+      assertCustomerId(externalId);
+      return accountWithToken(await accessToken(refreshToken), externalId, access?.managerId ?? null);
+    },
+
+    async getFunding(refreshToken, externalId, access) {
+      assertCustomerId(externalId);
       const token = await accessToken(refreshToken);
-      const managerId = access?.managerId ?? null;
-      const customer = await getCustomer(token, externalId, managerId ?? externalId);
-      let managerName: string | null = null;
-      if (managerId) {
-        managerName = (await getCustomer(token, managerId, managerId).catch(() => null))?.descriptiveName ?? null;
-      }
-      return mapCustomer(customer, managerId ? { id: managerId, name: managerName } : null);
+      const account = await accountWithToken(token, externalId, access?.managerId ?? null);
+      const options = { accessToken: token, loginCustomerId: access?.managerId ?? externalId, fetchImpl };
+      // Sem permissão de faturamento, estes dados ficam "não disponíveis" (não derrubam a consulta).
+      const optional = async <T>(query: string): Promise<T[] | null> => {
+        try {
+          return await search<T>(externalId, query, options);
+        } catch (err) {
+          if (err instanceof AppError && ["AUTH_EXPIRED", "DEVELOPER_TOKEN_LIMITED", "CONFIG_ERROR", "RATE_LIMITED"].includes(err.code)) throw err;
+          console.error(JSON.stringify({ code: "GOOGLE_BILLING_UNREADABLE", customerId: externalId, reason: err instanceof AppError ? err.code : String(err) }));
+          return null;
+        }
+      };
+      const budgets = (await optional<{ accountBudget: RawAccountBudget }>(ACCOUNT_BUDGET_QUERY))?.map((r) => r.accountBudget) ?? null;
+      const billing = (await optional<{ billingSetup: RawBillingSetup }>(BILLING_SETUP_QUERY))?.map((r) => r.billingSetup) ?? null;
+      return { account, funding: mapGoogleFunding(account, budgets, billing) };
     },
 
     listAssets() {

@@ -50,3 +50,37 @@ export interface CredentialOwner {
   externalUserId: string;
   name: string | null;
 }
+
+/** Problemas de pagamento/conta. Deve ser igual ao check de account_snapshots.issues. */
+export type FundingIssue =
+  | "pagamento_pendente"
+  | "cobranca_problema"
+  | "conta_limitada"
+  | "conta_desativada"
+  | "sem_saldo"
+  | "sem_forma_pagamento";
+
+/**
+ * Saldo e cobrança como a plataforma informa. Dinheiro em micros.
+ * null = a API não informou (nunca preenchemos com estimativa).
+ */
+export interface AccountFunding {
+  currency: string | null;
+  /** Gasto contado contra o limite (Meta amount_spent; Google amount_served). */
+  amountSpentMicros: number | null;
+  /** Meta: valor devido (balance). */
+  amountDueMicros: number | null;
+  /** Limite (Meta spend_cap; Google limite do orçamento da conta). */
+  spendCapMicros: number | null;
+  /** Google: limite aprovado do orçamento da conta. */
+  budgetMicros: number | null;
+  /** Disponível = limite − gasto, só quando os dois vêm da API. */
+  availableMicros: number | null;
+  availableBasis: "meta_spend_cap" | "google_account_budget" | null;
+  budgetEndAt: string | null;
+  /** Meta: texto da forma de pagamento, exatamente como veio. */
+  fundingDescription: string | null;
+  issues: FundingIssue[];
+  /** Valores originais (auditoria). Nunca contém tokens. */
+  raw: Record<string, unknown>;
+}

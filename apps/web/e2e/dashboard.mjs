@@ -81,7 +81,7 @@ const waitValue = async (page, name, expected) => {
   const cpl = page.getByRole("group", { name: "CPL", exact: true });
   check(clean(await cpl.innerText()).includes("−22,2%") && await cpl.locator("[data-tone=good]").count() === 1, "CPL caiu → indicador verde");
   check((await cardText(page, "Investimento")).includes("antes: R$ 300,00"), "mostra o valor do período anterior");
-  check((await cardText(page, "Saldo")).includes("Etapa 7"), "card de saldo não inventa valor (chega na Etapa 7)");
+  check((await value(page, "Saldo")) === "Informação não disponível pela API.", "card de saldo sem verificação: não inventa valor");
 
   await page.getByRole("button", { name: "O que é CPL?" }).hover();
   await page.getByRole("tooltip").filter({ hasText: "Custo por lead" }).waitFor();

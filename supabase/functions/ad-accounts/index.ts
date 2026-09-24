@@ -15,6 +15,8 @@
  *   link            { connectionId, externalId, clientId, managerCustomerId? } → admin, gestor com acesso ao cliente
  *   refresh         { adAccountId }                                → admin, gestor com acesso ao cliente
  *   unlink          { adAccountId }                                → admin, gestor com acesso ao cliente
+ *   refresh_balance { adAccountIds[] }                             → admin, gestor com acesso ao cliente (saldo e cobrança)
+ *   balance_settings { adAccountId, lowBalanceDays, lowBalanceAmount } → admin, gestor com acesso ao cliente
  */
 import { z } from "npm:zod@4";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -24,7 +26,7 @@ import type { PlatformAdapter } from "../_shared/platforms/adapter.ts";
 import { getAdapter } from "../_shared/platforms/registry.ts";
 import { missingConfig as googleMissingConfig } from "../_shared/platforms/google/config.ts";
 import { buildAuthorizeUrl, exchangeCode, fetchUserInfo } from "../_shared/platforms/google/oauth.ts";
-import type { CredentialOwner, PlatformAccount } from "../_shared/platforms/types.ts";
+import type { AccountFunding, CredentialOwner, PlatformAccount } from "../_shared/platforms/types.ts";
 
 const MANAGERS = ["admin", "gestor"] as const;
 const ADMIN_ONLY = new Set(["connect", "disconnect", "google_status", "google_start", "google_complete"]);
@@ -72,6 +74,16 @@ const schema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("refresh"), adAccountId: z.guid("Identificador inválido.") }),
   z.object({ action: z.literal("unlink"), adAccountId: z.guid("Identificador inválido.") }),
+  z.object({
+    action: z.literal("refresh_balance"),
+    adAccountIds: z.array(z.guid("Identificador inválido.")).min(1, "Escolha ao menos uma conta.").max(50, "Máximo de 50 contas por vez."),
+  }),
+  z.object({
+    action: z.literal("balance_settings"),
+    adAccountId: z.guid("Identificador inválido."),
+    lowBalanceDays: z.number().int("Use um número inteiro de dias.").min(1, "Mínimo de 1 dia.").max(60, "Máximo de 60 dias."),
+    lowBalanceAmount: z.number().min(0, "O valor não pode ser negativo.").max(1_000_000_000, "Valor alto demais.").nullable(),
+  }),
 ]);
 
 type Input = z.infer<typeof schema>;
@@ -424,6 +436,74 @@ async function unlink(ctx: Ctx, input: Of<"unlink">) {
   return { adAccountId: account.id };
 }
 
+/**
+ * Busca saldo, limites e problemas de cobrança na API oficial e guarda uma
+ * fotografia (account_snapshots). Uma conta com erro não impede as outras.
+ */
+async function refreshBalance(ctx: Ctx, input: Of<"refresh_balance">) {
+  const tokens = new Map<string, Promise<{ connection: Connection; token: string }>>();
+  const results: { adAccountId: string; ok: boolean; error?: string }[] = [];
+
+  for (const adAccountId of new Set(input.adAccountIds)) {
+    try {
+      const account = await loadAccountForManager(ctx, adAccountId);
+      if (!account.connection_id) throw new AppError(400, "NO_CONNECTION", "Esta conta não tem conexão ativa. Vincule novamente.");
+      if (!tokens.has(account.connection_id)) tokens.set(account.connection_id, loadConnection(ctx, account.connection_id));
+      const { connection, token } = await tokens.get(account.connection_id)!;
+      const adapter = adapterFor(connection.platform_id);
+      const { account: fresh, funding } = await callPlatform(ctx, connection.id, () =>
+        adapter.getFunding(token, account.external_id, { managerId: account.manager_customer_id })
+      );
+
+      const { error } = await ctx.db.from("ad_accounts").update({ ...accountColumns(fresh), updated_by: ctx.caller.id }).eq("id", account.id);
+      if (error) throw dbError(error);
+      const { error: snapError } = await ctx.db.from("account_snapshots").insert(snapshotRow(account, fresh, funding));
+      if (snapError) throw dbError(snapError, "Não conseguimos guardar a fotografia do saldo.");
+      results.push({ adAccountId, ok: true });
+    } catch (err) {
+      const message = err instanceof AppError ? err.userMessage : "Erro inesperado ao consultar o saldo.";
+      console.error(JSON.stringify({ code: "BALANCE_REFRESH_FAILED", adAccountId, technical: err instanceof AppError ? err.code : String(err) }));
+      results.push({ adAccountId, ok: false, error: message });
+    }
+  }
+  return { results };
+}
+
+function snapshotRow(account: AdAccountRow, fresh: PlatformAccount, funding: AccountFunding) {
+  return {
+    ad_account_id: account.id,
+    client_id: account.client_id,
+    platform_id: account.platform_id,
+    status: fresh.status,
+    raw_status: fresh.rawStatus,
+    currency: funding.currency ?? fresh.currency,
+    amount_spent_micros: funding.amountSpentMicros,
+    balance_micros: funding.amountDueMicros,
+    spend_cap_micros: funding.spendCapMicros,
+    budget_micros: funding.budgetMicros,
+    available_micros: funding.availableMicros,
+    available_basis: funding.availableBasis,
+    budget_end_at: funding.budgetEndAt,
+    funding_description: funding.fundingDescription,
+    issues: funding.issues,
+    payload: funding.raw,
+  };
+}
+
+async function balanceSettings(ctx: Ctx, input: Of<"balance_settings">) {
+  const account = await loadAccountForManager(ctx, input.adAccountId);
+  const { error } = await ctx.db
+    .from("ad_accounts")
+    .update({
+      low_balance_days: input.lowBalanceDays,
+      low_balance_amount_micros: input.lowBalanceAmount == null ? null : Math.round(input.lowBalanceAmount * 1_000_000),
+      updated_by: ctx.caller.id,
+    })
+    .eq("id", account.id);
+  if (error) throw dbError(error);
+  return { adAccountId: account.id };
+}
+
 // ------------------------------------------------------------------ entrada
 
 Deno.serve(
@@ -450,6 +530,8 @@ Deno.serve(
         case "link": return link(ctx, input);
         case "refresh": return refresh(ctx, input);
         case "unlink": return unlink(ctx, input);
+        case "refresh_balance": return refreshBalance(ctx, input);
+        case "balance_settings": return balanceSettings(ctx, input);
       }
     })();
     return json(req, 200, { data: result });

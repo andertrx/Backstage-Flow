@@ -51,7 +51,9 @@ type Action =
   | { action: "list_available"; connectionId: string }
   | { action: "link"; connectionId: string; externalId: string; clientId: string; managerCustomerId?: string | null }
   | { action: "refresh"; adAccountId: string }
-  | { action: "unlink"; adAccountId: string };
+  | { action: "unlink"; adAccountId: string }
+  | { action: "refresh_balance"; adAccountIds: string[] }
+  | { action: "balance_settings"; adAccountId: string; lowBalanceDays: number; lowBalanceAmount: number | null };
 
 /** Toda escrita passa pela Edge Function ad-accounts (o site só lê). */
 export async function callAdAccounts<T>(body: Action): Promise<T> {

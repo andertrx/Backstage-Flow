@@ -1,9 +1,13 @@
 import { AppError } from "../../http.ts";
 import type { PlatformAdapter } from "../adapter.ts";
 import { graphGet, graphGetAll } from "./client.ts";
+import { mapMetaFunding, type RawFundingAccount } from "./funding.ts";
 import { mapAccount, mapPages, type RawAdAccount, type RawPage } from "./mapping.ts";
 
 const ACCOUNT_FIELDS = "id,account_id,name,currency,timezone_name,account_status,disable_reason,is_prepay_account,business{id,name}";
+const MONEY_FIELDS = "amount_spent,balance,spend_cap";
+/** funding_source_details exige permissão de gerenciar a conta; sem ela, lemos o resto. */
+const FUNDING_FIELD = "funding_source_details";
 
 export function createMetaAdapter(fetchImpl: typeof fetch = fetch): PlatformAdapter {
   return {
@@ -24,6 +28,18 @@ export function createMetaAdapter(fetchImpl: typeof fetch = fetch): PlatformAdap
       return mapAccount(await graphGet<RawAdAccount>(`act_${externalId}`, { fields: ACCOUNT_FIELDS }, token, fetchImpl));
     },
 
+    async getFunding(token, externalId) {
+      if (!/^\d+$/.test(externalId)) throw new AppError(400, "INVALID_INPUT", "Id de conta Meta inválido.");
+      const path = `act_${externalId}`;
+      let raw: RawFundingAccount;
+      try {
+        raw = await graphGet<RawFundingAccount>(path, { fields: `${ACCOUNT_FIELDS},${MONEY_FIELDS},${FUNDING_FIELD}` }, token, fetchImpl);
+      } catch (err) {
+        if (!(err instanceof AppError && err.code === "PERMISSION_DENIED")) throw err;
+        raw = await graphGet<RawFundingAccount>(path, { fields: `${ACCOUNT_FIELDS},${MONEY_FIELDS}` }, token, fetchImpl);
+      }
+      return { account: mapAccount(raw), funding: mapMetaFunding(raw) };
+    },
     async listAssets(token, externalId) {
       const path = `act_${externalId}/promote_pages`;
       try {

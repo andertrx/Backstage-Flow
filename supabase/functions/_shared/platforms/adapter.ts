@@ -1,4 +1,4 @@
-import type { AccountAccess, CredentialOwner, PlatformAccount, PlatformAsset } from "./types.ts";
+import type { AccountAccess, AccountFunding, CredentialOwner, PlatformAccount, PlatformAsset } from "./types.ts";
 
 /**
  * "Tomada universal" das plataformas de anúncio. Para adicionar uma nova
@@ -16,4 +16,6 @@ export interface PlatformAdapter {
   getAccount(token: string, externalId: string, access?: AccountAccess): Promise<PlatformAccount>;
   /** Páginas, perfis do Instagram etc. ligados à conta. */
   listAssets(token: string, externalId: string, access?: AccountAccess): Promise<PlatformAsset[]>;
+  /** Dados atualizados da conta + saldo, limites e problemas de cobrança. */
+  getFunding(token: string, externalId: string, access?: AccountAccess): Promise<{ account: PlatformAccount; funding: AccountFunding }>;
 }
