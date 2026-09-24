@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAxisValue, formatChange, formatDate, formatKpi, formatRelative } from "./format.ts";
+import { formatAxisValue, formatChange, formatDate, formatDifference, formatKpi, formatRelative } from "./format.ts";
 
 const clean = (s: string) => s.replace(/ /g, " ");
 
@@ -30,5 +30,16 @@ describe("formatação", () => {
     expect(clean(formatAxisValue(10000, "integer", "BRL"))).toBe("10 mil");
     expect(formatAxisValue(2.5, "percent", "BRL")).toBe("2,5%");
     expect(formatAxisValue(3, "ratio", "BRL")).toBe("3x");
+  });
+});
+
+describe("diferença absoluta", () => {
+  it("com sinal e na unidade da métrica", () => {
+    expect(clean(formatDifference(20, "money", "BRL"))).toBe("+R$ 20,00");
+    expect(clean(formatDifference(-2.5, "money", "USD"))).toBe("−US$ 2,50");
+    expect(formatDifference(-3, "decimal", "BRL")).toBe("−3");
+    expect(formatDifference(0.5, "percent", "BRL")).toBe("+0,50 p.p.");
+    expect(formatDifference(0.25, "ratio", "BRL")).toBe("+0,25x");
+    expect(formatDifference(0, "decimal", "BRL")).toBe("0");
   });
 });

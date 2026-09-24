@@ -1,13 +1,14 @@
-import { AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn.ts";
 
-type Tone = "error" | "success" | "info";
+type Tone = "error" | "success" | "info" | "warning";
 
 const tones: Record<Tone, { box: string; icon: typeof Info }> = {
   error: { box: "bg-red-50 text-red-800 ring-red-200", icon: AlertCircle },
   success: { box: "bg-emerald-50 text-emerald-800 ring-emerald-200", icon: CheckCircle2 },
   info: { box: "bg-sky-50 text-sky-800 ring-sky-200", icon: Info },
+  warning: { box: "bg-amber-50 text-amber-900 ring-amber-200", icon: AlertTriangle },
 };
 
 export function Alert({ tone = "info", children }: { tone?: Tone; children: ReactNode }) {

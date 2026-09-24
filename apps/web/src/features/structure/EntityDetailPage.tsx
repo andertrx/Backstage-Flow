@@ -4,7 +4,7 @@ import {
 } from "@backstage/shared";
 import { ChevronRight, Search } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { MetricsTable } from "@/components/data/MetricsTable.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -24,6 +24,7 @@ import { useChildRows, useEntityChanges, useEntitySummary, useNames } from "./ap
 import { describeChange } from "./changes.ts";
 import { PeriodPicker } from "./PeriodPicker.tsx";
 import type { EntityRow } from "./types.ts";
+import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 
 const CHILD: Record<StructureLevel, "ad_group" | "ad" | null> = { campaign: "ad_group", ad_group: "ad", ad: null };
 const PATH: Record<StructureLevel, string> = { campaign: "/campanhas", ad_group: "/conjuntos", ad: "/anuncios" };
@@ -69,14 +70,14 @@ function Info({ label, children }: { label: string; children: ReactNode }) {
 export function EntityDetailPage({ level }: { level: StructureLevel }) {
   const { id } = useParams();
   const { filters, setFilters } = useDashboardFilters();
-  const [params, setParams] = useSearchParams();
+  const [params, updateParams] = useSearchParamsUpdater();
   const period = useMemo(() => resolveFilterPeriod(filters), [filters]);
   const periodQuery = periodQueryString(params);
 
   const childLevel = CHILD[level];
   const childColumns = childLevel === "ad" ? AD_COLUMNS : GROUP_COLUMNS;
   const table = useMemo(() => parseTable(params, sortsOf(childColumns)), [params, childColumns]);
-  const setTable = useCallback((next: TableState) => setParams((prev) => writeTable(prev, next), { replace: true }), [setParams]);
+  const setTable = useCallback((next: TableState) => updateParams((latest) => writeTable(latest, next)), [updateParams]);
 
   const summary = useEntitySummary(level, id, period.current, period.previous);
   const entity = summary.data?.current ?? null;

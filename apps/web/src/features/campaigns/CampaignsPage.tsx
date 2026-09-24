@@ -1,7 +1,7 @@
 import { CAMPAIGN_STATUS_FILTERS, type CampaignStatusFilter, DEFAULT_TIMEZONE, ENTITY_STATUS_LABELS } from "@backstage/shared";
 import { Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link } from "react-router";
 import { MetricsTable } from "@/components/data/MetricsTable.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Input } from "@/components/ui/field.tsx";
@@ -14,6 +14,7 @@ import { useCampaignTable } from "./api.ts";
 import { COLUMNS } from "./columns.tsx";
 import { parseTable, type TableState, writeTable } from "./table.ts";
 import { periodQueryString } from "./links.ts";
+import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 
 const STATUS_CHIPS: { value: CampaignStatusFilter | null; label: string }[] = [
   { value: null, label: "Todas" },
@@ -25,11 +26,11 @@ const STATUS_CHIPS: { value: CampaignStatusFilter | null; label: string }[] = [
 
 export function CampaignsPage() {
   const { filters, setFilters, clear } = useDashboardFilters();
-  const [params, setParams] = useSearchParams();
+  const [params, updateParams] = useSearchParamsUpdater();
   const table = useMemo(() => parseTable(params), [params]);
   const setTable = useCallback(
-    (next: TableState) => setParams((prev) => writeTable(prev, next), { replace: true }),
-    [setParams],
+    (next: TableState) => updateParams((latest) => writeTable(latest, next)),
+    [updateParams],
   );
 
   const { data: clients = [] } = useClients();

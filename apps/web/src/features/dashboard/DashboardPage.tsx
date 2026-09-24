@@ -1,14 +1,16 @@
 import { computeKpis, DEFAULT_TIMEZONE, KPI_DEFINITIONS, type MetricTotals } from "@backstage/shared";
+import { ArrowLeftRight } from "lucide-react";
 import { useMemo } from "react";
+import { Link, useLocation } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useAccountBalances } from "@/features/balance/api.ts";
 import { BalanceSection } from "@/features/balance/BalanceSection.tsx";
 import { summarizeBalances } from "@/features/balance/summary.ts";
 import { useClients } from "@/features/clients/api.ts";
-import { cn } from "@/lib/cn.ts";
 import { useDashboardSummary } from "./api.ts";
 import { ChartsSection } from "./ChartsSection.tsx";
+import { CurrencyTabs } from "./CurrencyTabs.tsx";
 import { resolveFilterPeriod } from "./filters.ts";
 import { FiltersBar } from "./FiltersBar.tsx";
 import { BalanceCard, KpiCard } from "./KpiCard.tsx";
@@ -21,6 +23,7 @@ export function DashboardPage() {
   const { profile } = useAuth();
   const firstName = profile?.full_name.split(" ")[0] || "";
   const { filters, setFilters, clear } = useDashboardFilters();
+  const { search } = useLocation();
   const { data: clients = [] } = useClients();
 
   // As datas seguem o fuso do cliente escolhido (ou o de Brasília).
@@ -67,26 +70,7 @@ export function DashboardPage() {
 
       {error && <Alert tone="error">{error.message}</Alert>}
 
-      {currencies.length > 1 && (
-        <div className="flex flex-wrap items-center gap-3">
-          <div role="tablist" aria-label="Moeda" className="inline-flex rounded-lg bg-slate-100 p-1">
-            {currencies.map((c) => (
-              <button
-                key={c}
-                role="tab"
-                aria-selected={c === currency}
-                onClick={() => setFilters({ currency: c })}
-                className={cn("rounded-md px-3 py-1 text-sm font-medium", c === currency ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-800")}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-slate-500">
-            Há contas em moedas diferentes. Os valores aparecem separados por moeda, <strong>sem conversão</strong>.
-          </p>
-        </div>
-      )}
+      <CurrencyTabs currencies={currencies} value={currency} onChange={(c) => setFilters({ currency: c })} />
 
       {!isLoading && !error && !hasData && (
         <Alert tone="info">
@@ -97,7 +81,12 @@ export function DashboardPage() {
 
       <section aria-labelledby="resumo-geral" className="space-y-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="resumo-geral" className="text-sm font-semibold uppercase tracking-wide text-slate-500">Resumo geral</h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 id="resumo-geral" className="text-sm font-semibold uppercase tracking-wide text-slate-500">Resumo geral</h2>
+            <Link to={`/comparar${search}`} className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline">
+              <ArrowLeftRight className="size-3.5" aria-hidden /> Comparar períodos
+            </Link>
+          </div>
           {row && (
             <p className="text-xs text-slate-500">
               {row.accounts} {row.accounts === 1 ? "conta" : "contas"}

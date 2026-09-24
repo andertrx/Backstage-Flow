@@ -64,3 +64,18 @@ export function formatAxisValue(value: number, format: KpiFormat, currency: stri
       return compact({});
   }
 }
+
+/**
+ * Diferença absoluta com sinal: +R$ 20,00 / −3 / +0,50 p.p.
+ * No CTR (percentual) a diferença é em pontos percentuais, não em %.
+ */
+export function formatDifference(value: number, format: KpiFormat, currency: string): string {
+  if (Math.abs(value) < 1e-9) value = 0;
+  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+  const abs = Math.abs(value);
+  const body =
+    format === "percent"
+      ? `${new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(abs)} p.p.`
+      : formatKpi(abs, format, currency);
+  return `${sign}${body}`;
+}

@@ -3,7 +3,6 @@ import {
 } from "@backstage/shared";
 import { BarChart3, Table2 } from "lucide-react";
 import { useMemo } from "react";
-import { useSearchParams } from "react-router";
 import { type ChartLine, TimeSeriesChart } from "@/components/charts/TimeSeriesChart.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -14,6 +13,7 @@ import { formatAxisValue, formatKpi } from "@/lib/format.ts";
 import { useDashboardTimeseries } from "./api.ts";
 import { bucketAxisLabel, bucketTitle } from "./chartLabels.ts";
 import type { DashboardFilters } from "./filters.ts";
+import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 
 /** Cores por ENTIDADE (nunca pela posição): validadas para daltonismo e contraste. */
 const COLORS: Record<string, string> = { total: "#2a78d6", meta: "#2a78d6", google: "#eb6834" };
@@ -21,17 +21,16 @@ const GRANULARITIES: Granularity[] = ["day", "week", "month"];
 const MAX_DAILY_DAYS = 400;
 
 function useChartParams() {
-  const [params, setParams] = useSearchParams();
+  const [params, updateParams] = useSearchParamsUpdater();
   const metricKey = (CHART_METRICS.some((m) => m.key === params.get("grafico")) ? params.get("grafico") : "spend") as ChartMetricKey;
   const granularity = (GRANULARITIES as string[]).includes(params.get("agrupar") ?? "") ? (params.get("agrupar") as Granularity) : "day";
   const byPlatform = params.get("porplataforma") === "1";
   const asTable = params.get("vista") === "tabela";
   const set = (k: string, v: string | null) =>
-    setParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (v) next.set(k, v); else next.delete(k);
-      return next;
-    }, { replace: true });
+    updateParams((latest) => {
+      if (v) latest.set(k, v); else latest.delete(k);
+      return latest;
+    });
   return { metricKey, granularity, byPlatform, asTable, set };
 }
 

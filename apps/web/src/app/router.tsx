@@ -9,6 +9,7 @@ import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage.tsx";
 import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/features/auth/guards.tsx";
 import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
+import { ComparisonPage } from "@/features/comparison/ComparisonPage.tsx";
 import { CampaignsPage } from "@/features/campaigns/CampaignsPage.tsx";
 import { EntityDetailPage } from "@/features/structure/EntityDetailPage.tsx";
 import { DashboardPage } from "@/features/dashboard/DashboardPage.tsx";
@@ -43,6 +44,7 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <DashboardPage /> },
+      { path: "comparar", element: <ComparisonPage /> },
       { path: "minha-conta", element: <AccountPage /> },
       {
         path: "clientes",

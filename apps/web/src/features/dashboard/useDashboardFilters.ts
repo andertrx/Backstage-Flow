@@ -1,10 +1,10 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
-import { useSearchParams } from "react-router";
 import { type DashboardFilters, mergeFilterParams, parseFilters, updateFilters } from "./filters.ts";
+import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 
 /** Filtros globais guardados no endereço da página. */
 export function useDashboardFilters() {
-  const [params, setParams] = useSearchParams();
+  const [params, updateParams] = useSearchParamsUpdater();
   const filters = useMemo(() => parseFilters(params), [params]);
 
   // A troca do endereço não é instantânea: duas mudanças seguidas precisam
@@ -17,9 +17,9 @@ export function useDashboardFilters() {
   const apply = useCallback(
     (next: DashboardFilters) => {
       latest.current = next;
-      setParams((prev) => mergeFilterParams(prev, next), { replace: true });
+      updateParams((latest) => mergeFilterParams(latest, next));
     },
-    [setParams],
+    [updateParams],
   );
 
   const setFilters = useCallback((patch: Partial<DashboardFilters>) => apply(updateFilters(latest.current, patch)), [apply]);
