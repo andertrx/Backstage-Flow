@@ -87,7 +87,7 @@ Só o servidor grava. O site apenas lê.
 | ↳ orçamento vigente do Google e fuso horário | ✅ |
 | ↳ faturamento pendente; sem permissão de faturamento, nada é presumido | ✅ |
 | **Cálculos:** previsão, alertas, resumo por moeda. Compartilhado: 43 testes; site: 31 testes | ✅ |
-| **Navegador:** 31 verificações novas de saldo, e as 112 anteriores continuam passando | ✅ |
+| **Navegador:** 28 verificações novas de saldo, e as 112 anteriores continuam passando | ✅ |
 | **Servidor publicado** (ad-accounts v4), conferido arquivo por arquivo com o projeto | ✅ |
 | **Supabase Advisor** (segurança) | ✅ Nenhum aviso |
 

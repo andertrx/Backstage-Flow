@@ -2,6 +2,8 @@
 
 Dashboard de performance de tráfego pago (Meta Ads + Google Ads) com histórico persistente no Supabase.
 
+Site publicado: https://web-ivory-three-49.vercel.app
+
 O projeto é construído em etapas. A documentação de cada etapa fica em [`docs/`](docs/).
 
 - [Etapa 0 — Planejamento](docs/etapa-00-planejamento/README.md) ✅ aprovada
@@ -11,7 +13,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 4 — Google Ads](docs/etapa-04-google-ads/README.md) ✅ concluída
 - [Etapa 5 — Banco histórico](docs/etapa-05-banco-historico/README.md) ✅ concluída
 - [Etapa 6 — Dashboard principal](docs/etapa-06-dashboard-principal/README.md) ✅ concluída
-- [Etapa 7 — Verificação de saldo](docs/etapa-07-verificacao-saldo/README.md) *(aguardando validação)*
+- [Etapa 7 — Verificação de saldo](docs/etapa-07-verificacao-saldo/README.md) ✅ concluída
+- [Etapa 8 — Saúde das contas](docs/etapa-08-saude-contas/README.md) *(aguardando validação)*
 
 ## Estrutura
 

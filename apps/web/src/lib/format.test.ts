@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatChange, formatDate, formatKpi } from "./format.ts";
+import { formatChange, formatDate, formatKpi, formatRelative } from "./format.ts";
 
 const clean = (s: string) => s.replace(/ /g, " ");
 
@@ -17,5 +17,12 @@ describe("formatação", () => {
     expect(formatChange(-5.34)).toBe("−5,3%");
     expect(formatChange(0)).toBe("0,0%");
     expect(formatDate("2026-09-23")).toBe("23/09/2026");
+  });
+  it("tempo relativo", () => {
+    const now = new Date("2026-09-24T12:00:00Z");
+    expect(formatRelative("2026-09-24T11:59:40Z", now)).toBe("agora mesmo");
+    expect(formatRelative("2026-09-24T11:59:00Z", now)).toBe("há 1 minuto");
+    expect(formatRelative("2026-09-24T09:00:00Z", now)).toBe("há 3 horas");
+    expect(formatRelative("2026-09-22T12:00:00Z", now)).toBe("há 2 dias");
   });
 });

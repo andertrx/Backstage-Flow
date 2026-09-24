@@ -10,6 +10,7 @@ import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/featu
 import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
 import { DashboardPage } from "@/features/dashboard/DashboardPage.tsx";
+import { AccountsHealthPage } from "@/features/health/AccountsHealthPage.tsx";
 import { GoogleCallbackPage } from "@/features/integrations/GoogleCallbackPage.tsx";
 import { IntegrationsPage } from "@/features/integrations/IntegrationsPage.tsx";
 import { SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
@@ -54,6 +55,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="clients.view">
             <ClientDetailPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "contas",
+        element: (
+          <RequirePermission permission="internal.view">
+            <AccountsHealthPage />
           </RequirePermission>
         ),
       },

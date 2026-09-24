@@ -77,7 +77,34 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     snapshots: {},
     fundingApi: {},
     fundingErrors: {},
+    /** Estado da sincronização por conta (como public.sync_state). */
+    syncState: {},
   };
+
+  /** Saldo de cada conta vinculada (mesma regra de public.account_balances). */
+  function balanceRows(p) {
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+      const shift = (n) => new Date(Date.parse(`${today}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+      const rows = db.adAccounts
+        .filter((a) => !a.unlinked_at && (!p.p_client_ids || p.p_client_ids.includes(a.client_id)) &&
+          (!p.p_platforms || p.p_platforms.includes(a.platform_id)) && (!p.p_ad_account_ids || p.p_ad_account_ids.includes(a.id)))
+        .map((a) => {
+          const s = db.snapshots[a.id] ?? {};
+          const spend = db.metrics.filter((m) => m.ad_account_id === a.id && m.level === "account" && m.date >= shift(-7) && m.date <= shift(-1));
+          return {
+            ad_account_id: a.id, client_id: a.client_id, client_name: db.clients.find((c) => c.id === a.client_id)?.name ?? "",
+            platform_id: a.platform_id, external_id: a.external_id, name: a.name, currency: s.currency ?? a.currency, status: a.status ?? "ativa",
+            is_prepay: null, low_balance_days: a.low_balance_days ?? 3, low_balance_amount_micros: a.low_balance_amount_micros ?? null,
+            captured_at: s.captured_at ?? null, available_micros: s.available_micros ?? null, available_basis: s.available_basis ?? null,
+            amount_spent_micros: s.amount_spent_micros ?? null, amount_due_micros: s.amount_due_micros ?? null,
+            spend_cap_micros: s.spend_cap_micros ?? null, budget_micros: s.budget_micros ?? null, budget_end_at: s.budget_end_at ?? null,
+            funding_description: s.funding_description ?? null, issues: s.issues ?? [],
+            spend_last_7_days_micros: spend.length ? spend.reduce((t, m) => t + m.spend_micros, 0) : null, spend_days: spend.length,
+          };
+        });
+      return rows;
+
+  }
 
   await page.route("**/*.supabase.co/**", async (route) => {
     const req = route.request();
@@ -167,28 +194,22 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     }
 
     // --- Saldo das contas (mesma regra de public.account_balances)
-    if (url.includes("/rest/v1/rpc/account_balances")) {
+    if (url.includes("/rest/v1/rpc/account_balances")) return json(route, 200, balanceRows(req.postDataJSON()));
+
+    // --- Saúde das contas (mesma regra de public.account_health)
+    if (url.includes("/rest/v1/rpc/account_health")) {
       const p = req.postDataJSON();
-      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
-      const shift = (n) => new Date(Date.parse(`${today}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
-      const rows = db.adAccounts
-        .filter((a) => !a.unlinked_at && (!p.p_client_ids || p.p_client_ids.includes(a.client_id)) &&
-          (!p.p_platforms || p.p_platforms.includes(a.platform_id)) && (!p.p_ad_account_ids || p.p_ad_account_ids.includes(a.id)))
-        .map((a) => {
-          const s = db.snapshots[a.id] ?? {};
-          const spend = db.metrics.filter((m) => m.ad_account_id === a.id && m.level === "account" && m.date >= shift(-7) && m.date <= shift(-1));
-          return {
-            ad_account_id: a.id, client_id: a.client_id, client_name: db.clients.find((c) => c.id === a.client_id)?.name ?? "",
-            platform_id: a.platform_id, external_id: a.external_id, name: a.name, currency: s.currency ?? a.currency, status: a.status ?? "ativa",
-            is_prepay: null, low_balance_days: a.low_balance_days ?? 3, low_balance_amount_micros: a.low_balance_amount_micros ?? null,
-            captured_at: s.captured_at ?? null, available_micros: s.available_micros ?? null, available_basis: s.available_basis ?? null,
-            amount_spent_micros: s.amount_spent_micros ?? null, amount_due_micros: s.amount_due_micros ?? null,
-            spend_cap_micros: s.spend_cap_micros ?? null, budget_micros: s.budget_micros ?? null, budget_end_at: s.budget_end_at ?? null,
-            funding_description: s.funding_description ?? null, issues: s.issues ?? [],
-            spend_last_7_days_micros: spend.length ? spend.reduce((t, m) => t + m.spend_micros, 0) : null, spend_days: spend.length,
-          };
-        });
-      return json(route, 200, rows);
+      return json(route, 200, balanceRows({ ...p, p_ad_account_ids: null }).map((b) => {
+        const a = db.adAccounts.find((x) => x.id === b.ad_account_id);
+        const sync = db.syncState[a.id] ?? { status: "pendente" };
+        const conn = db.connections.find((c) => c.id === a.connection_id);
+        return {
+          ...b, raw_status: a.raw_status ?? null, status_reason: a.status_reason ?? null, is_test_account: a.is_test_account ?? null,
+          details_updated_at: a.details_updated_at ?? null, sync_status: sync.status, last_attempt_at: sync.last_attempt_at ?? null,
+          last_success_at: sync.last_success_at ?? null, last_error_message: sync.last_error_message ?? null,
+          connection_id: a.connection_id ?? null, connection_status: conn?.status ?? null, connection_error: conn?.last_error ?? null,
+        };
+      }));
     }
 
     // --- Resumo do dashboard (mesma regra de public.dashboard_summary)
@@ -276,6 +297,8 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
           const results = body.adAccountIds.map((id) => {
             if (db.fundingErrors[id]) return { adAccountId: id, ok: false, error: db.fundingErrors[id] };
             db.snapshots[id] = { ...db.fundingApi[id], captured_at: now };
+            const acc = db.adAccounts.find((a) => a.id === id);
+            if (acc && db.fundingApi[id]?.status) acc.status = db.fundingApi[id].status;
             return { adAccountId: id, ok: true };
           });
           return json(route, 200, { data: { results } });
