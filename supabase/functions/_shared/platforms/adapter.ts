@@ -1,11 +1,20 @@
-import type { AccountAccess, AccountFunding, CredentialOwner, PlatformAccount, PlatformAsset } from "./types.ts";
+import type {
+  AccountAccess,
+  AccountFunding,
+  CredentialOwner,
+  DailyMetric,
+  DateRange,
+  PeriodReach,
+  PlatformAccount,
+  PlatformAsset,
+  PlatformStructure,
+} from "./types.ts";
 
 /**
  * "Tomada universal" das plataformas de anúncio. Para adicionar uma nova
  * plataforma, basta criar um adaptador que cumpra este contrato e registrá-lo
  * em registry.ts — o resto do sistema não muda.
  *
- * As métricas (insights) entram neste contrato na etapa de sincronização.
  */
 export interface PlatformAdapter {
   readonly platform: string;
@@ -18,4 +27,10 @@ export interface PlatformAdapter {
   listAssets(token: string, externalId: string, access?: AccountAccess): Promise<PlatformAsset[]>;
   /** Dados atualizados da conta + saldo, limites e problemas de cobrança. */
   getFunding(token: string, externalId: string, access?: AccountAccess): Promise<{ account: PlatformAccount; funding: AccountFunding }>;
+  /** Campanhas, conjuntos/grupos e anúncios (sincronização). */
+  fetchStructure(token: string, externalId: string, access: AccountAccess | undefined, currency: string | null): Promise<PlatformStructure>;
+  /** Números diários de todos os níveis (conta, campanha, conjunto/grupo, anúncio) no período. */
+  fetchDailyMetrics(token: string, externalId: string, access: AccountAccess | undefined, range: DateRange, currency: string | null): Promise<DailyMetric[]>;
+  /** Alcance de períodos exatos (só plataformas que informam alcance). */
+  fetchPeriodReach?(token: string, externalId: string, access: AccountAccess | undefined, ranges: DateRange[]): Promise<PeriodReach[]>;
 }

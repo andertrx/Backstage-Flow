@@ -86,6 +86,10 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     alertRefresh: null,
     /** Estado da sincronização por conta (como public.sync_state). */
     syncState: {},
+    /** Log de sincronização (como public.sync_runs) e o que a próxima sincronização manual faz com cada conta. */
+    syncRuns: [],
+    syncOutcome: {},
+    syncCalls: [],
   };
 
   /** Saldo de cada conta vinculada (mesma regra de public.account_balances). */
@@ -445,6 +449,53 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
         last_synced_at: "2026-09-23T22:10:00Z",
       })).sort((a, b) => b.spend_micros - a.spend_micros);
       return json(route, 200, out);
+    }
+
+    // --- Sincronização
+    if (url.includes("/rest/v1/rpc/sync_overview")) {
+      const rows = db.adAccounts.filter((a) => !a.unlinked_at).map((a) => {
+        const s = db.syncState[a.id] ?? {};
+        const r = db.syncRuns.filter((x) => x.ad_account_id === a.id).sort((x, y) => y.started_at.localeCompare(x.started_at))[0];
+        return {
+          ad_account_id: a.id, client_id: a.client_id, client_name: db.clients.find((c) => c.id === a.client_id)?.name ?? "",
+          platform_id: a.platform_id, external_id: a.external_id, name: a.name,
+          is_test_account: !!a.is_test_account, has_connection: !!a.connection_id,
+          status: s.status ?? "pendente", last_attempt_at: s.last_attempt_at ?? null, last_success_at: s.last_success_at ?? null,
+          next_run_at: s.next_run_at ?? null, last_error_message: s.last_error_message ?? null, running: !!s.running,
+          run_status: r?.status ?? null, run_started_at: r?.started_at ?? null, run_finished_at: r?.finished_at ?? null,
+          run_duration_ms: r?.duration_ms ?? null, run_records: r?.records_updated ?? null, run_trigger: r?.trigger ?? null, run_error: r?.error_message ?? null,
+        };
+      }).sort((x, y) => x.client_name.localeCompare(y.client_name) || x.platform_id.localeCompare(y.platform_id) || x.name.localeCompare(y.name));
+      return json(route, 200, rows);
+    }
+    if (url.includes("/rest/v1/sync_runs")) {
+      const rows = [...db.syncRuns].sort((x, y) => y.started_at.localeCompare(x.started_at)).slice(0, 50).map((x) => {
+        const acc = db.adAccounts.find((a) => a.id === x.ad_account_id);
+        return { ...x, ad_accounts: acc ? { name: acc.name, external_id: acc.external_id } : null, clients: { name: db.clients.find((c) => c.id === x.client_id)?.name ?? "" } };
+      });
+      return json(route, 200, rows);
+    }
+    if (url.includes("/functions/v1/sync")) {
+      const body = req.postDataJSON();
+      db.syncCalls.push(body);
+      if (!["admin", "gestor", "operador"].includes(role)) return json(route, 403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para esta ação." } });
+      const wanted = db.adAccounts.filter((a) => !a.unlinked_at && a.connection_id && (!body.adAccountIds || body.adAccountIds.includes(a.id)));
+      if (!wanted.length) return json(route, 404, { error: { code: "NOT_FOUND", message: "Nenhuma conta com conexão ativa para sincronizar." } });
+      const results = [];
+      let runId = db.syncRuns.reduce((m, x) => Math.max(m, x.id), 0);
+      for (const a of wanted) {
+        const o = db.syncOutcome[a.id] ?? { status: "sucesso", records: 100, durationMs: 4000 };
+        const end = new Date();
+        const start = new Date(end.getTime() - o.durationMs).toISOString();
+        db.syncRuns.push({ id: ++runId, ad_account_id: a.id, client_id: a.client_id, platform_id: a.platform_id, trigger: "manual", status: o.status,
+          started_at: start, finished_at: end.toISOString(), duration_ms: o.durationMs, records_updated: o.records, error_message: o.error ?? null });
+        const prev = db.syncState[a.id] ?? {};
+        db.syncState[a.id] = { ...prev, status: o.status, running: false, last_attempt_at: start,
+          last_success_at: o.status === "sucesso" ? end.toISOString() : prev.last_success_at ?? null,
+          next_run_at: new Date(end.getTime() + (o.status === "sucesso" ? 60 : 30) * 60_000).toISOString(), last_error_message: o.error ?? null };
+        results.push({ adAccountId: a.id, status: o.status, records: o.records, durationMs: o.durationMs, error: o.error ?? null });
+      }
+      return json(route, 200, { data: { results, queued: 0, alreadyRunning: 0 } });
     }
 
     // --- Edge Function ad-accounts (simula o servidor + API do Meta)

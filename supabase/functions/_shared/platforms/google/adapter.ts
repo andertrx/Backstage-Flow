@@ -6,6 +6,7 @@ import { MAX_ACCESSIBLE_CUSTOMERS } from "./config.ts";
 import { ACCOUNT_BUDGET_QUERY, BILLING_SETUP_QUERY, mapGoogleFunding, type RawAccountBudget, type RawBillingSetup } from "./funding.ts";
 import { mapCustomer, type RawCustomer } from "./mapping.ts";
 import { fetchUserInfo, refreshAccessToken } from "./oauth.ts";
+import { fetchGoogleDailyMetrics, fetchGoogleStructure } from "./sync.ts";
 
 const CUSTOMER_QUERY =
   "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone, customer.status, customer.manager, customer.test_account FROM customer";
@@ -18,7 +19,15 @@ const CLIENTS_QUERY =
  * o token de acesso (1 hora) é obtido aqui a cada uso.
  */
 export function createGoogleAdapter(fetchImpl: typeof fetch = fetch): PlatformAdapter {
-  const accessToken = async (refreshToken: string) => (await refreshAccessToken(refreshToken, fetchImpl)).access_token;
+  // O token de acesso dura ~1 hora: guardado em memória para não renovar a cada consulta.
+  const cache = new Map<string, { token: string; expiresAt: number }>();
+  const accessToken = async (refreshToken: string) => {
+    const hit = cache.get(refreshToken);
+    if (hit && hit.expiresAt > Date.now()) return hit.token;
+    const fresh = await refreshAccessToken(refreshToken, fetchImpl);
+    cache.set(refreshToken, { token: fresh.access_token, expiresAt: Date.now() + Math.max(60, (fresh.expires_in ?? 3600) - 300) * 1000 });
+    return fresh.access_token;
+  };
 
   async function getCustomer(token: string, customerId: string, loginCustomerId: string): Promise<RawCustomer> {
     const rows = await search<{ customer: RawCustomer }>(customerId, CUSTOMER_QUERY, { accessToken: token, loginCustomerId, fetchImpl });
@@ -103,6 +112,18 @@ export function createGoogleAdapter(fetchImpl: typeof fetch = fetch): PlatformAd
       const budgets = (await optional<{ accountBudget: RawAccountBudget }>(ACCOUNT_BUDGET_QUERY))?.map((r) => r.accountBudget) ?? null;
       const billing = (await optional<{ billingSetup: RawBillingSetup }>(BILLING_SETUP_QUERY))?.map((r) => r.billingSetup) ?? null;
       return { account, funding: mapGoogleFunding(account, budgets, billing) };
+    },
+
+    async fetchStructure(refreshToken, externalId, access) {
+      assertCustomerId(externalId);
+      const token = await accessToken(refreshToken);
+      return fetchGoogleStructure(externalId, { accessToken: token, loginCustomerId: access?.managerId ?? externalId, fetchImpl });
+    },
+
+    async fetchDailyMetrics(refreshToken, externalId, access, range) {
+      assertCustomerId(externalId);
+      const token = await accessToken(refreshToken);
+      return fetchGoogleDailyMetrics(externalId, range, { accessToken: token, loginCustomerId: access?.managerId ?? externalId, fetchImpl });
     },
 
     listAssets() {

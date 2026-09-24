@@ -84,3 +84,100 @@ export interface AccountFunding {
   /** Valores originais (auditoria). Nunca contém tokens. */
   raw: Record<string, unknown>;
 }
+
+// -----------------------------------------------------------------------------
+// Sincronização (Etapa 16): estrutura, métricas diárias e alcance por período
+// -----------------------------------------------------------------------------
+
+/** Deve ser igual ao tipo public.entity_status do banco. */
+export type EntityStatus = "ativa" | "pausada" | "encerrada" | "arquivada" | "erro" | "desconhecida";
+
+export interface PlatformCampaign {
+  externalId: string;
+  name: string;
+  objective: string | null;
+  status: EntityStatus;
+  /** Status exatamente como a plataforma informou. */
+  rawStatus: string | null;
+  effectiveStatus: string | null;
+  budgetMicros: number | null;
+  budgetPeriod: "diario" | "vitalicio" | null;
+  bidStrategy: string | null;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export interface PlatformAdGroup {
+  externalId: string;
+  campaignExternalId: string;
+  name: string;
+  status: EntityStatus;
+  rawStatus: string | null;
+  effectiveStatus: string | null;
+  budgetMicros: number | null;
+  budgetPeriod: "diario" | "vitalicio" | null;
+  optimizationGoal: string | null;
+}
+
+export interface PlatformAd {
+  externalId: string;
+  adGroupExternalId: string;
+  campaignExternalId: string;
+  name: string;
+  status: EntityStatus;
+  rawStatus: string | null;
+  effectiveStatus: string | null;
+  creativeType: string | null;
+  reviewStatus: string | null;
+  /** Só endereços https (o banco recusa outros). */
+  thumbnailUrl: string | null;
+}
+
+export interface PlatformStructure {
+  campaigns: PlatformCampaign[];
+  adGroups: PlatformAdGroup[];
+  ads: PlatformAd[];
+}
+
+export type MetricLevel = "account" | "campaign" | "ad_group" | "ad";
+
+/**
+ * Números de UM dia de UM item. Dinheiro em micros.
+ * null = a plataforma não fornece esta métrica (ex.: leads no Google).
+ */
+export interface DailyMetric {
+  date: string;
+  level: MetricLevel;
+  entityExternalId: string;
+  campaignExternalId: string | null;
+  adGroupExternalId: string | null;
+  adExternalId: string | null;
+  spendMicros: number | null;
+  impressions: number | null;
+  /** Alcance DO DIA (não somar entre dias). */
+  reach: number | null;
+  clicks: number | null;
+  linkClicks: number | null;
+  leads: number | null;
+  messages: number | null;
+  conversions: number | null;
+  conversionValueMicros: number | null;
+  /** Ações originais da plataforma (auditoria; permite recalcular no futuro). */
+  rawActions: unknown | null;
+}
+
+export interface DateRange {
+  from: string;
+  to: string;
+}
+
+/** Alcance de um período EXATO, calculado pela plataforma (pessoas únicas). */
+export interface PeriodReach {
+  level: "account" | "campaign";
+  entityExternalId: string;
+  from: string;
+  to: string;
+  reach: number | null;
+  impressions: number | null;
+  frequency: number | null;
+}
