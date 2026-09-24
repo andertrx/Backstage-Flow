@@ -90,6 +90,9 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     syncRuns: [],
     syncOutcome: {},
     syncCalls: [],
+    /** Auditoria (como public.audit_logs) e os logins/logouts registrados. */
+    audit: [],
+    authEvents: [],
   };
 
   /** Saldo de cada conta vinculada (mesma regra de public.account_balances). */
@@ -469,10 +472,40 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
       return json(route, 200, rows);
     }
     if (url.includes("/rest/v1/sync_runs")) {
-      const rows = [...db.syncRuns].sort((x, y) => y.started_at.localeCompare(x.started_at)).slice(0, 50).map((x) => {
-        const acc = db.adAccounts.find((a) => a.id === x.ad_account_id);
-        return { ...x, ad_accounts: acc ? { name: acc.name, external_id: acc.external_id } : null, clients: { name: db.clients.find((c) => c.id === x.client_id)?.name ?? "" } };
-      });
+      const q = new URL(url).searchParams;
+      const val = (k) => q.get(k)?.replace(/^(eq|gte|lt)\./, "");
+      const limit = Number(q.get("limit") ?? 50);
+      const byId = q.get("order")?.startsWith("id");
+      const rows = [...db.syncRuns]
+        .filter((x) => (!q.get("status") || x.status === val("status")) && (!q.get("client_id") || x.client_id === val("client_id")) &&
+          (!q.get("started_at") || x.started_at >= val("started_at")) && (!q.get("id") || x.id < Number(val("id"))))
+        .sort((x, y) => (byId ? y.id - x.id : y.started_at.localeCompare(x.started_at)))
+        .slice(0, limit)
+        .map((x) => {
+          const acc = db.adAccounts.find((a) => a.id === x.ad_account_id);
+          return { ...x, ad_accounts: acc ? { name: acc.name, external_id: acc.external_id } : null, clients: { name: db.clients.find((c) => c.id === x.client_id)?.name ?? "" } };
+        });
+      return json(route, 200, rows);
+    }
+    // --- Logs (Etapa 17)
+    if (url.includes("/rest/v1/rpc/log_auth_event")) {
+      db.authEvents.push(req.postDataJSON().p_event);
+      return json(route, 200, null);
+    }
+    if (url.includes("/rest/v1/rpc/audit_log_list")) {
+      const p = req.postDataJSON();
+      db.rpcCalls.push({ fn: "audit_log_list", ...p });
+      if (role !== "admin") return json(route, 200, []);
+      const rows = [...db.audit]
+        .filter((l) => (!p.p_from || l.created_at >= p.p_from) && (!p.p_actor || l.actor_id === p.p_actor) &&
+          (!p.p_before_id || l.id < p.p_before_id) &&
+          (!p.p_category || (p.p_category === "auth" ? l.action.startsWith("auth.") : l.target_type === p.p_category && !l.action.startsWith("auth."))))
+        .sort((x, y) => y.id - x.id)
+        .slice(0, p.p_limit ?? 100)
+        .map((l) => {
+          const actor = db.profiles.find((x) => x.id === l.actor_id);
+          return { ...l, actor_name: actor?.full_name || null, actor_email: actor?.email ?? null };
+        });
       return json(route, 200, rows);
     }
     if (url.includes("/functions/v1/sync")) {

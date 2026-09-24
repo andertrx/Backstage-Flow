@@ -20,6 +20,8 @@ export function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setSubmitting(false);
     if (error) setError(friendlyAuthError(error));
+    // Registra a entrada no log (Etapa 17). Falha aqui não impede o login.
+    else void supabase.rpc("log_auth_event", { p_event: "login" }).then(({ error: logError }) => logError && console.error("[log] login", logError));
     // Sucesso: o AuthProvider recebe a sessão e o RedirectIfAuthenticated leva
     // o usuário para a página que ele tentou abrir.
   }

@@ -61,6 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   const signOut = useCallback(async () => {
+    // Registra a saída no log antes de encerrar a sessão (depois não há mais login).
+    const { error } = await supabase.rpc("log_auth_event", { p_event: "logout" });
+    if (error) console.error("[log] logout", error);
     await supabase.auth.signOut();
   }, []);
 

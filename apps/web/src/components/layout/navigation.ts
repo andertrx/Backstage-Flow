@@ -35,7 +35,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Relatórios", path: "/relatorios", icon: FileBarChart, step: 18, permission: "internal.view" },
   { label: "Alertas", path: "/alertas", icon: Bell, step: 0, permission: "internal.view" },
   { label: "Sincronização", path: "/sincronizacao", icon: RefreshCw, step: 0, permission: "internal.view" },
-  { label: "Logs", path: "/logs", icon: ScrollText, step: 17, permission: "logs.view" },
+  { label: "Logs", path: "/logs", icon: ScrollText, step: 0, permission: "logs.view" },
   { label: "Configurações", path: "/configuracoes", icon: Settings, step: 0, permission: "users.manage" },
 ];
 

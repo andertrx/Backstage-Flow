@@ -14,3 +14,4 @@ export * from "./campaigns/labels.ts";
 export * from "./metrics/series.ts";
 export * from "./metrics/comparison.ts";
 export * from "./alerts/labels.ts";
+export * from "./logs/labels.ts";

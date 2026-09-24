@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { formatDateTime, formatRelative } from "@/lib/format.ts";
-import { type SyncOverviewRow, type SyncRunRow, useRunSync, useSyncOverview, useSyncRuns } from "./api.ts";
+import { RUN_LABEL, RunsTable } from "./RunsTable.tsx";
+import { type SyncOverviewRow, useRunSync, useSyncOverview, useSyncRuns } from "./api.ts";
 import { type AccountSyncState, accountState, describeRun, formatDuration, formatNext, isScheduled, STATE_LABELS, summarize } from "./logic.ts";
 
 const STATE_TONE: Record<AccountSyncState, "success" | "danger" | "brand" | "neutral" | "warning"> = {
@@ -19,9 +20,6 @@ const STATE_TONE: Record<AccountSyncState, "success" | "danger" | "brand" | "neu
   sem_conexao: "warning",
   teste: "neutral",
 };
-const RUN_TONE = { sucesso: "success", erro: "danger", executando: "brand" } as const;
-const RUN_LABEL = { sucesso: "Sucesso", erro: "Erro", executando: "Sincronizando…" } as const;
-const TRIGGER_LABEL = { agendada: "Automática", manual: "Manual" } as const;
 
 const when = (iso: string | null) => (iso ? <span title={formatDateTime(iso)}>{formatRelative(iso)}</span> : "—");
 
@@ -191,49 +189,5 @@ function AccountRow({ row: r, canRun, busy, pending, onRun }: { row: SyncOvervie
         {note && <p className="mt-3 text-xs text-slate-500">{note}</p>}
       </Card>
     </li>
-  );
-}
-
-function RunsTable({ runs, loading }: { runs: SyncRunRow[]; loading: boolean }) {
-  if (loading) return <div className="h-24 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />;
-  if (!runs.length) {
-    return (
-      <Card className="p-6 text-center text-sm text-slate-500" data-testid="sync-log-empty">
-        Nenhuma sincronização registrada ainda.
-      </Card>
-    );
-  }
-  return (
-    <Card className="relative overflow-x-auto">
-      <table className="w-full min-w-[720px] text-left text-sm" data-testid="sync-log">
-        <thead className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
-          <tr>
-            <th scope="col" className="px-3 py-2 font-medium">Início</th>
-            <th scope="col" className="px-3 py-2 font-medium">Conta</th>
-            <th scope="col" className="px-3 py-2 font-medium">Origem</th>
-            <th scope="col" className="px-3 py-2 font-medium">Resultado</th>
-            <th scope="col" className="px-3 py-2 text-right font-medium">Registros</th>
-            <th scope="col" className="px-3 py-2 text-right font-medium">Duração</th>
-            <th scope="col" className="px-3 py-2 font-medium">Erro</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {runs.map((x) => (
-            <tr key={x.id} data-testid="sync-log-row">
-              <td className="whitespace-nowrap px-3 py-2 text-slate-700">{formatDateTime(x.started_at)}</td>
-              <td className="px-3 py-2">
-                <span className="block text-slate-900">{x.ad_accounts?.name ?? "—"}</span>
-                <span className="text-xs text-slate-500">{x.clients?.name ?? "—"} · {PLATFORM_LABELS[x.platform_id] ?? x.platform_id}</span>
-              </td>
-              <td className="px-3 py-2 text-slate-700">{TRIGGER_LABEL[x.trigger]}</td>
-              <td className="px-3 py-2"><Badge tone={RUN_TONE[x.status]}>{RUN_LABEL[x.status]}</Badge></td>
-              <td className="px-3 py-2 text-right tabular-nums text-slate-700">{x.records_updated.toLocaleString("pt-BR")}</td>
-              <td className="whitespace-nowrap px-3 py-2 text-right text-slate-700">{formatDuration(x.duration_ms)}</td>
-              <td className="max-w-64 px-3 py-2 text-xs text-red-700">{x.error_message ?? ""}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Card>
   );
 }
