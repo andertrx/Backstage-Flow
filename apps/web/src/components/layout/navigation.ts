@@ -30,7 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Clientes", path: "/clientes", icon: Building2, step: 0, permission: "clients.view" },
   { label: "Contas", path: "/contas", icon: Wallet, step: 0, permission: "internal.view" },
   { label: "Meta Ads", path: "/meta-ads", icon: Megaphone, step: 0, permission: "internal.view" },
-  { label: "Google Ads", path: "/google-ads", icon: Search, step: 14, permission: "internal.view" },
+  { label: "Google Ads", path: "/google-ads", icon: Search, step: 0, permission: "internal.view" },
   { label: "Campanhas", path: "/campanhas", icon: Target, step: 0, permission: "internal.view" },
   { label: "Relatórios", path: "/relatorios", icon: FileBarChart, step: 18, permission: "internal.view" },
   { label: "Alertas", path: "/alertas", icon: Bell, step: 15, permission: "internal.view" },

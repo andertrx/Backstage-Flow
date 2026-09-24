@@ -31,6 +31,8 @@ describe("indicadores", () => {
     expect(k.impressions).toBe(35_000);
     expect(k.clicks).toBe(700);
     expect(k.cpa).toBe(10);
+    expect(k.conversion_value).toBe(900);
+    expect(computeKpis({ ...base, conversion_value_micros: 0 }).conversion_value).toBeNull();
     // Frequência informada pela plataforma tem prioridade
     expect(computeKpis({ ...base, reach: 14_000, frequency: 2.4817 }).frequency).toBe(2.4817);
   });
@@ -43,8 +45,8 @@ describe("indicadores", () => {
   });
 
   it("todos os cards têm explicação", () => {
-    expect(KPI_DEFINITIONS).toHaveLength(14);
-    expect(new Set(KPI_DEFINITIONS.map((d) => d.key)).size).toBe(14);
+    expect(KPI_DEFINITIONS).toHaveLength(15);
+    expect(new Set(KPI_DEFINITIONS.map((d) => d.key)).size).toBe(15);
     for (const d of KPI_DEFINITIONS) expect(d.description.length).toBeGreaterThan(20);
   });
 });

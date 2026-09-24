@@ -22,7 +22,7 @@ export interface MetricTotals {
 
 export type KpiKey =
   | "spend" | "leads" | "messages" | "conversions" | "cpl" | "cpc" | "cpm" | "ctr" | "roas"
-  | "reach" | "impressions" | "frequency" | "clicks" | "cpa";
+  | "reach" | "impressions" | "frequency" | "clicks" | "cpa" | "conversion_value";
 export type KpiFormat = "money" | "integer" | "decimal" | "percent" | "ratio";
 /** up = subir é bom · down = subir é ruim (custo) · neutral = depende do objetivo. */
 export type KpiDirection = "up" | "down" | "neutral";
@@ -64,6 +64,8 @@ export const KPI_DEFINITIONS: KpiDefinition[] = [
     description: "Cliques nos anúncios, como a plataforma informa." },
   { key: "cpa", label: "CPA", format: "money", direction: "down",
     description: "Custo por aquisição = investimento ÷ conversões. Quanto menor, melhor." },
+  { key: "conversion_value", label: "Valor de conversão", format: "money", direction: "up",
+    description: "Soma do valor das conversões (ex.: vendas) informado pela plataforma. Só existe quando o valor é configurado na conta." },
 ];
 
 /** Valores dos indicadores (null = não dá para calcular / não disponível). */
@@ -84,6 +86,8 @@ export function computeKpis(t: MetricTotals): Record<KpiKey, number | null> {
     frequency: t.frequency ?? frequency(t.impressions, t.reach ?? null),
     clicks: t.clicks,
     cpa: cpa(t.spend_micros, t.conversions),
+    // Valor zero ou ausente = a conta não informa valor de conversão.
+    conversion_value: t.conversion_value_micros ? t.conversion_value_micros / 1_000_000 : null,
   };
 }
 

@@ -1,5 +1,4 @@
 import {
-  AD_ACCOUNT_STATUS_LABELS,
   type AdAccountStatus,
   assessBalance,
   computeKpis,
@@ -9,8 +8,8 @@ import {
   type KpiKey,
   objectiveLabel,
 } from "@backstage/shared";
-import { ArrowRight, Megaphone } from "lucide-react";
-import { useMemo } from "react";
+import { ArrowRight, type LucideIcon, Megaphone, Search } from "lucide-react";
+import { type ReactNode, useMemo } from "react";
 import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -32,7 +31,13 @@ import { missingReason, NOT_AVAILABLE, pickCurrency } from "@/features/dashboard
 import { useDashboardFilters } from "@/features/dashboard/useDashboardFilters.ts";
 import { formatDateTime, formatKpi, formatMoney } from "@/lib/format.ts";
 import { type PeriodReach, usePeriodReach, usePlatformStructure } from "./api.ts";
-import { type LevelCount, type PlatformView, REACH_REASONS, reachScope } from "./logic.ts";
+import { type LevelCount, type PlatformId, platformKpiLabel, type PlatformView, REACH_REASONS, reachScope } from "./logic.ts";
+
+/** Ícone e cor de cada plataforma (mesmas cores do gráfico por plataforma). */
+const LOOK: Record<PlatformId, { icon: LucideIcon; className: string }> = {
+  meta: { icon: Megaphone, className: "bg-[#2a78d6]/10 text-[#2a78d6]" },
+  google: { icon: Search, className: "bg-[#eb6834]/10 text-[#eb6834]" },
+};
 
 export function PlatformPage({ view }: { view: PlatformView }) {
   const { filters: urlFilters, setFilters, clear } = useDashboardFilters();
@@ -45,7 +50,12 @@ export function PlatformPage({ view }: { view: PlatformView }) {
   const period = useMemo(() => resolveFilterPeriod(filters, timezone), [filters, timezone]);
   const summary = useDashboardSummary(period.current, period.previous, filters);
   const structure = usePlatformStructure(view.id, filters);
-  const scope = useMemo(() => reachScope(filters, accounts, view.id), [filters, accounts, view.id]);
+  // Alcance só nas plataformas que mostram alcance (o Google Ads não entra aqui).
+  const showsReach = view.kpis.includes("reach");
+  const scope = useMemo(
+    () => (showsReach ? reachScope(filters, accounts, view.id) : ({ kind: "none", reason: "" } as const)),
+    [showsReach, filters, accounts, view.id],
+  );
   const reach = usePeriodReach(scope, period.current, period.previous);
 
   const currencies = summary.data?.current.map((r) => r.currency) ?? [];
@@ -65,15 +75,17 @@ export function PlatformPage({ view }: { view: PlatformView }) {
   };
 
   const query = serializeFilters(filters).toString();
+  const Icon = LOOK[view.id].icon;
+  const money = view.id === "google" ? "orçamento" : "saldo";
 
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-3">
-        <span className="mt-1 grid size-10 place-items-center rounded-xl bg-[#2a78d6]/10 text-[#2a78d6]"><Megaphone className="size-5" aria-hidden /></span>
+        <span className={`mt-1 grid size-10 place-items-center rounded-xl ${LOOK[view.id].className}`}><Icon className="size-5" aria-hidden /></span>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{view.label}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Tudo do {view.label} num lugar só: estrutura, desempenho, saldo, status e cobrança das contas.
+            Tudo do {view.label} num lugar só: estrutura, desempenho, {money}, status e cobrança das contas.
           </p>
         </div>
       </div>
@@ -108,7 +120,10 @@ export function PlatformPage({ view }: { view: PlatformView }) {
           {view.kpis.map((key) => (
             <KpiCard
               key={key}
-              definition={KPI_DEFINITIONS.find((d) => d.key === key)!}
+              definition={(() => {
+                const d = KPI_DEFINITIONS.find((x) => x.key === key)!;
+                return { ...d, label: platformKpiLabel(view, key, d.label) };
+              })()}
               value={kpis?.[key] ?? null}
               previous={previousKpis?.[key] ?? null}
               currency={currency ?? "BRL"}
@@ -183,7 +198,7 @@ function AccountsSection({ view, filters }: { view: PlatformView; filters: Dashb
   return (
     <section aria-labelledby="contas-plataforma" className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="contas-plataforma" className="text-sm font-semibold uppercase tracking-wide text-slate-500">Contas: saldo, status e cobrança</h2>
+        <h2 id="contas-plataforma" className="text-sm font-semibold uppercase tracking-wide text-slate-500">Contas: {view.id === "google" ? "orçamento" : "saldo"}, status e cobrança</h2>
         <Link to="/contas" className="text-xs font-medium text-brand-600 hover:underline">Saúde das contas <ArrowRight className="inline size-3" aria-hidden /></Link>
       </div>
       {error && <Alert tone="error">{error.message}</Alert>}
@@ -193,18 +208,30 @@ function AccountsSection({ view, filters }: { view: PlatformView; filters: Dashb
         <Alert tone="info">Nenhuma conta do {view.label} vinculada com os filtros escolhidos.</Alert>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {data.map((b) => <AccountCard key={b.ad_account_id} b={b} />)}
+          {data.map((b) => <AccountCard key={b.ad_account_id} b={b} platform={view.id} />)}
         </div>
       )}
     </section>
   );
 }
 
-function AccountCard({ b }: { b: AccountBalance }) {
+function Row({ label, hint, testId, children }: { label: string; hint?: string; testId?: string; children: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-1.5">
+      <dt className="flex items-center gap-1 text-slate-500">
+        {label}
+        {hint && <InfoTooltip label={`Sobre ${label.toLowerCase()}`}>{hint}</InfoTooltip>}
+      </dt>
+      <dd className="text-right font-medium text-slate-900" data-testid={testId}>{children}</dd>
+    </div>
+  );
+}
+
+function AccountCard({ b, platform }: { b: AccountBalance; platform: PlatformId }) {
   const currency = b.currency ?? "BRL";
-  // O status já aparece no selo do topo: não repetimos o mesmo aviso.
-  const alerts = assessBalance(b).alerts.filter((alert) => alert.label !== AD_ACCOUNT_STATUS_LABELS[b.status as AdAccountStatus]);
+  const alerts = assessBalance(b).alerts;
   const missing = <span className="font-normal text-slate-400" title={NOT_AVAILABLE}>Não informado pela API</span>;
+  const money = (v: number | null) => (v == null ? missing : formatMoney(v / 1_000_000, currency));
   const payment = b.is_prepay == null ? null : b.is_prepay ? "Pré-paga (saldo antecipado)" : "Pós-paga (cobrança após o gasto)";
   return (
     <Card className="flex flex-col gap-3 p-4" role="group" aria-label={`Conta ${b.name}`} data-testid="platform-account">
@@ -215,44 +242,46 @@ function AccountCard({ b }: { b: AccountBalance }) {
         </div>
         <AccountStatusBadge status={b.status as AdAccountStatus} />
       </div>
-      {alerts.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5" aria-label="Alertas de cobrança">
-          {alerts.map((alert) => (
-            <li key={alert.code}><Badge tone={alert.severity === "critical" ? "danger" : "warning"}>{alert.label}</Badge></li>
-          ))}
-        </ul>
-      )}
       <dl className="divide-y divide-slate-100 text-sm">
-        <div className="flex items-start justify-between gap-3 py-1.5">
-          <dt className="flex items-center gap-1 text-slate-500">
-            Saldo disponível
-            <InfoTooltip label="Sobre o saldo disponível">Limite de gastos − valor já gasto, quando a plataforma informa os dois. Saldo pré-pago do Meta não tem valor numérico na API.</InfoTooltip>
-          </dt>
-          <dd className="text-right font-medium text-slate-900" data-testid="account-available">
-            {b.available_micros == null ? missing : formatMoney(b.available_micros / 1_000_000, currency)}
-          </dd>
-        </div>
-        <div className="flex items-start justify-between gap-3 py-1.5">
-          <dt className="text-slate-500">Cobrança</dt>
-          <dd className="text-right font-medium text-slate-900" data-testid="account-billing">{payment ?? missing}</dd>
-        </div>
-        <div className="flex items-start justify-between gap-3 py-1.5">
-          <dt className="flex items-center gap-1 text-slate-500">
-            Forma de pagamento
-            <InfoTooltip label="Sobre a forma de pagamento">Texto informado pela plataforma, exibido exatamente como veio.</InfoTooltip>
-          </dt>
-          <dd className="text-right font-medium text-slate-900" data-testid="account-funding">{b.funding_description ?? missing}</dd>
-        </div>
-        {b.amount_due_micros != null && (
-          <div className="flex items-start justify-between gap-3 py-1.5">
-            <dt className="text-slate-500">Valor devido</dt>
-            <dd className="text-right font-medium text-slate-900">{formatMoney(b.amount_due_micros / 1_000_000, currency)}</dd>
-          </div>
+        {platform === "google" ? (
+          <>
+            <Row label="Orçamento" testId="account-budget" hint="Orçamento da conta (faturamento mensal), aprovado no Google Ads.">
+              {b.budget_micros == null ? missing : (
+                <>
+                  {formatMoney(b.budget_micros / 1_000_000, currency)}
+                  {b.budget_end_at && <span className="block text-xs font-normal text-slate-500">até {formatDateTime(b.budget_end_at)}</span>}
+                </>
+              )}
+            </Row>
+            <Row label="Já veiculado" testId="account-spent" hint="Quanto do orçamento já foi usado, como o Google informa.">{money(b.amount_spent_micros)}</Row>
+            <Row label="Disponível no orçamento" testId="account-available" hint="Orçamento − valor já veiculado, quando o Google informa os dois.">{money(b.available_micros)}</Row>
+          </>
+        ) : (
+          <>
+            <Row label="Saldo disponível" testId="account-available" hint="Limite de gastos − valor já gasto, quando a plataforma informa os dois. Saldo pré-pago do Meta não tem valor numérico na API.">
+              {money(b.available_micros)}
+            </Row>
+            <Row label="Cobrança" testId="account-billing">{payment ?? missing}</Row>
+            <Row label="Forma de pagamento" testId="account-funding" hint="Texto informado pela plataforma, exibido exatamente como veio.">{b.funding_description ?? missing}</Row>
+            {b.amount_due_micros != null && <Row label="Valor devido">{formatMoney(b.amount_due_micros / 1_000_000, currency)}</Row>}
+          </>
         )}
-        <div className="flex items-start justify-between gap-3 py-1.5">
-          <dt className="text-slate-500">Última verificação</dt>
-          <dd className="text-right text-slate-700">{b.captured_at ? formatDateTime(b.captured_at) : <span className="text-slate-400">Ainda não verificada</span>}</dd>
-        </div>
+        <Row label="Problemas de cobrança" testId="account-issues" hint="Pagamento pendente, conta limitada, sem forma de pagamento... como a plataforma informa.">
+          {alerts.length > 0 ? (
+            <ul className="flex flex-wrap justify-end gap-1.5" aria-label="Problemas de cobrança">
+              {alerts.map((alert) => (
+                <li key={alert.code}><Badge tone={alert.severity === "critical" ? "danger" : "warning"}>{alert.label}</Badge></li>
+              ))}
+            </ul>
+          ) : b.captured_at ? (
+            <span className="font-normal text-emerald-700">Nenhum informado</span>
+          ) : (
+            <span className="font-normal text-slate-400">Ainda não verificado</span>
+          )}
+        </Row>
+        <Row label="Última verificação">
+          <span className="font-normal text-slate-700">{b.captured_at ? formatDateTime(b.captured_at) : <span className="text-slate-400">Ainda não verificada</span>}</span>
+        </Row>
       </dl>
     </Card>
   );
@@ -296,8 +325,17 @@ function TopCampaigns({ view, filters, range, query }: { view: PlatformView; fil
                 </div>
                 <dl className="grid grid-cols-3 gap-4 text-right text-sm tabular-nums">
                   <div><dt className="text-xs text-slate-500">Investimento</dt><dd className="font-semibold text-slate-900">{money(r.spend_micros, r.currency)}</dd></div>
-                  <div><dt className="text-xs text-slate-500">Leads</dt><dd className="text-slate-700">{r.leads == null ? "—" : formatKpi(r.leads, "decimal", "BRL")}</dd></div>
-                  <div><dt className="text-xs text-slate-500">CPL</dt><dd className="text-slate-700">{money(r.cpl_micros, r.currency)}</dd></div>
+                  {view.result === "leads" ? (
+                    <>
+                      <div><dt className="text-xs text-slate-500">Leads</dt><dd className="text-slate-700">{r.leads == null ? "—" : formatKpi(r.leads, "decimal", "BRL")}</dd></div>
+                      <div><dt className="text-xs text-slate-500">CPL</dt><dd className="text-slate-700">{money(r.cpl_micros, r.currency)}</dd></div>
+                    </>
+                  ) : (
+                    <>
+                      <div><dt className="text-xs text-slate-500">Conversões</dt><dd className="text-slate-700">{r.conversions == null ? "—" : formatKpi(r.conversions, "decimal", "BRL")}</dd></div>
+                      <div><dt className="text-xs text-slate-500">Custo/conv.</dt><dd className="text-slate-700">{money(r.cpa_micros, r.currency)}</dd></div>
+                    </>
+                  )}
                 </dl>
               </li>
             ))}

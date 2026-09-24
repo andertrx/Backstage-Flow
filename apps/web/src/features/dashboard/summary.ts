@@ -11,6 +11,8 @@ export function missingReason(key: KpiKey, t: MetricTotals): string {
       return zeroOrMissing(t.leads, "Sem leads no período.");
     case "cpc":
       return zeroOrMissing(t.clicks, "Sem cliques no período.");
+    case "conversion_value":
+      return t.conversion_value_micros === 0 ? "Sem valor de conversão informado no período." : NOT_AVAILABLE;
     case "cpa":
       return zeroOrMissing(t.conversions, "Sem conversões no período.");
     case "cpm":

@@ -84,7 +84,15 @@ export const router = createBrowserRouter([
         path: "meta-ads",
         element: (
           <RequirePermission permission="internal.view">
-            <PlatformPage view={PLATFORM_VIEWS.meta} />
+            <PlatformPage key="meta" view={PLATFORM_VIEWS.meta} />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "google-ads",
+        element: (
+          <RequirePermission permission="internal.view">
+            <PlatformPage key="google" view={PLATFORM_VIEWS.google} />
           </RequirePermission>
         ),
       },

@@ -12,16 +12,34 @@ export interface PlatformView {
   groupLabel: string;
   /** Indicadores exibidos, na ordem. */
   kpis: KpiKey[];
+  /** Nomes que a plataforma usa para alguns indicadores (ex.: Google: "Custo/conversão"). */
+  labels?: Partial<Record<KpiKey, string>>;
+  /** Resultado principal na lista de campanhas. */
+  result: "leads" | "conversions";
 }
 
-export const PLATFORM_VIEWS: Record<"meta", PlatformView> = {
+export const PLATFORM_VIEWS: Record<PlatformId, PlatformView> = {
   meta: {
     id: "meta",
     label: "Meta Ads",
     groupLabel: "Conjuntos",
     kpis: ["spend", "reach", "impressions", "frequency", "clicks", "ctr", "cpc", "cpm", "leads", "messages", "conversions", "cpl", "cpa", "roas"],
+    result: "leads",
+  },
+  google: {
+    id: "google",
+    label: "Google Ads",
+    groupLabel: "Grupos",
+    kpis: ["spend", "impressions", "clicks", "ctr", "cpc", "cpm", "conversions", "cpa", "conversion_value", "roas"],
+    labels: { cpa: "Custo/conversão" },
+    result: "conversions",
   },
 };
+
+/** Definição do indicador com o nome usado pela plataforma. */
+export function platformKpiLabel(view: PlatformView, key: KpiKey, fallback: string): string {
+  return view.labels?.[key] ?? fallback;
+}
 
 // -----------------------------------------------------------------------------
 // Estrutura (campanhas, conjuntos/grupos, anúncios por status)

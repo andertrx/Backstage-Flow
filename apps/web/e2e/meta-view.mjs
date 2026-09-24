@@ -151,8 +151,8 @@ async function waitTile(page, testId, expected) {
   check(clean(await meta1.getByTestId("account-billing").innerText()).startsWith("Pós-paga"), "tipo de cobrança (pós-paga)");
   check(clean(await meta1.innerText()).includes("R$ 120,00"), "valor devido");
   const meta2 = page.getByRole("group", { name: "Conta Excalibur Remarketing" });
-  const meta2Text = await meta2.innerText();
-  check(meta2Text.includes("Pagamento pendente") && meta2Text.split("Pagamento pendente").length === 2, "status de cobrança: pagamento pendente (sem aviso repetido)");
+  check(clean(await meta2.getByTestId("account-issues").innerText()) === "Pagamento pendente", "problemas de cobrança: pagamento pendente");
+  check(clean(await meta1.getByTestId("account-issues").innerText()) === "Nenhum informado", "conta verificada sem problemas de cobrança");
   check(clean(await meta2.getByTestId("account-available").innerText()) === "Não informado pela API", "sem dado da API: não inventa saldo");
   check((await meta2.innerText()).includes("Ainda não verificada"), "conta ainda não verificada é identificada");
 
@@ -171,6 +171,7 @@ async function waitTile(page, testId, expected) {
   check((await waitKpi(page, "Investimento", "R$ 300,00")).includes("R$ 300,00"), "números da conta escolhida");
   check((await waitTile(page, "structure-campaigns", "1 ativo · 1 pausado")).includes("2"), "campanhas da conta: 2 (1 ativa, 1 pausada)");
   check((await tileText(page, "structure-ads")).includes("3") && (await tileText(page, "structure-ads")).includes("1 com erro"), "anúncios: 3, 1 com erro");
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=platform-account]").length === 1, null, { timeout: 5000 }).catch(() => {});
   check(await cards.count() === 1, "só o cartão da conta escolhida");
 
   // Campanha escolhida → alcance da campanha

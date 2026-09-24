@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DashboardFilters } from "@/features/dashboard/filters.ts";
 import type { FilterAccount } from "@/features/dashboard/types.ts";
-import { PLATFORM_VIEWS, REACH_REASONS, reachScope, summarizeStructure } from "./logic.ts";
+import { PLATFORM_VIEWS, platformKpiLabel, REACH_REASONS, reachScope, summarizeStructure } from "./logic.ts";
 
 const f = (patch: Partial<DashboardFilters> = {}): DashboardFilters => ({
   period: "last_7_days", from: null, to: null, clientId: null, platform: null, accountId: null, campaignId: null, status: null, currency: null, ...patch,
@@ -40,6 +40,15 @@ describe("estrutura", () => {
     expect(s.campaign).toEqual({ total: 7, active: 2, paused: 1, error: 0 });
     expect(s.ad_group).toEqual({ total: 0, active: 0, paused: 0, error: 0 });
     expect(s.ad).toEqual({ total: 4, active: 3, paused: 0, error: 1 });
+  });
+});
+
+describe("Google Ads", () => {
+  it("mostra os indicadores pedidos, com o nome usado pelo Google", () => {
+    expect(PLATFORM_VIEWS.google.kpis).toEqual(["spend", "impressions", "clicks", "ctr", "cpc", "cpm", "conversions", "cpa", "conversion_value", "roas"]);
+    expect(platformKpiLabel(PLATFORM_VIEWS.google, "cpa", "CPA")).toBe("Custo/conversão");
+    expect(platformKpiLabel(PLATFORM_VIEWS.meta, "cpa", "CPA")).toBe("CPA");
+    expect(PLATFORM_VIEWS.google.groupLabel).toBe("Grupos");
   });
 });
 
