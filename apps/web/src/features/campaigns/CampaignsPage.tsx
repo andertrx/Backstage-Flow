@@ -1,10 +1,9 @@
 import { CAMPAIGN_STATUS_FILTERS, type CampaignStatusFilter, DEFAULT_TIMEZONE, ENTITY_STATUS_LABELS } from "@backstage/shared";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import { MetricsTable } from "@/components/data/MetricsTable.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
-import { Button } from "@/components/ui/button.tsx";
-import { Card } from "@/components/ui/card.tsx";
 import { Input } from "@/components/ui/field.tsx";
 import { useClients } from "@/features/clients/api.ts";
 import { resolveFilterPeriod } from "@/features/dashboard/filters.ts";
@@ -13,7 +12,8 @@ import { useDashboardFilters } from "@/features/dashboard/useDashboardFilters.ts
 import { cn } from "@/lib/cn.ts";
 import { useCampaignTable } from "./api.ts";
 import { COLUMNS } from "./columns.tsx";
-import { PAGE_SIZE, parseTable, type SortKey, type TableState, toggleSort, writeTable } from "./table.ts";
+import { parseTable, type TableState, writeTable } from "./table.ts";
+import { periodQueryString } from "./links.ts";
 
 const STATUS_CHIPS: { value: CampaignStatusFilter | null; label: string }[] = [
   { value: null, label: "Todas" },
@@ -48,31 +48,9 @@ export function CampaignsPage() {
 
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const mixedCurrency = new Set(rows.map((r) => r.currency)).size > 1;
-
-  const sortHeader = (key: SortKey, label: string, hint?: string, numeric?: boolean) => {
-    const active = table.sort === key;
-    const Icon = !active ? ArrowUpDown : table.desc ? ArrowDown : ArrowUp;
-    return (
-      <th
-        key={key}
-        scope="col"
-        aria-sort={active ? (table.desc ? "descending" : "ascending") : "none"}
-        className={cn("whitespace-nowrap px-3 py-2.5 font-medium", numeric && "text-right")}
-      >
-        <button
-          type="button"
-          title={hint}
-          onClick={() => setTable(toggleSort(table, key))}
-          className={cn("inline-flex items-center gap-1 rounded hover:text-slate-900", active && "text-slate-900")}
-        >
-          {label}
-          <Icon className={cn("size-3.5", !active && "opacity-40")} aria-hidden />
-        </button>
-      </th>
-    );
-  };
+  /** Ao abrir uma campanha, leva junto o período escolhido. */
+  const periodQuery = periodQueryString(params);
 
   return (
     <div className="space-y-6">
@@ -125,56 +103,26 @@ export function CampaignsPage() {
             : "Nenhuma campanha ainda. Elas aparecem depois que a sincronização buscar a estrutura das contas no Meta e no Google."}
         </Alert>
       ) : (
-        <Card className={cn("overflow-hidden", isFetching && "opacity-70")}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <caption className="sr-only">Campanhas do período, ordenadas por {table.sort}</caption>
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th scope="col" aria-sort={table.sort === "name" ? (table.desc ? "descending" : "ascending") : "none"}
-                    className="sticky left-0 z-10 min-w-56 bg-slate-50 px-3 py-2.5 font-medium">
-                    <button type="button" onClick={() => setTable(toggleSort(table, "name"))}
-                      className={cn("inline-flex items-center gap-1 hover:text-slate-900", table.sort === "name" && "text-slate-900")}>
-                      Campanha
-                      {table.sort === "name" ? (table.desc ? <ArrowDown className="size-3.5" aria-hidden /> : <ArrowUp className="size-3.5" aria-hidden />)
-                        : <ArrowUpDown className="size-3.5 opacity-40" aria-hidden />}
-                    </button>
-                  </th>
-                  {COLUMNS.map((c) => sortHeader(c.key, c.label, c.hint, c.numeric))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {rows.map((r) => (
-                  <tr key={r.campaign_id} data-testid="campaign-row" className="hover:bg-slate-50/60">
-                    <td className="sticky left-0 z-10 min-w-56 max-w-72 bg-white px-3 py-2.5">
-                      <span className="block truncate font-medium text-slate-900" title={r.name}>{r.name}</span>
-                      <span className="block truncate text-xs text-slate-500">
-                        {r.client_name} · {r.account_name}
-                      </span>
-                    </td>
-                    {COLUMNS.map((c) => (
-                      <td key={c.key} className={cn("whitespace-nowrap px-3 py-2.5 text-slate-700", c.numeric && "text-right tabular-nums")}>
-                        {c.render(r)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-3 py-2.5 text-xs text-slate-500">
-            <p data-testid="campaign-count">
-              {total === 0 ? "Nenhuma campanha" : `Mostrando ${(table.page - 1) * PAGE_SIZE + 1}–${Math.min(table.page * PAGE_SIZE, total)} de ${total}`}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" className="px-3 py-1 text-xs" disabled={table.page <= 1}
-                onClick={() => setTable({ ...table, page: table.page - 1 })}>Anterior</Button>
-              <span>Página {table.page} de {pages}</span>
-              <Button variant="secondary" className="px-3 py-1 text-xs" disabled={table.page >= pages}
-                onClick={() => setTable({ ...table, page: table.page + 1 })}>Próxima</Button>
-            </div>
-          </div>
-        </Card>
+        <MetricsTable
+          rows={rows}
+          total={total}
+          table={table}
+          onTableChange={setTable}
+          columns={COLUMNS}
+          nameLabel="Campanha"
+          caption={`Campanhas do período, ordenadas por ${table.sort}`}
+          fetching={isFetching}
+          testId="campaign-row"
+          rowKey={(r) => r.campaign_id}
+          renderName={(r) => (
+            <>
+              <Link to={`/campanhas/${r.campaign_id}${periodQuery}`} className="block truncate font-medium text-slate-900 hover:text-brand-700 hover:underline" title={r.name}>
+                {r.name}
+              </Link>
+              <span className="block truncate text-xs text-slate-500">{r.client_name} · {r.account_name}</span>
+            </>
+          )}
+        />
       )}
 
       <p className="text-xs text-slate-500">

@@ -1,17 +1,11 @@
 import type { EntityStatus } from "@backstage/shared";
 
-/** Uma linha de public.campaign_table (dinheiro em micros; null = sem dados / não informado). */
-export interface CampaignRow {
-  campaign_id: string;
+/** Campos comuns a campanhas, conjuntos/grupos e anúncios (dinheiro em micros; null = sem dados / não informado). */
+export interface MetricRow {
   name: string;
   external_id: string;
-  client_id: string;
-  client_name: string;
   platform_id: string;
-  ad_account_id: string;
-  account_name: string;
   currency: string | null;
-  objective: string | null;
   status: EntityStatus;
   raw_status: string | null;
   budget_micros: number | null;
@@ -33,4 +27,14 @@ export interface CampaignRow {
   cpa_micros: number | null;
   roas: number | null;
   total_count: number;
+}
+
+/** Uma linha de public.campaign_table. */
+export interface CampaignRow extends MetricRow {
+  campaign_id: string;
+  client_id: string;
+  client_name: string;
+  ad_account_id: string;
+  account_name: string;
+  objective: string | null;
 }

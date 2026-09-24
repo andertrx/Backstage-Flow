@@ -26,4 +26,8 @@ describe("estado da tabela de campanhas", () => {
       .toBe("periodo=last_30_days&cliente=abc&busca=marca&situacao=erro&ordem=name&pagina=2");
     expect(writeTable(base, { ...DEFAULT_TABLE, desc: false }).toString()).toBe("periodo=last_30_days&cliente=abc&dir=asc");
   });
+  it("ordem fora da lista da tela volta ao padrão", () => {
+    expect(parseTable(new URLSearchParams("ordem=objective"), ["name", "spend"]).sort).toBe("spend");
+    expect(parseTable(new URLSearchParams("ordem=name"), ["name", "spend"]).sort).toBe("name");
+  });
 });

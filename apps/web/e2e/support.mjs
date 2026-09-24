@@ -71,6 +71,10 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     adAccountCalls: [],
     /** Campanhas e métricas diárias (como public.campaigns / public.metrics_daily). */
     campaigns: [],
+    /** Conjuntos/grupos, anúncios e histórico de alterações. */
+    adGroups: [],
+    ads: [],
+    entityChanges: [],
     metrics: [],
     rpcCalls: [],
     /** Última fotografia de saldo por conta; o que a "API" devolve ao atualizar; erros simulados. */
@@ -191,6 +195,8 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
 
     // --- Campanhas (o site só lê)
     if (url.includes("/rest/v1/campaigns")) {
+      const id = eqParam(url, "id");
+      if (id) return json(route, 200, db.campaigns.find((c) => c.id === id) ?? null);
       const accountId = eqParam(url, "ad_account_id");
       const clientId = eqParam(url, "client_id");
       const platform = eqParam(url, "platform_id");
@@ -215,6 +221,63 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
           connection_id: a.connection_id ?? null, connection_status: conn?.status ?? null, connection_error: conn?.last_error ?? null,
         };
       }));
+    }
+
+    if (url.includes("/rest/v1/ad_groups")) {
+      const id = eqParam(url, "id");
+      return json(route, 200, db.adGroups.find((g) => g.id === id) ?? null);
+    }
+    if (url.includes("/rest/v1/entity_changes")) {
+      const level = eqParam(url, "entity_level");
+      const id = eqParam(url, "entity_id");
+      return json(route, 200, db.entityChanges.filter((c) => c.entity_level === level && c.entity_id === id)
+        .sort((a, b) => b.detected_at.localeCompare(a.detected_at)));
+    }
+
+    // --- Campanha, conjunto/grupo ou anúncio (mesma regra de public.entity_rows)
+    if (url.includes("/rest/v1/rpc/entity_rows")) {
+      const p = req.postDataJSON();
+      db.rpcCalls.push({ fn: "entity_rows", ...p });
+      const source = { campaign: db.campaigns, ad_group: db.adGroups, ad: db.ads }[p.p_level];
+      const parentKey = { campaign: null, ad_group: "campaign_id", ad: "ad_group_id" }[p.p_level];
+      const metricKey = { campaign: "campaign_id", ad_group: "ad_group_id", ad: "ad_id" }[p.p_level];
+      const q = p.p_search?.trim().toLowerCase();
+      const sum = (list, k) => (list.length && !list.every((m) => m[k] == null) ? list.reduce((t, m) => t + (m[k] ?? 0), 0) : null);
+      const div = (a, b, f = 1) => (a != null && b ? (a * f) / b : null);
+      let rows = source
+        .filter((e) => (!p.p_ids || p.p_ids.includes(e.id)) && (!p.p_parent_id || e[parentKey] === p.p_parent_id) &&
+          (!p.p_statuses || p.p_statuses.includes(e.status)) && (!q || e.name.toLowerCase().includes(q) || e.external_id === p.p_search.trim()))
+        .map((e) => {
+          const acc = db.adAccounts.find((a) => a.id === e.ad_account_id);
+          const ms = db.metrics.filter((m) => m.level === p.p_level && m[metricKey] === e.id && m.date >= p.p_from && m.date <= p.p_to);
+          const has = ms.length > 0;
+          const t = Object.fromEntries(["spend_micros", "impressions", "clicks", "leads", "messages", "conversions", "conversion_value_micros"].map((k) => [k, has ? sum(ms, k) : null]));
+          return {
+            id: e.id, level: p.p_level, name: e.name, external_id: e.external_id, parent_id: parentKey ? e[parentKey] : null,
+            campaign_id: p.p_level === "campaign" ? e.id : e.campaign_id, client_id: e.client_id, platform_id: e.platform_id,
+            ad_account_id: e.ad_account_id, currency: acc?.currency ?? null, status: e.status, raw_status: null,
+            detail: e.objective ?? e.optimization_goal ?? e.creative_type ?? null, review_status: e.review_status ?? null,
+            thumbnail_url: e.thumbnail_url ?? null, budget_micros: e.budget_micros ?? null, budget_period: e.budget_period ?? null,
+            has_data: has, ...t, reach: null, frequency: null,
+            ctr: div(t.clicks, t.impressions, 100), cpc_micros: div(t.spend_micros, t.clicks), cpm_micros: div(t.spend_micros, t.impressions, 1000),
+            cpl_micros: div(t.spend_micros, t.leads), cpa_micros: div(t.spend_micros, t.conversions),
+            roas: t.conversion_value_micros ? div(t.conversion_value_micros, t.spend_micros) : null,
+          };
+        });
+      const keyOf = { name: "name", status: "status", budget: "budget_micros", spend: "spend_micros", impressions: "impressions", clicks: "clicks",
+        ctr: "ctr", cpc: "cpc_micros", cpm: "cpm_micros", leads: "leads", conversions: "conversions", cpl: "cpl_micros", cpa: "cpa_micros", roas: "roas" }[p.p_sort] ?? "spend_micros";
+      const desc = p.p_desc ?? true;
+      rows.sort((a, b) => {
+        const x = a[keyOf], y = b[keyOf];
+        if (x == null && y == null) return a.name.localeCompare(b.name);
+        if (x == null) return 1;
+        if (y == null) return -1;
+        const cmp = typeof x === "string" ? x.toLowerCase().localeCompare(y.toLowerCase()) : x - y;
+        return (desc ? -cmp : cmp) || a.name.localeCompare(b.name);
+      });
+      const total = rows.length;
+      rows = rows.slice(p.p_offset ?? 0, (p.p_offset ?? 0) + (p.p_limit ?? 50)).map((r) => ({ ...r, total_count: total }));
+      return json(route, 200, rows);
     }
 
     // --- Tabela de campanhas (mesma regra de public.campaign_table)

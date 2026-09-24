@@ -10,6 +10,7 @@ import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/featu
 import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
 import { CampaignsPage } from "@/features/campaigns/CampaignsPage.tsx";
+import { EntityDetailPage } from "@/features/structure/EntityDetailPage.tsx";
 import { DashboardPage } from "@/features/dashboard/DashboardPage.tsx";
 import { AccountsHealthPage } from "@/features/health/AccountsHealthPage.tsx";
 import { GoogleCallbackPage } from "@/features/integrations/GoogleCallbackPage.tsx";
@@ -67,6 +68,14 @@ export const router = createBrowserRouter([
           </RequirePermission>
         ),
       },
+      ...(["campaign", "ad_group", "ad"] as const).map((level) => ({
+        path: `${{ campaign: "campanhas", ad_group: "conjuntos", ad: "anuncios" }[level]}/:id`,
+        element: (
+          <RequirePermission permission="internal.view">
+            <EntityDetailPage key={level} level={level} />
+          </RequirePermission>
+        ),
+      })),
       {
         path: "contas",
         element: (

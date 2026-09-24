@@ -48,7 +48,7 @@ function seed(db) {
 
 const clean = (s) => s.replace(/ /g, " ");
 const rows = (page) => page.getByTestId("campaign-row");
-const firstName = async (page) => clean(await rows(page).first().locator("td").first().locator("span").first().innerText());
+const firstName = async (page) => clean(await rows(page).first().locator("td").first().locator("a").innerText());
 const cell = async (page, name, col) => {
   const headers = await page.locator("thead th").allInnerTexts();
   const idx = headers.findIndex((h) => h.trim().toLowerCase() === col.toLowerCase());
@@ -73,7 +73,7 @@ async function waitCall(db, pred) {
   await page.getByRole("heading", { name: "Campanhas", exact: true }).waitFor();
   await rows(page).first().waitFor();
   check(await rows(page).count() === 50, "50 campanhas por página");
-  check((await page.getByTestId("campaign-count").innerText()) === "Mostrando 1–50 de 61", "contador mostra o total");
+  check((await page.getByTestId("campaign-row-count").innerText()) === "Mostrando 1–50 de 61", "contador mostra o total");
   check(await firstName(page) === "Leads Setembro", "padrão: maior gasto primeiro");
   check(lastCall(db).p_from === day(-7) && lastCall(db).p_to === day(-1), "período padrão = últimos 7 dias");
 
@@ -96,18 +96,18 @@ async function waitCall(db, pred) {
 
   // Ordenar
   await page.getByRole("button", { name: "Campanha", exact: true }).click();
-  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td span")?.textContent === "Black Friday 2025");
+  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td a")?.textContent === "Black Friday 2025");
   check(lastCall(db).p_sort === "name" && lastCall(db).p_desc === false, "clicar em Campanha ordena de A a Z (no banco)");
   check(await page.locator("thead th").first().getAttribute("aria-sort") === "ascending", "cabeçalho informa a ordem (acessível)");
   await page.getByRole("button", { name: "Campanha", exact: true }).click();
-  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td span")?.textContent === "Teste_100%");
+  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td a")?.textContent === "Teste_100%");
   check(true, "clicar de novo inverte (Z a A)");
   check(page.url().includes("ordem=name") && page.url().includes("dir=desc"), "ordem fica no endereço");
   await page.getByRole("button", { name: /^CPL/ }).click();
-  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td span")?.textContent === "Leads Setembro");
+  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td a")?.textContent === "Leads Setembro");
   check(lastCall(db).p_sort === "cpl" && lastCall(db).p_desc === true, "qualquer coluna ordena (CPL)");
   await page.getByRole("button", { name: /^Gasto/ }).click();
-  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td span")?.textContent === "Loja US Search" || true);
+  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td a")?.textContent === "Loja US Search" || true);
   await page.getByRole("button", { name: /^Gasto/ }).click();
 
   // Paginação
@@ -126,7 +126,7 @@ async function waitCall(db, pred) {
   check(await firstName(page) === "Pesquisa Marca" && lastCall(db).p_search === "marca", "pesquisa pelo nome (no banco)");
   check(page.url().includes("busca=marca"), "pesquisa fica no endereço");
   await page.getByLabel("Pesquisar campanhas").fill("c95");
-  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td span")?.textContent === "Loja US Search");
+  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td a")?.textContent === "Loja US Search");
   check(lastCall(db).p_search === "c95", "pesquisa pelo ID da campanha");
   await page.getByLabel("Pesquisar campanhas").fill("xyz inexistente");
   await page.getByText("Nenhuma campanha encontrada com esses filtros.").waitFor();
@@ -143,10 +143,10 @@ async function waitCall(db, pred) {
   const noDataTitle = await rows(page).filter({ hasText: "Black Friday 2025" }).locator("td").nth(5).locator("span").getAttribute("title");
   check(noDataTitle === "Sem dados no período.", "o — explica: sem dados no período");
   await chip("Com erro").click();
-  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td span")?.textContent === "Loja US Search");
+  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td a")?.textContent === "Loja US Search");
   check(JSON.stringify(lastCall(db).p_statuses) === JSON.stringify(["erro"]), "filtro Com erro");
   await chip("Pausada").click();
-  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td span")?.textContent === "Remarketing");
+  await page.waitForFunction(() => document.querySelector("[data-testid=campaign-row] td a")?.textContent === "Remarketing");
   check(JSON.stringify(lastCall(db).p_statuses) === JSON.stringify(["pausada"]), "filtro Pausada");
   await chip("Ativa").click();
   await page.getByText("Mostrando 1–50 de 57").waitFor();

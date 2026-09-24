@@ -22,11 +22,12 @@ export const DEFAULT_TABLE: TableState = { search: "", status: null, sort: "spen
 /** Colunas de texto começam em ordem A→Z; números começam do maior para o menor. */
 export const TEXT_SORTS: readonly SortKey[] = ["name", "platform", "objective", "status"];
 
-export function parseTable(params: URLSearchParams): TableState {
+/** @param allowed colunas que a tela aceita ordenar (as demais voltam ao padrão). */
+export function parseTable(params: URLSearchParams, allowed: readonly SortKey[] = SORT_KEYS): TableState {
   const sort = params.get("ordem");
   const status = params.get("situacao");
   const page = Number(params.get("pagina"));
-  const validSort = (SORT_KEYS as readonly string[]).includes(sort ?? "") ? (sort as SortKey) : DEFAULT_TABLE.sort;
+  const validSort = (allowed as readonly string[]).includes(sort ?? "") ? (sort as SortKey) : DEFAULT_TABLE.sort;
   return {
     search: (params.get("busca") ?? "").slice(0, 100),
     status: status && status in CAMPAIGN_STATUS_FILTERS ? (status as CampaignStatusFilter) : null,

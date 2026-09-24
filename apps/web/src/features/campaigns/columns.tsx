@@ -3,38 +3,41 @@ import type { ReactNode } from "react";
 import { formatKpi, formatMoney } from "@/lib/format.ts";
 import { CampaignStatusBadge } from "./CampaignStatusBadge.tsx";
 import type { SortKey } from "./table.ts";
-import type { CampaignRow } from "./types.ts";
+import type { CampaignRow, MetricRow } from "./types.ts";
 
 export const NOT_AVAILABLE = "Informação não disponível pela API.";
 
-export interface Column {
-  key: SortKey;
+export interface Column<R = CampaignRow> {
+  /** Coluna ordenável (chave aceita pelo banco) ou apenas exibida. */
+  key: SortKey | `info:${string}`;
   label: string;
   /** Explicação curta mostrada ao passar o mouse no título. */
   hint?: string;
   numeric?: boolean;
-  render: (row: CampaignRow) => ReactNode;
+  render: (row: R) => ReactNode;
 }
 
-const dash = (title = NOT_AVAILABLE) => <span className="text-slate-300" title={title}>—</span>;
-const cur = (r: CampaignRow) => r.currency ?? "BRL";
+export const dash = (title = NOT_AVAILABLE) => <span className="text-slate-300" title={title}>—</span>;
+const cur = (r: MetricRow) => r.currency ?? "BRL";
 /** Números do período: sem dados → "—" com a explicação. */
-const metric = (r: CampaignRow, v: number | null, show: (n: number) => string) =>
+const metric = (r: MetricRow, v: number | null, show: (n: number) => string) =>
   !r.has_data ? dash("Sem dados no período.") : v == null ? dash() : show(v);
-const money = (r: CampaignRow, micros: number | null) => metric(r, micros, (m) => formatMoney(m / 1_000_000, cur(r)));
-const int = (r: CampaignRow, v: number | null) => metric(r, v, (n) => formatKpi(n, "integer", "BRL"));
-const dec = (r: CampaignRow, v: number | null) => metric(r, v, (n) => formatKpi(n, "decimal", "BRL"));
+const money = (r: MetricRow, micros: number | null) => metric(r, micros, (m) => formatMoney(m / 1_000_000, cur(r)));
+const int = (r: MetricRow, v: number | null) => metric(r, v, (n) => formatKpi(n, "integer", "BRL"));
+const dec = (r: MetricRow, v: number | null) => metric(r, v, (n) => formatKpi(n, "decimal", "BRL"));
 
-export const COLUMNS: Column[] = [
-  { key: "platform", label: "Plataforma", render: (r) => PLATFORM_LABELS[r.platform_id] ?? r.platform_id },
-  { key: "objective", label: "Objetivo", render: (r) => objectiveLabel(r.objective) ?? dash() },
-  { key: "status", label: "Status", render: (r) => <CampaignStatusBadge status={r.status} /> },
-  {
-    key: "budget", label: "Orçamento", numeric: true, hint: "Orçamento definido na campanha. Vazio quando o orçamento fica no conjunto/grupo.",
-    render: (r) => r.budget_micros == null ? dash("Sem orçamento na campanha (pode estar no conjunto/grupo).") : (
-      <>{formatMoney(r.budget_micros / 1_000_000, cur(r))}<span className="text-xs text-slate-400">{r.budget_period === "vitalicio" ? " total" : "/dia"}</span></>
-    ),
-  },
+
+export const statusColumn: Column<MetricRow> = { key: "status", label: "Status", render: (r) => <CampaignStatusBadge status={r.status} /> };
+
+export const budgetColumn: Column<MetricRow> = {
+  key: "budget", label: "Orçamento", numeric: true, hint: "Orçamento definido neste item. Vazio quando o orçamento fica em outro nível (campanha ou conjunto/grupo).",
+  render: (r) => r.budget_micros == null ? dash("Sem orçamento neste nível (pode estar na campanha ou no conjunto/grupo).") : (
+    <>{formatMoney(r.budget_micros / 1_000_000, cur(r))}<span className="text-xs text-slate-400">{r.budget_period === "vitalicio" ? " total" : "/dia"}</span></>
+  ),
+};
+
+/** Colunas de números (as mesmas em campanhas, conjuntos/grupos e anúncios). */
+export const METRIC_COLUMNS: Column<MetricRow>[] = [
   { key: "spend", label: "Gasto", numeric: true, render: (r) => money(r, r.spend_micros) },
   { key: "impressions", label: "Impressões", numeric: true, render: (r) => int(r, r.impressions) },
   {
@@ -55,4 +58,14 @@ export const COLUMNS: Column[] = [
   { key: "cpl", label: "CPL", numeric: true, hint: "Gasto ÷ leads.", render: (r) => money(r, r.cpl_micros) },
   { key: "cpa", label: "CPA", numeric: true, hint: "Gasto ÷ conversões.", render: (r) => money(r, r.cpa_micros) },
   { key: "roas", label: "ROAS", numeric: true, hint: "Valor das conversões ÷ gasto.", render: (r) => metric(r, r.roas, (n) => formatKpi(n, "ratio", "BRL")) },
+];
+
+
+/** Tabela de campanhas: plataforma, objetivo, status, orçamento e números. */
+export const COLUMNS: Column<CampaignRow>[] = [
+  { key: "platform", label: "Plataforma", render: (r) => PLATFORM_LABELS[r.platform_id] ?? r.platform_id },
+  { key: "objective", label: "Objetivo", render: (r) => objectiveLabel(r.objective) ?? dash() },
+  statusColumn,
+  budgetColumn,
+  ...METRIC_COLUMNS,
 ];

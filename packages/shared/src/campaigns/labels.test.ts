@@ -13,3 +13,21 @@ describe("textos de campanhas", () => {
     expect(ENTITY_STATUS_LABELS.erro).toBe("Com erro");
   });
 });
+
+import { creativeLabel, levelLabel, optimizationLabel, reviewInfo } from "./labels.ts";
+
+describe("níveis e detalhes", () => {
+  it("Meta chama de conjunto; Google de grupo", () => {
+    expect(levelLabel("ad_group", "meta")).toBe("Conjunto de anúncios");
+    expect(levelLabel("ad_group", "google")).toBe("Grupo de anúncios");
+    expect(levelLabel("ad_group", "google", true)).toBe("Grupos de anúncios");
+    expect(levelLabel("ad", "meta", true)).toBe("Anúncios");
+  });
+  it("traduz otimização, criativo e revisão; desconhecido fica como veio", () => {
+    expect(optimizationLabel("LEAD_GENERATION")).toBe("Geração de cadastros");
+    expect(creativeLabel("RESPONSIVE_SEARCH_AD")).toBe("Anúncio de pesquisa responsivo");
+    expect(reviewInfo("DISAPPROVED")).toEqual({ label: "Reprovado", tone: "danger" });
+    expect(reviewInfo("NOVO")).toEqual({ label: "NOVO", tone: "neutral" });
+    expect(optimizationLabel(null)).toBeNull();
+  });
+});
