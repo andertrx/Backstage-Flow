@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
-    "e2e": "node e2e/smoke.mjs && node e2e/clients.mjs"
+    "e2e": "node e2e/smoke.mjs && node e2e/clients.mjs && node e2e/meta.mjs"
   },
   "dependencies": {
     "@backstage/shared": "*",

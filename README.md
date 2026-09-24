@@ -6,7 +6,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 
 - [Etapa 0 — Planejamento](docs/etapa-00-planejamento/README.md) ✅ aprovada
 - [Etapa 1 — Login e usuários](docs/etapa-01-login-usuarios/README.md) ✅ concluída
-- [Etapa 2 — Clientes](docs/etapa-02-clientes/README.md) *(aguardando validação)*
+- [Etapa 2 — Clientes](docs/etapa-02-clientes/README.md) ✅ concluída
+- [Etapa 3 — Meta Ads](docs/etapa-03-meta-ads/README.md) *(aguardando validação)*
 
 ## Estrutura
 
@@ -24,4 +25,5 @@ npm install
 npm run dev        # site em http://localhost:5173 (requer apps/web/.env.local)
 npm test           # testes unitários
 npm run typecheck  # verificação de tipos
+npm run test:functions  # testes das Edge Functions (Deno)
 ```

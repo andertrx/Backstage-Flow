@@ -3,3 +3,4 @@ export * from "./constants/permissions.ts";
 export * from "./clients/cnpj.ts";
 export * from "./clients/phone.ts";
 export * from "./clients/status.ts";
+export * from "./accounts/status.ts";

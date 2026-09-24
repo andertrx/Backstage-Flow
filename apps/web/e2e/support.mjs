@@ -53,7 +53,15 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     ],
     clients: [],
     access: [],
+    connections: [],
+    adAccounts: [],
+    /** Contas que a "API do Meta" simulada devolve. */
+    metaAccounts: [
+      { externalId: "1001", name: "Excalibur - Principal", currency: "BRL", timezone: "America/Sao_Paulo", status: "ativa", businessName: "BM Agência" },
+      { externalId: "1002", name: "Excalibur - Remarketing", currency: "BRL", timezone: "America/Sao_Paulo", status: "pagamento_pendente", businessName: "BM Agência" },
+    ],
     functionCalls: [],
+    adAccountCalls: [],
   };
 
   await page.route("**/*.supabase.co/**", async (route) => {
@@ -118,6 +126,59 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
         const userId = eqParam(url, "user_id");
         db.access = db.access.filter((a) => !(a.user_id === userId && a.client_id === clientId));
         return route.fulfill({ status: 204, headers: cors });
+      }
+    }
+
+    // --- Conexões (o site só lê)
+    if (url.includes("/rest/v1/platform_connections")) {
+      const platform = eqParam(url, "platform_id");
+      return json(route, 200, db.connections.filter((c) => !platform || c.platform_id === platform));
+    }
+
+    // --- Contas de anúncio (o site só lê)
+    if (url.includes("/rest/v1/ad_accounts")) {
+      const clientId = eqParam(url, "client_id");
+      const platform = eqParam(url, "platform_id");
+      return json(route, 200, db.adAccounts.filter((a) => a.client_id === clientId && a.platform_id === platform && !a.unlinked_at));
+    }
+
+    // --- Edge Function ad-accounts (simula o servidor + API do Meta)
+    if (url.includes("/functions/v1/ad-accounts")) {
+      const body = req.postDataJSON();
+      db.adAccountCalls.push(body);
+      const now = new Date().toISOString();
+      switch (body.action) {
+        case "connect": {
+          if (!body.accessToken.startsWith("EAA")) {
+            return json(route, 400, { error: { code: "AUTH_EXPIRED", message: "O token do Meta é inválido ou expirou. Gere um novo token e conecte novamente." } });
+          }
+          const connection = { id: "c0000000-0000-4000-8000-000000000001", platform_id: "meta", label: body.label, status: "ativa", external_user_id: "su1", external_user_name: "Backstage Flow (sistema)", last_checked_at: now, last_error: null, created_at: now };
+          db.connections.push(connection);
+          return json(route, 200, { data: { connectionId: connection.id, ownerName: connection.external_user_name, renewed: false } });
+        }
+        case "disconnect": {
+          db.connections.find((c) => c.id === body.connectionId).status = "revogada";
+          return json(route, 200, { data: { connectionId: body.connectionId } });
+        }
+        case "list_available":
+          return json(route, 200, { data: { accounts: db.metaAccounts.map((a) => ({ ...a, linkedClientId: db.adAccounts.find((x) => x.external_id === a.externalId && !x.unlinked_at)?.client_id ?? null })) } });
+        case "link": {
+          const meta = db.metaAccounts.find((a) => a.externalId === body.externalId);
+          const id = `a0000000-0000-4000-8000-00000000${body.externalId}`;
+          db.adAccounts.push({
+            id, platform_id: "meta", external_id: meta.externalId, client_id: body.clientId, connection_id: body.connectionId,
+            name: meta.name, currency: meta.currency, timezone: meta.timezone, status: meta.status, raw_status: "account_status=1",
+            status_reason: null, business_name: meta.businessName, is_prepay: null, linked_at: now, details_updated_at: now, unlinked_at: null,
+            assets: [{ asset_type: "page", external_id: "p1", name: "Excalibur Fitness" }, { asset_type: "instagram", external_id: "ig1", name: "@excaliburfitness" }],
+          });
+          return json(route, 200, { data: { adAccountId: id, warning: null } });
+        }
+        case "refresh":
+          return json(route, 200, { data: { adAccountId: body.adAccountId, warning: null } });
+        case "unlink": {
+          db.adAccounts.find((a) => a.id === body.adAccountId).unlinked_at = now;
+          return json(route, 200, { data: { adAccountId: body.adAccountId } });
+        }
       }
     }
 

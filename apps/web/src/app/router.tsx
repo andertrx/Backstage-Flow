@@ -10,6 +10,8 @@ import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/featu
 import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
 import { DashboardPage } from "@/features/dashboard/DashboardPage.tsx";
+import { IntegrationsPage } from "@/features/integrations/IntegrationsPage.tsx";
+import { SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
 import { UsersPage } from "@/features/users/UsersPage.tsx";
 
 /** Páginas das próximas etapas, geradas a partir do menu. */
@@ -54,14 +56,18 @@ export const router = createBrowserRouter([
           </RequirePermission>
         ),
       },
-      { path: "configuracoes", element: <Navigate to="/configuracoes/usuarios" replace /> },
       {
-        path: "configuracoes/usuarios",
+        path: "configuracoes",
         element: (
-          <RequirePermission permission="users.manage">
-            <UsersPage />
+          <RequirePermission permission="settings.manage">
+            <SettingsLayout />
           </RequirePermission>
         ),
+        children: [
+          { index: true, element: <Navigate to="/configuracoes/usuarios" replace /> },
+          { path: "usuarios", element: <UsersPage /> },
+          { path: "integracoes", element: <IntegrationsPage /> },
+        ],
       },
       ...upcomingRoutes,
       { path: "*", element: <Navigate to="/" replace /> },

@@ -8,6 +8,17 @@ export function adminClient(): SupabaseClient {
   });
 }
 
+/**
+ * Cliente "com o crachá do usuário": as consultas passam pelo RLS como se
+ * fossem feitas pelo site. Usado para conferir se o usuário enxerga um dado.
+ */
+export function userClient(req: Request): SupabaseClient {
+  return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
+  });
+}
+
 export interface Caller {
   id: string;
   email: string;
@@ -15,11 +26,11 @@ export interface Caller {
 }
 
 /**
- * Descobre quem está chamando (pelo token de login) e confere no banco se é
- * um administrador ATIVO. O papel é lido da tabela, não do token, para que
- * desativações tenham efeito imediato.
+ * Descobre quem está chamando (pelo token de login) e confere no banco se o
+ * usuário está ATIVO e tem um dos papéis permitidos. O papel é lido da tabela,
+ * não do token, para que desativações tenham efeito imediato.
  */
-export async function requireAdmin(req: Request, admin: SupabaseClient): Promise<Caller> {
+export async function requireRole(req: Request, admin: SupabaseClient, roles: readonly string[]): Promise<Caller> {
   const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) throw new AppError(401, "UNAUTHENTICATED", "Faça login para continuar.");
 
@@ -35,8 +46,19 @@ export async function requireAdmin(req: Request, admin: SupabaseClient): Promise
     .maybeSingle();
 
   if (profileError) throw new AppError(500, "DB_ERROR", "Não conseguimos verificar sua permissão.", profileError);
-  if (!profile || !profile.active || profile.role !== "admin") {
-    throw new AppError(403, "FORBIDDEN", "Apenas administradores podem gerenciar usuários.");
+  if (!profile || !profile.active || !roles.includes(profile.role)) {
+    throw new AppError(403, "FORBIDDEN", "Você não tem permissão para esta ação.");
   }
   return { id: profile.id, email: profile.email, role: profile.role };
+}
+
+export async function requireAdmin(req: Request, admin: SupabaseClient): Promise<Caller> {
+  try {
+    return await requireRole(req, admin, ["admin"]);
+  } catch (err) {
+    if (err instanceof AppError && err.code === "FORBIDDEN") {
+      throw new AppError(403, "FORBIDDEN", "Apenas administradores podem gerenciar usuários.");
+    }
+    throw err;
+  }
 }

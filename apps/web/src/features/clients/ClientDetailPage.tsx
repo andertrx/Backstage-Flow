@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useClient } from "./api.ts";
+import { PlatformAccountsCard } from "@/features/ad-accounts/PlatformAccountsCard.tsx";
 import { ClientAccessCard } from "./ClientAccessCard.tsx";
 import { ClientFormModal } from "./ClientFormModal.tsx";
 import { LinkedAccountsCard } from "./LinkedAccountsCard.tsx";
@@ -83,7 +84,7 @@ export function ClientDetailPage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <LinkedAccountsCard title="Contas Meta Ads" icon={Megaphone} step={3} />
+        <PlatformAccountsCard clientId={client.id} platform="meta" icon={Megaphone} />
         <LinkedAccountsCard title="Contas Google Ads" icon={Search} step={4} />
       </div>
 

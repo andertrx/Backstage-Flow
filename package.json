@@ -10,7 +10,9 @@
     "build": "npm run build -w @backstage/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present"
+    "lint": "npm run lint --workspaces --if-present",
+    "test:functions": "npx -y deno@latest test --config supabase/functions/deno.json --allow-env supabase/functions/",
+    "check:functions": "npx -y deno@latest check --config supabase/functions/deno.json supabase/functions/*/index.ts"
   },
   "engines": {
     "node": ">=20"

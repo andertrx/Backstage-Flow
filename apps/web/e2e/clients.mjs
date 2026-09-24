@@ -46,7 +46,8 @@ import { check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
   await page.getByText("11.222.333/0001-81").waitFor();
   await page.getByText("+55 (45) 99999-8888").waitFor();
   check(true, "detalhe mostra CNPJ e telefone formatados");
-  check(await page.getByText("A conexão com a plataforma será construída na Etapa 3.").isVisible(), "seção de contas Meta sem dados inventados");
+  await page.getByRole("heading", { name: "Contas Meta Ads" }).waitFor();
+  check(await page.getByText("Nenhuma conta vinculada.").first().isVisible(), "seção de contas Meta vazia, sem dados inventados");
   check(await page.getByText("A conexão com a plataforma será construída na Etapa 4.").isVisible(), "seção de contas Google sem dados inventados");
 
   // Equipe com acesso

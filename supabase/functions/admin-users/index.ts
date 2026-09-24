@@ -36,14 +36,14 @@ const schema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("update"),
-    userId: z.uuid(),
+    userId: z.guid("Identificador inválido."),
     fullName: fullName.optional(),
     role: z.enum(ROLES).optional(),
     active: z.boolean().optional(),
   }),
   z.object({
     action: z.literal("set_password"),
-    userId: z.uuid(),
+    userId: z.guid("Identificador inválido."),
     password,
   }),
 ]);
