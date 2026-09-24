@@ -4,4 +4,23 @@ Dashboard de performance de tráfego pago (Meta Ads + Google Ads) com histórico
 
 O projeto é construído em etapas. A documentação de cada etapa fica em [`docs/`](docs/).
 
-- [Etapa 0 — Planejamento](docs/etapa-00-planejamento/README.md) *(aguardando aprovação — versão 2, com Supabase)*
+- [Etapa 0 — Planejamento](docs/etapa-00-planejamento/README.md) ✅ aprovada
+- [Etapa 1 — Login e usuários](docs/etapa-01-login-usuarios/README.md) *(aguardando validação)*
+
+## Estrutura
+
+```
+apps/web/          site (React + Vite + Tailwind)
+packages/shared/   código compartilhado (papéis, permissões; futuramente métricas e períodos)
+supabase/          migrações do banco, testes de segurança e Edge Functions
+docs/              documentação etapa por etapa
+```
+
+## Comandos
+
+```bash
+npm install
+npm run dev        # site em http://localhost:5173 (requer apps/web/.env.local)
+npm test           # testes unitários
+npm run typecheck  # verificação de tipos
+```
