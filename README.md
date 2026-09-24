@@ -8,13 +8,14 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 1 — Login e usuários](docs/etapa-01-login-usuarios/README.md) ✅ concluída
 - [Etapa 2 — Clientes](docs/etapa-02-clientes/README.md) ✅ concluída
 - [Etapa 3 — Meta Ads](docs/etapa-03-meta-ads/README.md) ✅ concluída
-- [Etapa 4 — Google Ads](docs/etapa-04-google-ads/README.md) *(aguardando validação)*
+- [Etapa 4 — Google Ads](docs/etapa-04-google-ads/README.md) ✅ concluída
+- [Etapa 5 — Banco histórico](docs/etapa-05-banco-historico/README.md) *(aguardando validação)*
 
 ## Estrutura
 
 ```
 apps/web/          site (React + Vite + Tailwind)
-packages/shared/   código compartilhado (papéis, permissões, CNPJ, telefone; futuramente métricas e períodos)
+packages/shared/   código compartilhado (papéis, permissões, CNPJ, telefone, fórmulas de métricas e períodos)
 supabase/          migrações do banco, testes de segurança e Edge Functions
 docs/              documentação etapa por etapa
 ```
