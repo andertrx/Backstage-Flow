@@ -44,7 +44,7 @@ export interface DashboardFilters {
   currency: string | null;
 }
 
-const PARAM: Record<keyof DashboardFilters, string> = {
+export const FILTER_PARAMS: Record<keyof DashboardFilters, string> = {
   period: "periodo",
   from: "de",
   to: "ate",
@@ -66,31 +66,31 @@ const uuid = (value: string | null) => (value && UUID_RE.test(value) ? value.toL
 
 /** Lê os filtros do endereço, ignorando qualquer valor inválido. */
 export function parseFilters(params: URLSearchParams): DashboardFilters {
-  const period = pick(params.get(PARAM.period), PERIOD_OPTIONS.map((o) => o.value)) ?? DEFAULT_PERIOD;
-  const from = params.get(PARAM.from);
-  const to = params.get(PARAM.to);
+  const period = pick(params.get(FILTER_PARAMS.period), PERIOD_OPTIONS.map((o) => o.value)) ?? DEFAULT_PERIOD;
+  const from = params.get(FILTER_PARAMS.from);
+  const to = params.get(FILTER_PARAMS.to);
   const customOk = period === "custom" && from && to && isValidRange({ from, to });
   return {
     period: period === "custom" && !customOk ? DEFAULT_PERIOD : period,
     from: customOk ? from : null,
     to: customOk ? to : null,
-    clientId: uuid(params.get(PARAM.clientId)),
-    platform: pick(params.get(PARAM.platform), PLATFORM_OPTIONS.map((o) => o.value)),
-    accountId: uuid(params.get(PARAM.accountId)),
-    campaignId: uuid(params.get(PARAM.campaignId)),
-    status: pick(params.get(PARAM.status), CAMPAIGN_STATUS_OPTIONS.map((o) => o.value)),
-    currency: currencyCode(params.get(PARAM.currency)),
+    clientId: uuid(params.get(FILTER_PARAMS.clientId)),
+    platform: pick(params.get(FILTER_PARAMS.platform), PLATFORM_OPTIONS.map((o) => o.value)),
+    accountId: uuid(params.get(FILTER_PARAMS.accountId)),
+    campaignId: uuid(params.get(FILTER_PARAMS.campaignId)),
+    status: pick(params.get(FILTER_PARAMS.status), CAMPAIGN_STATUS_OPTIONS.map((o) => o.value)),
+    currency: currencyCode(params.get(FILTER_PARAMS.currency)),
   };
 }
 
 /** Escreve os filtros no endereço (valores vazios e o período padrão não aparecem). */
 export function serializeFilters(filters: DashboardFilters): URLSearchParams {
   const params = new URLSearchParams();
-  for (const key of Object.keys(PARAM) as (keyof DashboardFilters)[]) {
+  for (const key of Object.keys(FILTER_PARAMS) as (keyof DashboardFilters)[]) {
     const value = filters[key];
     if (!value || (key === "period" && value === DEFAULT_PERIOD)) continue;
     if ((key === "from" || key === "to") && filters.period !== "custom") continue;
-    params.set(PARAM[key], value);
+    params.set(FILTER_PARAMS[key], value);
   }
   return params;
 }
@@ -131,4 +131,16 @@ export function resolveFilterPeriod(filters: DashboardFilters, timezone = DEFAUL
 
 export function hasActiveFilters(filters: DashboardFilters): boolean {
   return Boolean(filters.clientId || filters.platform || filters.accountId || filters.campaignId || filters.status);
+}
+
+/**
+ * Junta os filtros com os demais parâmetros do endereço (ex.: busca da tabela
+ * de campanhas), que são preservados. A paginação volta para a página 1.
+ */
+export function mergeFilterParams(current: URLSearchParams, filters: DashboardFilters): URLSearchParams {
+  const next = new URLSearchParams(current);
+  for (const name of Object.values(FILTER_PARAMS)) next.delete(name);
+  next.delete("pagina");
+  for (const [k, v] of serializeFilters(filters)) next.set(k, v);
+  return next;
 }

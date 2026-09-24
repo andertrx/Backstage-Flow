@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
-    "e2e": "node e2e/smoke.mjs && node e2e/clients.mjs && node e2e/meta.mjs && node e2e/google.mjs && node e2e/dashboard.mjs && node e2e/balance.mjs && node e2e/health.mjs && node e2e/recovery.mjs"
+    "e2e": "node e2e/smoke.mjs && node e2e/clients.mjs && node e2e/meta.mjs && node e2e/google.mjs && node e2e/dashboard.mjs && node e2e/balance.mjs && node e2e/health.mjs && node e2e/campaigns.mjs && node e2e/recovery.mjs"
   },
   "dependencies": {
     "@backstage/shared": "*",

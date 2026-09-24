@@ -14,7 +14,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 5 — Banco histórico](docs/etapa-05-banco-historico/README.md) ✅ concluída
 - [Etapa 6 — Dashboard principal](docs/etapa-06-dashboard-principal/README.md) ✅ concluída
 - [Etapa 7 — Verificação de saldo](docs/etapa-07-verificacao-saldo/README.md) ✅ concluída
-- [Etapa 8 — Saúde das contas](docs/etapa-08-saude-contas/README.md) *(aguardando validação)*
+- [Etapa 8 — Saúde das contas](docs/etapa-08-saude-contas/README.md) ✅ concluída
+- [Etapa 9 — Campanhas](docs/etapa-09-campanhas/README.md) *(aguardando validação)*
 
 ## Estrutura
 

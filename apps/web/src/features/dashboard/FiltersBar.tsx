@@ -1,6 +1,7 @@
 import { formatAccountId } from "@backstage/shared";
 import { X } from "lucide-react";
 import { useMemo } from "react";
+import { cn } from "@/lib/cn.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
@@ -23,13 +24,19 @@ interface FiltersBarProps {
   clients: Client[];
   onChange: (patch: Partial<DashboardFilters>) => void;
   onClear: () => void;
+  /** Esconde os campos de campanha e status (a tela de Campanhas tem os próprios). */
+  campaignFields?: boolean;
 }
 
 const range = (r: { from: string; to: string }) => (r.from === r.to ? formatDate(r.from) : `${formatDate(r.from)} a ${formatDate(r.to)}`);
 
-export function FiltersBar({ filters, period, clients, onChange, onClear }: FiltersBarProps) {
+export function FiltersBar({ filters, period, clients, onChange, onClear, campaignFields = true }: FiltersBarProps) {
   const { data: accounts = [] } = useFilterAccounts();
-  const { data: campaigns = [], isFetching: loadingCampaigns } = useFilterCampaigns(filters.clientId, filters.accountId, filters.platform);
+  const { data: campaigns = [], isFetching: loadingCampaigns } = useFilterCampaigns(
+    campaignFields ? filters.clientId : null,
+    campaignFields ? filters.accountId : null,
+    filters.platform,
+  );
 
   const visibleAccounts = useMemo(
     () => accounts.filter((a) => (!filters.clientId || a.client_id === filters.clientId) && (!filters.platform || a.platform_id === filters.platform)),
@@ -39,7 +46,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear }: Filt
 
   return (
     <Card className="space-y-4 p-4" role="search" aria-label="Filtros do dashboard">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={cn("grid gap-3 sm:grid-cols-2", campaignFields ? "lg:grid-cols-3" : "lg:grid-cols-4")}>
         <Field label="Período">
           {(id) => (
             <Select
@@ -86,6 +93,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear }: Filt
             </Select>
           )}
         </Field>
+        {campaignFields && (
         <Field label="Campanha">
           {(id) => (
             <Select
@@ -103,6 +111,8 @@ export function FiltersBar({ filters, period, clients, onChange, onClear }: Filt
             </Select>
           )}
         </Field>
+        )}
+        {campaignFields && (
         <Field label="Status da campanha">
           {(id) => (
             <Select id={id} value={filters.status ?? ""} onChange={(e) => onChange({ status: e.target.value || null })}>
@@ -113,6 +123,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear }: Filt
             </Select>
           )}
         </Field>
+        )}
       </div>
 
       {filters.period === "custom" && (
@@ -136,7 +147,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear }: Filt
         <p data-testid="period-text">
           <strong className="font-medium text-slate-700">{range(period.current)}</strong> · comparado com {range(period.previous)}
         </p>
-        {hasActiveFilters(filters) && (
+        {hasActiveFilters(campaignFields ? filters : { ...filters, campaignId: null, status: null }) && (
           <Button variant="ghost" className="px-2 py-1 text-xs" onClick={onClear}>
             <X className="size-3.5" aria-hidden /> Limpar filtros
           </Button>

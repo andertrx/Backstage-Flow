@@ -9,6 +9,7 @@ import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage.tsx";
 import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/features/auth/guards.tsx";
 import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
+import { CampaignsPage } from "@/features/campaigns/CampaignsPage.tsx";
 import { DashboardPage } from "@/features/dashboard/DashboardPage.tsx";
 import { AccountsHealthPage } from "@/features/health/AccountsHealthPage.tsx";
 import { GoogleCallbackPage } from "@/features/integrations/GoogleCallbackPage.tsx";
@@ -55,6 +56,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="clients.view">
             <ClientDetailPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "campanhas",
+        element: (
+          <RequirePermission permission="internal.view">
+            <CampaignsPage />
           </RequirePermission>
         ),
       },

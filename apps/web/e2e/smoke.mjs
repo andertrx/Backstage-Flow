@@ -12,7 +12,7 @@ const { browser, page, errors } = await launch();
 const db = await mockSupabase(page);
 const functionCalls = db.functionCalls;
 
-await page.goto(`${BASE}/campanhas`);
+await page.goto(`${BASE}/relatorios`);
 await page.waitForURL("**/login");
 check(page.url().endsWith("/login"), "sem login, página protegida redireciona para /login");
 await page.screenshot({ path: `${SP}/01-login.png` });
@@ -26,9 +26,9 @@ await page.screenshot({ path: `${SP}/02-login-erro.png` });
 
 await page.getByLabel("Senha").fill(PASSWORD);
 await page.getByRole("button", { name: "Entrar" }).click();
-await page.waitForURL("**/campanhas");
+await page.waitForURL("**/relatorios");
 check(true, "após login volta para a página que tentou abrir");
-await page.getByText("Esta área será desenvolvida na Etapa 9.").waitFor();
+await page.getByText("Esta área será desenvolvida na Etapa 18.").waitFor();
 
 await page.getByRole("link", { name: "Dashboard" }).click();
 await page.getByText("Olá, Ander!").waitFor();

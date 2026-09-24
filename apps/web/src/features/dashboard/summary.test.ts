@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { missingReason, NOT_AVAILABLE, pickCurrency } from "./summary.ts";
-import { parseFilters, resolveFilterPeriod, serializeFilters, updateFilters } from "./filters.ts";
+import { mergeFilterParams, parseFilters, resolveFilterPeriod, serializeFilters, updateFilters } from "./filters.ts";
 
 const totals = { spend_micros: 100, impressions: 0, clicks: 0, leads: null, messages: null, conversions: 0, conversion_value_micros: 0 };
 const ID = "0f8e7d6c-1111-4222-8333-444455556666";
@@ -43,5 +43,14 @@ describe("filtros no endereço", () => {
     expect(updateFilters(f, { clientId: null })).toMatchObject({ clientId: null, accountId: null, campaignId: null });
     expect(updateFilters(f, { accountId: null })).toMatchObject({ clientId: ID, campaignId: null });
     expect(updateFilters(f, { status: "pausada" })).toMatchObject({ campaignId: ID, status: "pausada" });
+  });
+  it("mudar filtros preserva a busca da tabela e volta para a página 1", () => {
+    const current = new URLSearchParams("busca=marca&situacao=ativa&pagina=3&periodo=today");
+    const next = mergeFilterParams(current, { ...parseFilters(current), clientId: ID });
+    expect(next.get("busca")).toBe("marca");
+    expect(next.get("situacao")).toBe("ativa");
+    expect(next.get("pagina")).toBeNull();
+    expect(next.get("cliente")).toBe(ID);
+    expect(next.get("periodo")).toBe("today");
   });
 });

@@ -217,6 +217,50 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
       }));
     }
 
+    // --- Tabela de campanhas (mesma regra de public.campaign_table)
+    if (url.includes("/rest/v1/rpc/campaign_table")) {
+      const p = req.postDataJSON();
+      db.rpcCalls.push({ fn: "campaign_table", ...p });
+      const q = p.p_search?.trim().toLowerCase();
+      const sum = (list, k) => (list.length && !list.every((m) => m[k] == null) ? list.reduce((t, m) => t + (m[k] ?? 0), 0) : null);
+      const div = (a, b, f = 1) => (a != null && b ? (a * f) / b : null);
+      let rows = db.campaigns
+        .filter((c) => (!p.p_client_ids || p.p_client_ids.includes(c.client_id)) && (!p.p_platforms || p.p_platforms.includes(c.platform_id)) &&
+          (!p.p_ad_account_ids || p.p_ad_account_ids.includes(c.ad_account_id)) && (!p.p_statuses || p.p_statuses.includes(c.status)))
+        .map((c) => {
+          const acc = db.adAccounts.find((a) => a.id === c.ad_account_id);
+          const client = db.clients.find((x) => x.id === c.client_id);
+          const ms = db.metrics.filter((m) => m.level === "campaign" && m.campaign_id === c.id && m.date >= p.p_from && m.date <= p.p_to);
+          const has = ms.length > 0;
+          const t = Object.fromEntries(["spend_micros", "impressions", "clicks", "leads", "messages", "conversions", "conversion_value_micros"].map((k) => [k, has ? sum(ms, k) : null]));
+          const reach = (db.periodReach ?? []).find((r) => r.campaign_id === c.id && r.period_start === p.p_from && r.period_end === p.p_to)?.reach ?? null;
+          return {
+            campaign_id: c.id, name: c.name, external_id: c.external_id ?? c.id, client_id: c.client_id, client_name: client?.name ?? "",
+            platform_id: c.platform_id, ad_account_id: c.ad_account_id, account_name: acc?.name ?? "", currency: acc?.currency ?? null,
+            objective: c.objective ?? null, status: c.status, raw_status: null, budget_micros: c.budget_micros ?? null, budget_period: c.budget_period ?? null,
+            has_data: has, ...t, reach, frequency: reach ? t.impressions / reach : null,
+            ctr: div(t.clicks, t.impressions, 100), cpc_micros: div(t.spend_micros, t.clicks), cpm_micros: div(t.spend_micros, t.impressions, 1000),
+            cpl_micros: div(t.spend_micros, t.leads), cpa_micros: div(t.spend_micros, t.conversions),
+            roas: t.conversion_value_micros ? div(t.conversion_value_micros, t.spend_micros) : null,
+          };
+        })
+        .filter((r) => !q || r.name.toLowerCase().includes(q) || r.client_name.toLowerCase().includes(q) || r.external_id === p.p_search.trim());
+      const keyOf = { name: "name", platform: "platform_id", objective: "objective", status: "status", budget: "budget_micros", spend: "spend_micros",
+        impressions: "impressions", reach: "reach", frequency: "frequency", clicks: "clicks", ctr: "ctr", cpc: "cpc_micros", cpm: "cpm_micros",
+        leads: "leads", messages: "messages", conversions: "conversions", cpl: "cpl_micros", cpa: "cpa_micros", roas: "roas" }[p.p_sort];
+      rows.sort((a, b) => {
+        const x = a[keyOf], y = b[keyOf];
+        if (x == null && y == null) return a.name.localeCompare(b.name);
+        if (x == null) return 1;
+        if (y == null) return -1;
+        const cmp = typeof x === "string" ? x.toLowerCase().localeCompare(y.toLowerCase()) : x - y;
+        return (p.p_desc ? -cmp : cmp) || a.name.localeCompare(b.name);
+      });
+      const total = rows.length;
+      rows = rows.slice(p.p_offset, p.p_offset + p.p_limit).map((r) => ({ ...r, total_count: total }));
+      return json(route, 200, rows);
+    }
+
     // --- Resumo do dashboard (mesma regra de public.dashboard_summary)
     if (url.includes("/rest/v1/rpc/dashboard_summary")) {
       const p = req.postDataJSON();
