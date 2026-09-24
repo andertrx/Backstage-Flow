@@ -26,11 +26,13 @@ interface FiltersBarProps {
   onClear: () => void;
   /** Esconde os campos de campanha e status (a tela de Campanhas tem os próprios). */
   campaignFields?: boolean;
+  /** Tela de uma plataforma só (ex.: Meta Ads): esconde o campo Plataforma. */
+  lockedPlatform?: boolean;
 }
 
 const range = (r: { from: string; to: string }) => (r.from === r.to ? formatDate(r.from) : `${formatDate(r.from)} a ${formatDate(r.to)}`);
 
-export function FiltersBar({ filters, period, clients, onChange, onClear, campaignFields = true }: FiltersBarProps) {
+export function FiltersBar({ filters, period, clients, onChange, onClear, campaignFields = true, lockedPlatform = false }: FiltersBarProps) {
   const { data: accounts = [] } = useFilterAccounts();
   const { data: campaigns = [], isFetching: loadingCampaigns } = useFilterCampaigns(
     campaignFields ? filters.clientId : null,
@@ -73,6 +75,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
             </Select>
           )}
         </Field>
+        {!lockedPlatform && (
         <Field label="Plataforma">
           {(id) => (
             <Select id={id} value={filters.platform ?? ""} onChange={(e) => onChange({ platform: e.target.value || null, accountId: null })}>
@@ -83,6 +86,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
             </Select>
           )}
         </Field>
+        )}
         <Field label="Conta">
           {(id) => (
             <Select id={id} value={filters.accountId ?? ""} onChange={(e) => onChange({ accountId: e.target.value || null })}>
@@ -147,7 +151,11 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
         <p data-testid="period-text">
           <strong className="font-medium text-slate-700">{range(period.current)}</strong> · comparado com {range(period.previous)}
         </p>
-        {hasActiveFilters(campaignFields ? filters : { ...filters, campaignId: null, status: null }) && (
+        {hasActiveFilters({
+          ...filters,
+          ...(campaignFields ? {} : { campaignId: null, status: null }),
+          ...(lockedPlatform ? { platform: null } : {}),
+        }) && (
           <Button variant="ghost" className="px-2 py-1 text-xs" onClick={onClear}>
             <X className="size-3.5" aria-hidden /> Limpar filtros
           </Button>

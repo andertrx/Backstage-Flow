@@ -18,7 +18,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 9 — Campanhas](docs/etapa-09-campanhas/README.md) ✅ concluída
 - [Etapa 10 — Conjuntos e Anúncios](docs/etapa-10-conjuntos-anuncios/README.md) ✅ concluída
 - [Etapa 11 — Gráficos](docs/etapa-11-graficos/README.md) ✅ concluída
-- [Etapa 12 — Comparação de períodos](docs/etapa-12-comparacao-periodos/README.md) *(aguardando validação)*
+- [Etapa 12 — Comparação de períodos](docs/etapa-12-comparacao-periodos/README.md) ✅ concluída
+- [Etapa 13 — Visão Meta Ads](docs/etapa-13-visao-meta-ads/README.md) *(aguardando validação)*
 
 ## Estrutura
 

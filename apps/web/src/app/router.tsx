@@ -11,6 +11,8 @@ import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
 import { ComparisonPage } from "@/features/comparison/ComparisonPage.tsx";
 import { CampaignsPage } from "@/features/campaigns/CampaignsPage.tsx";
+import { PlatformPage } from "@/features/platforms/PlatformPage.tsx";
+import { PLATFORM_VIEWS } from "@/features/platforms/logic.ts";
 import { EntityDetailPage } from "@/features/structure/EntityDetailPage.tsx";
 import { DashboardPage } from "@/features/dashboard/DashboardPage.tsx";
 import { AccountsHealthPage } from "@/features/health/AccountsHealthPage.tsx";
@@ -78,6 +80,14 @@ export const router = createBrowserRouter([
           </RequirePermission>
         ),
       })),
+      {
+        path: "meta-ads",
+        element: (
+          <RequirePermission permission="internal.view">
+            <PlatformPage view={PLATFORM_VIEWS.meta} />
+          </RequirePermission>
+        ),
+      },
       {
         path: "contas",
         element: (

@@ -1,6 +1,6 @@
 // Indicadores do resumo geral (cards do Dashboard): o que cada um significa,
 // como é calculado e se subir é bom ou ruim.
-import { cpc, cpl, cpm, ctr, percentChange, roas } from "./formulas.ts";
+import { cpa, cpc, cpl, cpm, ctr, frequency, percentChange, roas } from "./formulas.ts";
 
 /** Totais de um período, como vêm do banco (dinheiro em micros; null = não disponível). */
 export interface MetricTotals {
@@ -11,9 +11,18 @@ export interface MetricTotals {
   messages: number | null;
   conversions: number | null;
   conversion_value_micros: number | null;
+  /**
+   * Alcance do período EXATO, como a plataforma calcula (pessoas únicas).
+   * Nunca é soma de dias ou de contas. Ausente/null = não disponível.
+   */
+  reach?: number | null;
+  /** Frequência informada pela plataforma para o mesmo período (opcional). */
+  frequency?: number | null;
 }
 
-export type KpiKey = "spend" | "leads" | "messages" | "conversions" | "cpl" | "cpc" | "cpm" | "ctr" | "roas";
+export type KpiKey =
+  | "spend" | "leads" | "messages" | "conversions" | "cpl" | "cpc" | "cpm" | "ctr" | "roas"
+  | "reach" | "impressions" | "frequency" | "clicks" | "cpa";
 export type KpiFormat = "money" | "integer" | "decimal" | "percent" | "ratio";
 /** up = subir é bom · down = subir é ruim (custo) · neutral = depende do objetivo. */
 export type KpiDirection = "up" | "down" | "neutral";
@@ -45,6 +54,16 @@ export const KPI_DEFINITIONS: KpiDefinition[] = [
     description: "Taxa de cliques = cliques ÷ impressões × 100. Mostra o quanto o anúncio chama atenção." },
   { key: "roas", label: "ROAS", format: "ratio", direction: "up",
     description: "Retorno sobre o investimento = valor das conversões ÷ investimento. 3,5x = R$ 3,50 de receita para cada R$ 1 investido." },
+  { key: "reach", label: "Alcance", format: "integer", direction: "up",
+    description: "Pessoas diferentes que viram os anúncios no período, como a plataforma calcula. Não pode ser somado entre dias ou contas (a mesma pessoa seria contada duas vezes)." },
+  { key: "impressions", label: "Impressões", format: "integer", direction: "neutral",
+    description: "Quantas vezes os anúncios apareceram na tela (a mesma pessoa pode ver mais de uma vez)." },
+  { key: "frequency", label: "Frequência", format: "decimal", direction: "neutral",
+    description: "Média de vezes que cada pessoa viu os anúncios = impressões ÷ alcance. Muito alta pode cansar o público." },
+  { key: "clicks", label: "Cliques", format: "integer", direction: "up",
+    description: "Cliques nos anúncios, como a plataforma informa." },
+  { key: "cpa", label: "CPA", format: "money", direction: "down",
+    description: "Custo por aquisição = investimento ÷ conversões. Quanto menor, melhor." },
 ];
 
 /** Valores dos indicadores (null = não dá para calcular / não disponível). */
@@ -60,6 +79,11 @@ export function computeKpis(t: MetricTotals): Record<KpiKey, number | null> {
     ctr: ctr(t.clicks, t.impressions),
     // ROAS só quando a plataforma informou valor de conversão maior que zero.
     roas: t.conversion_value_micros ? roas(t.conversion_value_micros, t.spend_micros) : null,
+    reach: t.reach ?? null,
+    impressions: t.impressions,
+    frequency: t.frequency ?? frequency(t.impressions, t.reach ?? null),
+    clicks: t.clicks,
+    cpa: cpa(t.spend_micros, t.conversions),
   };
 }
 

@@ -98,7 +98,7 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
           return {
             ad_account_id: a.id, client_id: a.client_id, client_name: db.clients.find((c) => c.id === a.client_id)?.name ?? "",
             platform_id: a.platform_id, external_id: a.external_id, name: a.name, currency: s.currency ?? a.currency, status: a.status ?? "ativa",
-            is_prepay: null, low_balance_days: a.low_balance_days ?? 3, low_balance_amount_micros: a.low_balance_amount_micros ?? null,
+            is_prepay: a.is_prepay ?? null, low_balance_days: a.low_balance_days ?? 3, low_balance_amount_micros: a.low_balance_amount_micros ?? null,
             captured_at: s.captured_at ?? null, available_micros: s.available_micros ?? null, available_basis: s.available_basis ?? null,
             amount_spent_micros: s.amount_spent_micros ?? null, amount_due_micros: s.amount_due_micros ?? null,
             spend_cap_micros: s.spend_cap_micros ?? null, budget_micros: s.budget_micros ?? null, budget_end_at: s.budget_end_at ?? null,
@@ -202,6 +202,34 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
       const platform = eqParam(url, "platform_id");
       return json(route, 200, db.campaigns.filter((c) =>
         (!accountId || c.ad_account_id === accountId) && (!clientId || c.client_id === clientId) && (!platform || c.platform_id === platform)));
+    }
+
+    // --- Estrutura por plataforma (mesma regra de public.platform_structure)
+    if (url.includes("/rest/v1/rpc/platform_structure")) {
+      const p = req.postDataJSON();
+      db.rpcCalls.push({ fn: "platform_structure", ...p });
+      const accs = new Set(db.adAccounts.filter((a) => a.platform_id === p.p_platform && !a.unlinked_at &&
+        (!p.p_client_ids || p.p_client_ids.includes(a.client_id)) && (!p.p_ad_account_ids || p.p_ad_account_ids.includes(a.id))).map((a) => a.id));
+      const accountOf = (x) => x.ad_account_id ?? db.campaigns.find((c) => c.id === x.campaign_id)?.ad_account_id;
+      const out = [];
+      for (const [level, list] of [["campaign", db.campaigns], ["ad_group", db.adGroups], ["ad", db.ads]]) {
+        const counts = {};
+        for (const x of list) {
+          const campaignId = level === "campaign" ? x.id : x.campaign_id;
+          if (!accs.has(accountOf(x)) || (p.p_campaign_ids && !p.p_campaign_ids.includes(campaignId))) continue;
+          counts[x.status] = (counts[x.status] ?? 0) + 1;
+        }
+        for (const [status, total] of Object.entries(counts)) out.push({ level, status, total });
+      }
+      return json(route, 200, out);
+    }
+
+    // --- Alcance por período (tabela public.period_reach, lida direto com o RLS)
+    if (url.includes("/rest/v1/period_reach")) {
+      const f = (k) => eqParam(url, k);
+      db.reachQueries = (db.reachQueries ?? 0) + 1;
+      return json(route, 200, (db.reachRows ?? []).filter((r) => r.ad_account_id === f("ad_account_id") && r.level === f("level") &&
+        r.entity_external_id === f("entity_external_id") && r.period_start === f("period_start") && r.period_end === f("period_end")));
     }
 
     // --- Saldo das contas (mesma regra de public.account_balances)

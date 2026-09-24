@@ -24,8 +24,27 @@ describe("indicadores", () => {
     expect(computeKpis({ ...base, impressions: 0, clicks: 0 }).ctr).toBeNull();
   });
 
+  it("alcance, frequência e CPA", () => {
+    const k = computeKpis({ ...base, reach: 14_000 });
+    expect(k.reach).toBe(14_000);
+    expect(k.frequency).toBe(2.5);
+    expect(k.impressions).toBe(35_000);
+    expect(k.clicks).toBe(700);
+    expect(k.cpa).toBe(10);
+    // Frequência informada pela plataforma tem prioridade
+    expect(computeKpis({ ...base, reach: 14_000, frequency: 2.4817 }).frequency).toBe(2.4817);
+  });
+
+  it("sem alcance do período: alcance e frequência ficam indisponíveis (nunca somados)", () => {
+    const k = computeKpis(base);
+    expect(k.reach).toBeNull();
+    expect(k.frequency).toBeNull();
+    expect(computeKpis({ ...base, conversions: 0 }).cpa).toBeNull();
+  });
+
   it("todos os cards têm explicação", () => {
-    expect(KPI_DEFINITIONS).toHaveLength(9);
+    expect(KPI_DEFINITIONS).toHaveLength(14);
+    expect(new Set(KPI_DEFINITIONS.map((d) => d.key)).size).toBe(14);
     for (const d of KPI_DEFINITIONS) expect(d.description.length).toBeGreaterThan(20);
   });
 });

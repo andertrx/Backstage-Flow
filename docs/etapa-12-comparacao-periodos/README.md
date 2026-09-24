@@ -1,6 +1,6 @@
 # ETAPA 12 — Comparação de períodos
 
-> Status: **concluída e testada**, aguardando sua validação.
+> Status: **concluída e validada**.
 
 ## 1. O que fizemos (explicado de forma simples)
 
