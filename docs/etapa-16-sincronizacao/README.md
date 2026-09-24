@@ -100,6 +100,19 @@ Depois de cada sincronização, os **alertas** são verificados de novo.
 
 **Limite importante:** ainda **não há nenhuma conta do Meta ou do Google conectada** no sistema. Por isso a sincronização real com dados de verdade ainda não pôde ser vista. Todos os testes acima usam contas simuladas, e a função real no servidor foi chamada e respondeu certo.
 
+### Melhoria pedida durante a validação: "Ver contas desta conexão"
+
+Em **Configurações → Integrações**, cada conexão agora tem o botão **Ver contas desta conexão**. Ele mostra:
+- as contas de anúncio que a conexão enxerga, **agrupadas por BM** no Meta (ou por MCC no Google);
+- o ID, a moeda e o status de cada conta;
+- se a conta já está vinculada, e a qual cliente.
+
+É só para ver: para vincular, continue usando **Clientes → (cliente) → Vincular conta**.
+
+Se a conexão não enxergar nenhuma conta, a tela explica como liberar no Meta: **Usuários do sistema → Atribuir ativos → Contas de anúncios**.
+
+Testes: 2 novos de agrupamento e 6 novas verificações no navegador (464 no total).
+
 ## 5. Como testar manualmente
 
 1. Vá em **Configurações → Integrações** e conecte o **Meta Ads** e/ou o **Google Ads**.
@@ -125,6 +138,7 @@ supabase/functions/_shared/platforms/google/sync.ts         → estrutura e mét
 supabase/functions/_shared/platforms/sync_test.ts
 apps/web/src/features/sync/{SyncPage.tsx, api.ts, logic.ts, logic.test.ts}
 apps/web/e2e/sync.mjs
+apps/web/src/features/integrations/{ConnectionAccountsModal.tsx, groupAccounts.ts, groupAccounts.test.ts}
 docs/etapa-16-sincronizacao/README.md
 ```
 
@@ -133,6 +147,8 @@ docs/etapa-16-sincronizacao/README.md
 supabase/functions/_shared/platforms/{types.ts, adapter.ts, meta/adapter.ts, google/adapter.ts}
 apps/web/src/app/router.tsx, apps/web/src/components/layout/navigation.ts → /sincronizacao deixa de ser "em breve"
 apps/web/e2e/support.mjs, apps/web/package.json, README.md, docs/etapa-15-central-alertas/README.md
+apps/web/src/features/integrations/ConnectionsList.tsx          → botão "Ver contas desta conexão"
+apps/web/e2e/meta.mjs
 ```
 
 **Configuração no banco (dado, não código):** endereço das funções em `private.app_settings` (`functions_url`). A senha interna do agendador foi criada no cofre pela própria migração e não aparece em nenhum arquivo.

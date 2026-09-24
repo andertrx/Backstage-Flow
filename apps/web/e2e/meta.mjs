@@ -44,6 +44,18 @@ const CLIENT = {
   check(true, "conexão aparece na lista (sem mostrar o token)");
   await page.screenshot({ path: `${SHOTS}/20-integracoes-meta.png`, fullPage: true });
 
+  // Ver contas desta conexão (agrupadas por BM)
+  await page.getByRole("button", { name: "Ver contas desta conexão" }).click();
+  const seen = page.getByRole("dialog", { name: /Contas desta conexão/ });
+  await seen.getByTestId("connection-accounts-group").first().waitFor();
+  const seenText = (await seen.innerText()).replace(/\s+/g, " ");
+  check(seenText.includes("2 contas encontradas em 1 BM · 0 já vinculadas"), `resumo das contas da conexão (${seenText.slice(0, 120)})`);
+  check(await seen.getByRole("region", { name: "BM: BM Agência" }).count() === 1 && seenText.includes("BM: BM Agência (2)"), "contas agrupadas por BM");
+  check(seenText.includes("Excalibur - Principal") && seenText.includes("act_1002") && seenText.includes("Não vinculada"), "mostra cada conta, o ID e se já está vinculada");
+  await page.screenshot({ path: `${SHOTS}/23-contas-da-conexao.png` });
+  check(db.adAccountCalls.some((c) => c.action === "list_available"), "busca as contas no servidor (token não sai de lá)");
+  await seen.getByRole("button", { name: "Fechar", exact: true }).click();
+
   // Vincular conta ao cliente
   await page.getByRole("link", { name: "Clientes" }).first().click();
   await page.getByRole("tab", { name: /Todos/ }).click();
@@ -102,6 +114,25 @@ const CLIENT = {
   await page.getByText("Olá, Ander!").waitFor();
   check(true, "visualizador não acessa Integrações");
   check(errors.length === 0, "nenhum erro de JavaScript (visualizador): " + errors.join(" | "));
+  await browser.close();
+}
+
+
+// ------------------------------------------------------------ conexão que ainda não enxerga contas
+{
+  const { browser, page, errors } = await launch();
+  const db = await mockSupabase(page, { role: "admin" });
+  db.metaAccounts = [];
+  db.connections.push({ id: "c0000000-0000-4000-8000-000000000001", platform_id: "meta", label: "BM - STG", status: "ativa", external_user_id: "su1",
+    external_user_name: "Backstage Flow - By STG", last_checked_at: new Date().toISOString(), last_error: null, created_at: new Date().toISOString() });
+  await login(page, "/configuracoes/integracoes");
+  await page.getByRole("button", { name: "Ver contas desta conexão" }).click();
+  const dialog = page.getByRole("dialog", { name: /Contas desta conexão/ });
+  await dialog.getByText("Esta conexão ainda não enxerga nenhuma conta de anúncio.").waitFor();
+  const text = (await dialog.innerText()).replace(/\s+/g, " ");
+  check(text.includes("Atribuir ativos → Contas de anúncios") && text.includes("Backstage Flow - By STG"), "sem contas: explica como liberar no Meta, com o nome do usuário do sistema");
+  await page.screenshot({ path: `${SHOTS}/24-conexao-sem-contas.png` });
+  check(errors.length === 0, "nenhum erro de JavaScript (conexão sem contas): " + errors.join(" | "));
   await browser.close();
 }
 
