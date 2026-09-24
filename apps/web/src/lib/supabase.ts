@@ -17,3 +17,15 @@ export const supabase = createClient(url ?? "http://localhost", publishableKey ?
     flowType: "pkce",
   },
 });
+
+/**
+ * Link de "esqueci minha senha": abre sempre a tela de nova senha, mesmo que o
+ * e-mail tenha trazido a pessoa para outra página do site. Precisa ser
+ * registrado aqui, logo ao criar o cliente: o aviso de recuperação chega antes
+ * de as telas começarem a ouvir.
+ */
+supabase.auth.onAuthStateChange((event) => {
+  if (event === "PASSWORD_RECOVERY" && window.location.pathname !== "/redefinir-senha") {
+    window.location.replace("/redefinir-senha");
+  }
+});

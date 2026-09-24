@@ -114,6 +114,11 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
 
     // --- Auth
     if (url.includes("/auth/v1/token")) {
+      // Link de recuperação (PKCE): troca o código por uma sessão.
+      if (url.includes("grant_type=pkce")) {
+        db.pkceExchanges = (db.pkceExchanges ?? 0) + 1;
+        return json(route, 200, { access_token: jwt, token_type: "bearer", expires_in: 3600, expires_at: now + 3600, refresh_token: "r1", user });
+      }
       if (req.postDataJSON().password !== PASSWORD) {
         return json(route, 400, { code: 400, error_code: "invalid_credentials", msg: "Invalid login credentials" });
       }
