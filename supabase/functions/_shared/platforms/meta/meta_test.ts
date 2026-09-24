@@ -128,3 +128,30 @@ Deno.test("getAccount: recusa id que não é numérico (evita montar URL arbitr�
   await assertRejects(() => createMetaAdapter(impl).getAccount("TOKEN", "../me"), AppError);
   assertEquals(calls.length, 0);
 });
+
+Deno.test("lista grande: quando o Meta pede menos dados, repete com páginas menores e segue", async () => {
+  const { graphGetAll } = await import("./client.ts");
+  const limits: string[] = [];
+  const fake = (input: string | URL | Request) => {
+    const url = new URL(String(input));
+    const limit = url.searchParams.get("limit")!;
+    limits.push(limit);
+    if (Number(limit) > 25) {
+      return Promise.resolve(new Response(JSON.stringify({ error: { code: 1, message: "Please reduce the amount of data you're asking for, then retry your request" } }), { status: 500 }));
+    }
+    const after = url.searchParams.get("after");
+    return Promise.resolve(new Response(JSON.stringify(after
+      ? { data: [{ id: "3" }] }
+      : { data: [{ id: "1" }, { id: "2" }], paging: { next: "https://graph.facebook.com/v26.0/act_1/ads?after=x&limit=100&access_token=VAZADO" } })));
+  };
+  const rows = await graphGetAll<{ id: string }>("act_1/ads", { limit: "100" }, "tok", fake as typeof fetch);
+  assertEquals(rows.map((r) => r.id), ["1", "2", "3"]);
+  assertEquals(limits, ["100", "50", "25", "25"], "100 → 50 → 25, e a próxima página continua em 25");
+});
+
+Deno.test("lista grande: se nem a menor página passa, mostra o erro", async () => {
+  const { graphGetAll } = await import("./client.ts");
+  const fake = () => Promise.resolve(new Response(JSON.stringify({ error: { code: 1, message: "Please reduce the amount of data you're asking for" } }), { status: 500 }));
+  const err = await assertRejects(() => graphGetAll("act_1/ads", { limit: "40" }, "tok", fake as typeof fetch), AppError);
+  assertEquals(err.code, "PLATFORM_UNAVAILABLE");
+});

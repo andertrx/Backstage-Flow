@@ -79,21 +79,47 @@ export async function graphGet<T>(path: string, params: Params, token: string, f
   return (await request(graphUrl(path, params), token, fetchImpl)) as T;
 }
 
-/** Percorre todas as páginas de uma lista ("paging.next"). */
+/** O Meta recusou por excesso de dados (código 1: "Please reduce the amount of data..."). */
+export function isTooMuchData(err: unknown): boolean {
+  if (!(err instanceof AppError)) return false;
+  const t = err.technical as { code?: number; message?: string } | undefined;
+  return t?.code === 1 && /reduce the amount of data/i.test(t.message ?? "");
+}
+
+/** Menor página que ainda tentamos quando o Meta pede menos dados de uma vez. */
+export const MIN_PAGE_SIZE = 10;
+
+/**
+ * Percorre todas as páginas de uma lista ("paging.next").
+ * Se o Meta pedir menos dados de uma vez, repete a mesma página com a metade
+ * do tamanho (até MIN_PAGE_SIZE) e segue as próximas páginas nesse tamanho.
+ */
 export async function graphGetAll<T>(path: string, params: Params, token: string, fetchImpl: typeof fetch = fetch): Promise<T[]> {
   const items: T[] = [];
   let url: URL | null = graphUrl(path, { limit: "100", ...params });
+  let limit = Number(url.searchParams.get("limit")) || 100;
   for (let page = 0; url && page < MAX_PAGES; page++) {
-    const body = (await request(url, token, fetchImpl)) as { data?: T[]; paging?: { next?: string } };
+    let body: { data?: T[]; paging?: { next?: string } };
+    try {
+      body = (await request(url, token, fetchImpl)) as typeof body;
+    } catch (err) {
+      if (!isTooMuchData(err) || limit <= MIN_PAGE_SIZE) throw err;
+      limit = Math.max(MIN_PAGE_SIZE, Math.floor(limit / 2));
+      url.searchParams.set("limit", String(limit));
+      page--;
+      continue;
+    }
     items.push(...(body.data ?? []));
     // O "next" já traz o access_token; removemos para reenviar do nosso jeito.
     if (body.paging?.next) {
       url = new URL(body.paging.next);
       url.searchParams.delete("access_token");
       url.searchParams.delete("appsecret_proof");
+      url.searchParams.set("limit", String(limit));
     } else {
       url = null;
     }
   }
+  if (url) throw new AppError(502, "PLATFORM_UNAVAILABLE", "A conta tem mais dados do que conseguimos buscar de uma vez. Tente novamente mais tarde.", { path, pages: MAX_PAGES });
   return items;
 }

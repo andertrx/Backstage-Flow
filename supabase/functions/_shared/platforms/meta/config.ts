@@ -19,4 +19,4 @@ export function appSecret(): string | undefined {
 export const GRAPH_HOST = "https://graph.facebook.com";
 
 /** Limite de páginas ao percorrer listas (proteção contra laços infinitos). */
-export const MAX_PAGES = 50;
+export const MAX_PAGES = 1000;

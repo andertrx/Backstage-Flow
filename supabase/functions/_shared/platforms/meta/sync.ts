@@ -134,20 +134,19 @@ export function mapMetaAd(r: RawAd): PlatformAd {
 
 export async function fetchMetaStructure(token: string, externalId: string, currency: string | null, fetchImpl: typeof fetch): Promise<PlatformStructure> {
   const act = `act_${externalId}`;
-  const [campaigns, adSets, ads] = await Promise.all([
-    graphGetAll<RawCampaign>(`${act}/campaigns`, {
-      fields: "id,name,objective,status,effective_status,daily_budget,lifetime_budget,bid_strategy,start_time,stop_time",
-      limit: "500",
-    }, token, fetchImpl),
-    graphGetAll<RawAdSet>(`${act}/adsets`, {
-      fields: "id,campaign_id,name,status,effective_status,daily_budget,lifetime_budget,optimization_goal,end_time",
-      limit: "500",
-    }, token, fetchImpl),
-    graphGetAll<RawAd>(`${act}/ads`, {
-      fields: "id,adset_id,campaign_id,name,status,effective_status,creative{object_type,thumbnail_url}",
-      limit: "500",
-    }, token, fetchImpl),
-  ]);
+  // Uma lista de cada vez (em paralelo o Meta recusa mais fácil em contas grandes).
+  const campaigns = await graphGetAll<RawCampaign>(`${act}/campaigns`, {
+    fields: "id,name,objective,status,effective_status,daily_budget,lifetime_budget,bid_strategy,start_time,stop_time",
+    limit: "200",
+  }, token, fetchImpl);
+  const adSets = await graphGetAll<RawAdSet>(`${act}/adsets`, {
+    fields: "id,campaign_id,name,status,effective_status,daily_budget,lifetime_budget,optimization_goal,end_time",
+    limit: "200",
+  }, token, fetchImpl);
+  const ads = await graphGetAll<RawAd>(`${act}/ads`, {
+    fields: "id,adset_id,campaign_id,name,status,effective_status,creative{object_type,thumbnail_url}",
+    limit: "100",
+  }, token, fetchImpl);
   return {
     campaigns: campaigns.map((r) => mapMetaCampaign(r, currency)),
     adGroups: adSets.filter((r) => r.campaign_id).map((r) => mapMetaAdSet(r, currency)),
