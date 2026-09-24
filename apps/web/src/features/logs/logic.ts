@@ -1,6 +1,8 @@
 import { auditActionLabel, describeAuditDetails } from "@backstage/shared";
 import type { AuditRow } from "./api.ts";
 
+export { downloadCsv, toCsv } from "@/lib/download.ts";
+
 /** Períodos do filtro. "todos" = sem limite de data. */
 export const LOG_PERIODS = [
   { value: "1", label: "Últimas 24 horas" },
@@ -22,12 +24,6 @@ export function actorLabel(r: Pick<AuditRow, "actor_id" | "actor_name" | "actor_
   return r.actor_name ?? r.actor_email ?? "Usuário removido";
 }
 
-/** Planilha (CSV) do que está na tela — abre no Excel/Google Planilhas em português. */
-export function toCsv(rows: string[][]): string {
-  const cell = (v: string) => (/[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-  return "﻿" + rows.map((r) => r.map(cell).join(";")).join("\n");
-}
-
 export function auditCsvRows(rows: AuditRow[]): string[][] {
   return [
     ["Data e hora", "Quem", "E-mail", "O que fez", "Onde", "Detalhes"],
@@ -40,13 +36,4 @@ export function auditCsvRows(rows: AuditRow[]): string[][] {
       describeAuditDetails(r.action, r.details).join(" | "),
     ]),
   ];
-}
-
-export function downloadCsv(name: string, rows: string[][]) {
-  const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

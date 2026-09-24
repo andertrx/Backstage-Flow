@@ -28,7 +28,7 @@ await page.getByLabel("Senha").fill(PASSWORD);
 await page.getByRole("button", { name: "Entrar" }).click();
 await page.waitForURL("**/relatorios");
 check(true, "após login volta para a página que tentou abrir");
-await page.getByText("Esta área será desenvolvida na Etapa 18.").waitFor();
+await page.getByRole("heading", { name: "Relatórios", level: 1 }).waitFor();
 
 await page.getByRole("link", { name: "Dashboard" }).click();
 await page.getByText("Olá, Ander!").waitFor();

@@ -13,6 +13,7 @@ import { ComparisonPage } from "@/features/comparison/ComparisonPage.tsx";
 import { AlertsPage } from "@/features/alerts/AlertsPage.tsx";
 import { SyncPage } from "@/features/sync/SyncPage.tsx";
 import { LogsPage } from "@/features/logs/LogsPage.tsx";
+import { ReportsPage } from "@/features/reports/ReportsPage.tsx";
 import { CampaignsPage } from "@/features/campaigns/CampaignsPage.tsx";
 import { PlatformPage } from "@/features/platforms/PlatformPage.tsx";
 import { PLATFORM_VIEWS } from "@/features/platforms/logic.ts";
@@ -112,6 +113,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="internal.view">
             <SyncPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "relatorios",
+        element: (
+          <RequirePermission permission="reports.generate">
+            <ReportsPage />
           </RequirePermission>
         ),
       },
