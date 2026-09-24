@@ -69,6 +69,10 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     googleMissing: [],
     functionCalls: [],
     adAccountCalls: [],
+    /** Campanhas e métricas diárias (como public.campaigns / public.metrics_daily). */
+    campaigns: [],
+    metrics: [],
+    rpcCalls: [],
   };
 
   await page.route("**/*.supabase.co/**", async (route) => {
@@ -146,7 +150,43 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     if (url.includes("/rest/v1/ad_accounts")) {
       const clientId = eqParam(url, "client_id");
       const platform = eqParam(url, "platform_id");
-      return json(route, 200, db.adAccounts.filter((a) => a.client_id === clientId && a.platform_id === platform && !a.unlinked_at));
+      return json(route, 200, db.adAccounts.filter((a) => (!clientId || a.client_id === clientId) && (!platform || a.platform_id === platform) && !a.unlinked_at));
+    }
+
+    // --- Campanhas (o site só lê)
+    if (url.includes("/rest/v1/campaigns")) {
+      const accountId = eqParam(url, "ad_account_id");
+      const clientId = eqParam(url, "client_id");
+      const platform = eqParam(url, "platform_id");
+      return json(route, 200, db.campaigns.filter((c) =>
+        (!accountId || c.ad_account_id === accountId) && (!clientId || c.client_id === clientId) && (!platform || c.platform_id === platform)));
+    }
+
+    // --- Resumo do dashboard (mesma regra de public.dashboard_summary)
+    if (url.includes("/rest/v1/rpc/dashboard_summary")) {
+      const p = req.postDataJSON();
+      db.rpcCalls.push(p);
+      const byCampaign = Boolean(p.p_campaign_ids || p.p_campaign_statuses);
+      const rows = db.metrics.filter((m) => {
+        const campaign = db.campaigns.find((c) => c.id === m.campaign_id);
+        return m.level === (byCampaign ? "campaign" : "account") && m.date >= p.p_from && m.date <= p.p_to &&
+          (!p.p_client_ids || p.p_client_ids.includes(m.client_id)) &&
+          (!p.p_platforms || p.p_platforms.includes(m.platform_id)) &&
+          (!p.p_ad_account_ids || p.p_ad_account_ids.includes(m.ad_account_id)) &&
+          (!p.p_campaign_ids || p.p_campaign_ids.includes(m.campaign_id)) &&
+          (!p.p_campaign_statuses || p.p_campaign_statuses.includes(campaign?.status));
+      });
+      const sum = (list, key) => (list.every((r) => r[key] == null) ? null : list.reduce((t, r) => t + (r[key] ?? 0), 0));
+      const groups = Map.groupBy(rows, (r) => r.currency);
+      const out = [...groups].map(([currency, list]) => ({
+        currency, source_level: byCampaign ? "campaign" : "account",
+        ...Object.fromEntries(["spend_micros", "impressions", "clicks", "link_clicks", "leads", "messages", "conversions", "conversion_value_micros"].map((k) => [k, sum(list, k)])),
+        accounts: new Set(list.map((r) => r.ad_account_id)).size,
+        campaigns: new Set(list.map((r) => r.campaign_id).filter(Boolean)).size,
+        days_with_data: new Set(list.map((r) => r.date)).size,
+        last_synced_at: "2026-09-23T22:10:00Z",
+      })).sort((a, b) => b.spend_micros - a.spend_micros);
+      return json(route, 200, out);
     }
 
     // --- Edge Function ad-accounts (simula o servidor + API do Meta)

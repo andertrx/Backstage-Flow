@@ -107,3 +107,18 @@ export function previousPeriod(range: DateRange): DateRange {
 export function samePeriodLastYear(range: DateRange): DateRange {
   return { from: addMonths(range.from, -12), to: addMonths(range.to, -12) };
 }
+
+/**
+ * Período usado na comparação dos cards.
+ * - Mês atual (1º até hoje) → mesmos dias do mês anterior (1º até o mesmo dia).
+ * - Mês anterior → o mês inteiro antes dele.
+ * - Demais → período imediatamente anterior, com a mesma quantidade de dias.
+ */
+export function comparisonPeriod(preset: PeriodPreset | "custom", range: DateRange): DateRange {
+  if (preset === "this_month") return { from: addMonths(range.from, -1), to: addMonths(range.to, -1) };
+  if (preset === "last_month") {
+    const from = addMonths(range.from, -1);
+    return { from, to: addDays(range.from, -1) };
+  }
+  return previousPeriod(range);
+}

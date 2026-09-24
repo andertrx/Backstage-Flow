@@ -9,7 +9,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 2 — Clientes](docs/etapa-02-clientes/README.md) ✅ concluída
 - [Etapa 3 — Meta Ads](docs/etapa-03-meta-ads/README.md) ✅ concluída
 - [Etapa 4 — Google Ads](docs/etapa-04-google-ads/README.md) ✅ concluída
-- [Etapa 5 — Banco histórico](docs/etapa-05-banco-historico/README.md) *(aguardando validação)*
+- [Etapa 5 — Banco histórico](docs/etapa-05-banco-historico/README.md) ✅ concluída
+- [Etapa 6 — Dashboard principal](docs/etapa-06-dashboard-principal/README.md) *(aguardando validação)*
 
 ## Estrutura
 
