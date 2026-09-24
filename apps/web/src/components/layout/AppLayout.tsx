@@ -1,7 +1,8 @@
-import { ROLE_LABELS } from "@backstage/shared";
+import { can, ROLE_LABELS } from "@backstage/shared";
 import { LogOut, Menu, UserCircle, X } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router";
+import { useUnseenAlertsCount } from "@/features/alerts/api.ts";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { cn } from "@/lib/cn.ts";
 import { Logo } from "./Logo.tsx";
@@ -9,6 +10,7 @@ import { navItemsFor } from "./navigation.ts";
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const { profile } = useAuth();
+  const { data: unseen = 0 } = useUnseenAlertsCount(can(profile?.role, "internal.view"));
   return (
     <nav className="flex-1 space-y-1 px-3 py-4" aria-label="Menu principal">
       {navItemsFor(profile?.role).map(({ label, path, icon: Icon }) => (
@@ -26,6 +28,12 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         >
           <Icon className="size-4 shrink-0" aria-hidden />
           {label}
+          {path === "/alertas" && unseen > 0 && (
+            <span className="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-xs font-semibold text-white" data-testid="nav-alerts-count">
+              {unseen > 99 ? "99+" : unseen}
+              <span className="sr-only"> {unseen === 1 ? "alerta não visto" : "alertas não vistos"}</span>
+            </span>
+          )}
         </NavLink>
       ))}
     </nav>

@@ -10,6 +10,7 @@ import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/featu
 import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
 import { ComparisonPage } from "@/features/comparison/ComparisonPage.tsx";
+import { AlertsPage } from "@/features/alerts/AlertsPage.tsx";
 import { CampaignsPage } from "@/features/campaigns/CampaignsPage.tsx";
 import { PlatformPage } from "@/features/platforms/PlatformPage.tsx";
 import { PLATFORM_VIEWS } from "@/features/platforms/logic.ts";
@@ -93,6 +94,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="internal.view">
             <PlatformPage key="google" view={PLATFORM_VIEWS.google} />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "alertas",
+        element: (
+          <RequirePermission permission="internal.view">
+            <AlertsPage />
           </RequirePermission>
         ),
       },

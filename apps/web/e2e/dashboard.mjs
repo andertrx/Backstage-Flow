@@ -163,8 +163,10 @@ const waitValue = async (page, name, expected) => {
 
   // Celular
   await page.setViewportSize({ width: 390, height: 844 });
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
-  check(!overflow, "no celular não há rolagem para o lado");
+  // O gráfico se ajusta à nova largura no quadro seguinte: espera antes de medir.
+  await page.waitForFunction(() => document.documentElement.scrollWidth <= window.innerWidth, null, { timeout: 3000 }).catch(() => {});
+  const overflow = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, vw: window.innerWidth }));
+  check(overflow.sw <= overflow.vw, `no celular não há rolagem para o lado ${JSON.stringify(overflow)}`);
   await page.screenshot({ path: `${SHOTS}/61-dashboard-celular.png`, fullPage: true });
 
   check(errors.length === 0, `sem erros no navegador ${errors.join(" | ")}`);

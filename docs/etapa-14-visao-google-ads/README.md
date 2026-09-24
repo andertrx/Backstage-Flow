@@ -1,6 +1,6 @@
 # ETAPA 14 — Visão Google Ads
 
-> Status: **concluída e testada**, aguardando sua validação.
+> Status: **concluída e validada**.
 
 ## 1. O que fizemos (explicado de forma simples)
 
@@ -48,7 +48,7 @@ O item **Google Ads** do menu (antes "em breve") virou uma área completa, só c
 | ↳ orçamento, validade, já veiculado, disponível e problemas de cobrança | ✅ |
 | ↳ campanhas com conversões e custo/conversão; filtro de conta | ✅ |
 | ↳ o Meta continua com os próprios indicadores; celular; perfil cliente não acessa | ✅ |
-| **Navegador:** todas as verificações anteriores continuam passando (342) | ✅ |
+| **Navegador:** todas as verificações anteriores continuam passando (362) | ✅ |
 
 **Problemas encontrados e corrigidos**
 1. **Cartões de conta atrasados:** depois de trocar o filtro de conta, os cartões levavam um instante para atualizar. O teste agora espera a atualização.

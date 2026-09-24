@@ -20,7 +20,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 11 — Gráficos](docs/etapa-11-graficos/README.md) ✅ concluída
 - [Etapa 12 — Comparação de períodos](docs/etapa-12-comparacao-periodos/README.md) ✅ concluída
 - [Etapa 13 — Visão Meta Ads](docs/etapa-13-visao-meta-ads/README.md) ✅ concluída
-- [Etapa 14 — Visão Google Ads](docs/etapa-14-visao-google-ads/README.md) *(aguardando validação)*
+- [Etapa 14 — Visão Google Ads](docs/etapa-14-visao-google-ads/README.md) ✅ concluída
+- [Etapa 15 — Central de alertas](docs/etapa-15-central-alertas/README.md) *(aguardando validação)*
 
 ## Estrutura
 

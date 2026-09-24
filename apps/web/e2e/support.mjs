@@ -81,6 +81,9 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     snapshots: {},
     fundingApi: {},
     fundingErrors: {},
+    /** Central de alertas (como public.alerts) e o que a próxima verificação encontra. */
+    alerts: [],
+    alertRefresh: null,
     /** Estado da sincronização por conta (como public.sync_state). */
     syncState: {},
   };
@@ -202,6 +205,42 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
       const platform = eqParam(url, "platform_id");
       return json(route, 200, db.campaigns.filter((c) =>
         (!accountId || c.ad_account_id === accountId) && (!clientId || c.client_id === clientId) && (!platform || c.platform_id === platform)));
+    }
+
+    // --- Central de alertas
+    if (url.includes("/rest/v1/rpc/refresh_alerts")) {
+      db.rpcCalls.push({ fn: "refresh_alerts" });
+      if (!["admin", "gestor", "operador"].includes(role)) return json(route, 403, { code: "42501", message: "Sem permissão para verificar alertas" });
+      const r = db.alertRefresh ? db.alertRefresh(db) : { created: 0, updated: db.alerts.filter((a) => a.status !== "resolvido").length, resolved: 0 };
+      return json(route, 200, { ...r, checked_at: new Date().toISOString() });
+    }
+    if (url.includes("/rest/v1/rpc/set_alert_status")) {
+      const p = req.postDataJSON();
+      db.rpcCalls.push({ fn: "set_alert_status", ...p });
+      if (!["admin", "gestor", "operador"].includes(role)) return json(route, 403, { code: "42501", message: "Sem permissão para alterar alertas" });
+      const a = db.alerts.find((x) => x.id === p.p_id);
+      if (!a) return json(route, 404, { code: "P0002", message: "Alerta não encontrado" });
+      if (a.status === "resolvido") return json(route, 400, { code: "22023", message: "Alerta já resolvido" });
+      const now = new Date().toISOString();
+      if (p.p_status === "visto") Object.assign(a, { status: "visto", seen_at: now });
+      if (p.p_status === "aberto") Object.assign(a, { status: "aberto", seen_at: null });
+      if (p.p_status === "resolvido") Object.assign(a, { status: "resolvido", resolved_at: now, resolution: "manual" });
+      return json(route, 200, a);
+    }
+    if (url.includes("/rest/v1/alerts")) {
+      const statusParam = new URL(url).searchParams.get("status");
+      const allowed = !statusParam ? null : statusParam.startsWith("in.(") ? statusParam.slice(4, -1).split(",") : [statusParam.replace(/^eq\./, "")];
+      const rows = db.alerts
+        .filter((a) => !allowed || allowed.includes(a.status))
+        .sort((x, y) => y.first_seen_at.localeCompare(x.first_seen_at))
+        .map((a) => {
+          const acc = db.adAccounts.find((x) => x.id === a.ad_account_id);
+          return { ...a,
+            clients: { name: db.clients.find((c) => c.id === a.client_id)?.name ?? "" },
+            ad_accounts: acc ? { name: acc.name, external_id: acc.external_id } : null,
+            campaigns: a.campaign_id ? { name: db.campaigns.find((c) => c.id === a.campaign_id)?.name ?? "" } : null };
+        });
+      return json(route, 200, rows);
     }
 
     // --- Estrutura por plataforma (mesma regra de public.platform_structure)
