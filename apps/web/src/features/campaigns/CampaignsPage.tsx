@@ -35,7 +35,7 @@ export function CampaignsPage() {
   const { data: clients = [] } = useClients();
   const timezone = clients.find((c) => c.id === filters.clientId)?.timezone ?? DEFAULT_TIMEZONE;
   const period = useMemo(() => resolveFilterPeriod(filters, timezone), [filters, timezone]);
-  const { data, isLoading, isFetching, error } = useCampaignTable(period.current, filters, table);
+  const { data, isLoading, isFetching, isPlaceholderData, error } = useCampaignTable(period.current, filters, table);
 
   // A busca espera a pessoa parar de digitar (0,3 s) antes de consultar o banco.
   const [searchText, setSearchText] = useState(table.search);
@@ -112,6 +112,7 @@ export function CampaignsPage() {
           nameLabel="Campanha"
           caption={`Campanhas do período, ordenadas por ${table.sort}`}
           fetching={isFetching}
+          stale={isPlaceholderData}
           testId="campaign-row"
           rowKey={(r) => r.campaign_id}
           renderName={(r) => (

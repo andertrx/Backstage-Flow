@@ -115,7 +115,8 @@ async function waitCall(db, pred) {
   await rows(page).first().waitFor();
   await page.getByRole("button", { name: "Próxima" }).click();
   await page.getByText("Mostrando 51–61 de 61").waitFor();
-  check(await rows(page).count() === 11 && lastCall(db).p_offset === 50, "página 2 busca a partir da 51ª");
+  const page2Rows = await rows(page).count();
+  check(page2Rows === 11 && lastCall(db).p_offset === 50, `página 2 busca a partir da 51ª (linhas=${page2Rows}, offset=${lastCall(db).p_offset})`);
   await page.getByRole("button", { name: "Anterior" }).click();
   await page.getByText("Mostrando 1–50 de 61").waitFor();
   check(true, "voltar para a página 1");

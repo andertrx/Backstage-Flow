@@ -105,13 +105,13 @@ const waitValue = async (page, name, expected) => {
   check(db.rpcCalls.at(-1).p_client_ids?.[0] === EXC, "cliente enviado ao banco");
 
   // Plataforma
-  await page.getByLabel("Plataforma").selectOption("google");
+  await page.getByLabel("Plataforma", { exact: true }).selectOption("google");
   await waitValue(page, "Investimento", "R$ 50,00");
   check(await value(page, "Mensagens") === "Informação não disponível pela API.", "Google: mensagens não disponíveis pela API");
   check(await value(page, "CPL") === "Informação não disponível pela API.", "Google sem leads: CPL não é calculado");
   const accountOptions = await page.getByLabel("Conta", { exact: true }).locator("option").allInnerTexts();
   check(accountOptions.length === 2 && accountOptions[1].includes("622-333-4445"), "lista de contas segue cliente + plataforma");
-  await page.getByLabel("Plataforma").selectOption("");
+  await page.getByLabel("Plataforma", { exact: true }).selectOption("");
 
   // Status da campanha → soma das campanhas
   await page.getByLabel("Status da campanha").selectOption("ativa");

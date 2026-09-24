@@ -48,3 +48,19 @@ export function formatRelative(iso: string, now: Date = new Date()): string {
 export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
+
+/** Número curto para eixos: "R$ 1,2 mil", "10 mil", "2,5%", "3x". */
+export function formatAxisValue(value: number, format: KpiFormat, currency: string): string {
+  const compact = (opts: Intl.NumberFormatOptions) =>
+    new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1, ...opts }).format(value);
+  switch (format) {
+    case "money":
+      return compact({ style: "currency", currency });
+    case "percent":
+      return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(value)}%`;
+    case "ratio":
+      return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(value)}x`;
+    default:
+      return compact({});
+  }
+}

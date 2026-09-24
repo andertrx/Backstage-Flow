@@ -18,6 +18,8 @@ interface MetricsTableProps<R> {
   rowKey: (row: R) => string;
   caption: string;
   fetching?: boolean;
+  /** As linhas na tela ainda são da busca anterior (ex.: trocando de página). */
+  stale?: boolean;
   testId?: string;
 }
 
@@ -31,7 +33,7 @@ function SortIcon({ active, desc }: { active: boolean; desc: boolean }) {
  * ordenam no banco, primeira coluna fixa, rolagem lateral dentro da caixa e paginação.
  */
 export function MetricsTable<R>({
-  rows, total, table, onTableChange, columns, nameLabel, renderName, rowKey, caption, fetching, testId = "metrics-row",
+  rows, total, table, onTableChange, columns, nameLabel, renderName, rowKey, caption, fetching, stale, testId = "metrics-row",
 }: MetricsTableProps<R>) {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const ariaSort = (key: SortKey) => (table.sort === key ? (table.desc ? "descending" : "ascending") : "none");
@@ -83,7 +85,7 @@ export function MetricsTable<R>({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-3 py-2.5 text-xs text-slate-500">
         <p data-testid={`${testId}-count`}>
-          {total === 0 ? "Nenhum item" : `Mostrando ${(table.page - 1) * PAGE_SIZE + 1}–${Math.min(table.page * PAGE_SIZE, total)} de ${total}`}
+          {stale ? "Carregando…" : total === 0 ? "Nenhum item" : `Mostrando ${(table.page - 1) * PAGE_SIZE + 1}–${Math.min(table.page * PAGE_SIZE, total)} de ${total}`}
         </p>
         <div className="flex items-center gap-2">
           <Button variant="secondary" className="px-3 py-1 text-xs" disabled={table.page <= 1}

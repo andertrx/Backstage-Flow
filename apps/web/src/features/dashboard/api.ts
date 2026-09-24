@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { DateRange } from "@backstage/shared";
+import type { DateRange, Granularity, SeriesRow } from "@backstage/shared";
 import { friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import type { DashboardFilters } from "./filters.ts";
@@ -80,6 +80,43 @@ export function useDashboardSummary(current: DateRange, previous: DateRange, fil
     queryFn: async () => {
       const [now, before] = await Promise.all([fetchSummary(current, filters), fetchSummary(previous, filters)]);
       return { current: now, previous: before };
+    },
+  });
+}
+
+/** Série no tempo do gráfico (mesmos filtros do resumo). */
+export function useDashboardTimeseries(range: DateRange, f: DashboardFilters, granularity: Granularity, byPlatform: boolean) {
+  const { currency: _ignored, ...queryFilters } = f;
+  return useQuery({
+    queryKey: ["dashboard", "timeseries", range, queryFilters, granularity, byPlatform],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("dashboard_timeseries", {
+        p_from: range.from,
+        p_to: range.to,
+        p_granularity: granularity,
+        p_client_ids: f.clientId ? [f.clientId] : null,
+        p_platforms: f.platform ? [f.platform] : null,
+        p_ad_account_ids: f.accountId ? [f.accountId] : null,
+        p_campaign_ids: f.campaignId ? [f.campaignId] : null,
+        p_campaign_statuses: f.status ? [f.status] : null,
+        p_by_platform: byPlatform,
+      });
+      if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar o gráfico."));
+      const n = (v: unknown) => (v == null ? null : Number(v));
+      return (data as Record<string, unknown>[]).map((row): SeriesRow => ({
+        bucket: String(row.bucket),
+        platform_id: (row.platform_id as string | null) ?? null,
+        currency: String(row.currency),
+        spend_micros: n(row.spend_micros),
+        impressions: n(row.impressions),
+        reach: n(row.reach),
+        clicks: n(row.clicks),
+        leads: n(row.leads),
+        messages: n(row.messages),
+        conversions: n(row.conversions),
+        conversion_value_micros: n(row.conversion_value_micros),
+      }));
     },
   });
 }

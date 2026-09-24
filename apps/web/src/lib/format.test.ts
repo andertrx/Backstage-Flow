@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatChange, formatDate, formatKpi, formatRelative } from "./format.ts";
+import { formatAxisValue, formatChange, formatDate, formatKpi, formatRelative } from "./format.ts";
 
 const clean = (s: string) => s.replace(/ /g, " ");
 
@@ -24,5 +24,11 @@ describe("formatação", () => {
     expect(formatRelative("2026-09-24T11:59:00Z", now)).toBe("há 1 minuto");
     expect(formatRelative("2026-09-24T09:00:00Z", now)).toBe("há 3 horas");
     expect(formatRelative("2026-09-22T12:00:00Z", now)).toBe("há 2 dias");
+  });
+  it("números curtos para eixos", () => {
+    expect(clean(formatAxisValue(1200, "money", "BRL"))).toBe("R$ 1,2 mil");
+    expect(clean(formatAxisValue(10000, "integer", "BRL"))).toBe("10 mil");
+    expect(formatAxisValue(2.5, "percent", "BRL")).toBe("2,5%");
+    expect(formatAxisValue(3, "ratio", "BRL")).toBe("3x");
   });
 });

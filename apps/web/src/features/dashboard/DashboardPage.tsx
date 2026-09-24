@@ -8,6 +8,7 @@ import { summarizeBalances } from "@/features/balance/summary.ts";
 import { useClients } from "@/features/clients/api.ts";
 import { cn } from "@/lib/cn.ts";
 import { useDashboardSummary } from "./api.ts";
+import { ChartsSection } from "./ChartsSection.tsx";
 import { resolveFilterPeriod } from "./filters.ts";
 import { FiltersBar } from "./FiltersBar.tsx";
 import { BalanceCard, KpiCard } from "./KpiCard.tsx";
@@ -118,6 +119,8 @@ export function DashboardPage() {
           {card("roas")}
         </div>
       </section>
+
+      <ChartsSection range={period.current} filters={filters} currency={currency} />
 
       <BalanceSection filters={balanceFilters} />
     </div>

@@ -223,6 +223,7 @@ export function EntityDetailPage({ level }: { level: StructureLevel }) {
               nameLabel={levelLabel(childLevel, platform)}
               caption={`${childLabel} de ${entity.name}`}
               fetching={children.isFetching}
+              stale={children.isPlaceholderData}
               testId="child-row"
               rowKey={(r) => r.id}
               renderName={(r) => (

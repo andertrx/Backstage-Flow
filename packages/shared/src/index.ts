@@ -11,3 +11,4 @@ export * from "./metrics/kpis.ts";
 export * from "./balance/balance.ts";
 export * from "./accounts/health.ts";
 export * from "./campaigns/labels.ts";
+export * from "./metrics/series.ts";

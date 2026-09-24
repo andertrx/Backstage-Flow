@@ -16,7 +16,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 7 — Verificação de saldo](docs/etapa-07-verificacao-saldo/README.md) ✅ concluída
 - [Etapa 8 — Saúde das contas](docs/etapa-08-saude-contas/README.md) ✅ concluída
 - [Etapa 9 — Campanhas](docs/etapa-09-campanhas/README.md) ✅ concluída
-- [Etapa 10 — Conjuntos e Anúncios](docs/etapa-10-conjuntos-anuncios/README.md) *(aguardando validação)*
+- [Etapa 10 — Conjuntos e Anúncios](docs/etapa-10-conjuntos-anuncios/README.md) ✅ concluída
+- [Etapa 11 — Gráficos](docs/etapa-11-graficos/README.md) *(aguardando validação)*
 
 ## Estrutura
 

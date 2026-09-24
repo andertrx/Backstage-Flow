@@ -324,6 +324,35 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
       return json(route, 200, rows);
     }
 
+    // --- Série no tempo do gráfico (mesma regra de public.dashboard_timeseries)
+    if (url.includes("/rest/v1/rpc/dashboard_timeseries")) {
+      const p = req.postDataJSON();
+      db.rpcCalls.push({ fn: "dashboard_timeseries", ...p });
+      const byCampaign = Boolean(p.p_campaign_ids || p.p_campaign_statuses);
+      const monday = (d) => { const t = new Date(`${d}T00:00:00Z`); t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7)); return t.toISOString().slice(0, 10); };
+      const bucketOf = (d) => (p.p_granularity === "day" ? d : p.p_granularity === "week" ? monday(d) : `${d.slice(0, 7)}-01`);
+      const rows = db.metrics.filter((m) => {
+        const campaign = db.campaigns.find((c) => c.id === m.campaign_id);
+        return m.level === (byCampaign ? "campaign" : "account") && m.date >= p.p_from && m.date <= p.p_to &&
+          (!p.p_client_ids || p.p_client_ids.includes(m.client_id)) && (!p.p_platforms || p.p_platforms.includes(m.platform_id)) &&
+          (!p.p_ad_account_ids || p.p_ad_account_ids.includes(m.ad_account_id)) && (!p.p_campaign_ids || p.p_campaign_ids.includes(m.campaign_id)) &&
+          (!p.p_campaign_statuses || p.p_campaign_statuses.includes(campaign?.status));
+      });
+      const groups = Map.groupBy(rows, (m) => `${bucketOf(m.date)}|${p.p_by_platform ? m.platform_id : ""}|${m.currency}`);
+      const sum = (list, k) => (list.every((r) => r[k] == null) ? null : list.reduce((t, r) => t + (r[k] ?? 0), 0));
+      const out = [...groups].map(([key, list]) => {
+        const [bucket, platform, currency] = key.split("|");
+        const entities = new Set(list.map((m) => (byCampaign ? m.campaign_id : m.ad_account_id)));
+        return {
+          bucket, platform_id: platform || null, currency,
+          ...Object.fromEntries(["spend_micros", "impressions", "clicks", "link_clicks", "leads", "messages", "conversions", "conversion_value_micros"].map((k) => [k, sum(list, k)])),
+          reach: p.p_granularity === "day" && entities.size === 1 ? sum(list, "reach") : null,
+          days_with_data: new Set(list.map((m) => m.date)).size,
+        };
+      }).sort((a, b) => a.bucket.localeCompare(b.bucket));
+      return json(route, 200, out);
+    }
+
     // --- Resumo do dashboard (mesma regra de public.dashboard_summary)
     if (url.includes("/rest/v1/rpc/dashboard_summary")) {
       const p = req.postDataJSON();
