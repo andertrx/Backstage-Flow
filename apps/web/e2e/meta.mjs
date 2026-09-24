@@ -19,7 +19,7 @@ const CLIENT = {
   // Vincular antes de conectar → orientação
   await login(page, `/clientes/${CLIENT.id}`);
   await page.getByRole("heading", { name: "Excalibur Fitness" }).waitFor();
-  await page.getByRole("button", { name: "Vincular conta" }).click();
+  await page.getByRole("region", { name: "Contas Meta Ads" }).getByRole("button", { name: "Vincular conta" }).click();
   await page.getByText("Ainda não há conexão com o Meta Ads.").waitFor();
   check(true, "sem conexão, o vínculo orienta a conectar primeiro");
   await page.getByRole("link", { name: "Conectar agora" }).click();
@@ -48,14 +48,14 @@ const CLIENT = {
   await page.getByRole("link", { name: "Clientes" }).first().click();
   await page.getByRole("tab", { name: /Todos/ }).click();
   await page.getByRole("cell", { name: /Excalibur Fitness/ }).click();
-  await page.getByRole("button", { name: "Vincular conta" }).click();
+  await page.getByRole("region", { name: "Contas Meta Ads" }).getByRole("button", { name: "Vincular conta" }).click();
   const modal = page.getByRole("dialog", { name: "Vincular conta Meta Ads" });
   await modal.getByText("Excalibur - Principal").waitFor();
   check(await modal.getByText("Pagamento pendente").isVisible(), "lista de contas mostra o status vindo do Meta");
   await page.screenshot({ path: `${SHOTS}/21-vincular-conta.png` });
   await modal.getByRole("listitem").filter({ hasText: "Excalibur - Principal" }).getByRole("button", { name: "Vincular" }).click();
   await modal.waitFor({ state: "detached" });
-  await page.getByText("ID 1001", { exact: false }).waitFor();
+  await page.getByText("ID act_1001", { exact: false }).waitFor();
   check(true, "conta vinculada aparece na página do cliente");
   check(await page.getByText("@excaliburfitness").isVisible(), "Instagram vinculado aparece");
   check(await page.getByText("BM Agência").isVisible(), "Business Manager aparece");
@@ -64,13 +64,13 @@ const CLIENT = {
   await page.screenshot({ path: `${SHOTS}/22-cliente-com-conta-meta.png`, fullPage: true });
 
   // Já vinculada aparece marcada
-  await page.getByRole("button", { name: "Vincular conta" }).click();
+  await page.getByRole("region", { name: "Contas Meta Ads" }).getByRole("button", { name: "Vincular conta" }).click();
   await page.getByRole("dialog").getByText("Já vinculada aqui").waitFor();
   check(true, "conta já vinculada não pode ser vinculada de novo");
   await page.getByRole("dialog").getByRole("button", { name: "Fechar", exact: true }).click();
 
   // Atualizar e desvincular
-  await page.getByRole("button", { name: "Atualizar" }).click();
+  await page.getByRole("region", { name: "Contas Meta Ads" }).getByRole("button", { name: "Atualizar" }).click();
   await page.waitForTimeout(200);
   check(db.adAccountCalls.at(-1).action === "refresh", "botão Atualizar chama o servidor");
   page.once("dialog", (d) => d.accept());
@@ -93,11 +93,11 @@ const CLIENT = {
     business_name: null, is_prepay: null, linked_at: "2026-09-24T12:00:00Z", details_updated_at: null, unlinked_at: null, assets: [],
   });
   await login(page, `/clientes/${CLIENT.id}`);
-  await page.getByText("ID 1001", { exact: false }).waitFor();
+  await page.getByText("ID act_1001", { exact: false }).waitFor();
   check(await page.getByText("Restrita").isVisible(), "visualizador vê o status da conta");
   check(await page.getByText("Informação não disponível pela API.").first().isVisible(), "campo ausente mostra 'Informação não disponível pela API.'");
-  check(!(await page.getByRole("button", { name: "Vincular conta" }).isVisible()), "visualizador não vê 'Vincular conta'");
-  check(!(await page.getByRole("button", { name: "Atualizar" }).isVisible()), "visualizador não vê 'Atualizar'");
+  check(!(await page.getByRole("region", { name: "Contas Meta Ads" }).getByRole("button", { name: "Vincular conta" }).isVisible()), "visualizador não vê 'Vincular conta'");
+  check(!(await page.getByRole("region", { name: "Contas Meta Ads" }).getByRole("button", { name: "Atualizar" }).isVisible()), "visualizador não vê 'Atualizar'");
   await page.goto(page.url().replace(/\/clientes\/.*/, "/configuracoes/integracoes"));
   await page.getByText("Olá, Ander!").waitFor();
   check(true, "visualizador não acessa Integrações");

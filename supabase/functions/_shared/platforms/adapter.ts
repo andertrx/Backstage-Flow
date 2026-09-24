@@ -1,4 +1,4 @@
-import type { CredentialOwner, PlatformAccount, PlatformAsset } from "./types.ts";
+import type { AccountAccess, CredentialOwner, PlatformAccount, PlatformAsset } from "./types.ts";
 
 /**
  * "Tomada universal" das plataformas de anúncio. Para adicionar uma nova
@@ -13,7 +13,7 @@ export interface PlatformAdapter {
   validateCredentials(token: string): Promise<CredentialOwner>;
   /** Contas de anúncio que a credencial consegue acessar. */
   listAccounts(token: string): Promise<PlatformAccount[]>;
-  getAccount(token: string, externalId: string): Promise<PlatformAccount>;
+  getAccount(token: string, externalId: string, access?: AccountAccess): Promise<PlatformAccount>;
   /** Páginas, perfis do Instagram etc. ligados à conta. */
-  listAssets(token: string, externalId: string): Promise<PlatformAsset[]>;
+  listAssets(token: string, externalId: string, access?: AccountAccess): Promise<PlatformAsset[]>;
 }

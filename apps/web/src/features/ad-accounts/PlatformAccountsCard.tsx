@@ -1,4 +1,5 @@
-import { can, PLATFORM_LABELS } from "@backstage/shared";
+import { BUSINESS_LABELS, can, formatAccountId, PLATFORM_LABELS } from "@backstage/shared";
+import { Badge } from "@/components/ui/badge.tsx";
 import { AtSign, type LucideIcon, Plus, RefreshCw, Unlink } from "lucide-react";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -36,11 +37,18 @@ function AccountRow({ account, canManage, clientId }: { account: AdAccount; canM
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium">{account.name}</p>
             <AccountStatusBadge status={account.status} raw={account.raw_status} />
+            {account.is_test_account && <Badge tone="warning">Conta de teste</Badge>}
           </div>
           <p className="text-xs text-slate-500">
-            ID {account.external_id} · {account.currency ?? NOT_AVAILABLE} · {account.timezone ?? NOT_AVAILABLE}
+            ID {formatAccountId(account.platform_id, account.external_id)} · {account.currency ?? NOT_AVAILABLE} ·{" "}
+            {account.timezone ?? NOT_AVAILABLE}
           </p>
-          <p className="text-xs text-slate-500">Business Manager: {account.business_name ?? NOT_AVAILABLE}</p>
+          <p className="text-xs text-slate-500">
+            {BUSINESS_LABELS[account.platform_id] ?? "Agrupador"}:{" "}
+            {account.platform_id === "google" && !account.manager_customer_id
+              ? "acesso direto (sem MCC)"
+              : (account.business_name ?? NOT_AVAILABLE)}
+          </p>
         </div>
         {canManage && (
           <div className="flex gap-1">
@@ -53,7 +61,8 @@ function AccountRow({ account, canManage, clientId }: { account: AdAccount; canM
           </div>
         )}
       </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+      {account.platform_id === "meta" && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
         <span>
           <strong>Páginas:</strong> {pages.length ? pages.map((p) => p.name ?? p.external_id).join(", ") : "nenhuma encontrada"}
         </span>
@@ -61,7 +70,8 @@ function AccountRow({ account, canManage, clientId }: { account: AdAccount; canM
           <AtSign className="size-3.5" aria-hidden />
           <strong>Instagram:</strong> {instagram.length ? instagram.map((i) => i.name ?? i.external_id).join(", ") : "nenhum perfil encontrado"}
         </span>
-      </div>
+        </div>
+      )}
       <p className="text-xs text-slate-400">
         Dados da conta atualizados em {account.details_updated_at ? new Date(account.details_updated_at).toLocaleString("pt-BR") : "—"}
       </p>
@@ -85,7 +95,7 @@ export function PlatformAccountsCard({ clientId, platform, icon: Icon }: Props) 
   const title = `Contas ${PLATFORM_LABELS[platform] ?? platform}`;
 
   return (
-    <Card className="p-6">
+    <Card className="p-6" role="region" aria-label={title}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Icon className="size-4 text-slate-500" aria-hidden />

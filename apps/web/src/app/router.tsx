@@ -10,6 +10,7 @@ import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/featu
 import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
 import { DashboardPage } from "@/features/dashboard/DashboardPage.tsx";
+import { GoogleCallbackPage } from "@/features/integrations/GoogleCallbackPage.tsx";
 import { IntegrationsPage } from "@/features/integrations/IntegrationsPage.tsx";
 import { SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
 import { UsersPage } from "@/features/users/UsersPage.tsx";
@@ -67,6 +68,7 @@ export const router = createBrowserRouter([
           { index: true, element: <Navigate to="/configuracoes/usuarios" replace /> },
           { path: "usuarios", element: <UsersPage /> },
           { path: "integracoes", element: <IntegrationsPage /> },
+          { path: "integracoes/google/callback", element: <GoogleCallbackPage /> },
         ],
       },
       ...upcomingRoutes,

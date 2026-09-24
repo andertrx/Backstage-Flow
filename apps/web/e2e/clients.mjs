@@ -48,7 +48,10 @@ import { check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
   check(true, "detalhe mostra CNPJ e telefone formatados");
   await page.getByRole("heading", { name: "Contas Meta Ads" }).waitFor();
   check(await page.getByText("Nenhuma conta vinculada.").first().isVisible(), "seção de contas Meta vazia, sem dados inventados");
-  check(await page.getByText("A conexão com a plataforma será construída na Etapa 4.").isVisible(), "seção de contas Google sem dados inventados");
+  check(
+    await page.getByRole("region", { name: "Contas Google Ads" }).getByText("Nenhuma conta vinculada.").isVisible(),
+    "seção de contas Google vazia, sem dados inventados",
+  );
 
   // Equipe com acesso
   await page.getByLabel("Usuário para liberar").selectOption({ label: "Maria Gestora — Gestor" });

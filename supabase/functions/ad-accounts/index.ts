@@ -7,9 +7,12 @@
  *
  * Ações (POST com JSON):
  *   connect         { platform:"meta", label, accessToken }       → admin
+ *   google_status   {}                                             → admin (segredos configurados?)
+ *   google_start    { redirectUri }                                → admin (inicia o login com o Google)
+ *   google_complete { code, state, redirectUri, label }            → admin (conclui o login com o Google)
  *   disconnect      { connectionId }                               → admin
  *   list_available  { connectionId }                               → admin, gestor
- *   link            { connectionId, externalId, clientId }         → admin, gestor com acesso ao cliente
+ *   link            { connectionId, externalId, clientId, managerCustomerId? } → admin, gestor com acesso ao cliente
  *   refresh         { adAccountId }                                → admin, gestor com acesso ao cliente
  *   unlink          { adAccountId }                                → admin, gestor com acesso ao cliente
  */
@@ -19,16 +22,44 @@ import { adminClient, type Caller, requireRole, userClient } from "../_shared/au
 import { AppError, handle, json } from "../_shared/http.ts";
 import type { PlatformAdapter } from "../_shared/platforms/adapter.ts";
 import { getAdapter } from "../_shared/platforms/registry.ts";
-import type { PlatformAccount } from "../_shared/platforms/types.ts";
+import { missingConfig as googleMissingConfig } from "../_shared/platforms/google/config.ts";
+import { buildAuthorizeUrl, exchangeCode, fetchUserInfo } from "../_shared/platforms/google/oauth.ts";
+import type { CredentialOwner, PlatformAccount } from "../_shared/platforms/types.ts";
 
 const MANAGERS = ["admin", "gestor"] as const;
+const ADMIN_ONLY = new Set(["connect", "disconnect", "google_status", "google_start", "google_complete"]);
+const GOOGLE_CALLBACK_PATH = "/configuracoes/integracoes/google/callback";
+
+/** O endereço de retorno do Google precisa ser a página de callback do site (https, ou localhost em testes). */
+const redirectUri = z
+  .string()
+  .max(500)
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      const secure = url.protocol === "https:" || (url.protocol === "http:" && url.hostname === "localhost");
+      return secure && url.pathname === GOOGLE_CALLBACK_PATH && !url.search && !url.hash;
+    } catch {
+      return false;
+    }
+  }, "Endereço de retorno inválido.");
+const label = z.string().trim().min(2, "Dê um nome para a conexão.").max(80, "Nome muito longo (máx. 80).");
 
 const schema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("connect"),
     platform: z.literal("meta"),
-    label: z.string().trim().min(2, "Dê um nome para a conexão.").max(80, "Nome muito longo (máx. 80)."),
+    label,
     accessToken: z.string().trim().min(20, "Token muito curto. Copie o token completo.").max(4096, "Token muito longo."),
+  }),
+  z.object({ action: z.literal("google_status") }),
+  z.object({ action: z.literal("google_start"), redirectUri }),
+  z.object({
+    action: z.literal("google_complete"),
+    code: z.string().min(10, "Código de autorização inválido.").max(2048),
+    state: z.string().regex(/^[0-9a-f]{64}$/, "Autorização inválida ou expirada. Tente conectar de novo."),
+    redirectUri,
+    label,
   }),
   z.object({ action: z.literal("disconnect"), connectionId: z.guid("Identificador inválido.") }),
   z.object({ action: z.literal("list_available"), connectionId: z.guid("Identificador inválido.") }),
@@ -37,6 +68,7 @@ const schema = z.discriminatedUnion("action", [
     connectionId: z.guid("Identificador inválido."),
     externalId: z.string().regex(/^\d{1,32}$/, "Id de conta inválido."),
     clientId: z.guid("Identificador inválido."),
+    managerCustomerId: z.string().regex(/^\d{1,20}$/, "Id da conta administradora inválido.").nullish(),
   }),
   z.object({ action: z.literal("refresh"), adAccountId: z.guid("Identificador inválido.") }),
   z.object({ action: z.literal("unlink"), adAccountId: z.guid("Identificador inválido.") }),
@@ -124,6 +156,8 @@ function accountColumns(account: PlatformAccount) {
     business_id: account.businessId,
     business_name: account.businessName,
     is_prepay: account.isPrepay,
+    manager_customer_id: account.managerId ?? null,
+    is_test_account: account.isTestAccount ?? null,
     details_updated_at: new Date().toISOString(),
   };
 }
@@ -163,6 +197,7 @@ interface AdAccountRow {
   external_id: string;
   client_id: string;
   connection_id: string | null;
+  manager_customer_id: string | null;
   unlinked_at: string | null;
 }
 
@@ -170,7 +205,7 @@ interface AdAccountRow {
 async function loadAccountForManager(ctx: Ctx, adAccountId: string): Promise<AdAccountRow> {
   const { data, error } = await userClient(ctx.req)
     .from("ad_accounts")
-    .select("id, platform_id, external_id, client_id, connection_id, unlinked_at")
+    .select("id, platform_id, external_id, client_id, connection_id, manager_customer_id, unlinked_at")
     .eq("id", adAccountId)
     .maybeSingle();
   if (error) throw dbError(error, "Não conseguimos carregar a conta.");
@@ -181,16 +216,16 @@ async function loadAccountForManager(ctx: Ctx, adAccountId: string): Promise<AdA
 
 // ------------------------------------------------------------------ ações
 
-async function connect(ctx: Ctx, input: Of<"connect">) {
-  const adapter = adapterFor(input.platform);
-  const owner = await adapter.validateCredentials(input.accessToken);
+/**
+ * Grava (ou renova) a conexão e guarda o segredo no cofre. Se o mesmo usuário
+ * da plataforma já estiver conectado, renova em vez de duplicar.
+ */
+async function saveConnection(ctx: Ctx, platform: string, connectionLabel: string, owner: CredentialOwner, secret: string) {
   const now = new Date().toISOString();
-
-  // Mesmo usuário do sistema já conectado? Renova o token em vez de duplicar.
   const { data: existing, error: findError } = await ctx.db
     .from("platform_connections")
     .select("id")
-    .eq("platform_id", input.platform)
+    .eq("platform_id", platform)
     .eq("external_user_id", owner.externalUserId)
     .neq("status", "revogada")
     .maybeSingle();
@@ -198,7 +233,7 @@ async function connect(ctx: Ctx, input: Of<"connect">) {
 
   let connectionId = existing?.id as string | undefined;
   const fields = {
-    label: input.label,
+    label: connectionLabel,
     status: "ativa",
     external_user_name: owner.name,
     last_checked_at: now,
@@ -211,20 +246,81 @@ async function connect(ctx: Ctx, input: Of<"connect">) {
   } else {
     const { data, error } = await ctx.db
       .from("platform_connections")
-      .insert({ ...fields, platform_id: input.platform, external_user_id: owner.externalUserId, created_by: ctx.caller.id })
+      .insert({ ...fields, platform_id: platform, external_user_id: owner.externalUserId, created_by: ctx.caller.id })
       .select("id")
       .single();
     if (error) throw dbError(error);
     connectionId = data.id as string;
   }
 
-  const { error: secretError } = await ctx.db.rpc("connection_secret_set", { p_connection_id: connectionId, p_secret: input.accessToken });
+  const { error: secretError } = await ctx.db.rpc("connection_secret_set", { p_connection_id: connectionId, p_secret: secret });
   if (secretError) {
     await ctx.db.from("platform_connections").update({ status: "erro", last_error: "Falha ao guardar o token no cofre." }).eq("id", connectionId);
     throw dbError(secretError, "Não conseguimos guardar o token com segurança.");
   }
 
   return { connectionId, ownerName: owner.name, renewed: Boolean(existing) };
+}
+
+async function connect(ctx: Ctx, input: Of<"connect">) {
+  const owner = await adapterFor(input.platform).validateCredentials(input.accessToken);
+  return saveConnection(ctx, input.platform, input.label, owner, input.accessToken);
+}
+
+function requireGoogleConfig() {
+  const missing = googleMissingConfig();
+  if (missing.length) {
+    throw new AppError(400, "CONFIG_MISSING", `Faltam configurar no servidor: ${missing.join(", ")}.`);
+  }
+}
+
+function googleStatus() {
+  return { missing: googleMissingConfig(), callbackPath: GOOGLE_CALLBACK_PATH };
+}
+
+/** Passo 1 do login com o Google: cria um "estado" único e devolve o link de autorização. */
+async function googleStart(ctx: Ctx, input: Of<"google_start">) {
+  requireGoogleConfig();
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const state = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+
+  // Limpa estados vencidos deste usuário e grava o novo.
+  await ctx.db.from("oauth_states").delete().eq("user_id", ctx.caller.id).lt("expires_at", new Date().toISOString());
+  const { error } = await ctx.db
+    .from("oauth_states")
+    .insert({ state, provider: "google", user_id: ctx.caller.id, redirect_uri: input.redirectUri });
+  if (error) throw dbError(error, "Não conseguimos iniciar a conexão com o Google.");
+
+  return { url: buildAuthorizeUrl(state, input.redirectUri) };
+}
+
+/** Passo 2: o Google devolveu um código; trocamos por um refresh token e guardamos no cofre. */
+async function googleComplete(ctx: Ctx, input: Of<"google_complete">) {
+  requireGoogleConfig();
+  // O estado só vale uma vez, só para quem iniciou e só por 10 minutos.
+  const { data: saved, error } = await ctx.db
+    .from("oauth_states")
+    .delete()
+    .eq("state", input.state)
+    .eq("user_id", ctx.caller.id)
+    .eq("provider", "google")
+    .select("redirect_uri, expires_at")
+    .maybeSingle();
+  if (error) throw dbError(error);
+  if (!saved || new Date(saved.expires_at) < new Date() || saved.redirect_uri !== input.redirectUri) {
+    throw new AppError(400, "INVALID_STATE", "Autorização inválida ou expirada. Tente conectar de novo.");
+  }
+
+  const tokens = await exchangeCode(input.code, input.redirectUri);
+  if (!tokens.refresh_token) {
+    throw new AppError(
+      400,
+      "NO_REFRESH_TOKEN",
+      "O Google não enviou a autorização permanente. Remova o acesso do app em myaccount.google.com/permissions e conecte novamente.",
+    );
+  }
+  const info = await fetchUserInfo(tokens.access_token);
+  return saveConnection(ctx, "google", input.label, { externalUserId: info.sub, name: info.email ?? null }, tokens.refresh_token);
 }
 
 async function disconnect(ctx: Ctx, input: Of<"disconnect">) {
@@ -260,6 +356,8 @@ async function listAvailable(ctx: Ctx, input: Of<"list_available">) {
       timezone: a.timezone,
       status: a.status,
       businessName: a.businessName,
+      managerId: a.managerId ?? null,
+      isTestAccount: a.isTestAccount ?? null,
       linkedClientId: linkedTo.get(a.externalId) ?? null,
     })),
   };
@@ -269,7 +367,9 @@ async function link(ctx: Ctx, input: Of<"link">) {
   await assertCanManageClient(ctx, input.clientId);
   const { connection, token } = await loadConnection(ctx, input.connectionId);
   const adapter = adapterFor(connection.platform_id);
-  const account = await callPlatform(ctx, connection.id, () => adapter.getAccount(token, input.externalId));
+  const account = await callPlatform(ctx, connection.id, () =>
+    adapter.getAccount(token, input.externalId, { managerId: input.managerCustomerId ?? null })
+  );
 
   const { data: row, error } = await ctx.db
     .from("ad_accounts")
@@ -300,7 +400,9 @@ async function refresh(ctx: Ctx, input: Of<"refresh">) {
   if (!account.connection_id) throw new AppError(400, "NO_CONNECTION", "Esta conta não tem conexão ativa. Vincule novamente.");
   const { connection, token } = await loadConnection(ctx, account.connection_id);
   const adapter = adapterFor(connection.platform_id);
-  const fresh = await callPlatform(ctx, connection.id, () => adapter.getAccount(token, account.external_id));
+  const fresh = await callPlatform(ctx, connection.id, () =>
+    adapter.getAccount(token, account.external_id, { managerId: account.manager_customer_id })
+  );
 
   const { error } = await ctx.db
     .from("ad_accounts")
@@ -334,13 +436,15 @@ Deno.serve(
       throw new AppError(400, "INVALID_INPUT", parsed.error.issues[0]?.message ?? "Dados inválidos.", parsed.error.message);
     }
     const input = parsed.data;
-    const adminOnly = input.action === "connect" || input.action === "disconnect";
-    const caller = await requireRole(req, db, adminOnly ? ["admin"] : MANAGERS);
+    const caller = await requireRole(req, db, ADMIN_ONLY.has(input.action) ? ["admin"] : MANAGERS);
     const ctx: Ctx = { req, db, caller };
 
     const result = await (() => {
       switch (input.action) {
         case "connect": return connect(ctx, input);
+        case "google_status": return googleStatus();
+        case "google_start": return googleStart(ctx, input);
+        case "google_complete": return googleComplete(ctx, input);
         case "disconnect": return disconnect(ctx, input);
         case "list_available": return listAvailable(ctx, input);
         case "link": return link(ctx, input);

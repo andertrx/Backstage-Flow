@@ -60,6 +60,13 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
       { externalId: "1001", name: "Excalibur - Principal", currency: "BRL", timezone: "America/Sao_Paulo", status: "ativa", businessName: "BM Agência" },
       { externalId: "1002", name: "Excalibur - Remarketing", currency: "BRL", timezone: "America/Sao_Paulo", status: "pagamento_pendente", businessName: "BM Agência" },
     ],
+    /** Contas que a "API do Google Ads" simulada devolve (uma via MCC, uma de teste). */
+    googleAccounts: [
+      { externalId: "1234567890", name: "Excalibur - Pesquisa", currency: "BRL", timezone: "America/Sao_Paulo", status: "ativa", businessName: "MCC Agência", managerId: "9998887776", isTestAccount: false },
+      { externalId: "5556667778", name: "Conta de Teste", currency: "BRL", timezone: "America/Sao_Paulo", status: "ativa", businessName: null, managerId: null, isTestAccount: true },
+    ],
+    /** Segredos do Google que "faltam" no servidor simulado. */
+    googleMissing: [],
     functionCalls: [],
     adAccountCalls: [],
   };
@@ -156,20 +163,41 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
           db.connections.push(connection);
           return json(route, 200, { data: { connectionId: connection.id, ownerName: connection.external_user_name, renewed: false } });
         }
+        case "google_status":
+          return json(route, 200, { data: { missing: db.googleMissing, callbackPath: "/configuracoes/integracoes/google/callback" } });
+        case "google_start":
+          return json(route, 200, { data: { url: `https://accounts.google.com/o/oauth2/v2/auth?state=${"a".repeat(64)}&redirect_uri=${encodeURIComponent(body.redirectUri)}` } });
+        case "google_complete": {
+          if (body.code !== "codigo-valido") {
+            return json(route, 400, { error: { code: "INVALID_STATE", message: "Autorização inválida ou expirada. Tente conectar de novo." } });
+          }
+          const connection = { id: "c0000000-0000-4000-8000-000000000002", platform_id: "google", label: body.label, status: "ativa", external_user_id: "g1", external_user_name: "agencia@gmail.com", last_checked_at: now, last_error: null, created_at: now };
+          db.connections.push(connection);
+          return json(route, 200, { data: { connectionId: connection.id, ownerName: connection.external_user_name, renewed: false } });
+        }
         case "disconnect": {
           db.connections.find((c) => c.id === body.connectionId).status = "revogada";
           return json(route, 200, { data: { connectionId: body.connectionId } });
         }
-        case "list_available":
-          return json(route, 200, { data: { accounts: db.metaAccounts.map((a) => ({ ...a, linkedClientId: db.adAccounts.find((x) => x.external_id === a.externalId && !x.unlinked_at)?.client_id ?? null })) } });
+        case "list_available": {
+          const platform = db.connections.find((c) => c.id === body.connectionId)?.platform_id;
+          const source = platform === "google" ? db.googleAccounts : db.metaAccounts;
+          return json(route, 200, { data: { accounts: source.map((a) => ({ managerId: null, isTestAccount: null, ...a, linkedClientId: db.adAccounts.find((x) => x.external_id === a.externalId && !x.unlinked_at)?.client_id ?? null })) } });
+        }
         case "link": {
-          const meta = db.metaAccounts.find((a) => a.externalId === body.externalId);
-          const id = `a0000000-0000-4000-8000-00000000${body.externalId}`;
+          const platform = db.connections.find((c) => c.id === body.connectionId)?.platform_id ?? "meta";
+          const found = (platform === "google" ? db.googleAccounts : db.metaAccounts).find((a) => a.externalId === body.externalId);
+          const id = `a0000000-0000-4000-8000-${body.externalId.padStart(12, "0").slice(-12)}`;
           db.adAccounts.push({
-            id, platform_id: "meta", external_id: meta.externalId, client_id: body.clientId, connection_id: body.connectionId,
-            name: meta.name, currency: meta.currency, timezone: meta.timezone, status: meta.status, raw_status: "account_status=1",
-            status_reason: null, business_name: meta.businessName, is_prepay: null, linked_at: now, details_updated_at: now, unlinked_at: null,
-            assets: [{ asset_type: "page", external_id: "p1", name: "Excalibur Fitness" }, { asset_type: "instagram", external_id: "ig1", name: "@excaliburfitness" }],
+            id, platform_id: platform, external_id: found.externalId, client_id: body.clientId, connection_id: body.connectionId,
+            name: found.name, currency: found.currency, timezone: found.timezone, status: found.status,
+            raw_status: platform === "google" ? "customer.status=ENABLED" : "account_status=1",
+            status_reason: null, business_name: found.businessName, is_prepay: null,
+            manager_customer_id: body.managerCustomerId ?? null, is_test_account: found.isTestAccount ?? null,
+            linked_at: now, details_updated_at: now, unlinked_at: null,
+            assets: platform === "meta"
+              ? [{ asset_type: "page", external_id: "p1", name: "Excalibur Fitness" }, { asset_type: "instagram", external_id: "ig1", name: "@excaliburfitness" }]
+              : [],
           });
           return json(route, 200, { data: { adAccountId: id, warning: null } });
         }

@@ -1,4 +1,5 @@
-import { PLATFORM_LABELS } from "@backstage/shared";
+import { formatAccountId, PLATFORM_LABELS } from "@backstage/shared";
+import { Badge } from "@/components/ui/badge.tsx";
 import { useState } from "react";
 import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -26,12 +27,12 @@ export function LinkAccountModal({ clientId, platform, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [linking, setLinking] = useState<string | null>(null);
 
-  async function link(externalId: string) {
+  async function link(externalId: string, managerCustomerId: string | null) {
     if (!selectedConnection) return;
     setError(null);
     setLinking(externalId);
     try {
-      const result = await action.mutateAsync({ action: "link", connectionId: selectedConnection, externalId, clientId });
+      const result = await action.mutateAsync({ action: "link", connectionId: selectedConnection, externalId, clientId, managerCustomerId });
       if (result.warning) window.alert(result.warning);
       onClose();
     } catch (err) {
@@ -88,19 +89,20 @@ export function LinkAccountModal({ clientId, platform, onClose }: Props) {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{a.name}</p>
                         <p className="text-xs text-slate-500">
-                          ID {a.externalId}
+                          ID {formatAccountId(platform, a.externalId)}
                           {a.currency && ` · ${a.currency}`}
-                          {a.businessName && ` · ${a.businessName}`}
+                          {a.businessName && ` · ${platform === "google" ? "via " : ""}${a.businessName}`}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
+                        {a.isTestAccount && <Badge tone="warning">Conta de teste</Badge>}
                         <AccountStatusBadge status={a.status} />
                         {a.linkedClientId ? (
                           <span className="text-xs text-slate-500">
                             {a.linkedClientId === clientId ? "Já vinculada aqui" : "Vinculada a outro cliente"}
                           </span>
                         ) : (
-                          <Button className="px-3 py-1 text-xs" loading={linking === a.externalId} disabled={linking !== null} onClick={() => link(a.externalId)}>
+                          <Button className="px-3 py-1 text-xs" loading={linking === a.externalId} disabled={linking !== null} onClick={() => link(a.externalId, a.managerId)}>
                             Vincular
                           </Button>
                         )}

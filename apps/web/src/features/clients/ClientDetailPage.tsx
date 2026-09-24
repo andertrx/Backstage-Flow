@@ -11,7 +11,6 @@ import { useClient } from "./api.ts";
 import { PlatformAccountsCard } from "@/features/ad-accounts/PlatformAccountsCard.tsx";
 import { ClientAccessCard } from "./ClientAccessCard.tsx";
 import { ClientFormModal } from "./ClientFormModal.tsx";
-import { LinkedAccountsCard } from "./LinkedAccountsCard.tsx";
 import { ClientStatusBadge } from "./StatusBadge.tsx";
 import { timezoneLabel } from "./timezones.ts";
 
@@ -85,7 +84,7 @@ export function ClientDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <PlatformAccountsCard clientId={client.id} platform="meta" icon={Megaphone} />
-        <LinkedAccountsCard title="Contas Google Ads" icon={Search} step={4} />
+        <PlatformAccountsCard clientId={client.id} platform="google" icon={Search} />
       </div>
 
       {can(profile?.role, "users.manage") && <ClientAccessCard clientId={client.id} />}

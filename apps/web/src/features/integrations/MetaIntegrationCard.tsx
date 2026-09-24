@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Field, Input } from "@/components/ui/field.tsx";
 import { useConnectionAction, useConnections } from "@/features/ad-accounts/api.ts";
-import { ConnectionStatusBadge } from "./ConnectionStatusBadge.tsx";
+import { ConnectionsList } from "./ConnectionsList.tsx";
 
-const dateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR") : "—");
 
 function ConnectForm() {
   const action = useConnectionAction();
@@ -84,18 +83,8 @@ function HowTo() {
 }
 
 export function MetaIntegrationCard() {
-  const { data: connections, isLoading, error } = useConnections("meta");
-  const action = useConnectionAction();
-  const active = connections?.filter((c) => c.status !== "revogada") ?? [];
-
-  async function disconnect(id: string, label: string) {
-    if (!window.confirm(`Desconectar "${label}"? O token será apagado do cofre e as contas vinculadas param de atualizar.`)) return;
-    try {
-      await action.mutateAsync({ action: "disconnect", connectionId: id });
-    } catch (err) {
-      window.alert((err as Error).message);
-    }
-  }
+  const { data: connections } = useConnections("meta");
+  const hasActive = connections?.some((c) => c.status !== "revogada") ?? false;
 
   return (
     <Card className="space-y-5 p-6">
@@ -116,35 +105,10 @@ export function MetaIntegrationCard() {
         o token fica criptografado no servidor (Supabase Vault). Nem esta tela, nem os usuários, conseguem vê-lo depois de salvo.
       </Alert>
 
-      {error && <Alert tone="error">{error.message}</Alert>}
-      {isLoading ? (
-        <p className="text-sm text-slate-500">Carregando conexões...</p>
-      ) : active.length > 0 ? (
-        <ul className="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200">
-          {active.map((c) => (
-            <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{c.label}</p>
-                  <ConnectionStatusBadge status={c.status} />
-                </div>
-                <p className="text-xs text-slate-500">
-                  {c.external_user_name ?? "Usuário do sistema"} · verificada em {dateTime(c.last_checked_at)}
-                </p>
-                {c.status === "erro" && c.last_error && <p className="mt-1 text-xs text-red-700">{c.last_error}</p>}
-              </div>
-              <Button variant="ghost" className="text-xs" onClick={() => disconnect(c.id, c.label)}>
-                Desconectar
-              </Button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-slate-500">Nenhuma conexão com o Meta ainda.</p>
-      )}
+      <ConnectionsList platform="meta" emptyText="Nenhuma conexão com o Meta ainda." />
 
       <div className="space-y-3 border-t border-slate-100 pt-5">
-        <h3 className="text-sm font-semibold">{active.length ? "Adicionar ou renovar token" : "Conectar"}</h3>
+        <h3 className="text-sm font-semibold">{hasActive ? "Adicionar ou renovar token" : "Conectar"}</h3>
         <ConnectForm />
         <HowTo />
       </div>

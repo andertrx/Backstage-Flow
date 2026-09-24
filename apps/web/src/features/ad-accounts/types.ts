@@ -32,6 +32,8 @@ export interface AdAccount {
   status_reason: string | null;
   business_name: string | null;
   is_prepay: boolean | null;
+  manager_customer_id: string | null;
+  is_test_account: boolean | null;
   linked_at: string;
   details_updated_at: string | null;
   assets: AdAccountAsset[];
@@ -45,5 +47,8 @@ export interface AvailableAccount {
   timezone: string | null;
   status: AdAccountStatus;
   businessName: string | null;
+  /** Google Ads: MCC que dá acesso à conta. */
+  managerId: string | null;
+  isTestAccount: boolean | null;
   linkedClientId: string | null;
 }

@@ -23,9 +23,19 @@ export interface PlatformAccount {
   rawStatus: string | null;
   /** Motivo informado pela plataforma, quando houver (ex.: disable_reason). */
   statusReason: string | null;
+  /** Meta: Business Manager. Google: MCC (conta administradora) que dá acesso. */
   businessId: string | null;
   businessName: string | null;
   isPrepay: boolean | null;
+  /** Google Ads: Customer ID da MCC usada no cabeçalho login-customer-id. */
+  managerId?: string | null;
+  /** Google Ads: conta de teste. */
+  isTestAccount?: boolean | null;
+}
+
+/** Contexto opcional para acessar uma conta (ex.: MCC do Google Ads). */
+export interface AccountAccess {
+  managerId?: string | null;
 }
 
 export interface PlatformAsset {
