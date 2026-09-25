@@ -24,7 +24,9 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 15 — Central de alertas](docs/etapa-15-central-alertas/README.md) ✅ concluída
 - [Etapa 16 — Sincronização](docs/etapa-16-sincronizacao/README.md) ✅ concluída
 - [Etapa 17 — Logs](docs/etapa-17-logs/README.md) ✅ concluída
-- [Etapa 18 — Relatórios](docs/etapa-18-relatorios/README.md) *(aguardando validação)*
+- [Etapa 18 — Relatórios](docs/etapa-18-relatorios/README.md) ✅ concluída
+- Etapa 19 — Dashboard do cliente *(em espera, a pedido — será feita depois da 20)*
+- [Etapa 20 — Permissões](docs/etapa-20-permissoes/README.md) *(aguardando validação)*
 
 ## Estrutura
 

@@ -22,6 +22,7 @@ import { DashboardPage } from "@/features/dashboard/DashboardPage.tsx";
 import { AccountsHealthPage } from "@/features/health/AccountsHealthPage.tsx";
 import { GoogleCallbackPage } from "@/features/integrations/GoogleCallbackPage.tsx";
 import { IntegrationsPage } from "@/features/integrations/IntegrationsPage.tsx";
+import { PermissionsPage } from "@/features/settings/PermissionsPage.tsx";
 import { SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
 import { UsersPage } from "@/features/users/UsersPage.tsx";
 
@@ -152,6 +153,7 @@ export const router = createBrowserRouter([
           { path: "usuarios", element: <UsersPage /> },
           { path: "integracoes", element: <IntegrationsPage /> },
           { path: "integracoes/google/callback", element: <GoogleCallbackPage /> },
+          { path: "permissoes", element: <PermissionsPage /> },
         ],
       },
       ...upcomingRoutes,

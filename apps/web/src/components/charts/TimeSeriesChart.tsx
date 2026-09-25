@@ -103,7 +103,8 @@ export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, form
 
   return (
     <div ref={boxRef} className="relative w-full select-none">
-      <svg width={width} height={height} role="img" aria-label={ariaLabel} className="block overflow-visible">
+      {/* max-w-full: o desenho nunca impede a caixa de encolher (celular); o gráfico então se redesenha no tamanho novo. */}
+      <svg width={width} height={height} role="img" aria-label={ariaLabel} className="block max-w-full overflow-visible">
         {/* Grade e eixo Y */}
         {ticks.map((t) => (
           <g key={t}>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { can, PERMISSIONS } from "./permissions.ts";
+import { can, PERMISSION_LABELS, PERMISSIONS, ROLE_SCOPE } from "./permissions.ts";
 import { isRole, ROLES } from "./roles.ts";
 
 describe("papéis", () => {
@@ -32,5 +32,12 @@ describe("permissões", () => {
 
   it("sem papel, sem permissão", () => {
     expect(can(null, "clients.view")).toBe(false);
+  });
+});
+
+describe("tela de papéis e permissões", () => {
+  it("toda permissão e todo papel têm explicação em português", () => {
+    for (const p of PERMISSIONS) expect(PERMISSION_LABELS[p]?.length).toBeGreaterThan(5);
+    for (const r of ROLES) expect(ROLE_SCOPE[r]?.length).toBeGreaterThan(5);
   });
 });

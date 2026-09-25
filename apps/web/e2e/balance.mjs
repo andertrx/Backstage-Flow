@@ -120,7 +120,12 @@ const text = async (locator) => clean(await locator.innerText());
   await page.getByLabel("Cliente", { exact: true }).selectOption("");
 
   await page.setViewportSize({ width: 390, height: 844 });
+  // Espera a página se ajustar ao tamanho novo antes de medir.
+  await page.waitForFunction(() => document.documentElement.scrollWidth <= window.innerWidth, null, { timeout: 3000 }).catch(() => {});
   check(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)), "no celular não há rolagem para o lado");
+  // O gráfico se redesenha na largura nova (nada do desenho fica para fora da tela).
+  const fits = await page.waitForFunction(() => [...document.querySelectorAll("svg[role=img] *")].every((e) => e.getBoundingClientRect().right <= window.innerWidth + 1), null, { timeout: 3000 }).then(() => true, () => false);
+  check(fits, "no celular o gráfico se redesenha na largura da tela");
   await page.screenshot({ path: `${SHOTS}/71-saldo-celular.png`, fullPage: true });
 
   check(errors.length === 0, `sem erros no navegador ${errors.join(" | ")}`);

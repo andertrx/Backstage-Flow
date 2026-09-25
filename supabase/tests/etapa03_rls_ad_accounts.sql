@@ -126,7 +126,8 @@ begin
   if (select count(*) from public.ad_accounts) <> 1 or (select name from public.ad_accounts) <> 'Conta B' then
     raise exception 'FALHOU: usuário cliente deveria ver só o histórico da própria conta';
   end if;
-  if (select count(*) from public.sync_state) <> 1 then raise exception 'FALHOU: cliente vê sync_state de outros'; end if;
+  -- Etapa 20: o estado de sincronização é informação interna (o cliente não vê nem o da própria conta).
+  if (select count(*) from public.sync_state) <> 0 then raise exception 'FALHOU: cliente vê sync_state'; end if;
 end $$;
 reset role;
 
@@ -135,14 +136,14 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000003b1","role":"authenticated"}';
 do $$
 begin
-  if (select count(*) from public.platform_connections) <> 1 then raise exception 'FALHOU: gestor deveria ver a conexão'; end if;
+  if (select count(*) from public.platform_connections where id = '00000000-0000-0000-0000-0000000003e1') <> 1 then raise exception 'FALHOU: gestor deveria ver a conexão'; end if;
   begin
     perform vault_secret_id from public.platform_connections;
     raise exception 'FALHOU: gestor viu a coluna vault_secret_id';
   exception when insufficient_privilege then null;
   end;
   begin
-    update public.platform_connections set status = 'revogada';
+    update public.platform_connections set status = 'revogada' where id = '00000000-0000-0000-0000-0000000003e1';
     raise exception 'FALHOU: gestor alterou conexão pelo site';
   exception when insufficient_privilege then null;
   end;
