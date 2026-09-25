@@ -492,6 +492,33 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
       db.authEvents.push(req.postDataJSON().p_event);
       return json(route, 200, null);
     }
+    // --- Busca global (Etapa 22): mesma regra de public.global_search
+    if (url.includes("/rest/v1/rpc/global_search")) {
+      const p = req.postDataJSON();
+      db.rpcCalls.push({ fn: "global_search", ...p });
+      if (role === "cliente") return json(route, 200, []);
+      const norm = (t) => (t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const q = norm(p.p_query.trim());
+      if (q.length < 2) return json(route, 200, []);
+      const id = p.p_query.trim().replace(/^act_/, "");
+      const lim = Math.min(Math.max(p.p_limit ?? 5, 1), 20);
+      const hit = (x) => norm(x.name).includes(q) || x.external_id === id;
+      const clientName = (cid) => db.clients.find((c) => c.id === cid)?.name ?? "";
+      const pick = (list) => list.filter(hit).slice(0, lim);
+      const rows = [
+        ...db.clients.filter((c) => norm(c.name).includes(q) || norm(c.company).includes(q)).slice(0, lim)
+          .map((c) => ({ kind: "cliente", id: c.id, name: c.name, external_id: null, platform_id: null, client_id: c.id, client_name: c.name, parent_name: c.company, status: c.status })),
+        ...pick(db.adAccounts.filter((a) => !a.unlinked_at))
+          .map((a) => ({ kind: "conta", id: a.id, name: a.name, external_id: a.external_id, platform_id: a.platform_id, client_id: a.client_id, client_name: clientName(a.client_id), parent_name: null, status: a.status ?? "ativa" })),
+        ...pick(db.campaigns)
+          .map((x) => ({ kind: "campanha", id: x.id, name: x.name, external_id: x.external_id, platform_id: x.platform_id, client_id: x.client_id, client_name: clientName(x.client_id), parent_name: db.adAccounts.find((a) => a.id === x.ad_account_id)?.name ?? null, status: x.status })),
+        ...pick(db.adGroups)
+          .map((x) => ({ kind: "conjunto", id: x.id, name: x.name, external_id: x.external_id, platform_id: x.platform_id, client_id: x.client_id, client_name: clientName(x.client_id), parent_name: db.campaigns.find((c) => c.id === x.campaign_id)?.name ?? null, status: x.status })),
+        ...pick(db.ads)
+          .map((x) => ({ kind: "anuncio", id: x.id, name: x.name, external_id: x.external_id, platform_id: x.platform_id, client_id: x.client_id, client_name: clientName(x.client_id), parent_name: db.campaigns.find((c) => c.id === x.campaign_id)?.name ?? null, status: x.status })),
+      ];
+      return json(route, 200, rows);
+    }
     if (url.includes("/rest/v1/rpc/audit_log_list")) {
       const p = req.postDataJSON();
       db.rpcCalls.push({ fn: "audit_log_list", ...p });

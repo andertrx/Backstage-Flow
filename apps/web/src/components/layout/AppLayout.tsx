@@ -5,6 +5,7 @@ import { Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-rou
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { useUnseenAlertsCount } from "@/features/alerts/api.ts";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
+import { GlobalSearch } from "@/features/search/GlobalSearch.tsx";
 import { cn } from "@/lib/cn.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { Logo } from "./Logo.tsx";
@@ -164,6 +165,7 @@ export function AppLayout() {
             <Menu className="size-6" />
           </button>
           <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-500" data-testid="header-section">{section}</p>
+          {can(profile?.role, "internal.view") && <GlobalSearch />}
           <Link to="/minha-conta" className="flex items-center gap-2.5 rounded-lg px-2 py-1 hover:bg-slate-100" title="Minha conta">
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700" aria-hidden>
               {initials(displayName)}
