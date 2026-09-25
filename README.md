@@ -30,7 +30,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 21 — Design](docs/etapa-21-design/README.md) ✅ concluída
 - [Etapa 22 — Busca global](docs/etapa-22-busca-global/README.md) ✅ concluída
 - [Etapa 23 — Banco histórico](docs/etapa-23-banco-historico/README.md) ✅ concluída
-- [Etapa 24 — Cache](docs/etapa-24-cache/README.md) *(aguardando validação)*
+- [Etapa 24 — Cache](docs/etapa-24-cache/README.md) ✅ concluída
+- [Etapa 25 — Tratamento de erros](docs/etapa-25-tratamento-de-erros/README.md) *(aguardando validação)*
 
 ## Estrutura
 

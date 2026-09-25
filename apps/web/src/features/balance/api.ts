@@ -1,7 +1,7 @@
 import { FRESH_MINUTES } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { callAdAccounts } from "@/features/ad-accounts/api.ts";
-import { friendlyDbError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import type { AccountBalance } from "./types.ts";
 
@@ -29,7 +29,7 @@ export function useAccountBalances(f: BalanceFilters) {
         p_platforms: f.platform ? [f.platform] : null,
         p_ad_account_ids: f.accountId ? [f.accountId] : null,
       });
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar os saldos."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os saldos."));
       // bigint pode chegar como texto: normaliza para número.
       return (data as Record<string, unknown>[]).map((row) => {
         const out = { ...row, issues: (row.issues as string[] | null) ?? [], spend_days: Number(row.spend_days ?? 0) } as Record<string, unknown>;

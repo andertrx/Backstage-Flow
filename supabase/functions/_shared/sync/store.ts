@@ -4,6 +4,7 @@
  * métricas pela função ingest_metrics_daily (Etapa 5) e alcance em period_reach.
  */
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { recordError } from "../errorlog.ts";
 import { AppError } from "../http.ts";
 import type { DailyMetric, PeriodReach } from "../platforms/types.ts";
 import type { IdMaps, SyncAccount, SyncStore } from "./runner.ts";
@@ -199,7 +200,7 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
         error_code: result.errorCode ?? null,
         error_message: result.errorMessage ?? null,
       }).eq("id", runId);
-      if (error) console.error(JSON.stringify({ code: "SYNC_RUN_UPDATE_FAILED", runId, technical: error.message }));
+      if (error) await recordError({ source: "sincronizacao", code: "SYNC_RUN_UPDATE_FAILED", technical: error, context: { execucao: runId }, adAccountId: account.id, clientId: account.client_id });
       const state: Record<string, unknown> = {
         status: result.status,
         locked_until: null,
@@ -209,7 +210,7 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
       };
       if (result.status === "sucesso") state.last_success_at = finishedAt;
       const { error: stateError } = await db.from("sync_state").update(state).eq("ad_account_id", account.id);
-      if (stateError) console.error(JSON.stringify({ code: "SYNC_STATE_UPDATE_FAILED", adAccountId: account.id, technical: stateError.message }));
+      if (stateError) await recordError({ source: "sincronizacao", code: "SYNC_STATE_UPDATE_FAILED", technical: stateError, adAccountId: account.id, clientId: account.client_id });
     },
 
     async markCoverage(account, range) {
@@ -241,13 +242,13 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
         error_code: result.errorCode ?? null,
         error_message: result.errorMessage ?? null,
       }).eq("id", runId);
-      if (error) console.error(JSON.stringify({ code: "SYNC_RUN_UPDATE_FAILED", runId, technical: error.message }));
+      if (error) await recordError({ source: "historico", code: "SYNC_RUN_UPDATE_FAILED", technical: error, context: { execucao: runId }, adAccountId: account.id, clientId: account.client_id });
       const { error: stateError } = await db.from("sync_state").update({
         backfill_locked_until: null,
         backfill_next_at: retryAt ? retryAt.toISOString() : null,
         backfill_error: result.errorMessage ?? null,
       }).eq("ad_account_id", account.id);
-      if (stateError) console.error(JSON.stringify({ code: "BACKFILL_STATE_UPDATE_FAILED", adAccountId: account.id, technical: stateError.message }));
+      if (stateError) await recordError({ source: "historico", code: "BACKFILL_STATE_UPDATE_FAILED", technical: stateError, adAccountId: account.id, clientId: account.client_id });
     },
 
     async markConnectionError(connectionId, message) {

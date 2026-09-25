@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
+import { errorMessage } from "@/lib/errors.ts";
 import { useClient } from "./api.ts";
 import { PlatformAccountsCard } from "@/features/ad-accounts/PlatformAccountsCard.tsx";
 import { ClientAccessCard } from "./ClientAccessCard.tsx";
@@ -30,7 +31,7 @@ export function ClientDetailPage() {
   const [editing, setEditing] = useState(false);
 
   if (isLoading) return <FullPageSpinner />;
-  if (error) return <Alert tone="error">{error.message}</Alert>;
+  if (error) return <Alert tone="error">{errorMessage(error)}</Alert>;
   if (!client) {
     // O RLS devolve "nada" tanto para cliente inexistente quanto sem permissão.
     return (

@@ -14,6 +14,7 @@ import { z } from "npm:zod@4";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { ROLES } from "../../../packages/shared/src/constants/roles.ts";
 import { adminClient, type Caller, requireAdmin } from "../_shared/auth.ts";
+import { recordError } from "../_shared/errorlog.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 
 // "Banido" por ~100 anos = não consegue mais fazer login. "none" remove o bloqueio.
@@ -65,7 +66,7 @@ async function audit(
     details,
   });
   // Falha de auditoria não desfaz a ação, mas fica no log técnico.
-  if (error) console.error(JSON.stringify({ code: "AUDIT_FAILED", technical: error.message }));
+  if (error) await recordError({ source: "servidor", code: "AUDIT_FAILED", technical: error, context: { funcao: "admin-users", acao: action }, userId: caller.id });
 }
 
 async function createUser(admin: SupabaseClient, caller: Caller, input: Extract<Input, { action: "create" }>) {
@@ -174,5 +175,5 @@ Deno.serve(
       : await setPassword(admin, caller, input);
 
     return json(req, 200, { data: result });
-  }),
+  }, "admin-users"),
 );

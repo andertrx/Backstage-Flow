@@ -21,6 +21,7 @@
 import { z } from "npm:zod@4";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { adminClient, requireRole, userClient } from "../_shared/auth.ts";
+import { recordError } from "../_shared/errorlog.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { getAdapter } from "../_shared/platforms/registry.ts";
 import { pickForSync } from "../_shared/sync/cache.ts";
@@ -92,7 +93,7 @@ async function runAll(db: SupabaseClient, ids: string[], trigger: "agendada" | "
   // Atualiza os alertas com os dados novos (saldo, status, entrega, quedas).
   if (results.length) {
     const { error } = await db.rpc("refresh_alerts");
-    if (error) console.error(JSON.stringify({ code: "ALERTS_REFRESH_FAILED", technical: error.message }));
+    if (error) await recordError({ source: "sincronizacao", code: "ALERTS_REFRESH_FAILED", userMessage: "Os alertas não foram atualizados nesta rodada.", technical: error });
   }
   return { results, queued: queued.length };
 }
@@ -164,5 +165,5 @@ Deno.serve(
     const lockedIds = (locked ?? []) as string[];
     const result = await runAll(db, lockedIds, "manual", caller.id);
     return json(req, 200, { data: { ...result, queued: result.queued + overflow.length, alreadyRunning: wanted.length - lockedIds.length, fresh: fresh.length } });
-  }),
+  }, "sync"),
 );

@@ -22,6 +22,7 @@
 import { z } from "npm:zod@4";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { adminClient, type Caller, requireRole, userClient } from "../_shared/auth.ts";
+import { EXPECTED_CODES, recordError } from "../_shared/errorlog.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import type { PlatformAdapter } from "../_shared/platforms/adapter.ts";
 import { getAdapter } from "../_shared/platforms/registry.ts";
@@ -200,8 +201,9 @@ async function syncAssets(ctx: Ctx, adapter: PlatformAdapter, token: string, adA
     if (cleanupError) throw dbError(cleanupError);
     return null;
   } catch (err) {
-    console.error(JSON.stringify({ code: "ASSETS_FAILED", adAccountId, technical: err instanceof AppError ? err.code : String(err) }));
-    return "A conta foi salva, mas não conseguimos ler as páginas e perfis do Instagram agora.";
+    const warning = "A conta foi salva, mas não conseguimos ler as páginas e perfis do Instagram agora.";
+    await recordError({ source: "servidor", code: "ASSETS_FAILED", userMessage: warning, technical: err, context: { funcao: "ad-accounts", acao: "paginas_instagram" }, userId: ctx.caller.id, adAccountId });
+    return warning;
   }
 }
 
@@ -454,8 +456,10 @@ async function refreshBalance(ctx: Ctx, input: Of<"refresh_balance">) {
   const recent = new Set((recentSnaps ?? []).map((r) => r.ad_account_id as string));
 
   for (const adAccountId of new Set(input.adAccountIds)) {
+    let clientId: string | null = null;
     try {
       const account = await loadAccountForManager(ctx, adAccountId);
+      clientId = account.client_id;
       if (recent.has(account.id)) {
         results.push({ adAccountId, ok: true, cached: true });
         continue;
@@ -475,7 +479,13 @@ async function refreshBalance(ctx: Ctx, input: Of<"refresh_balance">) {
       results.push({ adAccountId, ok: true });
     } catch (err) {
       const message = err instanceof AppError ? err.userMessage : "Erro inesperado ao consultar o saldo.";
-      console.error(JSON.stringify({ code: "BALANCE_REFRESH_FAILED", adAccountId, technical: err instanceof AppError ? err.code : String(err) }));
+      // Conta inexistente/sem acesso não é erro técnico; o resto vai para o log do administrador.
+      if (!(err instanceof AppError && EXPECTED_CODES.has(err.code))) {
+        await recordError({
+          source: "servidor", code: err instanceof AppError ? err.code : "BALANCE_REFRESH_FAILED", userMessage: "Não conseguimos atualizar o saldo desta conta. " + message,
+          technical: err, context: { funcao: "ad-accounts", acao: "atualizar_saldo" }, userId: ctx.caller.id, adAccountId: clientId ? adAccountId : null, clientId,
+        });
+      }
       results.push({ adAccountId, ok: false, error: message });
     }
   }
@@ -548,5 +558,5 @@ Deno.serve(
       }
     })();
     return json(req, 200, { data: result });
-  }),
+  }, "ad-accounts"),
 );

@@ -95,6 +95,9 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     authEvents: [],
     /** Cobertura do histórico por conta (como sync_state.history_from/to). */
     coverage: {},
+    /** Erros técnicos (como public.error_logs) e respostas forçadas por função (Etapa 25). */
+    errorLogs: [],
+    rpcOverride: {},
   };
 
   /** Saldo de cada conta vinculada (mesma regra de public.account_balances). */
@@ -127,6 +130,10 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     const url = req.url();
     const method = req.method();
     if (method === "OPTIONS") return route.fulfill({ status: 200, headers: cors });
+
+    // --- Respostas forçadas (Etapa 25: erro do banco, dado estranho)
+    const forced = Object.entries(db.rpcOverride).find(([fn]) => url.includes(`/rest/v1/rpc/${fn}`));
+    if (forced) return json(route, forced[1].status ?? 200, forced[1].body);
 
     // --- Auth
     if (url.includes("/auth/v1/token")) {
@@ -494,6 +501,23 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     if (url.includes("/rest/v1/rpc/log_auth_event")) {
       db.authEvents.push(req.postDataJSON().p_event);
       return json(route, 200, null);
+    }
+    // --- Erros técnicos (Etapa 25): o site registra; só o administrador lê
+    if (url.includes("/rest/v1/rpc/log_client_error")) {
+      const p = req.postDataJSON();
+      db.errorLogs.push({ id: 1000 + db.errorLogs.length, occurred_at: new Date().toISOString(), source: "site", code: p.p_code, user_message: p.p_user_message,
+        technical: p.p_technical, context: p.p_context ?? {}, user_id: USER_ID, user_name: "Ander Rodrigues", ad_account_id: null, account_name: null, client_id: null, client_name: null });
+      return json(route, 200, true);
+    }
+    if (url.includes("/rest/v1/rpc/error_log_list")) {
+      const p = req.postDataJSON();
+      db.rpcCalls.push({ fn: "error_log_list", ...p });
+      if (role !== "admin") return json(route, 200, []);
+      const rows = [...db.errorLogs]
+        .filter((l) => (!p.p_from || l.occurred_at >= p.p_from) && (!p.p_source || l.source === p.p_source) && (!p.p_before_id || l.id < p.p_before_id))
+        .sort((x, y) => y.id - x.id)
+        .slice(0, p.p_limit ?? 100);
+      return json(route, 200, rows);
     }
     // --- Histórico (Etapa 23): até onde vai o histórico de cada conta
     if (url.includes("/rest/v1/rpc/history_coverage")) {

@@ -8,6 +8,7 @@ import { useAccountBalances } from "@/features/balance/api.ts";
 import { BalanceSection } from "@/features/balance/BalanceSection.tsx";
 import { summarizeBalances } from "@/features/balance/summary.ts";
 import { useClients } from "@/features/clients/api.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { useDashboardSummary } from "./api.ts";
 import { ChartsSection } from "./ChartsSection.tsx";
 import { CurrencyTabs } from "./CurrencyTabs.tsx";
@@ -79,7 +80,7 @@ export function DashboardPage() {
       <FiltersBar filters={filters} period={period} clients={clients} onChange={setFilters} onClear={clear} />
       <DataFreshness clientId={filters.clientId} platform={filters.platform} accountId={filters.accountId} />
 
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
 
       <CurrencyTabs currencies={currencies} value={currency} onChange={(c) => setFilters({ currency: c })} />
 

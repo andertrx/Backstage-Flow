@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
+import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatRelative } from "@/lib/format.ts";
 import { RUN_LABEL, RunsTable } from "./RunsTable.tsx";
 import { type SyncOverviewRow, useRunSync, useSyncOverview, useSyncRuns } from "./api.ts";
@@ -59,9 +60,9 @@ export function SyncPage() {
       {runningAll && (
         <Alert tone="info">Sincronizando todas as contas. Pode levar alguns minutos — não precisa ficar nesta tela.</Alert>
       )}
-      {run.error && <Alert tone="error">{run.error.message}</Alert>}
+      {run.error && <Alert tone="error">{errorMessage(run.error)}</Alert>}
       {message && <Alert tone="success">{message}</Alert>}
-      {overview.error && <Alert tone="error">{overview.error.message}</Alert>}
+      {overview.error && <Alert tone="error">{errorMessage(overview.error)}</Alert>}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="sync-summary">
         <SummaryCard label="Última sincronização" testId="summary-last">
@@ -126,7 +127,7 @@ export function SyncPage() {
           <h2 id="sync-log-title" className="text-lg font-semibold">Histórico de sincronizações</h2>
           <p className="text-sm text-slate-500">As 50 mais recentes. O histórico completo fica guardado.</p>
         </div>
-        {runs.error && <Alert tone="error">{runs.error.message}</Alert>}
+        {runs.error && <Alert tone="error">{errorMessage(runs.error)}</Alert>}
         <RunsTable runs={runs.data ?? []} loading={runs.isLoading} />
       </section>
     </div>

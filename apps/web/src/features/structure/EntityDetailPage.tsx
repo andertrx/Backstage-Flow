@@ -19,6 +19,7 @@ import { KpiCard } from "@/features/dashboard/KpiCard.tsx";
 import { missingReason } from "@/features/dashboard/summary.ts";
 import { useDashboardFilters } from "@/features/dashboard/useDashboardFilters.ts";
 import { cn } from "@/lib/cn.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatMoney } from "@/lib/format.ts";
 import { useChildRows, useEntityChanges, useEntitySummary, useNames } from "./api.ts";
 import { describeChange } from "./changes.ts";
@@ -98,7 +99,7 @@ export function EntityDetailPage({ level }: { level: StructureLevel }) {
   }, [searchText, table, setTable]);
 
   if (summary.isLoading) return <div className="h-64 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />;
-  if (summary.error) return <Alert tone="error">{summary.error.message}</Alert>;
+  if (summary.error) return <Alert tone="error">{errorMessage(summary.error)}</Alert>;
   if (!entity) {
     return (
       <div className="space-y-4">
@@ -207,7 +208,7 @@ export function EntityDetailPage({ level }: { level: StructureLevel }) {
               ))}
             </div>
           </div>
-          {children.error && <Alert tone="error">{children.error.message}</Alert>}
+          {children.error && <Alert tone="error">{errorMessage(children.error)}</Alert>}
           {children.isLoading ? (
             <div className="h-32 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
           ) : (children.data?.rows.length ?? 0) === 0 ? (

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Select } from "@/components/ui/field.tsx";
 import { cn } from "@/lib/cn.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { formatAxisValue, formatKpi } from "@/lib/format.ts";
 import { useDashboardTimeseries } from "./api.ts";
 import { bucketAxisLabel, bucketTitle } from "./chartLabels.ts";
@@ -104,7 +105,7 @@ export function ChartsSection({ range, filters, currency }: { range: DateRange; 
         )}
 
         {error ? (
-          <Alert tone="error">{error.message}</Alert>
+          <Alert tone="error">{errorMessage(error)}</Alert>
         ) : isLoading ? (
           <div className="h-64 animate-pulse rounded-lg bg-slate-50" aria-label="Carregando gráfico" />
         ) : !hasValues ? (

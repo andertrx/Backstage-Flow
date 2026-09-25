@@ -10,6 +10,7 @@ import { resolveFilterPeriod } from "@/features/dashboard/filters.ts";
 import { FiltersBar } from "@/features/dashboard/FiltersBar.tsx";
 import { useDashboardFilters } from "@/features/dashboard/useDashboardFilters.ts";
 import { cn } from "@/lib/cn.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { useCampaignTable } from "./api.ts";
 import { COLUMNS } from "./columns.tsx";
 import { parseTable, type TableState, writeTable } from "./table.ts";
@@ -89,7 +90,7 @@ export function CampaignsPage() {
         </div>
       </div>
 
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       {mixedCurrency && (
         <Alert tone="info">
           Há campanhas em moedas diferentes: cada valor aparece na moeda da sua conta, <strong>sem conversão</strong>.

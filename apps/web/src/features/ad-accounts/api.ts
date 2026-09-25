@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import type { AdAccount, AvailableAccount, PlatformConnection } from "./types.ts";
 
@@ -16,7 +16,7 @@ export function useConnections(platform: string) {
         .select("id, platform_id, label, status, external_user_id, external_user_name, last_checked_at, last_error, created_at")
         .eq("platform_id", platform)
         .order("created_at");
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar as conexões."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conexões."));
       return data as PlatformConnection[];
     },
   });
@@ -36,7 +36,7 @@ export function useClientAdAccounts(clientId: string, platform: string) {
         .eq("platform_id", platform)
         .is("unlinked_at", null)
         .order("name");
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar as contas de anúncio."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as contas de anúncio."));
       return data as unknown as AdAccount[];
     },
   });
@@ -58,7 +58,7 @@ type Action =
 /** Toda escrita passa pela Edge Function ad-accounts (o site só lê). */
 export async function callAdAccounts<T>(body: Action): Promise<T> {
   const { data, error } = await supabase.functions.invoke("ad-accounts", { body });
-  if (error) throw new Error(await friendlyFunctionError(error));
+  if (error) throw new FriendlyError(await friendlyFunctionError(error));
   return (data as { data: T }).data;
 }
 

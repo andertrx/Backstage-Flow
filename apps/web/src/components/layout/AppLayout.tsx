@@ -1,7 +1,9 @@
 import { can, ROLE_LABELS } from "@backstage/shared";
+import { useQueryClient } from "@tanstack/react-query";
 import { ChevronsLeft, ChevronsRight, LogOut, Menu, X } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-router";
+import { ErrorBoundary } from "@/components/feedback/ErrorBoundary.tsx";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { useUnseenAlertsCount } from "@/features/alerts/api.ts";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
@@ -93,6 +95,7 @@ function initials(name: string) {
 export function AppLayout() {
   const { profile, signOut } = useAuth();
   const { pathname } = useLocation();
+  const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = usePersistentState("menu-recolhido", false);
   const displayName = profile?.full_name || profile?.email || "";
@@ -187,9 +190,12 @@ export function AppLayout() {
         </header>
 
         <main id="conteudo" tabIndex={-1} className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
-          <Suspense fallback={<FullPageSpinner label="Abrindo a página..." />}>
-            <Outlet />
-          </Suspense>
+          {/* Uma tela com erro não derruba o resto (o menu continua funcionando). */}
+          <ErrorBoundary key={pathname} onReset={() => queryClient.removeQueries()}>
+            <Suspense fallback={<FullPageSpinner label="Abrindo a página..." />}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
       <ScrollRestoration />

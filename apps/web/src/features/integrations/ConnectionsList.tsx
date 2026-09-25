@@ -4,6 +4,7 @@ import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useConnectionAction, useConnections } from "@/features/ad-accounts/api.ts";
 import type { PlatformConnection } from "@/features/ad-accounts/types.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { ConnectionAccountsModal } from "./ConnectionAccountsModal.tsx";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge.tsx";
 
@@ -21,11 +22,11 @@ export function ConnectionsList({ platform, emptyText }: { platform: string; emp
     try {
       await action.mutateAsync({ action: "disconnect", connectionId: id });
     } catch (err) {
-      window.alert((err as Error).message);
+      window.alert(errorMessage(err));
     }
   }
 
-  if (error) return <Alert tone="error">{error.message}</Alert>;
+  if (error) return <Alert tone="error">{errorMessage(error)}</Alert>;
   if (isLoading) return <p className="text-sm text-slate-500">Carregando conexões...</p>;
   if (!active.length) return <p className="text-sm text-slate-500">{emptyText}</p>;
 

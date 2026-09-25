@@ -4,6 +4,7 @@ import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { googleRedirectUri, useConnectionAction } from "@/features/ad-accounts/api.ts";
+import { errorMessage } from "@/lib/errors.ts";
 
 /** O Google devolve o usuário para cá com um código de uso único. */
 export function GoogleCallbackPage() {
@@ -31,7 +32,7 @@ export function GoogleCallbackPage() {
     action
       .mutateAsync({ action: "google_complete", code, state, redirectUri: googleRedirectUri(), label: "Google Ads da agência" })
       .then((r) => setResult({ tone: "success", text: `Google Ads conectado com ${r.ownerName ?? "sua conta Google"}.` }))
-      .catch((err: Error) => setResult({ tone: "error", text: err.message }));
+      .catch((err: unknown) => setResult({ tone: "error", text: errorMessage(err) }));
   }, [params, action]);
 
   return (

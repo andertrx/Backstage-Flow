@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 
 /** Uma conta vinculada com o estado da sincronização e o último resultado. */
@@ -67,7 +67,7 @@ export function useSyncOverview(enabled = true) {
     refetchInterval: (q) => refetchWhileRunning((q.state.data ?? []).some((r) => r.running)),
     queryFn: async () => {
       const { data, error } = await supabase.rpc("sync_overview");
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar a sincronização."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar a sincronização."));
       return (data ?? []) as SyncOverviewRow[];
     },
   });
@@ -79,7 +79,7 @@ export function useSyncRuns(limit = 50) {
     refetchInterval: (q) => refetchWhileRunning((q.state.data ?? []).some((r) => r.status === "executando")),
     queryFn: async () => {
       const { data, error } = await supabase.from("sync_runs").select(RUN_COLUMNS).order("started_at", { ascending: false }).limit(limit);
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar o histórico de sincronizações."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o histórico de sincronizações."));
       return data as unknown as SyncRunRow[];
     },
   });
@@ -96,7 +96,7 @@ export function useRunSync() {
       const { adAccountIds, onlyStale } = Array.isArray(input) || !input ? { adAccountIds: input, onlyStale: false } : input;
       const body = { action: "run", ...(adAccountIds?.length ? { adAccountIds } : {}), ...(onlyStale ? { onlyStale: true } : {}) };
       const { data, error } = await supabase.functions.invoke("sync", { body });
-      if (error) throw new Error(await friendlyFunctionError(error));
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
       return (data as { data: SyncRunResult }).data;
     },
     onSettled: () => qc.invalidateQueries(),

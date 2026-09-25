@@ -7,6 +7,7 @@ import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
 import { PLATFORM_VIEWS } from "@/features/platforms/logic.ts";
 import { SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
+import { RouteError } from "./RouteError.tsx";
 
 /** Cada página só é baixada quando for aberta (o site abre mais rápido). */
 const AccountPage = lazy(() => import("@/features/account/AccountPage.tsx").then((m) => ({ default: m.AccountPage })));
@@ -29,11 +30,12 @@ const HistoryPage = lazy(() => import("@/features/history/HistoryPage.tsx").then
 const UsersPage = lazy(() => import("@/features/users/UsersPage.tsx").then((m) => ({ default: m.UsersPage })));
 
 export const router = createBrowserRouter([
-  { path: "/login", element: <RedirectIfAuthenticated><LoginPage /></RedirectIfAuthenticated> },
-  { path: "/recuperar-senha", element: <RedirectIfAuthenticated><ForgotPasswordPage /></RedirectIfAuthenticated> },
-  { path: "/redefinir-senha", element: <ResetPasswordPage /> },
+  { path: "/login", errorElement: <RouteError />, element: <RedirectIfAuthenticated><LoginPage /></RedirectIfAuthenticated> },
+  { path: "/recuperar-senha", errorElement: <RouteError />, element: <RedirectIfAuthenticated><ForgotPasswordPage /></RedirectIfAuthenticated> },
+  { path: "/redefinir-senha", errorElement: <RouteError />, element: <ResetPasswordPage /> },
   {
     path: "/",
+    errorElement: <RouteError />,
     element: (
       <RequireAuth>
         <AppLayout />

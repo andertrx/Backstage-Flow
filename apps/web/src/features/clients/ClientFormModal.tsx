@@ -4,6 +4,7 @@ import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
+import { errorMessage } from "@/lib/errors.ts";
 import { useSaveClient } from "./api.ts";
 import { type ClientFormValues, emptyClientForm, parseClientForm, toFormValues } from "./form.ts";
 import { TIMEZONES } from "./timezones.ts";
@@ -34,7 +35,7 @@ export function ClientFormModal({ client, onClose, onSaved }: Props) {
       onSaved?.(id);
       onClose();
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
     }
   }
 

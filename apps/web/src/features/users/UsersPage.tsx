@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import type { Profile } from "@/features/auth/types.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { useAdminUsers, useUsers } from "./api.ts";
 import { UserFormModal } from "./UserFormModal.tsx";
 
@@ -24,7 +25,7 @@ function StatusToggle({ user }: { user: Profile }) {
     try {
       await mutation.mutateAsync({ action: "update", userId: user.id, active: !user.active });
     } catch (err) {
-      window.alert((err as Error).message);
+      window.alert(errorMessage(err));
     }
   }
 
@@ -59,7 +60,7 @@ export function UsersPage() {
         </Button>
       </div>
 
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       {isLoading ? (
         <FullPageSpinner />
       ) : (

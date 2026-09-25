@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { friendlyDbError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import type { CoverageRow } from "./logic.ts";
 
@@ -14,7 +14,7 @@ export function useHistoryCoverage(clientId: string | null, platform: string | n
         p_platforms: platform ? [platform] : null,
         p_ad_account_ids: accountId ? [accountId] : null,
       });
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos ver até onde vai o histórico."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos ver até onde vai o histórico."));
       return (data ?? []) as CoverageRow[];
     },
   });

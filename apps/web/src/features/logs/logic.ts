@@ -1,5 +1,5 @@
-import { auditActionLabel, describeAuditDetails } from "@backstage/shared";
-import type { AuditRow } from "./api.ts";
+import { auditActionLabel, describeAuditDetails, errorSourceLabel } from "@backstage/shared";
+import type { AuditRow, ErrorLogRow } from "./api.ts";
 
 export { downloadCsv, toCsv } from "@/lib/download.ts";
 
@@ -34,6 +34,32 @@ export function auditCsvRows(rows: AuditRow[]): string[][] {
       auditActionLabel(r.action),
       r.target_label ?? "",
       describeAuditDetails(r.action, r.details).join(" | "),
+    ]),
+  ];
+}
+
+/** Onde o erro aconteceu, em uma linha (conta, cliente, pessoa, tela). */
+export function errorWhere(r: Pick<ErrorLogRow, "account_name" | "client_name" | "user_name" | "context">): string {
+  const parts: string[] = [];
+  if (r.client_name) parts.push(`Cliente: ${r.client_name}`);
+  if (r.account_name) parts.push(`Conta: ${r.account_name}`);
+  if (r.user_name) parts.push(`Pessoa: ${r.user_name}`);
+  if (r.context?.pagina) parts.push(`Tela: ${r.context.pagina}`);
+  if (r.context?.funcao) parts.push(`Função: ${r.context.funcao}`);
+  return parts.join(" · ");
+}
+
+export function errorCsvRows(rows: ErrorLogRow[]): string[][] {
+  return [
+    ["Data e hora", "Origem", "Código", "Mensagem mostrada", "Onde", "Detalhe técnico", "Contexto"],
+    ...rows.map((r) => [
+      new Date(r.occurred_at).toLocaleString("pt-BR"),
+      errorSourceLabel(r.source),
+      r.code,
+      r.user_message ?? "",
+      errorWhere(r),
+      r.technical ?? "",
+      Object.entries(r.context ?? {}).map(([k, v]) => `${k}: ${v}`).join(" | "),
     ]),
   ];
 }

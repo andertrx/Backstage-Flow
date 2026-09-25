@@ -1,5 +1,5 @@
-import { AUDIT_CATEGORIES, type AuditCategory, auditActionLabel, can, describeAuditDetails } from "@backstage/shared";
-import { Download, ScrollText } from "lucide-react";
+import { AUDIT_CATEGORIES, type AuditCategory, auditActionLabel, can, describeAuditDetails, ERROR_SOURCES, errorSourceLabel } from "@backstage/shared";
+import { Bug, Download, ScrollText } from "lucide-react";
 import { useMemo } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -11,23 +11,25 @@ import { RUN_LABEL, RunsTable, TRIGGER_LABEL } from "@/features/sync/RunsTable.t
 import { formatDuration } from "@/features/sync/logic.ts";
 import { useUsers } from "@/features/users/api.ts";
 import { cn } from "@/lib/cn.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
-import { type AuditRow, useAuditLog, useSyncLog } from "./api.ts";
-import { actorLabel, auditCsvRows, downloadCsv, LOG_PERIODS, type LogPeriod, periodStart } from "./logic.ts";
+import { type AuditRow, type ErrorLogRow, useAuditLog, useErrorLog, useSyncLog } from "./api.ts";
+import { actorLabel, auditCsvRows, downloadCsv, errorCsvRows, errorWhere, LOG_PERIODS, type LogPeriod, periodStart } from "./logic.ts";
 
-type Tab = "acoes" | "sincronizacoes";
+type Tab = "acoes" | "sincronizacoes" | "erros";
 
 const pick = <T extends string>(value: string | null, allowed: readonly T[]) => (value && (allowed as readonly string[]).includes(value) ? (value as T) : null);
 const PERIOD_VALUES = LOG_PERIODS.map((p) => p.value);
 const CATEGORY_VALUES = AUDIT_CATEGORIES.map((c) => c.value);
+const SOURCE_VALUES = ERROR_SOURCES.map((s) => s.value);
 
 export function LogsPage() {
   const { profile } = useAuth();
   // Auditoria (quem fez o quê) é só do administrador; o gestor vê as sincronizações.
   const canAudit = can(profile?.role, "users.manage");
   const [params, updateParams] = useSearchParamsUpdater();
-  const tab: Tab = canAudit ? (pick(params.get("aba"), ["acoes", "sincronizacoes"] as const) ?? "acoes") : "sincronizacoes";
+  const tab: Tab = canAudit ? (pick(params.get("aba"), ["acoes", "sincronizacoes", "erros"] as const) ?? "acoes") : "sincronizacoes";
   const period = pick(params.get("periodo"), PERIOD_VALUES) ?? "30";
   const set = (key: string, value: string | null) =>
     updateParams((latest) => {
@@ -41,13 +43,13 @@ export function LogsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Logs</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Tudo o que aconteceu no sistema: {canAudit ? "quem entrou, quem alterou o quê e " : ""}cada sincronização com as plataformas. Nada é apagado.
+          Tudo o que aconteceu no sistema: {canAudit ? "quem entrou, quem alterou o quê, " : ""}cada sincronização com as plataformas{canAudit ? " e os erros técnicos" : ""}. Nada é apagado.
         </p>
       </div>
 
       {canAudit && (
         <div className="flex gap-1 border-b border-slate-200" role="tablist" aria-label="Escolha o log">
-          {([["acoes", "Ações dos usuários"], ["sincronizacoes", "Sincronizações"]] as const).map(([value, label]) => (
+          {([["acoes", "Ações dos usuários"], ["sincronizacoes", "Sincronizações"], ["erros", "Erros técnicos"]] as const).map(([value, label]) => (
             <button
               key={value}
               type="button"
@@ -67,6 +69,8 @@ export function LogsPage() {
 
       {tab === "acoes" ? (
         <AuditTab period={period} params={params} set={set} />
+      ) : tab === "erros" ? (
+        <ErrorsTab period={period} params={params} set={set} />
       ) : (
         <SyncTab period={period} params={params} set={set} />
       )}
@@ -119,7 +123,7 @@ function AuditTab({ period, params, set }: TabProps) {
         </label>
       </Card>
 
-      {log.error && <Alert tone="error">{log.error.message}</Alert>}
+      {log.error && <Alert tone="error">{errorMessage(log.error)}</Alert>}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-500" data-testid="audit-count">
@@ -217,7 +221,7 @@ function SyncTab({ period, params, set }: TabProps) {
         </label>
       </Card>
 
-      {log.error && <Alert tone="error">{log.error.message}</Alert>}
+      {log.error && <Alert tone="error">{errorMessage(log.error)}</Alert>}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-500" data-testid="sync-count">
@@ -236,5 +240,88 @@ function SyncTab({ period, params, set }: TabProps) {
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Erros técnicos (Etapa 25, só o administrador): a mensagem amigável que a
+ * pessoa viu e, ao abrir, o detalhe técnico (já sem tokens nem senhas).
+ */
+function ErrorsTab({ period, params, set }: TabProps) {
+  const source = pick(params.get("origem"), SOURCE_VALUES);
+  const from = useMemo(() => periodStart(period), [period]);
+  const log = useErrorLog({ from, source }, true);
+  const rows = log.data?.pages.flat() ?? [];
+
+  return (
+    <section className="space-y-4" aria-label="Erros técnicos">
+      <Card className="grid gap-3 p-4 sm:grid-cols-3" role="search" aria-label="Filtros dos erros">
+        <PeriodSelect period={period} set={set} />
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Origem</span>
+          <Select value={source ?? ""} onChange={(e) => set("origem", e.target.value || null)}>
+            <option value="">Todas</option>
+            {ERROR_SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </Select>
+        </label>
+        <p className="self-end text-xs text-slate-500 sm:col-span-1">
+          As pessoas veem só a mensagem amigável. O detalhe técnico fica aqui, sem tokens nem senhas.
+        </p>
+      </Card>
+
+      {log.error && <Alert tone="error">{errorMessage(log.error)}</Alert>}
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-slate-500" data-testid="errors-count">
+          {log.isLoading ? "Carregando…" : `${rows.length}${log.hasNextPage ? "+" : ""} ${rows.length === 1 ? "erro" : "erros"}`}
+        </p>
+        <Button variant="secondary" className="px-3 py-1.5 text-xs" disabled={!rows.length} onClick={() => downloadCsv("logs-erros.csv", errorCsvRows(rows))}>
+          <Download className="size-3.5" aria-hidden /> Baixar planilha
+        </Button>
+      </div>
+
+      {log.isLoading ? (
+        <div className="h-32 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+      ) : rows.length === 0 ? (
+        <Card className="flex flex-col items-center gap-2 p-10 text-center" data-testid="errors-empty">
+          <Bug className="size-8 text-slate-300" aria-hidden />
+          <p className="font-medium text-slate-900">Nenhum erro técnico com estes filtros.</p>
+        </Card>
+      ) : (
+        <ul className="divide-y divide-slate-100 rounded-xl bg-white shadow-sm ring-1 ring-slate-200" aria-label="Registros de erros">
+          {rows.map((r) => <ErrorItem key={r.id} row={r} />)}
+        </ul>
+      )}
+
+      {log.hasNextPage && (
+        <div className="flex justify-center">
+          <Button variant="secondary" loading={log.isFetchingNextPage} onClick={() => log.fetchNextPage()}>Carregar mais</Button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ErrorItem({ row: r }: { row: ErrorLogRow }) {
+  const where = errorWhere(r);
+  const context = Object.entries(r.context ?? {}).filter(([k]) => k !== "pagina" && k !== "funcao");
+  return (
+    <li className="px-4 py-3" data-testid="error-row" data-source={r.source}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="text-sm text-slate-900">
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">{errorSourceLabel(r.source)}</span>{" "}
+          <span className="font-medium" data-testid="error-message">{r.user_message || "Sem mensagem para a pessoa (erro interno)."}</span>
+        </p>
+        <time className="whitespace-nowrap text-xs text-slate-500" dateTime={r.occurred_at}>{formatDateTime(r.occurred_at)}</time>
+      </div>
+      {where && <p className="mt-0.5 text-xs text-slate-600" data-testid="error-where">{where}</p>}
+      <details className="mt-1 text-xs">
+        <summary className="cursor-pointer text-slate-500 hover:text-slate-800">Detalhe técnico · <code>{r.code}</code></summary>
+        <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-2 font-mono text-[11px] text-slate-700 ring-1 ring-slate-200" data-testid="error-technical">
+          {r.technical || "Sem detalhe técnico."}
+          {context.length > 0 && `\n\n${context.map(([k, v]) => `${k}: ${v}`).join("\n")}`}
+        </pre>
+      </details>
+    </li>
   );
 }

@@ -1,7 +1,7 @@
 import type { Role } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Profile } from "@/features/auth/types.ts";
-import { friendlyFunctionError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 
 const USERS_KEY = ["users"] as const;
@@ -14,7 +14,7 @@ export function useUsers() {
       const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: true });
       if (error) {
         console.error("[usuarios]", error);
-        throw new Error("Não conseguimos carregar os usuários.");
+        throw new FriendlyError("Não conseguimos carregar os usuários.");
       }
       return data as Profile[];
     },
@@ -32,7 +32,7 @@ export function useAdminUsers() {
   return useMutation({
     mutationFn: async (body: AdminUsersAction) => {
       const { data, error } = await supabase.functions.invoke("admin-users", { body });
-      if (error) throw new Error(await friendlyFunctionError(error));
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
       return data as { data: { id: string } };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: USERS_KEY }),

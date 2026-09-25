@@ -3,6 +3,7 @@ import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from 
 import { useNavigate } from "react-router";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { cn } from "@/lib/cn.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { useDebouncedValue } from "@/lib/useDebouncedValue.ts";
 import { useGlobalSearch } from "./api.ts";
 import { clientShortcuts, groupResults, MIN_QUERY, resultDetail, resultHref, resultStatus, type SearchKind } from "./logic.ts";
@@ -160,7 +161,7 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
               Digite pelo menos {MIN_QUERY} letras. Vale nome ou pedaço do nome, sem se preocupar com acentos, e também o ID da plataforma.
             </p>
           ) : search.error ? (
-            <p className="px-4 py-8 text-center text-sm text-red-600" role="alert">{search.error.message}</p>
+            <p className="px-4 py-8 text-center text-sm text-red-600" role="alert">{errorMessage(search.error)}</p>
           ) : !waiting && groups.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-slate-500" data-testid="search-empty">
               Nada encontrado para “{text.trim()}”.

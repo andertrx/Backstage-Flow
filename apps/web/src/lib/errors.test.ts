@@ -1,5 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
-import { friendlyAuthError, friendlyDbError, friendlyFunctionError } from "./errors.ts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { reportError } from "./errorReporting.ts";
+import { errorMessage, FriendlyError, friendlyAuthError, friendlyDbError, friendlyFunctionError } from "./errors.ts";
+
+vi.mock("./errorReporting.ts", () => ({ reportError: vi.fn() }));
+beforeEach(() => vi.mocked(reportError).mockClear());
 
 describe("friendlyAuthError", () => {
   it("traduz códigos conhecidos", () => {
@@ -45,5 +49,35 @@ describe("friendlyDbError", () => {
   it("usa a mensagem padrão informada, nunca o texto técnico", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(friendlyDbError({ code: "XX000", message: "internal error" }, "Falhou ao salvar.")).toBe("Falhou ao salvar.");
+  });
+});
+
+describe("registro do erro técnico (Etapa 25)", () => {
+  it("erro conhecido do banco não vai para o log; erro inesperado vai, com a mensagem que a pessoa viu", () => {
+    friendlyDbError({ code: "23505", message: "duplicate key" });
+    expect(reportError).not.toHaveBeenCalled();
+    friendlyDbError({ code: "XX000", message: "internal error" }, "Falhou ao salvar.");
+    expect(reportError).toHaveBeenCalledWith("DB_XX000", { code: "XX000", message: "internal error" }, { userMessage: "Falhou ao salvar." });
+  });
+
+  it("falha de rede não vai para o log (não daria para enviar)", () => {
+    friendlyDbError({ message: "Failed to fetch" });
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it("resposta amigável do servidor não é registrada de novo (o servidor já guardou)", async () => {
+    const context = new Response(JSON.stringify({ error: { code: "X", message: "Não conseguimos atualizar os dados desta conta." } }), { status: 502 });
+    await friendlyFunctionError({ context });
+    expect(reportError).not.toHaveBeenCalled();
+  });
+});
+
+describe("errorMessage", () => {
+  it("mostra a mensagem amigável e esconde a técnica", () => {
+    expect(errorMessage(new FriendlyError("Não conseguimos carregar os clientes."))).toBe("Não conseguimos carregar os clientes.");
+    expect(errorMessage(new TypeError("Cannot read properties of undefined (reading 'id')"))).toMatch(/Tente novamente/);
+    expect(errorMessage(new Error("API_ERROR_500_EXCEPTION"), "Não conseguimos atualizar os dados desta conta.")).toBe(
+      "Não conseguimos atualizar os dados desta conta.",
+    );
   });
 });

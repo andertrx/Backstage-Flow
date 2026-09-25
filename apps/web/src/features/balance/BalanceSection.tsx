@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
+import { errorMessage } from "@/lib/errors.ts";
 import { type BalanceFilters, type RefreshResult, useAccountBalances, useRefreshBalances } from "./api.ts";
 import { BalanceAccountCard } from "./BalanceAccountCard.tsx";
 import { BalanceSettingsModal } from "./BalanceSettingsModal.tsx";
@@ -27,7 +28,7 @@ export function BalanceSection({ filters }: { filters: BalanceFilters }) {
       for (let i = 0; i < ids.length; i += 50) all.push(...(await refresh.mutateAsync(ids.slice(i, i + 50))).results);
       setResults(all);
     } catch (err) {
-      setResults(ids.map((adAccountId) => ({ adAccountId, ok: false, error: err instanceof Error ? err.message : "Falha ao atualizar." })));
+      setResults(ids.map((adAccountId) => ({ adAccountId, ok: false, error: errorMessage(err, "Falha ao atualizar.") })));
     } finally {
       setRefreshingIds([]);
     }
@@ -53,7 +54,7 @@ export function BalanceSection({ filters }: { filters: BalanceFilters }) {
         )}
       </div>
 
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       {results && failed.length === 0 && (
         <Alert tone="success">{results.length === 1 ? "Saldo atualizado." : `${results.length} saldos atualizados.`}</Alert>
       )}

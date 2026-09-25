@@ -1,3 +1,5 @@
+import { EXPECTED_CODES, recordError } from "./errorlog.ts";
+
 /**
  * Utilidades HTTP comuns às Edge Functions: CORS, respostas JSON e erros amigáveis.
  */
@@ -39,21 +41,12 @@ export function json(req: Request, status: number, body: unknown): Response {
   });
 }
 
-/** Transforma qualquer erro (Error ou objeto do banco) em texto legível para o log. */
-function describe(technical: unknown): string {
-  if (technical instanceof Error) return `${technical.name}: ${technical.message}`;
-  try {
-    return JSON.stringify(technical);
-  } catch {
-    return String(technical);
-  }
-}
-
 /**
  * Envolve o handler: responde ao preflight CORS, aceita só POST e transforma
- * qualquer erro em resposta amigável, registrando o detalhe técnico no log.
+ * qualquer erro em resposta amigável. O detalhe técnico (sem segredos) fica
+ * guardado em error_logs para o administrador (Etapa 25).
  */
-export function handle(fn: (req: Request) => Promise<Response>) {
+export function handle(fn: (req: Request) => Promise<Response>, name = "funcao") {
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
     if (req.method !== "POST") {
@@ -63,13 +56,15 @@ export function handle(fn: (req: Request) => Promise<Response>) {
       return await fn(req);
     } catch (err) {
       if (err instanceof AppError) {
-        if (err.technical) console.error(JSON.stringify({ code: err.code, technical: describe(err.technical) }));
+        // Erros "esperados" (ex.: sessão expirada, campo inválido) não poluem o log.
+        if (!EXPECTED_CODES.has(err.code)) {
+          await recordError({ source: "servidor", code: err.code, userMessage: err.userMessage, technical: err.technical ?? err, context: { funcao: name } });
+        }
         return json(req, err.status, { error: { code: err.code, message: err.userMessage } });
       }
-      console.error(JSON.stringify({ code: "UNKNOWN", technical: describe(err) }));
-      return json(req, 500, {
-        error: { code: "UNKNOWN", message: "Algo deu errado. Tente novamente em instantes." },
-      });
+      const message = "Algo deu errado. Tente novamente em instantes.";
+      await recordError({ source: "servidor", code: "UNKNOWN", userMessage: message, technical: err, context: { funcao: name } });
+      return json(req, 500, { error: { code: "UNKNOWN", message } });
     }
   };
 }

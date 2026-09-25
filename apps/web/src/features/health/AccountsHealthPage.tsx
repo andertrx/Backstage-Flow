@@ -9,6 +9,7 @@ import { Input, Select } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { describeVerify, type RefreshResult, useRefreshBalances } from "@/features/balance/api.ts";
 import { cn } from "@/lib/cn.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatMoney, formatRelative } from "@/lib/format.ts";
 import { useAccountHealth } from "./api.ts";
 import { HealthBadge } from "./HealthBadge.tsx";
@@ -84,7 +85,7 @@ export function AccountsHealthPage() {
     try {
       for (let i = 0; i < ids.length; i += 50) all.push(...(await refresh.mutateAsync(ids.slice(i, i + 50))).results);
     } catch (err) {
-      all.push(...ids.map((adAccountId) => ({ adAccountId, ok: false, error: err instanceof Error ? err.message : "Falha ao verificar." })));
+      all.push(...ids.map((adAccountId) => ({ adAccountId, ok: false, error: errorMessage(err, "Falha ao verificar.") })));
     }
     setResults(all);
   };
@@ -137,7 +138,7 @@ export function AccountsHealthPage() {
         </Select>
       </div>
 
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       {results && failed.length === 0 && <Alert tone="success">{describeVerify(results)}</Alert>}
       {failed.length > 0 && (
         <Alert tone="error">

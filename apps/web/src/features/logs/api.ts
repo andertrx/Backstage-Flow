@@ -1,7 +1,7 @@
 import type { AuditCategory } from "@backstage/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { SyncRunRow } from "@/features/sync/api.ts";
-import { friendlyDbError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 
 export const PAGE_SIZE = 100;
@@ -40,7 +40,7 @@ export function useAuditLog(filters: AuditFilters, enabled: boolean) {
         p_before_id: pageParam,
         p_limit: PAGE_SIZE,
       });
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar os registros."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os registros."));
       return (data ?? []) as AuditRow[];
     },
     getNextPageParam: (last) => (last.length === PAGE_SIZE ? last[last.length - 1].id : undefined),
@@ -70,8 +70,50 @@ export function useSyncLog(filters: SyncLogFilters, enabled: boolean) {
       if (filters.clientId) query = query.eq("client_id", filters.clientId);
       if (pageParam) query = query.lt("id", pageParam);
       const { data, error } = await query;
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar o histórico de sincronizações."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o histórico de sincronizações."));
       return data as unknown as SyncRunRow[];
+    },
+    getNextPageParam: (last) => (last.length === PAGE_SIZE ? last[last.length - 1].id : undefined),
+  });
+}
+
+/** Um erro técnico (Etapa 25): o que a pessoa viu e o detalhe para análise. */
+export interface ErrorLogRow {
+  id: number;
+  occurred_at: string;
+  source: string;
+  code: string;
+  user_message: string | null;
+  technical: string | null;
+  context: Record<string, string>;
+  user_id: string | null;
+  user_name: string | null;
+  ad_account_id: string | null;
+  account_name: string | null;
+  client_id: string | null;
+  client_name: string | null;
+}
+
+export interface ErrorLogFilters {
+  from: string | null;
+  source: string | null;
+}
+
+/** Erros técnicos (só o administrador recebe linhas). */
+export function useErrorLog(filters: ErrorLogFilters, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: ["logs", "errors", filters],
+    enabled,
+    initialPageParam: null as number | null,
+    queryFn: async ({ pageParam }) => {
+      const { data, error } = await supabase.rpc("error_log_list", {
+        p_from: filters.from,
+        p_source: filters.source,
+        p_before_id: pageParam,
+        p_limit: PAGE_SIZE,
+      });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os erros técnicos."));
+      return (data ?? []) as ErrorLogRow[];
     },
     getNextPageParam: (last) => (last.length === PAGE_SIZE ? last[last.length - 1].id : undefined),
   });

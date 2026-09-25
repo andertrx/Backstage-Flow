@@ -1,6 +1,8 @@
+import { reportError } from "./errorReporting.ts";
+
 /**
  * Tradução de erros técnicos em mensagens amigáveis.
- * O detalhe técnico vai para o console (e, nas próximas etapas, para os logs).
+ * O detalhe técnico vai para o log do administrador (Logs → Erros técnicos).
  */
 
 const AUTH_MESSAGES: Record<string, string> = {
@@ -15,7 +17,7 @@ const AUTH_MESSAGES: Record<string, string> = {
   otp_expired: "Este link expirou. Peça um novo link de recuperação.",
 };
 
-const GENERIC = "Não foi possível concluir a operação. Tente novamente em instantes.";
+export const GENERIC = "Não foi possível concluir a operação. Tente novamente em instantes.";
 const NETWORK = "Sem conexão com o servidor. Verifique sua internet e tente de novo.";
 
 export function friendlyAuthError(error: unknown): string {
@@ -23,7 +25,7 @@ export function friendlyAuthError(error: unknown): string {
   const e = error as { code?: string; name?: string; message?: string };
   if (e.code && AUTH_MESSAGES[e.code]) return AUTH_MESSAGES[e.code];
   if (e.name === "AuthRetryableFetchError" || e.message === "Failed to fetch") return NETWORK;
-  console.error("[auth]", error);
+  reportError("AUTH_ERROR", error, { userMessage: GENERIC });
   return GENERIC;
 }
 
@@ -33,9 +35,12 @@ export function friendlyAuthError(error: unknown): string {
  */
 export async function friendlyFunctionError(error: unknown): Promise<string> {
   const context = (error as { context?: unknown })?.context;
+  let status: number | undefined;
   if (context instanceof Response) {
+    status = context.status;
     try {
       const body = (await context.clone().json()) as { error?: { message?: string } };
+      // O servidor já guardou o detalhe técnico; aqui só a mensagem amigável.
       if (body?.error?.message) return body.error.message;
     } catch {
       // resposta não era JSON — cai na mensagem genérica
@@ -43,7 +48,7 @@ export async function friendlyFunctionError(error: unknown): Promise<string> {
   }
   const name = (error as { name?: string })?.name;
   if (name === "FunctionsFetchError") return NETWORK;
-  console.error("[function]", error);
+  reportError("FUNCTION_ERROR", error, { userMessage: GENERIC, context: { status } });
   return GENERIC;
 }
 
@@ -53,7 +58,6 @@ export async function friendlyFunctionError(error: unknown): Promise<string> {
  */
 export function friendlyDbError(error: unknown, fallback = GENERIC): string {
   const e = error as { code?: string; message?: string; details?: string };
-  console.error("[db]", error);
   const text = `${e.message ?? ""} ${e.details ?? ""}`;
   switch (e.code) {
     case "23505":
@@ -69,5 +73,23 @@ export function friendlyDbError(error: unknown, fallback = GENERIC): string {
       return "Sua sessão expirou. Faça login novamente.";
   }
   if (e.message === "Failed to fetch" || e.message?.includes("NetworkError")) return NETWORK;
+  reportError(`DB_${e.code ?? "ERROR"}`, error, { userMessage: fallback });
+  return fallback;
+}
+
+/** Erro cuja mensagem já é amigável (pode aparecer na tela). */
+export class FriendlyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FriendlyError";
+  }
+}
+
+/**
+ * Texto para a tela: a mensagem amigável, ou uma genérica quando o erro é
+ * técnico (ex.: "TypeError: x is undefined" nunca aparece para a pessoa).
+ */
+export function errorMessage(error: unknown, fallback = GENERIC): string {
+  if (error instanceof FriendlyError) return error.message;
   return fallback;
 }

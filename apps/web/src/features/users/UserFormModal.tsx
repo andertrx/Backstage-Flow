@@ -6,6 +6,7 @@ import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import type { Profile } from "@/features/auth/types.ts";
 import { validateNewPassword } from "@/features/auth/password.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { useAdminUsers } from "./api.ts";
 
 interface Props {
@@ -41,7 +42,7 @@ export function UserFormModal({ user, open, onClose }: Props) {
       }
       onClose();
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
     }
   }
 

@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { friendlyDbError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import { MIN_QUERY, type SearchRow } from "./logic.ts";
 
@@ -13,7 +13,7 @@ export function useGlobalSearch(query: string, enabled: boolean) {
     staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("global_search", { p_query: q, p_limit: 5 });
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos buscar agora. Tente de novo."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos buscar agora. Tente de novo."));
       return (data ?? []) as SearchRow[];
     },
   });

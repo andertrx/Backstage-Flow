@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Field, Select } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
+import { errorMessage } from "@/lib/errors.ts";
 import { AccountStatusBadge } from "./AccountStatusBadge.tsx";
 import { useAccountAction, useAvailableAccounts, useConnections } from "./api.ts";
 import { ListFreshness } from "./ListFreshness.tsx";
@@ -37,7 +38,7 @@ export function LinkAccountModal({ clientId, platform, onClose }: Props) {
       if (result.warning) window.alert(result.warning);
       onClose();
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
     } finally {
       setLinking(null);
     }
@@ -79,7 +80,7 @@ export function LinkAccountModal({ clientId, platform, onClose }: Props) {
             )}
 
             {available.isLoading && <p className="text-sm text-slate-500">Buscando contas no {PLATFORM_LABELS[platform]}...</p>}
-            {available.error && <Alert tone="error">{(available.error as Error).message}</Alert>}
+            {available.error && <Alert tone="error">{errorMessage(available.error)}</Alert>}
             {available.data && <ListFreshness updatedAt={available.dataUpdatedAt} fetching={available.isFetching} onRefresh={() => available.refetch()} />}
             {available.data &&
               (available.data.accounts.length === 0 ? (

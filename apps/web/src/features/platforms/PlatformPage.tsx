@@ -29,6 +29,7 @@ import { FiltersBar } from "@/features/dashboard/FiltersBar.tsx";
 import { KpiCard } from "@/features/dashboard/KpiCard.tsx";
 import { missingReason, NOT_AVAILABLE, pickCurrency } from "@/features/dashboard/summary.ts";
 import { useDashboardFilters } from "@/features/dashboard/useDashboardFilters.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatKpi, formatMoney } from "@/lib/format.ts";
 import { type PeriodReach, usePeriodReach, usePlatformStructure } from "./api.ts";
 import { type LevelCount, type PlatformId, platformKpiLabel, type PlatformView, REACH_REASONS, reachScope } from "./logic.ts";
@@ -94,7 +95,7 @@ export function PlatformPage({ view }: { view: PlatformView }) {
       <FiltersBar filters={filters} period={period} clients={clients} onChange={setFilters} onClear={clear} lockedPlatform />
       <DataFreshness clientId={filters.clientId} platform={view.id} accountId={filters.accountId} />
 
-      {summary.error && <Alert tone="error">{summary.error.message}</Alert>}
+      {summary.error && <Alert tone="error">{errorMessage(summary.error)}</Alert>}
 
       <StructureSection view={view} counts={structure.data} accounts={accounts.filter((a) => a.platform_id === view.id && (!filters.clientId || a.client_id === filters.clientId) && (!filters.accountId || a.id === filters.accountId)).length} loading={structure.isLoading} query={query} />
 
@@ -203,7 +204,7 @@ function AccountsSection({ view, filters }: { view: PlatformView; filters: Dashb
         <h2 id="contas-plataforma" className="text-sm font-semibold uppercase tracking-wide text-slate-500">Contas: {view.id === "google" ? "orçamento" : "saldo"}, status e cobrança</h2>
         <Link to="/contas" className="text-xs font-medium text-brand-600 hover:underline">Saúde das contas <ArrowRight className="inline size-3" aria-hidden /></Link>
       </div>
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       {isLoading ? (
         <div className="h-24 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
       ) : data.length === 0 ? (
@@ -305,7 +306,7 @@ function TopCampaigns({ view, filters, range, query }: { view: PlatformView; fil
           Ver todas as campanhas do {view.label} <ArrowRight className="inline size-3" aria-hidden />
         </Link>
       </div>
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       <Card className="overflow-hidden">
         {isLoading ? (
           <div className="h-24 animate-pulse bg-slate-50" aria-label="Carregando" />

@@ -16,3 +16,4 @@ export * from "./metrics/comparison.ts";
 export * from "./alerts/labels.ts";
 export * from "./logs/labels.ts";
 export * from "./sync/freshness.ts";
+export * from "./errors/redact.ts";

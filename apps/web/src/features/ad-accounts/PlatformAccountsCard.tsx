@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
+import { errorMessage } from "@/lib/errors.ts";
 import { AccountStatusBadge } from "./AccountStatusBadge.tsx";
 import { useAccountAction, useClientAdAccounts } from "./api.ts";
 import { LinkAccountModal } from "./LinkAccountModal.tsx";
@@ -26,7 +27,7 @@ function AccountRow({ account, canManage, clientId }: { account: AdAccount; canM
       const result = await action.mutateAsync({ action: kind, adAccountId: account.id });
       if (result.warning) setFeedback({ tone: "info", text: result.warning });
     } catch (err) {
-      setFeedback({ tone: "error", text: (err as Error).message });
+      setFeedback({ tone: "error", text: errorMessage(err) });
     }
   }
 
@@ -107,7 +108,7 @@ export function PlatformAccountsCard({ clientId, platform, icon: Icon }: Props) 
           </Button>
         )}
       </div>
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       {isLoading ? (
         <p className="text-sm text-slate-500">Carregando...</p>
       ) : accounts?.length ? (

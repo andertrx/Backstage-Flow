@@ -4,6 +4,7 @@ import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { googleRedirectUri, startGoogleConnection, useGoogleStatus } from "@/features/ad-accounts/api.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { ConnectionsList } from "./ConnectionsList.tsx";
 
 function SetupGuide({ missing }: { missing: string[] }) {
@@ -68,7 +69,7 @@ export function GoogleIntegrationCard() {
     try {
       await startGoogleConnection(); // leva para a página oficial do Google
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
       setStarting(false);
     }
   }
@@ -92,7 +93,7 @@ export function GoogleIntegrationCard() {
         você entra na página oficial do Google. O sistema recebe só uma autorização, que fica criptografada no servidor.
       </Alert>
 
-      {status.error && <Alert tone="error">{(status.error as Error).message}</Alert>}
+      {status.error && <Alert tone="error">{errorMessage(status.error)}</Alert>}
       {error && <Alert tone="error">{error}</Alert>}
       {missing.length > 0 && <SetupGuide missing={missing} />}
 

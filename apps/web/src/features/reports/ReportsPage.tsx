@@ -10,6 +10,7 @@ import { FiltersBar } from "@/features/dashboard/FiltersBar.tsx";
 import { PERIOD_OPTIONS, resolveFilterPeriod } from "@/features/dashboard/filters.ts";
 import { useDashboardFilters } from "@/features/dashboard/useDashboardFilters.ts";
 import { downloadBlob, downloadCsv } from "@/lib/download.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { formatDate } from "@/lib/format.ts";
 import { MAX_CAMPAIGNS, useReportCampaigns } from "./api.ts";
 import { reportCsvRows, reportPdf, reportXlsx } from "./export.ts";
@@ -112,7 +113,7 @@ export function ReportsPage() {
         </div>
       </Card>
 
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       {exportError && <Alert tone="error">{exportError}</Alert>}
       {campaigns.data && campaigns.data.length >= MAX_CAMPAIGNS && (
         <Alert tone="warning">O relatório mostra as {MAX_CAMPAIGNS.toLocaleString("pt-BR")} campanhas que mais investiram. Use os filtros para ver as demais.</Alert>

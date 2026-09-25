@@ -3,6 +3,7 @@ import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Field, Input } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
+import { errorMessage } from "@/lib/errors.ts";
 import { useBalanceSettings } from "./api.ts";
 import type { AccountBalance } from "./types.ts";
 
@@ -27,7 +28,7 @@ export function BalanceSettingsModal({ balance, onClose }: { balance: AccountBal
       await save.mutateAsync({ adAccountId: balance.ad_account_id, lowBalanceDays, lowBalanceAmount });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não conseguimos salvar.");
+      setError(errorMessage(err, "Não conseguimos salvar."));
     }
   };
 

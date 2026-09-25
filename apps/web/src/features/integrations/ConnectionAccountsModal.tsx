@@ -8,6 +8,7 @@ import { AccountStatusBadge } from "@/features/ad-accounts/AccountStatusBadge.ts
 import { useAvailableAccounts } from "@/features/ad-accounts/api.ts";
 import type { PlatformConnection } from "@/features/ad-accounts/types.ts";
 import { useClients } from "@/features/clients/api.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { groupByOwner } from "./groupAccounts.ts";
 import { ListFreshness } from "@/features/ad-accounts/ListFreshness.tsx";
 
@@ -25,7 +26,7 @@ export function ConnectionAccountsModal({ connection, onClose }: { connection: P
     <Modal title={`Contas desta conexão — ${connection.label}`} open onClose={onClose} size="lg">
       <div className="space-y-4">
         {available.isLoading && <p className="text-sm text-slate-500">Buscando contas no {PLATFORM_LABELS[platform] ?? platform}...</p>}
-        {available.error && <Alert tone="error">{(available.error as Error).message}</Alert>}
+        {available.error && <Alert tone="error">{errorMessage(available.error)}</Alert>}
         {available.data && <ListFreshness updatedAt={available.dataUpdatedAt} fetching={available.isFetching} onRefresh={() => available.refetch()} />}
 
         {available.data && accounts.length === 0 && (

@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card.tsx";
 import { Input } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { cn } from "@/lib/cn.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { searchable } from "@/lib/text.ts";
 import { useClients } from "./api.ts";
 import { ClientFormModal } from "./ClientFormModal.tsx";
@@ -92,7 +93,7 @@ export function ClientsPage() {
         </div>
       </div>
 
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       {isLoading ? (
         <FullPageSpinner />
       ) : filtered.length === 0 ? (

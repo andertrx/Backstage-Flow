@@ -23,6 +23,7 @@ import { Select } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useClients } from "@/features/clients/api.ts";
 import { cn } from "@/lib/cn.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatRelative } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { type AlertRow, type AlertSituation, type RefreshAlertsResult, useAlerts, useRefreshAlerts, useSetAlertStatus } from "./api.ts";
@@ -96,7 +97,7 @@ export function AlertsPage() {
         )}
       </div>
 
-      {refresh.error && <Alert tone="error">{refresh.error.message}</Alert>}
+      {refresh.error && <Alert tone="error">{errorMessage(refresh.error)}</Alert>}
       {lastCheck && (
         <Alert tone="success">
           Verificação concluída: {lastCheck.created} {lastCheck.created === 1 ? "alerta novo" : "alertas novos"}
@@ -166,7 +167,7 @@ export function AlertsPage() {
         </label>
       </Card>
 
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
 
       {isLoading ? (
         <div className="h-32 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
@@ -258,7 +259,7 @@ function AlertCard({ alert: a, canManage }: { alert: AlertRow; canManage: boolea
             </div>
           )}
         </div>
-        {setStatus.error && <p className="mt-2 text-xs text-red-700">{setStatus.error.message}</p>}
+        {setStatus.error && <p className="mt-2 text-xs text-red-700">{errorMessage(setStatus.error)}</p>}
       </Card>
     </li>
   );

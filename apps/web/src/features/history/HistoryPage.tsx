@@ -12,6 +12,7 @@ import { type DashboardFilters, PLATFORM_OPTIONS } from "@/features/dashboard/fi
 import { KpiCard } from "@/features/dashboard/KpiCard.tsx";
 import { missingReason, pickCurrency } from "@/features/dashboard/summary.ts";
 import { cn } from "@/lib/cn.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { formatDate, formatKpi } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { useHistoryCoverage } from "./api.ts";
@@ -186,7 +187,7 @@ export function HistoryPage() {
         </div>
       </Card>
 
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
 
       <CurrencyTabs currencies={currencies} value={currency} onChange={(c) => set({ moeda: c })} />
 

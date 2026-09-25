@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { DateRange, Granularity, SeriesRow } from "@backstage/shared";
-import { friendlyDbError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import type { DashboardFilters } from "./filters.ts";
 import type { FilterAccount, FilterCampaign, SummaryRow } from "./types.ts";
@@ -15,7 +15,7 @@ export function useFilterAccounts() {
         .select("id, client_id, platform_id, external_id, name, currency")
         .is("unlinked_at", null)
         .order("name");
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar as contas."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as contas."));
       return data as FilterAccount[];
     },
   });
@@ -32,7 +32,7 @@ export function useFilterCampaigns(clientId: string | null, accountId: string | 
       else if (clientId) query = query.eq("client_id", clientId);
       if (platform) query = query.eq("platform_id", platform);
       const { data, error } = await query;
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar as campanhas."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as campanhas."));
       return data as FilterCampaign[];
     },
   });
@@ -48,7 +48,7 @@ async function fetchSummary(range: DateRange, f: DashboardFilters): Promise<Summ
     p_campaign_ids: f.campaignId ? [f.campaignId] : null,
     p_campaign_statuses: f.status ? [f.status] : null,
   });
-  if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar o resumo."));
+  if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o resumo."));
   // bigint chega como número ou texto, dependendo do tamanho: normaliza para número.
   return (data as Record<string, unknown>[]).map((row) => {
     const n = (v: unknown) => (v == null ? null : Number(v));
@@ -102,7 +102,7 @@ export function useDashboardTimeseries(range: DateRange, f: DashboardFilters, gr
         p_campaign_statuses: f.status ? [f.status] : null,
         p_by_platform: byPlatform,
       });
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar o gráfico."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o gráfico."));
       const n = (v: unknown) => (v == null ? null : Number(v));
       return (data as Record<string, unknown>[]).map((row): SeriesRow => ({
         bucket: String(row.bucket),

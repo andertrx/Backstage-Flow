@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Field, Input } from "@/components/ui/field.tsx";
 import { useConnectionAction, useConnections } from "@/features/ad-accounts/api.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { ConnectionsList } from "./ConnectionsList.tsx";
 
 
@@ -27,7 +28,7 @@ function ConnectForm() {
           : `Conectado como ${result.ownerName ?? "usuário do sistema"}. Agora vincule as contas na página de cada cliente.`,
       });
     } catch (err) {
-      setMessage({ tone: "error", text: (err as Error).message });
+      setMessage({ tone: "error", text: errorMessage(err) });
     }
   }
 

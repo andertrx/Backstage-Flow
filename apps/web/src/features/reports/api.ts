@@ -2,7 +2,7 @@ import type { DateRange } from "@backstage/shared";
 import { useQuery } from "@tanstack/react-query";
 import type { CampaignRow } from "@/features/campaigns/types.ts";
 import type { DashboardFilters } from "@/features/dashboard/filters.ts";
-import { friendlyDbError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 
 const NUMERIC = [
@@ -34,7 +34,7 @@ export function useReportCampaigns(range: DateRange, f: DashboardFilters) {
           p_limit: PAGE,
           p_offset: offset,
         });
-        if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar as campanhas do relatório."));
+        if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as campanhas do relatório."));
         const page = (data as Record<string, unknown>[]).map((row) => {
           const out: Record<string, unknown> = { ...row, total_count: Number(row.total_count ?? 0) };
           for (const k of NUMERIC) out[k] = row[k] == null ? null : Number(row[k]);

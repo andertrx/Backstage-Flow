@@ -28,6 +28,7 @@ import { FiltersBar } from "@/features/dashboard/FiltersBar.tsx";
 import { missingReason, pickCurrency } from "@/features/dashboard/summary.ts";
 import { useDashboardFilters } from "@/features/dashboard/useDashboardFilters.ts";
 import { cn } from "@/lib/cn.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { formatChange, formatDate, formatDifference, formatKpi } from "@/lib/format.ts";
 import { COMPARE_MODES, type CompareChoice, parseCompare, writeCompare } from "./compareParams.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
@@ -137,7 +138,7 @@ export function ComparisonPage() {
         </Card>
       </div>
 
-      {error && <Alert tone="error">{error.message}</Alert>}
+      {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       {warnings.map((w) => <Alert key={w} tone="warning">{w}</Alert>)}
 
       <CurrencyTabs currencies={currencies} value={currency} onChange={(c) => setFilters({ currency: c })} />

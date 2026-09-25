@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AlertSeverity, AlertStatus, AlertType } from "@backstage/shared";
-import { friendlyDbError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 
 /** Um alerta, com os nomes do cliente, da conta e da campanha. */
@@ -42,7 +42,7 @@ export function useAlerts(situation: AlertSituation) {
       if (situation === "abertos") query = query.in("status", ["aberto", "visto"]);
       if (situation === "resolvidos") query = query.eq("status", "resolvido");
       const { data, error } = await query;
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos carregar os alertas."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os alertas."));
       return data as unknown as AlertRow[];
     },
   });
@@ -56,7 +56,7 @@ export function useUnseenAlertsCount(enabled: boolean) {
     refetchInterval: 5 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase.from("alerts").select("id").eq("status", "aberto").limit(1000);
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos contar os alertas."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos contar os alertas."));
       return data.length;
     },
   });
@@ -75,7 +75,7 @@ export function useRefreshAlerts() {
   return useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.rpc("refresh_alerts");
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos verificar os alertas."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos verificar os alertas."));
       return data as RefreshAlertsResult;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ALERTS_KEY }),
@@ -87,7 +87,7 @@ export function useSetAlertStatus() {
   return useMutation({
     mutationFn: async ({ id, status }: { id: number; status: AlertStatus }) => {
       const { error } = await supabase.rpc("set_alert_status", { p_id: id, p_status: status });
-      if (error) throw new Error(friendlyDbError(error, "Não conseguimos atualizar o alerta."));
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos atualizar o alerta."));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ALERTS_KEY }),
   });

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Select } from "@/components/ui/field.tsx";
 import { useUsers } from "@/features/users/api.ts";
+import { errorMessage } from "@/lib/errors.ts";
 import { useChangeClientAccess, useClientAccess } from "./api.ts";
 
 /** Quem pode ver este cliente. Somente administradores veem e alteram. */
@@ -27,7 +28,7 @@ export function ClientAccessCard({ clientId }: { clientId: string }) {
       await change.mutateAsync({ userId, grant });
       setSelected("");
     } catch (err) {
-      setActionError((err as Error).message);
+      setActionError(errorMessage(err));
     }
   }
 
@@ -39,7 +40,7 @@ export function ClientAccessCard({ clientId }: { clientId: string }) {
       </div>
       <p className="mb-4 text-sm text-slate-500">Administradores veem todos os clientes. Aqui você libera os demais usuários.</p>
 
-      {(error || actionError) && <Alert tone="error">{actionError ?? error?.message}</Alert>}
+      {(error || actionError) && <Alert tone="error">{actionError ?? (error ? errorMessage(error) : null)}</Alert>}
 
       {isLoading ? (
         <p className="text-sm text-slate-500">Carregando...</p>

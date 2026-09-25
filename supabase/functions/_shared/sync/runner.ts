@@ -8,6 +8,7 @@
  * O acesso ao banco fica atrás de SyncStore, para poder testar sem banco.
  */
 import { addDays, comparisonPeriod, PERIOD_LABELS, type PeriodPreset, resolvePeriod } from "../../../../packages/shared/src/metrics/periods.ts";
+import { recordError } from "../errorlog.ts";
 import { AppError } from "../http.ts";
 import type { PlatformAdapter } from "../platforms/adapter.ts";
 import type { AccountFunding, DailyMetric, DateRange, PeriodReach, PlatformAccount, PlatformStructure } from "../platforms/types.ts";
@@ -159,11 +160,14 @@ export async function syncAccount(
     const records = ["saldo", "estrutura", "metricas", "alcance"].reduce((t, k) => t + (Number(details[k]) || 0), 0);
     result = { status: "sucesso", records, details };
     await store.markCoverage(account, range).catch((err) =>
-      console.error(JSON.stringify({ code: "COVERAGE_UPDATE_FAILED", adAccountId: account.id, technical: String(err) })));
+      recordError({ source: "sincronizacao", code: "COVERAGE_UPDATE_FAILED", technical: err, adAccountId: account.id, clientId: account.client_id }));
   } catch (err) {
     const code = err instanceof AppError ? err.code : "UNKNOWN";
     const message = err instanceof AppError ? err.userMessage : "Erro inesperado durante a sincronização.";
-    console.error(JSON.stringify({ code: "SYNC_FAILED", adAccountId: account.id, reason: code, technical: err instanceof AppError ? err.technical : String(err) }));
+    await recordError({
+      source: "sincronizacao", code, userMessage: "Não conseguimos atualizar os dados desta conta. " + message, technical: err,
+      context: { etapa: stepOf(details), periodo: `${range.from}..${range.to}`, gatilho: options.trigger }, adAccountId: account.id, clientId: account.client_id,
+    });
     if (account.connection_id && CONNECTION_ERRORS.has(code)) await store.markConnectionError(account.connection_id, message).catch(() => {});
     const partial = ["saldo", "estrutura", "metricas", "alcance"].reduce((t, k) => t + (Number(details[k]) || 0), 0);
     result = { status: "erro", records: partial, details, errorCode: code, errorMessage: message.slice(0, 500) };
@@ -173,6 +177,12 @@ export async function syncAccount(
   const next = new Date(Date.now() + (result.status === "sucesso" ? INTERVAL_MINUTES : RETRY_MINUTES) * 60_000);
   await store.finishRun(runId, account, result, durationMs, next);
   return { ...result, adAccountId: account.id, runId, durationMs };
+}
+
+/** Em qual passo a sincronização parou (para o log técnico). */
+function stepOf(details: Record<string, unknown>): string {
+  for (const step of ["saldo", "estrutura", "metricas", "alcance"]) if (!(step in details)) return step;
+  return "final";
 }
 
 /**
@@ -203,7 +213,10 @@ export async function backfillAccount(
   } catch (err) {
     const code = err instanceof AppError ? err.code : "UNKNOWN";
     const message = err instanceof AppError ? err.userMessage : "Erro inesperado ao importar o histórico.";
-    console.error(JSON.stringify({ code: "BACKFILL_FAILED", adAccountId: account.id, reason: code, technical: err instanceof AppError ? err.technical : String(err) }));
+    await recordError({
+      source: "historico", code, userMessage: "Não conseguimos importar este pedaço do histórico. " + message, technical: err,
+      context: { periodo: `${range.from}..${range.to}` }, adAccountId: account.id, clientId: account.client_id,
+    });
     result = { status: "erro", records: Number(details.metricas) || 0, details, errorCode: code, errorMessage: message.slice(0, 500) };
   }
   const durationMs = Date.now() - started;
