@@ -1,6 +1,6 @@
 # ETAPA 20 — Permissões
 
-> Status: **concluída e testada**, aguardando sua validação.
+> Status: **concluída e validada**.
 > A Etapa 19 (Dashboard do cliente) ficou para depois, a seu pedido. Quando ela for feita, o teste geral de permissões desta etapa roda de novo, incluindo as telas novas do cliente.
 
 ## 1. O que fizemos (explicado de forma simples)

@@ -66,6 +66,7 @@ const auditRow = (page, action) => page.locator(`[data-testid=audit-row][data-ac
   await page.getByLabel("Pessoa").selectOption(MARIA);
   check(await waitRows(page, "audit-row", 1) === 1 && await auditRow(page, "auth.login").count() === 1, "filtro por pessoa");
   await page.getByLabel("Pessoa").selectOption("");
+  await waitRows(page, "audit-row", 5);
   await page.getByLabel("Tipo").selectOption("ad_account");
   check(await waitRows(page, "audit-row", 1) === 1, "filtro por tipo");
   await page.getByLabel("Tipo").selectOption("auth");

@@ -1,42 +1,31 @@
+import { lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
-import { ComingSoon } from "@/components/feedback/ComingSoon.tsx";
 import { AppLayout } from "@/components/layout/AppLayout.tsx";
-import { NAV_ITEMS } from "@/components/layout/navigation.ts";
-import { AccountPage } from "@/features/account/AccountPage.tsx";
-import { ClientDetailPage } from "@/features/clients/ClientDetailPage.tsx";
-import { ClientsPage } from "@/features/clients/ClientsPage.tsx";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage.tsx";
 import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/features/auth/guards.tsx";
 import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
-import { ComparisonPage } from "@/features/comparison/ComparisonPage.tsx";
-import { AlertsPage } from "@/features/alerts/AlertsPage.tsx";
-import { SyncPage } from "@/features/sync/SyncPage.tsx";
-import { LogsPage } from "@/features/logs/LogsPage.tsx";
-import { ReportsPage } from "@/features/reports/ReportsPage.tsx";
-import { CampaignsPage } from "@/features/campaigns/CampaignsPage.tsx";
-import { PlatformPage } from "@/features/platforms/PlatformPage.tsx";
 import { PLATFORM_VIEWS } from "@/features/platforms/logic.ts";
-import { EntityDetailPage } from "@/features/structure/EntityDetailPage.tsx";
-import { DashboardPage } from "@/features/dashboard/DashboardPage.tsx";
-import { AccountsHealthPage } from "@/features/health/AccountsHealthPage.tsx";
-import { GoogleCallbackPage } from "@/features/integrations/GoogleCallbackPage.tsx";
-import { IntegrationsPage } from "@/features/integrations/IntegrationsPage.tsx";
-import { PermissionsPage } from "@/features/settings/PermissionsPage.tsx";
 import { SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
-import { UsersPage } from "@/features/users/UsersPage.tsx";
 
-/** Páginas das próximas etapas, geradas a partir do menu. */
-const upcomingRoutes = NAV_ITEMS.filter((item) => item.step > 0).map((item) => ({
-  path: item.path.slice(1),
-  element: item.permission ? (
-    <RequirePermission permission={item.permission}>
-      <ComingSoon title={item.label} step={item.step} />
-    </RequirePermission>
-  ) : (
-    <ComingSoon title={item.label} step={item.step} />
-  ),
-}));
+/** Cada página só é baixada quando for aberta (o site abre mais rápido). */
+const AccountPage = lazy(() => import("@/features/account/AccountPage.tsx").then((m) => ({ default: m.AccountPage })));
+const ClientDetailPage = lazy(() => import("@/features/clients/ClientDetailPage.tsx").then((m) => ({ default: m.ClientDetailPage })));
+const ClientsPage = lazy(() => import("@/features/clients/ClientsPage.tsx").then((m) => ({ default: m.ClientsPage })));
+const ComparisonPage = lazy(() => import("@/features/comparison/ComparisonPage.tsx").then((m) => ({ default: m.ComparisonPage })));
+const AlertsPage = lazy(() => import("@/features/alerts/AlertsPage.tsx").then((m) => ({ default: m.AlertsPage })));
+const SyncPage = lazy(() => import("@/features/sync/SyncPage.tsx").then((m) => ({ default: m.SyncPage })));
+const LogsPage = lazy(() => import("@/features/logs/LogsPage.tsx").then((m) => ({ default: m.LogsPage })));
+const ReportsPage = lazy(() => import("@/features/reports/ReportsPage.tsx").then((m) => ({ default: m.ReportsPage })));
+const CampaignsPage = lazy(() => import("@/features/campaigns/CampaignsPage.tsx").then((m) => ({ default: m.CampaignsPage })));
+const PlatformPage = lazy(() => import("@/features/platforms/PlatformPage.tsx").then((m) => ({ default: m.PlatformPage })));
+const EntityDetailPage = lazy(() => import("@/features/structure/EntityDetailPage.tsx").then((m) => ({ default: m.EntityDetailPage })));
+const DashboardPage = lazy(() => import("@/features/dashboard/DashboardPage.tsx").then((m) => ({ default: m.DashboardPage })));
+const AccountsHealthPage = lazy(() => import("@/features/health/AccountsHealthPage.tsx").then((m) => ({ default: m.AccountsHealthPage })));
+const GoogleCallbackPage = lazy(() => import("@/features/integrations/GoogleCallbackPage.tsx").then((m) => ({ default: m.GoogleCallbackPage })));
+const IntegrationsPage = lazy(() => import("@/features/integrations/IntegrationsPage.tsx").then((m) => ({ default: m.IntegrationsPage })));
+const PermissionsPage = lazy(() => import("@/features/settings/PermissionsPage.tsx").then((m) => ({ default: m.PermissionsPage })));
+const UsersPage = lazy(() => import("@/features/users/UsersPage.tsx").then((m) => ({ default: m.UsersPage })));
 
 export const router = createBrowserRouter([
   { path: "/login", element: <RedirectIfAuthenticated><LoginPage /></RedirectIfAuthenticated> },
@@ -156,7 +145,6 @@ export const router = createBrowserRouter([
           { path: "permissoes", element: <PermissionsPage /> },
         ],
       },
-      ...upcomingRoutes,
       { path: "*", element: <Navigate to="/" replace /> },
     ],
   },
