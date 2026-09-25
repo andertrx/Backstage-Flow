@@ -25,6 +25,7 @@ const AccountsHealthPage = lazy(() => import("@/features/health/AccountsHealthPa
 const GoogleCallbackPage = lazy(() => import("@/features/integrations/GoogleCallbackPage.tsx").then((m) => ({ default: m.GoogleCallbackPage })));
 const IntegrationsPage = lazy(() => import("@/features/integrations/IntegrationsPage.tsx").then((m) => ({ default: m.IntegrationsPage })));
 const PermissionsPage = lazy(() => import("@/features/settings/PermissionsPage.tsx").then((m) => ({ default: m.PermissionsPage })));
+const HistoryPage = lazy(() => import("@/features/history/HistoryPage.tsx").then((m) => ({ default: m.HistoryPage })));
 const UsersPage = lazy(() => import("@/features/users/UsersPage.tsx").then((m) => ({ default: m.UsersPage })));
 
 export const router = createBrowserRouter([
@@ -41,6 +42,14 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "comparar", element: <ComparisonPage /> },
+      {
+        path: "historico",
+        element: (
+          <RequirePermission permission="internal.view">
+            <HistoryPage />
+          </RequirePermission>
+        ),
+      },
       { path: "minha-conta", element: <AccountPage /> },
       {
         path: "clientes",

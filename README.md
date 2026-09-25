@@ -28,7 +28,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - Etapa 19 — Dashboard do cliente *(em espera, a pedido — será feita depois da 20)*
 - [Etapa 20 — Permissões](docs/etapa-20-permissoes/README.md) ✅ concluída
 - [Etapa 21 — Design](docs/etapa-21-design/README.md) ✅ concluída
-- [Etapa 22 — Busca global](docs/etapa-22-busca-global/README.md) *(aguardando validação)*
+- [Etapa 22 — Busca global](docs/etapa-22-busca-global/README.md) ✅ concluída
+- [Etapa 23 — Banco histórico](docs/etapa-23-banco-historico/README.md) *(aguardando validação)*
 
 ## Estrutura
 

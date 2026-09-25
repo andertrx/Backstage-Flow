@@ -9,6 +9,8 @@ import type { DailyMetric, PeriodReach } from "../platforms/types.ts";
 import type { IdMaps, SyncAccount, SyncStore } from "./runner.ts";
 
 const dbError = (error: unknown, message: string) => new AppError(500, "DB_ERROR", message, error);
+/** Linhas por página ao ler do banco (o limite do servidor é 1000). */
+const PAGE = 1000;
 
 function chunks<T>(list: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -208,6 +210,44 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
       if (result.status === "sucesso") state.last_success_at = finishedAt;
       const { error: stateError } = await db.from("sync_state").update(state).eq("ad_account_id", account.id);
       if (stateError) console.error(JSON.stringify({ code: "SYNC_STATE_UPDATE_FAILED", adAccountId: account.id, technical: stateError.message }));
+    },
+
+    async markCoverage(account, range) {
+      const { error } = await db.rpc("sync_mark_coverage", { p_ad_account_id: account.id, p_from: range.from, p_to: range.to });
+      if (error) throw dbError(error, "Não conseguimos registrar o período do histórico.");
+    },
+
+    async loadIdMaps(account) {
+      const load = async (table: "campaigns" | "ad_groups" | "ads") => {
+        const ids = new Map<string, string>();
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await db.from(table).select("id, external_id").eq("ad_account_id", account.id).order("id").range(from, from + PAGE - 1);
+          if (error) throw dbError(error, "Não conseguimos carregar as campanhas da conta.");
+          for (const r of data ?? []) ids.set(r.external_id as string, r.id as string);
+          if (!data || data.length < PAGE) break;
+        }
+        return ids;
+      };
+      return { campaigns: await load("campaigns"), adGroups: await load("ad_groups"), ads: await load("ads") };
+    },
+
+    async finishBackfill(runId, account, result, durationMs, retryAt) {
+      const { error } = await db.from("sync_runs").update({
+        status: result.status,
+        finished_at: new Date().toISOString(),
+        duration_ms: durationMs,
+        records_updated: result.records,
+        details: result.details,
+        error_code: result.errorCode ?? null,
+        error_message: result.errorMessage ?? null,
+      }).eq("id", runId);
+      if (error) console.error(JSON.stringify({ code: "SYNC_RUN_UPDATE_FAILED", runId, technical: error.message }));
+      const { error: stateError } = await db.from("sync_state").update({
+        backfill_locked_until: null,
+        backfill_next_at: retryAt ? retryAt.toISOString() : null,
+        backfill_error: result.errorMessage ?? null,
+      }).eq("ad_account_id", account.id);
+      if (stateError) console.error(JSON.stringify({ code: "BACKFILL_STATE_UPDATE_FAILED", adAccountId: account.id, technical: stateError.message }));
     },
 
     async markConnectionError(connectionId, message) {

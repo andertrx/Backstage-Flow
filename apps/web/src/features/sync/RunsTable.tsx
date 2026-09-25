@@ -7,7 +7,7 @@ import { formatDuration } from "./logic.ts";
 
 export const RUN_TONE = { sucesso: "success", erro: "danger", executando: "brand" } as const;
 export const RUN_LABEL = { sucesso: "Sucesso", erro: "Erro", executando: "Sincronizando…" } as const;
-export const TRIGGER_LABEL = { agendada: "Automática", manual: "Manual" } as const;
+export const TRIGGER_LABEL = { agendada: "Automática", manual: "Manual", historico: "Importação do histórico" } as const;
 
 /** Histórico de sincronizações (tela Sincronização e tela Logs). */
 export function RunsTable({ runs, loading, emptyText = "Nenhuma sincronização registrada ainda." }: { runs: SyncRunRow[]; loading: boolean; emptyText?: string }) {

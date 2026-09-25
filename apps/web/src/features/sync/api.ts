@@ -23,7 +23,7 @@ export interface SyncOverviewRow {
   run_finished_at: string | null;
   run_duration_ms: number | null;
   run_records: number | null;
-  run_trigger: "agendada" | "manual" | null;
+  run_trigger: "agendada" | "manual" | "historico" | null;
   run_error: string | null;
 }
 
@@ -33,7 +33,7 @@ export interface SyncRunRow {
   ad_account_id: string;
   client_id: string;
   platform_id: string;
-  trigger: "agendada" | "manual";
+  trigger: "agendada" | "manual" | "historico";
   status: "executando" | "sucesso" | "erro";
   started_at: string;
   finished_at: string | null;

@@ -1,5 +1,5 @@
-import { computeKpis, DEFAULT_TIMEZONE, KPI_DEFINITIONS, type MetricTotals } from "@backstage/shared";
-import { ArrowLeftRight } from "lucide-react";
+import { can, computeKpis, DEFAULT_TIMEZONE, KPI_DEFINITIONS, type MetricTotals } from "@backstage/shared";
+import { ArrowLeftRight, History } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -30,6 +30,15 @@ export function DashboardPage() {
   const timezone = clients.find((c) => c.id === filters.clientId)?.timezone ?? DEFAULT_TIMEZONE;
   const period = useMemo(() => resolveFilterPeriod(filters, timezone), [filters, timezone]);
   const { data, isLoading, error } = useDashboardSummary(period.current, period.previous, filters);
+  // O Histórico abre com o mesmo cliente, plataforma e conta do Dashboard.
+  const clientParam = (() => {
+    const p = new URLSearchParams();
+    if (filters.clientId) p.set("cliente", filters.clientId);
+    if (filters.platform) p.set("plataforma", filters.platform);
+    if (filters.accountId) p.set("conta", filters.accountId);
+    const q = p.toString();
+    return q ? `?${q}` : "";
+  })();
 
   const currencies = data?.current.map((r) => r.currency) ?? [];
   const currency = pickCurrency(currencies, filters.currency);
@@ -86,6 +95,11 @@ export function DashboardPage() {
             <Link to={`/comparar${search}`} className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline">
               <ArrowLeftRight className="size-3.5" aria-hidden /> Comparar períodos
             </Link>
+            {can(profile?.role, "internal.view") && (
+              <Link to={`/historico${clientParam}`} className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline">
+                <History className="size-3.5" aria-hidden /> Histórico por mês
+              </Link>
+            )}
           </div>
           {row && (
             <p className="text-xs text-slate-500">

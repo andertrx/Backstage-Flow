@@ -3,7 +3,9 @@
  *
  * Ações (POST com JSON):
  *   scheduled {}                  → agendador do banco (cabeçalho x-cron-secret); pega
- *                                   as contas cuja vez chegou e sincroniza.
+ *                                   as contas cuja vez chegou e sincroniza. Com o tempo
+ *                                   que sobra, importa o passado (Etapa 23): blocos de
+ *                                   30 dias até 13 meses para trás.
  *   run { adAccountIds?: uuid[] } → "Sincronizar agora" (admin, gestor, operador).
  *                                   Sem ids = todas as contas que o usuário enxerga.
  *
@@ -17,7 +19,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { adminClient, requireRole, userClient } from "../_shared/auth.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { getAdapter } from "../_shared/platforms/registry.ts";
-import { type SyncAccount, syncAccount } from "../_shared/sync/runner.ts";
+import { backfillAccount, type SyncAccount, syncAccount } from "../_shared/sync/runner.ts";
 import { supabaseSyncStore } from "../_shared/sync/store.ts";
 
 const SYNC_ROLES = ["admin", "gestor", "operador"] as const;
@@ -25,6 +27,8 @@ const SYNC_ROLES = ["admin", "gestor", "operador"] as const;
 const TIME_BUDGET_MS = 100_000;
 const MAX_MANUAL = 20;
 const SCHEDULED_BATCH = 3;
+/** Só começa um bloco da importação do passado se ainda houver folga de tempo. */
+const BACKFILL_START_LIMIT_MS = 70_000;
 
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("scheduled") }),
@@ -38,11 +42,18 @@ const ACCOUNT_COLUMNS = "id, client_id, platform_id, external_id, currency, time
 
 async function loadAccounts(db: SupabaseClient, ids: string[]): Promise<SyncAccount[]> {
   if (!ids.length) return [];
-  const { data, error } = await db.from("ad_accounts").select(`${ACCOUNT_COLUMNS}, sync_state(last_success_at)`).in("id", ids).is("unlinked_at", null);
+  const { data, error } = await db.from("ad_accounts").select(`${ACCOUNT_COLUMNS}, sync_state(last_success_at, history_from, history_to)`).in("id", ids).is("unlinked_at", null);
   if (error) throw new AppError(500, "DB_ERROR", "Não conseguimos carregar as contas.", error);
   return (data ?? []).map((a: Record<string, unknown>) => {
-    const state = Array.isArray(a.sync_state) ? a.sync_state[0] : a.sync_state;
-    return { ...a, last_success_at: (state as { last_success_at?: string } | null)?.last_success_at ?? null } as unknown as SyncAccount;
+    const state = (Array.isArray(a.sync_state) ? a.sync_state[0] : a.sync_state) as
+      { last_success_at?: string | null; history_from?: string | null; history_to?: string | null } | null;
+    return {
+      ...a,
+      sync_state: undefined,
+      last_success_at: state?.last_success_at ?? null,
+      history_from: state?.history_from ?? null,
+      history_to: state?.history_to ?? null,
+    } as unknown as SyncAccount;
   });
 }
 
@@ -80,6 +91,31 @@ async function runAll(db: SupabaseClient, ids: string[], trigger: "agendada" | "
   return { results, queued: queued.length };
 }
 
+/** Importação do passado com o tempo que sobrou (uma conta por vez, um bloco cada). */
+async function runBackfill(db: SupabaseClient, started: number) {
+  const done: { adAccountId: string; status: string; from: string; to: string; records: number; error: string | null }[] = [];
+  const { data: target, error } = await db.rpc("history_target");
+  if (error || !target) return done;
+  const store = supabaseSyncStore(db);
+  while (Date.now() - started < BACKFILL_START_LIMIT_MS) {
+    const { data: ids, error: claimError } = await db.rpc("sync_claim_backfill", { p_limit: 1 });
+    if (claimError || !ids?.length) break;
+    const [account] = await loadAccounts(db, ids as string[]);
+    const adapter = account && getAdapter(account.platform_id);
+    if (!account || !adapter) {
+      await db.from("sync_state").update({ backfill_locked_until: null }).in("ad_account_id", ids as string[]);
+      break;
+    }
+    const r = await backfillAccount(store, adapter, account, target as string);
+    if (!r) {
+      await db.from("sync_state").update({ backfill_locked_until: null }).eq("ad_account_id", account.id);
+      continue;
+    }
+    done.push({ adAccountId: r.adAccountId, status: r.status, from: r.range.from, to: r.range.to, records: r.records, error: r.errorMessage ?? null });
+  }
+  return done;
+}
+
 Deno.serve(
   handle(async (req) => {
     const db = adminClient();
@@ -92,7 +128,9 @@ Deno.serve(
       if (error || !ok) throw new AppError(401, "UNAUTHENTICATED", "Acesso negado.");
       const { data: ids, error: claimError } = await db.rpc("sync_claim_due", { p_limit: SCHEDULED_BATCH });
       if (claimError) throw new AppError(500, "DB_ERROR", "Não conseguimos escolher as contas.", claimError);
-      return json(req, 200, { data: await runAll(db, (ids ?? []) as string[], "agendada", null) });
+      const started = Date.now();
+      const regular = await runAll(db, (ids ?? []) as string[], "agendada", null);
+      return json(req, 200, { data: { ...regular, historico: await runBackfill(db, started) } });
     }
 
     // "Sincronizar agora": quem pediu precisa poder sincronizar e enxergar as contas.

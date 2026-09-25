@@ -93,6 +93,8 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     /** Auditoria (como public.audit_logs) e os logins/logouts registrados. */
     audit: [],
     authEvents: [],
+    /** Cobertura do histórico por conta (como sync_state.history_from/to). */
+    coverage: {},
   };
 
   /** Saldo de cada conta vinculada (mesma regra de public.account_balances). */
@@ -491,6 +493,27 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
     if (url.includes("/rest/v1/rpc/log_auth_event")) {
       db.authEvents.push(req.postDataJSON().p_event);
       return json(route, 200, null);
+    }
+    // --- Histórico (Etapa 23): até onde vai o histórico de cada conta
+    if (url.includes("/rest/v1/rpc/history_coverage")) {
+      const p = req.postDataJSON();
+      db.rpcCalls.push({ fn: "history_coverage", ...p });
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+      const [y, mo] = today.split("-").map(Number);
+      const t = y * 12 + (mo - 1) - 12;
+      const target = `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}-01`;
+      const rows = db.adAccounts
+        .filter((a) => !a.unlinked_at && (!p.p_client_ids || p.p_client_ids.includes(a.client_id)) &&
+          (!p.p_platforms || p.p_platforms.includes(a.platform_id)) && (!p.p_ad_account_ids || p.p_ad_account_ids.includes(a.id)))
+        .map((a) => {
+          const c = db.coverage[a.id] ?? {};
+          return {
+            ad_account_id: a.id, name: a.name, client_id: a.client_id, client_name: db.clients.find((x) => x.id === a.client_id)?.name ?? "",
+            platform_id: a.platform_id, currency: a.currency, history_from: c.history_from ?? null, history_to: c.history_to ?? null,
+            target, importing: c.importing ?? false, backfill_error: c.backfill_error ?? null,
+          };
+        });
+      return json(route, 200, rows);
     }
     // --- Busca global (Etapa 22): mesma regra de public.global_search
     if (url.includes("/rest/v1/rpc/global_search")) {

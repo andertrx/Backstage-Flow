@@ -1,6 +1,6 @@
 # ETAPA 22 — Busca global
 
-> Status: **concluída e testada**, aguardando sua validação.
+> Status: **concluída e validada**.
 
 ## 1. O que fizemos (explicado de forma simples)
 
