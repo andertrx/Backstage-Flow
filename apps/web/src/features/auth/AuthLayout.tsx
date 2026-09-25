@@ -8,7 +8,7 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
     <div className="flex min-h-full items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
-          <Logo />
+          <Logo size="lg" />
           <div>
             <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
             {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}

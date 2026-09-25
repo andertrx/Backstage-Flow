@@ -1,10 +1,14 @@
-export function Logo({ inverted = false, compact = false }: { inverted?: boolean; compact?: boolean }) {
+/**
+ * Logo do Backstage Flow. No menu escuro usa a versão com "backstage" em
+ * branco; recolhido, só o símbolo.
+ */
+export function Logo({ inverted = false, compact = false, size = "md" }: { inverted?: boolean; compact?: boolean; size?: "md" | "lg" }) {
+  if (compact) return <img src="/brand/symbol.png" alt="Backstage Flow" className="h-9 w-auto" />;
   return (
-    <div className="flex items-center gap-2.5">
-      <img src="/favicon.svg" alt={compact ? "Backstage Flow" : ""} className="size-8" />
-      {!compact && (
-        <span className={inverted ? "font-semibold tracking-tight text-white" : "font-semibold tracking-tight text-slate-900"}>Backstage Flow</span>
-      )}
-    </div>
+    <img
+      src={inverted ? "/brand/logo-dark.png" : "/brand/logo.png"}
+      alt="Backstage Flow"
+      className={size === "lg" ? "h-20 w-auto" : "h-10 w-auto"}
+    />
   );
 }

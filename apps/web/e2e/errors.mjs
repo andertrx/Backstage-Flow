@@ -146,6 +146,8 @@ async function waitFor(fn, ms = 5000) {
   seed(db);
   await login(page, "/logs");
   await page.getByRole("tab", { name: "Erros técnicos" }).click();
+  await page.waitForURL(/aba=erros/, { timeout: 5000 }).catch(() => {});
+  await page.waitForFunction(() => document.querySelector('[role=tab][aria-selected=true]')?.textContent?.includes("Erros técnicos"), null, { timeout: 5000 }).catch(() => {});
   check(await page.getByRole("tab", { name: "Erros técnicos" }).getAttribute("aria-selected") === "true" && new URL(page.url()).searchParams.get("aba") === "erros",
     "aba Erros técnicos (fica no endereço)");
   await page.getByTestId("error-row").first().waitFor();
