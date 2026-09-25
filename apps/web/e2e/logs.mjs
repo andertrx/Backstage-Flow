@@ -43,12 +43,10 @@ const auditRow = (page, action) => page.locator(`[data-testid=audit-row][data-ac
   const { browser, page, errors } = await launch();
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
-  await login(page, "/");
-  await page.getByRole("heading", { name: /^Olá/ }).waitFor();
-  check(db.authEvents.includes("login"), "login fica registrado");
-
-  await page.getByRole("link", { name: /^Logs/ }).first().click();
+  // Entra direto nos Logs (o Dashboard atualizaria sozinho as contas desatualizadas — Etapa 24).
+  await login(page, "/logs");
   await page.getByRole("heading", { name: "Logs", level: 1 }).waitFor();
+  check(db.authEvents.includes("login"), "login fica registrado");
   check(await waitRows(page, "audit-row", 5) === 5, "últimos 30 dias: 5 ações (a de 40 dias atrás fica de fora)");
 
   const text = async (action, id) => clean(await auditRow(page, action).getByTestId(id).innerText());

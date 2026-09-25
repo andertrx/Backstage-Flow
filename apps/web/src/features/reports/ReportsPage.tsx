@@ -14,6 +14,7 @@ import { formatDate } from "@/lib/format.ts";
 import { MAX_CAMPAIGNS, useReportCampaigns } from "./api.ts";
 import { reportCsvRows, reportPdf, reportXlsx } from "./export.ts";
 import { buildReport, EMPTY_NOTE, formatCell, reportFileName, type ReportTable } from "./model.ts";
+import { DataFreshness } from "@/features/sync/DataFreshness.tsx";
 
 /** Linhas mostradas na tela por tabela (o arquivo baixado tem todas). */
 const PREVIEW_ROWS = 15;
@@ -84,6 +85,7 @@ export function ReportsPage() {
       </div>
 
       <FiltersBar filters={filters} period={period} clients={clients} onChange={setFilters} onClear={clear} />
+      <DataFreshness clientId={filters.clientId} platform={filters.platform} accountId={filters.accountId} />
 
       <Card className="flex flex-wrap items-center justify-between gap-3 p-4" data-testid="report-actions">
         <div className="text-sm text-slate-600">

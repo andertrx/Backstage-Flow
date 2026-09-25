@@ -1,3 +1,4 @@
+import { FRESH_MINUTES } from "@backstage/shared";
 import type { SyncOverviewRow, SyncRunResult } from "./api.ts";
 
 /** Situação de uma conta na tela de Sincronização. */
@@ -72,6 +73,12 @@ export function summarize(rows: SyncOverviewRow[]) {
 
 /** Mensagem depois do "Sincronizar agora". */
 export function describeRun(r: SyncRunResult): string {
+  const fresh = r.fresh ?? 0;
+  const freshText = `${fresh} ${fresh === 1 ? "conta já estava atualizada" : "contas já estavam atualizadas"} (sincronizada${fresh === 1 ? "" : "s"} há menos de ${FRESH_MINUTES} minutos): usamos os dados guardados, sem chamar as APIs.`;
+  if (!r.results.length && fresh && !r.queued && !r.alreadyRunning) {
+    return fresh === 1 ? `A conta já estava atualizada (sincronizada há menos de ${FRESH_MINUTES} minutos): usamos os dados guardados, sem chamar as APIs.`
+      : `Todas as ${fresh} contas já estavam atualizadas (sincronizadas há menos de ${FRESH_MINUTES} minutos): usamos os dados guardados, sem chamar as APIs.`;
+  }
   const ok = r.results.filter((x) => x.status === "sucesso").length;
   const failed = r.results.length - ok;
   const records = r.results.reduce((t, x) => t + x.records, 0);
@@ -84,5 +91,6 @@ export function describeRun(r: SyncRunResult): string {
   let text = `${parts.join(" · ")}.`;
   if (r.alreadyRunning) text += ` ${r.alreadyRunning} já ${r.alreadyRunning === 1 ? "estava" : "estavam"} sincronizando.`;
   if (r.queued) text += ` ${r.queued} ${r.queued === 1 ? "ficou" : "ficaram"} na fila e ${r.queued === 1 ? "será sincronizada" : "serão sincronizadas"} em poucos minutos.`;
+  if (fresh) text += ` ${freshText}`;
   return text;
 }

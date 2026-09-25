@@ -48,6 +48,8 @@ export interface SyncRunResult {
   results: { adAccountId: string; status: "sucesso" | "erro"; records: number; durationMs: number; error: string | null }[];
   queued: number;
   alreadyRunning?: number;
+  /** Contas pulada(s) porque os dados guardados já eram recentes (cache). */
+  fresh?: number;
 }
 
 const SYNC_KEY = ["sync"] as const;
@@ -58,9 +60,10 @@ const RUN_COLUMNS =
 /** Enquanto alguma conta estiver sincronizando, atualiza a tela a cada 10 s. */
 const refetchWhileRunning = (running: boolean) => (running ? 10_000 : 60_000);
 
-export function useSyncOverview() {
+export function useSyncOverview(enabled = true) {
   return useQuery({
     queryKey: [...SYNC_KEY, "overview"],
+    enabled,
     refetchInterval: (q) => refetchWhileRunning((q.state.data ?? []).some((r) => r.running)),
     queryFn: async () => {
       const { data, error } = await supabase.rpc("sync_overview");
@@ -82,12 +85,16 @@ export function useSyncRuns(limit = 50) {
   });
 }
 
-/** "Sincronizar agora": sem ids = todas as contas que o usuário enxerga. */
+/**
+ * "Sincronizar agora": sem ids = todas as contas que o usuário enxerga.
+ * onlyStale = ao abrir uma página, só as contas com dados velhos (cache).
+ */
 export function useRunSync() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (adAccountIds?: string[]) => {
-      const body = adAccountIds?.length ? { action: "run", adAccountIds } : { action: "run" };
+    mutationFn: async (input?: string[] | { adAccountIds?: string[]; onlyStale?: boolean }) => {
+      const { adAccountIds, onlyStale } = Array.isArray(input) || !input ? { adAccountIds: input, onlyStale: false } : input;
+      const body = { action: "run", ...(adAccountIds?.length ? { adAccountIds } : {}), ...(onlyStale ? { onlyStale: true } : {}) };
       const { data, error } = await supabase.functions.invoke("sync", { body });
       if (error) throw new Error(await friendlyFunctionError(error));
       return (data as { data: SyncRunResult }).data;

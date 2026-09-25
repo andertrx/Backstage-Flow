@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
-    "e2e": "node e2e/smoke.mjs && node e2e/clients.mjs && node e2e/meta.mjs && node e2e/google.mjs && node e2e/dashboard.mjs && node e2e/balance.mjs && node e2e/health.mjs && node e2e/campaigns.mjs && node e2e/structure.mjs && node e2e/charts.mjs && node e2e/comparison.mjs && node e2e/meta-view.mjs && node e2e/google-view.mjs && node e2e/alerts.mjs && node e2e/sync.mjs && node e2e/logs.mjs && node e2e/reports.mjs && node e2e/permissions.mjs && node e2e/design.mjs && node e2e/search.mjs && node e2e/history.mjs && node e2e/recovery.mjs"
+    "e2e": "node e2e/smoke.mjs && node e2e/clients.mjs && node e2e/meta.mjs && node e2e/google.mjs && node e2e/dashboard.mjs && node e2e/balance.mjs && node e2e/health.mjs && node e2e/campaigns.mjs && node e2e/structure.mjs && node e2e/charts.mjs && node e2e/comparison.mjs && node e2e/meta-view.mjs && node e2e/google-view.mjs && node e2e/alerts.mjs && node e2e/sync.mjs && node e2e/logs.mjs && node e2e/reports.mjs && node e2e/permissions.mjs && node e2e/design.mjs && node e2e/search.mjs && node e2e/history.mjs && node e2e/cache.mjs && node e2e/recovery.mjs"
   },
   "dependencies": {
     "@backstage/shared": "*",

@@ -458,6 +458,7 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
 
     // --- Sincronização
     if (url.includes("/rest/v1/rpc/sync_overview")) {
+      db.rpcCalls.push({ fn: "sync_overview" });
       const rows = db.adAccounts.filter((a) => !a.unlinked_at).map((a) => {
         const s = db.syncState[a.id] ?? {};
         const r = db.syncRuns.filter((x) => x.ad_account_id === a.id).sort((x, y) => y.started_at.localeCompare(x.started_at))[0];
@@ -562,8 +563,13 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
       const body = req.postDataJSON();
       db.syncCalls.push(body);
       if (!["admin", "gestor", "operador"].includes(role)) return json(route, 403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para esta ação." } });
-      const wanted = db.adAccounts.filter((a) => !a.unlinked_at && a.connection_id && (!body.adAccountIds || body.adAccountIds.includes(a.id)));
-      if (!wanted.length) return json(route, 404, { error: { code: "NOT_FOUND", message: "Nenhuma conta com conexão ativa para sincronizar." } });
+      const visible = db.adAccounts.filter((a) => !a.unlinked_at && a.connection_id && (!body.adAccountIds || body.adAccountIds.includes(a.id)));
+      if (!visible.length) return json(route, 404, { error: { code: "NOT_FOUND", message: "Nenhuma conta com conexão ativa para sincronizar." } });
+      // Cache (mesma regra do servidor): < 10 min = recente; onlyStale = só > 90 min ou nunca.
+      const age = (a) => { const t = db.syncState[a.id]?.last_success_at; return t ? (Date.now() - Date.parse(t)) / 60_000 : null; };
+      const skip = (a) => (body.onlyStale ? age(a) != null && age(a) <= 90 : age(a) != null && age(a) < 10);
+      const wanted = visible.filter((a) => !skip(a));
+      const fresh = visible.length - wanted.length;
       const results = [];
       let runId = db.syncRuns.reduce((m, x) => Math.max(m, x.id), 0);
       for (const a of wanted) {
@@ -578,7 +584,7 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
           next_run_at: new Date(end.getTime() + (o.status === "sucesso" ? 60 : 30) * 60_000).toISOString(), last_error_message: o.error ?? null };
         results.push({ adAccountId: a.id, status: o.status, records: o.records, durationMs: o.durationMs, error: o.error ?? null });
       }
-      return json(route, 200, { data: { results, queued: 0, alreadyRunning: 0 } });
+      return json(route, 200, { data: { results, queued: 0, alreadyRunning: 0, fresh } });
     }
 
     // --- Edge Function ad-accounts (simula o servidor + API do Meta)
@@ -637,6 +643,9 @@ export async function mockSupabase(page, { role = "admin" } = {}) {
           return json(route, 200, { data: { adAccountId: body.adAccountId, warning: null } });
         case "refresh_balance": {
           const results = body.adAccountIds.map((id) => {
+            // Cache: fotografia de menos de 10 minutos já responde.
+            const snapAt = db.snapshots[id]?.captured_at;
+            if (snapAt && Date.now() - Date.parse(snapAt) < 10 * 60_000) return { adAccountId: id, ok: true, cached: true };
             if (db.fundingErrors[id]) return { adAccountId: id, ok: false, error: db.fundingErrors[id] };
             db.snapshots[id] = { ...db.fundingApi[id], captured_at: now };
             const acc = db.adAccounts.find((a) => a.id === id);

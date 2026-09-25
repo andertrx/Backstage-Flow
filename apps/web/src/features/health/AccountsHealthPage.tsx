@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Input, Select } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
-import { type RefreshResult, useRefreshBalances } from "@/features/balance/api.ts";
+import { describeVerify, type RefreshResult, useRefreshBalances } from "@/features/balance/api.ts";
 import { cn } from "@/lib/cn.ts";
 import { formatDateTime, formatMoney, formatRelative } from "@/lib/format.ts";
 import { useAccountHealth } from "./api.ts";
@@ -138,7 +138,7 @@ export function AccountsHealthPage() {
       </div>
 
       {error && <Alert tone="error">{error.message}</Alert>}
-      {results && failed.length === 0 && <Alert tone="success">{results.length} {results.length === 1 ? "conta verificada" : "contas verificadas"}.</Alert>}
+      {results && failed.length === 0 && <Alert tone="success">{describeVerify(results)}</Alert>}
       {failed.length > 0 && (
         <Alert tone="error">
           <ul className="space-y-0.5">

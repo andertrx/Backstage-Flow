@@ -9,6 +9,7 @@ import { useAvailableAccounts } from "@/features/ad-accounts/api.ts";
 import type { PlatformConnection } from "@/features/ad-accounts/types.ts";
 import { useClients } from "@/features/clients/api.ts";
 import { groupByOwner } from "./groupAccounts.ts";
+import { ListFreshness } from "@/features/ad-accounts/ListFreshness.tsx";
 
 /** "Ver contas desta conexão": o que a plataforma deixa o sistema enxergar (só leitura). */
 export function ConnectionAccountsModal({ connection, onClose }: { connection: PlatformConnection; onClose: () => void }) {
@@ -25,6 +26,7 @@ export function ConnectionAccountsModal({ connection, onClose }: { connection: P
       <div className="space-y-4">
         {available.isLoading && <p className="text-sm text-slate-500">Buscando contas no {PLATFORM_LABELS[platform] ?? platform}...</p>}
         {available.error && <Alert tone="error">{(available.error as Error).message}</Alert>}
+        {available.data && <ListFreshness updatedAt={available.dataUpdatedAt} fetching={available.isFetching} onRefresh={() => available.refetch()} />}
 
         {available.data && accounts.length === 0 && (
           <Alert tone="warning">

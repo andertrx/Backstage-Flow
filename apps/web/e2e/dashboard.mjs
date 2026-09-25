@@ -67,7 +67,7 @@ const waitValue = async (page, name, expected) => {
   await page.getByRole("heading", { name: "Resumo geral" }).waitFor();
   await waitValue(page, "Investimento", "R$ 350,00");
   check(true, "investimento dos últimos 7 dias (BRL, nível conta) = R$ 350,00");
-  check(db.rpcCalls[0].p_from === day(-7) && db.rpcCalls[0].p_to === day(-1), "padrão = últimos 7 dias, sem incluir hoje");
+  check(db.rpcCalls.find((c) => c.p_from).p_from === day(-7) && db.rpcCalls.find((c) => c.p_from).p_to === day(-1), "padrão = últimos 7 dias, sem incluir hoje");
   check(db.rpcCalls.some((c) => c.p_from === day(-14) && c.p_to === day(-8)), "compara com os 7 dias anteriores");
 
   check(await value(page, "Leads") === "30" && await value(page, "Mensagens") === "10" && await value(page, "Conversões") === "35", "leads, mensagens e conversões");

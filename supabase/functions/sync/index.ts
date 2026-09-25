@@ -6,8 +6,12 @@
  *                                   as contas cuja vez chegou e sincroniza. Com o tempo
  *                                   que sobra, importa o passado (Etapa 23): blocos de
  *                                   30 dias até 13 meses para trás.
- *   run { adAccountIds?: uuid[] } → "Sincronizar agora" (admin, gestor, operador).
+ *   run { adAccountIds?: uuid[], onlyStale?: boolean }
+ *                                 → "Sincronizar agora" (admin, gestor, operador).
  *                                   Sem ids = todas as contas que o usuário enxerga.
+ *                                   Cache (Etapa 24): contas sincronizadas há menos de
+ *                                   10 min usam o que já está guardado. onlyStale = ao
+ *                                   abrir uma página, só as desatualizadas (> 90 min).
  *
  * Os tokens das plataformas ficam no cofre e só são lidos aqui. Cada conta tem
  * trava (não roda duas vezes ao mesmo tempo). Uma conta com erro não impede as outras.
@@ -19,6 +23,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { adminClient, requireRole, userClient } from "../_shared/auth.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { getAdapter } from "../_shared/platforms/registry.ts";
+import { pickForSync } from "../_shared/sync/cache.ts";
 import { backfillAccount, type SyncAccount, syncAccount } from "../_shared/sync/runner.ts";
 import { supabaseSyncStore } from "../_shared/sync/store.ts";
 
@@ -35,6 +40,7 @@ const schema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("run"),
     adAccountIds: z.array(z.guid("Identificador inválido.")).max(MAX_MANUAL, `Máximo de ${MAX_MANUAL} contas por vez.`).optional(),
+    onlyStale: z.boolean().optional(),
   }),
 ]);
 
@@ -137,15 +143,26 @@ Deno.serve(
     const caller = await requireRole(req, db, SYNC_ROLES);
     let query = userClient(req).from("ad_accounts").select("id").is("unlinked_at", null).not("connection_id", "is", null);
     if (input.adAccountIds?.length) query = query.in("id", input.adAccountIds);
-    const { data: visible, error } = await query.limit(MAX_MANUAL);
+    const { data: visible, error } = await query.limit(500);
     if (error) throw new AppError(500, "DB_ERROR", "Não conseguimos carregar as contas.", error);
-    const wanted = (visible ?? []).map((a) => a.id as string);
-    if (!wanted.length) throw new AppError(404, "NOT_FOUND", "Nenhuma conta com conexão ativa para sincronizar.");
+    const visibleIds = (visible ?? []).map((a) => a.id as string);
+    if (!visibleIds.length) throw new AppError(404, "NOT_FOUND", "Nenhuma conta com conexão ativa para sincronizar.");
+
+    // Cache: o que foi sincronizado há pouco não vai para a API de novo.
+    const { data: states, error: stateError } = await db.from("sync_state").select("ad_account_id, last_success_at").in("ad_account_id", visibleIds);
+    if (stateError) throw new AppError(500, "DB_ERROR", "Não conseguimos carregar as contas.", stateError);
+    const last = new Map((states ?? []).map((s) => [s.ad_account_id as string, (s.last_success_at as string | null) ?? null]));
+    const { sync: toSync, fresh } = pickForSync(visibleIds.map((id) => ({ adAccountId: id, lastSuccessAt: last.get(id) ?? null })), input.onlyStale ?? false);
+    if (!toSync.length) return json(req, 200, { data: { results: [], queued: 0, alreadyRunning: 0, fresh: fresh.length } });
+    // Até 20 agora; as demais vão para a fila do agendador (sincronizadas em poucos minutos).
+    const wanted = toSync.slice(0, MAX_MANUAL);
+    const overflow = toSync.slice(MAX_MANUAL);
+    if (overflow.length) await db.from("sync_state").update({ next_run_at: new Date().toISOString() }).in("ad_account_id", overflow);
 
     const { data: locked, error: lockError } = await db.rpc("sync_lock", { p_ad_account_ids: wanted });
     if (lockError) throw new AppError(500, "DB_ERROR", "Não conseguimos iniciar a sincronização.", lockError);
     const lockedIds = (locked ?? []) as string[];
     const result = await runAll(db, lockedIds, "manual", caller.id);
-    return json(req, 200, { data: { ...result, alreadyRunning: wanted.length - lockedIds.length } });
+    return json(req, 200, { data: { ...result, queued: result.queued + overflow.length, alreadyRunning: wanted.length - lockedIds.length, fresh: fresh.length } });
   }),
 );

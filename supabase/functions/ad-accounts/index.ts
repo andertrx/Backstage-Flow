@@ -15,7 +15,8 @@
  *   link            { connectionId, externalId, clientId, managerCustomerId? } → admin, gestor com acesso ao cliente
  *   refresh         { adAccountId }                                → admin, gestor com acesso ao cliente
  *   unlink          { adAccountId }                                → admin, gestor com acesso ao cliente
- *   refresh_balance { adAccountIds[] }                             → admin, gestor com acesso ao cliente (saldo e cobrança)
+ *   refresh_balance { adAccountIds[] }                             → admin, gestor com acesso ao cliente (saldo e cobrança;
+ *                                                                    fotografia de menos de 10 min é reaproveitada — cache)
  *   balance_settings { adAccountId, lowBalanceDays, lowBalanceAmount } → admin, gestor com acesso ao cliente
  */
 import { z } from "npm:zod@4";
@@ -27,6 +28,7 @@ import { getAdapter } from "../_shared/platforms/registry.ts";
 import { missingConfig as googleMissingConfig } from "../_shared/platforms/google/config.ts";
 import { buildAuthorizeUrl, exchangeCode, fetchUserInfo } from "../_shared/platforms/google/oauth.ts";
 import type { AccountFunding, CredentialOwner, PlatformAccount } from "../_shared/platforms/types.ts";
+import { FRESH_MINUTES } from "../../../packages/shared/src/sync/freshness.ts";
 
 const MANAGERS = ["admin", "gestor"] as const;
 const ADMIN_ONLY = new Set(["connect", "disconnect", "google_status", "google_start", "google_complete"]);
@@ -442,11 +444,22 @@ async function unlink(ctx: Ctx, input: Of<"unlink">) {
  */
 async function refreshBalance(ctx: Ctx, input: Of<"refresh_balance">) {
   const tokens = new Map<string, Promise<{ connection: Connection; token: string }>>();
-  const results: { adAccountId: string; ok: boolean; error?: string }[] = [];
+  const results: { adAccountId: string; ok: boolean; cached?: boolean; error?: string }[] = [];
+
+  // Cache: fotografia de saldo de menos de 10 minutos já responde (sem chamar a API).
+  const cutoff = new Date(Date.now() - FRESH_MINUTES * 60_000).toISOString();
+  const { data: recentSnaps, error: recentError } = await ctx.db
+    .from("account_snapshots").select("ad_account_id").in("ad_account_id", input.adAccountIds).gte("captured_at", cutoff);
+  if (recentError) throw dbError(recentError);
+  const recent = new Set((recentSnaps ?? []).map((r) => r.ad_account_id as string));
 
   for (const adAccountId of new Set(input.adAccountIds)) {
     try {
       const account = await loadAccountForManager(ctx, adAccountId);
+      if (recent.has(account.id)) {
+        results.push({ adAccountId, ok: true, cached: true });
+        continue;
+      }
       if (!account.connection_id) throw new AppError(400, "NO_CONNECTION", "Esta conta não tem conexão ativa. Vincule novamente.");
       if (!tokens.has(account.connection_id)) tokens.set(account.connection_id, loadConnection(ctx, account.connection_id));
       const { connection, token } = await tokens.get(account.connection_id)!;

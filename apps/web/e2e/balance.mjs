@@ -30,7 +30,8 @@ function seed(db) {
     captured_at: new Date(Date.now() - 2 * 86_400_000).toISOString(), available_micros: 1800 * M, available_basis: "google_account_budget",
     budget_micros: 5000 * M, spend_cap_micros: 4800 * M, amount_spent_micros: 3000 * M, budget_end_at: "2027-01-01T02:59:59Z", issues: [],
   };
-  db.snapshots[US] = { captured_at: new Date().toISOString(), currency: "USD", issues: ["pagamento_pendente"] };
+  // Fotografia de 3 horas atrás: "Atualizar" consulta a API de novo (com menos de 10 min, usaria o cache).
+  db.snapshots[US] = { captured_at: new Date(Date.now() - 3 * 3600_000).toISOString(), currency: "USD", issues: ["pagamento_pendente"] };
   // O que a "API do Meta" devolve ao atualizar: limite R$ 1.000, gasto R$ 750 → disponível R$ 250
   db.fundingApi[META] = {
     available_micros: 250 * M, available_basis: "meta_spend_cap", spend_cap_micros: 1000 * M, amount_spent_micros: 750 * M,

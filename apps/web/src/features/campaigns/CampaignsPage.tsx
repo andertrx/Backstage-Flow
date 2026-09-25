@@ -15,6 +15,7 @@ import { COLUMNS } from "./columns.tsx";
 import { parseTable, type TableState, writeTable } from "./table.ts";
 import { periodQueryString } from "./links.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
+import { DataFreshness } from "@/features/sync/DataFreshness.tsx";
 
 const STATUS_CHIPS: { value: CampaignStatusFilter | null; label: string }[] = [
   { value: null, label: "Todas" },
@@ -61,6 +62,7 @@ export function CampaignsPage() {
       </div>
 
       <FiltersBar filters={filters} period={period} clients={clients} onChange={setFilters} onClear={clear} campaignFields={false} />
+      <DataFreshness clientId={filters.clientId} platform={filters.platform} accountId={filters.accountId} />
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full sm:w-72">

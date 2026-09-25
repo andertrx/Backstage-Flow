@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/modal.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { AccountStatusBadge } from "./AccountStatusBadge.tsx";
 import { useAccountAction, useAvailableAccounts, useConnections } from "./api.ts";
+import { ListFreshness } from "./ListFreshness.tsx";
 
 interface Props {
   clientId: string;
@@ -79,6 +80,7 @@ export function LinkAccountModal({ clientId, platform, onClose }: Props) {
 
             {available.isLoading && <p className="text-sm text-slate-500">Buscando contas no {PLATFORM_LABELS[platform]}...</p>}
             {available.error && <Alert tone="error">{(available.error as Error).message}</Alert>}
+            {available.data && <ListFreshness updatedAt={available.dataUpdatedAt} fetching={available.isFetching} onRefresh={() => available.refetch()} />}
             {available.data &&
               (available.data.accounts.length === 0 ? (
                 <p className="text-sm text-slate-500">Esta conexão não tem acesso a nenhuma conta de anúncio.</p>

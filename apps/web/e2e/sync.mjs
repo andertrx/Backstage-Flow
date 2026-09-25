@@ -54,9 +54,8 @@ async function logRows(page, n) {
   const { browser, page, errors } = await launch();
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
-  await login(page, "/");
-  await page.getByRole("heading", { name: /^Olá/ }).waitFor();
-  await page.getByRole("link", { name: /^Sincronização/ }).first().click();
+  // Entra direto na Sincronização (o Dashboard atualizaria sozinho as contas desatualizadas — Etapa 24).
+  await login(page, "/sincronizacao");
   await page.getByRole("heading", { name: "Sincronização", level: 1 }).waitFor();
   await page.getByTestId("sync-account").first().waitFor();
   check(await page.getByTestId("sync-account").count() === 5, "lista as 5 contas vinculadas");
@@ -96,9 +95,12 @@ async function logRows(page, n) {
 
   // Sincronizar TODAS
   await page.getByRole("button", { name: "Sincronizar agora" }).click();
-  await page.getByText(/4 contas sincronizadas · 3 com sucesso · 1 com erro/).waitFor();
+  // Cache (Etapa 24): a Loja US acabou de ser sincronizada → usa o que está guardado, sem chamar a API.
+  await page.getByText(/3 contas sincronizadas · 2 com sucesso · 1 com erro/).waitFor();
   check(JSON.stringify(db.syncCalls[1]) === JSON.stringify({ action: "run" }), "Sincronizar agora pede todas as contas visíveis");
-  check(await logRows(page, 7) === 7, "4 novas linhas no histórico");
+  check((await page.getByText(/1 conta já estava atualizada \(sincronizada há menos de 10 minutos\): usamos os dados guardados/).count()) === 1,
+    "cache: a conta sincronizada há pouco não vai para a API de novo, e a tela avisa");
+  check(await logRows(page, 6) === 6, "3 novas linhas no histórico (a recente não gera nova chamada)");
   await page.waitForFunction(() => /em (29|30) minutos/.test(document.querySelector("[data-testid=summary-next]")?.textContent ?? ""), null, { timeout: 5000 }).catch(() => {});
   check(/em (29|30) minutos/.test(await summary("summary-next")), `próxima: a conta com erro tenta de novo em 30 minutos (${await summary("summary-next")})`);
   check((await summary("summary-last")).includes("agora mesmo"), "última sincronização: agora mesmo");

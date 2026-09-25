@@ -75,7 +75,8 @@ export function useAvailableAccounts(connectionId: string | null) {
   return useQuery({
     queryKey: ["available-accounts", connectionId],
     enabled: Boolean(connectionId),
-    staleTime: 0,
+    // Cache: a lista de contas da BM/MCC muda pouco; reaproveita por 5 minutos.
+    staleTime: 5 * 60_000,
     retry: false,
     queryFn: () => callAdAccounts<{ accounts: AvailableAccount[] }>({ action: "list_available", connectionId: connectionId! }),
   });

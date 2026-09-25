@@ -1,3 +1,4 @@
+import { FRESH_MINUTES } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { callAdAccounts } from "@/features/ad-accounts/api.ts";
 import { friendlyDbError } from "@/lib/errors.ts";
@@ -42,7 +43,20 @@ export function useAccountBalances(f: BalanceFilters) {
 export interface RefreshResult {
   adAccountId: string;
   ok: boolean;
+  /** Saldo de menos de 10 min já guardado: não consultou a API de novo (cache). */
+  cached?: boolean;
   error?: string;
+}
+
+/** "5 contas verificadas: 2 consultadas agora e 3 já tinham saldo de menos de 10 min." */
+export function describeVerify(results: RefreshResult[]): string {
+  const ok = results.filter((r) => r.ok);
+  const cached = ok.filter((r) => r.cached).length;
+  const head = `${ok.length} ${ok.length === 1 ? "conta verificada" : "contas verificadas"}`;
+  if (!cached) return `${head}.`;
+  const live = ok.length - cached;
+  const liveText = live ? `${live} ${live === 1 ? "consultada" : "consultadas"} agora no Meta/Google e ` : "";
+  return `${head}: ${liveText}${cached} já ${cached === 1 ? "tinha" : "tinham"} saldo de menos de ${FRESH_MINUTES} minutos (usamos o que estava guardado).`;
 }
 
 /** Consulta o saldo nas APIs oficiais (pelo servidor) e guarda uma fotografia. */

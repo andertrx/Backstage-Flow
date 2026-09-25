@@ -113,7 +113,7 @@ export function SyncPage() {
                 row={r}
                 canRun={canRun}
                 busy={run.isPending}
-                pending={run.isPending && !!run.variables?.includes(r.ad_account_id)}
+                pending={run.isPending && Array.isArray(run.variables) && run.variables.includes(r.ad_account_id)}
                 onRun={() => start([r.ad_account_id])}
               />
             ))}

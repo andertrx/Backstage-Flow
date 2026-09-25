@@ -32,6 +32,7 @@ import { useDashboardFilters } from "@/features/dashboard/useDashboardFilters.ts
 import { formatDateTime, formatKpi, formatMoney } from "@/lib/format.ts";
 import { type PeriodReach, usePeriodReach, usePlatformStructure } from "./api.ts";
 import { type LevelCount, type PlatformId, platformKpiLabel, type PlatformView, REACH_REASONS, reachScope } from "./logic.ts";
+import { DataFreshness } from "@/features/sync/DataFreshness.tsx";
 
 /** Ícone e cor de cada plataforma (mesmas cores do gráfico por plataforma). */
 const LOOK: Record<PlatformId, { icon: LucideIcon; className: string }> = {
@@ -91,6 +92,7 @@ export function PlatformPage({ view }: { view: PlatformView }) {
       </div>
 
       <FiltersBar filters={filters} period={period} clients={clients} onChange={setFilters} onClear={clear} lockedPlatform />
+      <DataFreshness clientId={filters.clientId} platform={view.id} accountId={filters.accountId} />
 
       {summary.error && <Alert tone="error">{summary.error.message}</Alert>}
 

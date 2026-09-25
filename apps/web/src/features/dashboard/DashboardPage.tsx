@@ -16,6 +16,7 @@ import { FiltersBar } from "./FiltersBar.tsx";
 import { BalanceCard, KpiCard } from "./KpiCard.tsx";
 import { missingReason, pickCurrency } from "./summary.ts";
 import { useDashboardFilters } from "./useDashboardFilters.ts";
+import { DataFreshness } from "@/features/sync/DataFreshness.tsx";
 
 const EMPTY: MetricTotals = { spend_micros: null, impressions: null, clicks: null, leads: null, messages: null, conversions: null, conversion_value_micros: null };
 
@@ -76,6 +77,7 @@ export function DashboardPage() {
       </div>
 
       <FiltersBar filters={filters} period={period} clients={clients} onChange={setFilters} onClear={clear} />
+      <DataFreshness clientId={filters.clientId} platform={filters.platform} accountId={filters.accountId} />
 
       {error && <Alert tone="error">{error.message}</Alert>}
 

@@ -61,4 +61,13 @@ describe("sincronização", () => {
       alreadyRunning: 1,
     })).toBe("2 contas sincronizadas · 1 com sucesso · 1 com erro · 1.203 registros atualizados. 1 já estava sincronizando. 1 ficou na fila e será sincronizada em poucos minutos.");
   });
+
+  it("cache: contas atualizadas há pouco usam os dados guardados", () => {
+    expect(describeRun({ results: [], queued: 0, alreadyRunning: 0, fresh: 3 }))
+      .toBe("Todas as 3 contas já estavam atualizadas (sincronizadas há menos de 10 minutos): usamos os dados guardados, sem chamar as APIs.");
+    expect(describeRun({ results: [], queued: 0, alreadyRunning: 0, fresh: 1 }))
+      .toBe("A conta já estava atualizada (sincronizada há menos de 10 minutos): usamos os dados guardados, sem chamar as APIs.");
+    expect(describeRun({ results: [{ adAccountId: "a", status: "sucesso", records: 10, durationMs: 1, error: null }], queued: 0, fresh: 2 }))
+      .toBe("1 conta sincronizada · 1 com sucesso · 10 registros atualizados. 2 contas já estavam atualizadas (sincronizadas há menos de 10 minutos): usamos os dados guardados, sem chamar as APIs.");
+  });
 });
