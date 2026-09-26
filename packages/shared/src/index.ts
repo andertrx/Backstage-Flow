@@ -13,6 +13,7 @@ export * from "./accounts/health.ts";
 export * from "./campaigns/labels.ts";
 export * from "./metrics/series.ts";
 export * from "./metrics/comparison.ts";
+export * from "./metrics/executive.ts";
 export * from "./alerts/labels.ts";
 export * from "./logs/labels.ts";
 export * from "./sync/freshness.ts";

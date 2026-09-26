@@ -13,6 +13,7 @@ import { RouteError } from "./RouteError.tsx";
 const AccountPage = lazy(() => import("@/features/account/AccountPage.tsx").then((m) => ({ default: m.AccountPage })));
 const ClientDetailPage = lazy(() => import("@/features/clients/ClientDetailPage.tsx").then((m) => ({ default: m.ClientDetailPage })));
 const ClientsPage = lazy(() => import("@/features/clients/ClientsPage.tsx").then((m) => ({ default: m.ClientsPage })));
+const ExecutivePage = lazy(() => import("@/features/executive/ExecutivePage.tsx").then((m) => ({ default: m.ExecutivePage })));
 const ComparisonPage = lazy(() => import("@/features/comparison/ComparisonPage.tsx").then((m) => ({ default: m.ComparisonPage })));
 const AlertsPage = lazy(() => import("@/features/alerts/AlertsPage.tsx").then((m) => ({ default: m.AlertsPage })));
 const SyncPage = lazy(() => import("@/features/sync/SyncPage.tsx").then((m) => ({ default: m.SyncPage })));
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "comparar", element: <ComparisonPage /> },
+      { path: "executivo", element: <ExecutivePage /> },
       {
         path: "historico",
         element: (

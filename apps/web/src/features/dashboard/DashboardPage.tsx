@@ -1,5 +1,5 @@
 import { can, computeKpis, DEFAULT_TIMEZONE, KPI_DEFINITIONS, type MetricTotals } from "@backstage/shared";
-import { ArrowLeftRight, History } from "lucide-react";
+import { ArrowLeftRight, History, Presentation } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -95,6 +95,9 @@ export function DashboardPage() {
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div className="flex flex-wrap items-center gap-3">
             <h2 id="resumo-geral" className="text-sm font-semibold uppercase tracking-wide text-slate-500">Resumo geral</h2>
+            <Link to={`/executivo${search}`} className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline">
+              <Presentation className="size-3.5" aria-hidden /> Visão executiva
+            </Link>
             <Link to={`/comparar${search}`} className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline">
               <ArrowLeftRight className="size-3.5" aria-hidden /> Comparar períodos
             </Link>

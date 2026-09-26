@@ -443,6 +443,26 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       return res(200, out);
     }
 
+    // --- Visão executiva (mesma regra de public.executive_breakdown)
+    if (url.includes("/rest/v1/rpc/executive_breakdown")) {
+      const p = parse();
+      db.rpcCalls.push({ fn: "executive_breakdown", ...p });
+      const rows = db.metrics.filter((m) => m.level === "account" && m.date >= p.p_from && m.date <= p.p_to &&
+        (!p.p_client_ids || p.p_client_ids.includes(m.client_id)) &&
+        (!p.p_platforms || p.p_platforms.includes(m.platform_id)));
+      const sum = (list, key) => (list.every((r) => r[key] == null) ? null : list.reduce((t, r) => t + (r[key] ?? 0), 0));
+      const groups = Map.groupBy(rows, (r) => `${r.client_id}|${r.platform_id}|${r.currency}`);
+      const out = [...groups.values()].map((list) => ({
+        client_id: list[0].client_id,
+        client_name: db.clients.find((c) => c.id === list[0].client_id)?.name ?? "",
+        platform_id: list[0].platform_id,
+        currency: list[0].currency,
+        ...Object.fromEntries(["spend_micros", "leads", "messages", "conversions", "conversion_value_micros"].map((k) => [k, sum(list, k)])),
+        accounts: new Set(list.map((r) => r.ad_account_id)).size,
+      })).sort((a, b) => b.spend_micros - a.spend_micros);
+      return res(200, out);
+    }
+
     // --- Sincronização
     if (url.includes("/rest/v1/rpc/sync_overview")) {
       db.rpcCalls.push({ fn: "sync_overview" });

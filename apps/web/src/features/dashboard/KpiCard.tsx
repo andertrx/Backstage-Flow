@@ -6,8 +6,11 @@ import { cn } from "@/lib/cn.ts";
 import type { BalanceTotals } from "@/features/balance/summary.ts";
 import { formatChange, formatKpi } from "@/lib/format.ts";
 
+/** O que o card precisa saber do indicador (serve também para a visão executiva). */
+type CardDefinition = Pick<KpiDefinition, "label" | "description" | "format" | "direction">;
+
 interface KpiCardProps {
-  definition: KpiDefinition;
+  definition: CardDefinition;
   value: number | null;
   previous: number | null;
   currency: string;

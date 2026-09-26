@@ -1,6 +1,6 @@
 # ETAPA 28 — Preparação para novas plataformas
 
-> Status: **concluída, aguardando validação**
+> Status: **concluída e validada** ✅
 
 ## 1. O que fizemos (explicado de forma simples)
 

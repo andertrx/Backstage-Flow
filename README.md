@@ -34,7 +34,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 25 — Tratamento de erros](docs/etapa-25-tratamento-de-erros/README.md) ✅ concluída
 - [Etapa 26 — Segurança](docs/etapa-26-seguranca/README.md) ✅ concluída
 - [Etapa 27 — Dados fictícios (modo demonstração)](docs/etapa-27-dados-ficticios/README.md) ✅ concluída
-- [Etapa 28 — Preparação para novas plataformas](docs/etapa-28-novas-plataformas/README.md) *(aguardando validação)*
+- [Etapa 28 — Preparação para novas plataformas](docs/etapa-28-novas-plataformas/README.md) ✅ concluída
+- [Etapa 29 — Dashboard executivo](docs/etapa-29-dashboard-executivo/README.md) *(aguardando validação)*
 
 ## Estrutura
 

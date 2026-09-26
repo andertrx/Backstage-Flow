@@ -28,11 +28,13 @@ interface FiltersBarProps {
   campaignFields?: boolean;
   /** Tela de uma plataforma só (ex.: Meta Ads): esconde o campo Plataforma. */
   lockedPlatform?: boolean;
+  /** Esconde o campo Conta (ex.: visão executiva, que é por cliente e plataforma). */
+  accountField?: boolean;
 }
 
 const range = (r: { from: string; to: string }) => (r.from === r.to ? formatDate(r.from) : `${formatDate(r.from)} a ${formatDate(r.to)}`);
 
-export function FiltersBar({ filters, period, clients, onChange, onClear, campaignFields = true, lockedPlatform = false }: FiltersBarProps) {
+export function FiltersBar({ filters, period, clients, onChange, onClear, campaignFields = true, lockedPlatform = false, accountField = true }: FiltersBarProps) {
   const { data: accounts = [] } = useFilterAccounts();
   const { data: campaigns = [], isFetching: loadingCampaigns } = useFilterCampaigns(
     campaignFields ? filters.clientId : null,
@@ -48,7 +50,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
 
   return (
     <Card className="space-y-4 p-4" role="search" aria-label="Filtros do dashboard">
-      <div className={cn("grid gap-3 sm:grid-cols-2", campaignFields ? "lg:grid-cols-3" : "lg:grid-cols-4")}>
+      <div className={cn("grid gap-3 sm:grid-cols-2", campaignFields || !accountField ? "lg:grid-cols-3" : "lg:grid-cols-4")}>
         <Field label="Período">
           {(id) => (
             <Select
@@ -87,6 +89,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
           )}
         </Field>
         )}
+        {accountField && (
         <Field label="Conta">
           {(id) => (
             <Select id={id} value={filters.accountId ?? ""} onChange={(e) => onChange({ accountId: e.target.value || null })}>
@@ -97,6 +100,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
             </Select>
           )}
         </Field>
+        )}
         {campaignFields && (
         <Field label="Campanha">
           {(id) => (
@@ -155,6 +159,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
           ...filters,
           ...(campaignFields ? {} : { campaignId: null, status: null }),
           ...(lockedPlatform ? { platform: null } : {}),
+          ...(accountField ? {} : { accountId: null }),
         }) && (
           <Button variant="ghost" className="px-2 py-1 text-xs" onClick={onClear}>
             <X className="size-3.5" aria-hidden /> Limpar filtros
