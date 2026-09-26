@@ -7,6 +7,23 @@ import { defineConfig, loadEnv } from "vite";
 const PUBLIC_KEYS = ["VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY"] as const;
 
 /**
+ * Cabeçalhos de segurança da Vercel (vercel.json) também no "vite preview",
+ * para os testes de navegador rodarem com a mesma proteção da produção.
+ * (Sem "upgrade-insecure-requests": o preview local é http.)
+ */
+function securityHeaders(): Record<string, string> {
+  const vercel = JSON.parse(readFileSync(new URL("./vercel.json", import.meta.url), "utf8")) as {
+    headers: { headers: { key: string; value: string }[] }[];
+  };
+  const out: Record<string, string> = {};
+  for (const { key, value } of vercel.headers[0].headers) {
+    if (key === "Strict-Transport-Security") continue;
+    out[key] = key === "Content-Security-Policy" ? value.replace(/;\s*upgrade-insecure-requests/, "") : value;
+  }
+  return out;
+}
+
+/**
  * Em produção, se a Vercel não tiver as variáveis, usa os valores PÚBLICOS de
  * public-config.production.json (a Vercel descarta arquivos .env do repositório).
  */
@@ -28,4 +45,5 @@ export default defineConfig(({ mode }) => ({
   },
   define: productionDefaults(mode),
   server: { port: 5173 },
+  preview: { headers: securityHeaders() },
 }));

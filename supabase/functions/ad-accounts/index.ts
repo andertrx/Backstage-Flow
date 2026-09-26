@@ -23,6 +23,7 @@ import { z } from "npm:zod@4";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { adminClient, type Caller, requireRole, userClient } from "../_shared/auth.ts";
 import { EXPECTED_CODES, recordError } from "../_shared/errorlog.ts";
+import { enforceRateLimit, type RateBucket } from "../_shared/ratelimit.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import type { PlatformAdapter } from "../_shared/platforms/adapter.ts";
 import { getAdapter } from "../_shared/platforms/registry.ts";
@@ -529,6 +530,13 @@ async function balanceSettings(ctx: Ctx, input: Of<"balance_settings">) {
 
 // ------------------------------------------------------------------ entrada
 
+/** Qual limite de requisições vale para cada ação (Etapa 26). */
+function rateBucket(action: Input["action"]): RateBucket {
+  if (action === "connect" || action === "google_start" || action === "google_complete" || action === "disconnect") return "accounts.connect";
+  if (action === "refresh_balance") return "accounts.balance";
+  return "accounts.other";
+}
+
 Deno.serve(
   handle(async (req) => {
     const db = adminClient();
@@ -540,6 +548,7 @@ Deno.serve(
     }
     const input = parsed.data;
     const caller = await requireRole(req, db, ADMIN_ONLY.has(input.action) ? ["admin"] : MANAGERS);
+    await enforceRateLimit(db, rateBucket(input.action), caller.id);
     const ctx: Ctx = { req, db, caller };
 
     const result = await (() => {

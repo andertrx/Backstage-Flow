@@ -22,6 +22,7 @@ import { z } from "npm:zod@4";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { adminClient, requireRole, userClient } from "../_shared/auth.ts";
 import { recordError } from "../_shared/errorlog.ts";
+import { enforceRateLimit } from "../_shared/ratelimit.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { getAdapter } from "../_shared/platforms/registry.ts";
 import { pickForSync } from "../_shared/sync/cache.ts";
@@ -142,6 +143,7 @@ Deno.serve(
 
     // "Sincronizar agora": quem pediu precisa poder sincronizar e enxergar as contas.
     const caller = await requireRole(req, db, SYNC_ROLES);
+    await enforceRateLimit(db, "sync.run", caller.id);
     let query = userClient(req).from("ad_accounts").select("id").is("unlinked_at", null).not("connection_id", "is", null);
     if (input.adAccountIds?.length) query = query.in("id", input.adAccountIds);
     const { data: visible, error } = await query.limit(500);

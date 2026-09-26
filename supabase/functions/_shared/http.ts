@@ -16,13 +16,26 @@ export class AppError extends Error {
   }
 }
 
+/**
+ * Sites que podem chamar as funções pelo navegador (Etapa 26): o site oficial,
+ * as versões de teste da Vercel deste projeto e o computador de desenvolvimento.
+ * Para um domínio próprio, somar em ALLOWED_ORIGINS (separados por vírgula).
+ */
+const DEFAULT_ORIGINS: (string | RegExp)[] = [
+  "https://web-ivory-three-49.vercel.app",
+  /^https:\/\/web-[a-z0-9-]+-andertrxs-projects\.vercel\.app$/,
+  /^http:\/\/localhost:(5173|4173)$/,
+];
+
+export function isAllowedOrigin(origin: string, extra: string | undefined = Deno.env.get("ALLOWED_ORIGINS")): boolean {
+  if (!origin) return false;
+  const configured = (extra ?? "").split(",").map((o) => o.trim()).filter(Boolean);
+  return configured.includes(origin) || DEFAULT_ORIGINS.some((o) => (typeof o === "string" ? o === origin : o.test(origin)));
+}
+
 function allowedOrigin(req: Request): string {
-  // Em produção, definir ALLOWED_ORIGINS (ex.: "https://app.suaagencia.com.br").
-  const configured = Deno.env.get("ALLOWED_ORIGINS");
-  if (!configured) return "*";
   const origin = req.headers.get("origin") ?? "";
-  const list = configured.split(",").map((o) => o.trim());
-  return list.includes(origin) ? origin : list[0];
+  return isAllowedOrigin(origin) ? origin : (DEFAULT_ORIGINS[0] as string);
 }
 
 export function corsHeaders(req: Request): HeadersInit {

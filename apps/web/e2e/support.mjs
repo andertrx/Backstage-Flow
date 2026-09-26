@@ -32,6 +32,10 @@ export async function launch() {
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
+  // Etapa 26: qualquer bloqueio da política de segurança (CSP) vira erro do teste.
+  page.on("console", (m) => {
+    if (/Content Security Policy|Refused to (load|connect|execute|apply)/i.test(m.text())) errors.push(`CSP: ${m.text()}`);
+  });
   return { browser, page, errors };
 }
 

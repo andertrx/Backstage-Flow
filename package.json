@@ -12,7 +12,8 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test:functions": "npx -y deno@latest test --config supabase/functions/deno.json --allow-env supabase/functions/",
-    "check:functions": "npx -y deno@latest check --config supabase/functions/deno.json supabase/functions/*/index.ts"
+    "check:functions": "npx -y deno@latest check --config supabase/functions/deno.json supabase/functions/*/index.ts",
+    "check:secrets": "node scripts/check-secrets.mjs"
   },
   "engines": {
     "node": ">=20"

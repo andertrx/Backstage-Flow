@@ -15,6 +15,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { ROLES } from "../../../packages/shared/src/constants/roles.ts";
 import { adminClient, type Caller, requireAdmin } from "../_shared/auth.ts";
 import { recordError } from "../_shared/errorlog.ts";
+import { enforceRateLimit } from "../_shared/ratelimit.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 
 // "Banido" por ~100 anos = não consegue mais fazer login. "none" remove o bloqueio.
@@ -160,6 +161,7 @@ Deno.serve(
   handle(async (req) => {
     const admin = adminClient();
     const caller = await requireAdmin(req, admin);
+    await enforceRateLimit(admin, "users.manage", caller.id);
 
     const parsed = schema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) {
