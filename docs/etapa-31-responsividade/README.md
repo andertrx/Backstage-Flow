@@ -1,6 +1,6 @@
 # ETAPA 31 — Responsividade
 
-> Status: **concluída, aguardando validação**
+> Status: **concluída e validada** ✅
 
 ![Celular: Dashboard e menu](celular.png)
 
