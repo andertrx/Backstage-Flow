@@ -32,7 +32,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 23 — Banco histórico](docs/etapa-23-banco-historico/README.md) ✅ concluída
 - [Etapa 24 — Cache](docs/etapa-24-cache/README.md) ✅ concluída
 - [Etapa 25 — Tratamento de erros](docs/etapa-25-tratamento-de-erros/README.md) ✅ concluída
-- [Etapa 26 — Segurança](docs/etapa-26-seguranca/README.md) *(aguardando validação)*
+- [Etapa 26 — Segurança](docs/etapa-26-seguranca/README.md) ✅ concluída
+- [Etapa 27 — Dados fictícios (modo demonstração)](docs/etapa-27-dados-ficticios/README.md) *(aguardando validação)*
 
 ## Estrutura
 

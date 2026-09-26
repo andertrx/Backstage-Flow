@@ -4,11 +4,13 @@ import { ChevronsLeft, ChevronsRight, LogOut, Menu, X } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-router";
 import { ErrorBoundary } from "@/components/feedback/ErrorBoundary.tsx";
+import { DemoBanner } from "@/components/feedback/DemoBanner.tsx";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { useUnseenAlertsCount } from "@/features/alerts/api.ts";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { GlobalSearch } from "@/features/search/GlobalSearch.tsx";
 import { cn } from "@/lib/cn.ts";
+import { exitDemo, isDemoMode } from "@/lib/demo.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { Logo } from "./Logo.tsx";
 import { navGroupsFor, navItemForPath } from "./navigation.ts";
@@ -83,7 +85,7 @@ function useDocumentTitle() {
   const { pathname } = useLocation();
   useEffect(() => {
     const page = EXTRA_TITLES[pathname] ?? navItemForPath(pathname)?.label;
-    document.title = page ? `${page} · ${APP_NAME}` : APP_NAME;
+    document.title = (isDemoMode ? "[DEMONSTRAÇÃO] " : "") + (page ? `${page} · ${APP_NAME}` : APP_NAME);
   }, [pathname]);
 }
 
@@ -163,7 +165,9 @@ export function AppLayout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6 lg:px-8">
+        <div className="sticky top-0 z-30">
+        <DemoBanner />
+        <header className="flex h-16 items-center gap-3 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6 lg:px-8">
           <button className="-ml-1 rounded-lg p-1 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
             <Menu className="size-6" />
           </button>
@@ -180,7 +184,7 @@ export function AppLayout() {
             <span className="sr-only sm:hidden">Minha conta</span>
           </Link>
           <button
-            onClick={signOut}
+            onClick={isDemoMode ? exitDemo : signOut}
             className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900"
           >
             <LogOut className="size-4" aria-hidden />
@@ -188,6 +192,7 @@ export function AppLayout() {
             <span className="sr-only sm:hidden">Sair</span>
           </button>
         </header>
+        </div>
 
         <main id="conteudo" tabIndex={-1} className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
           {/* Uma tela com erro não derruba o resto (o menu continua funcionando). */}

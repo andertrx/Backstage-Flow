@@ -7,7 +7,9 @@ import { router } from "./app/router.tsx";
 import { AuthProvider } from "./features/auth/AuthProvider.tsx";
 import { FriendlyError } from "./lib/errors.ts";
 import { reportError } from "./lib/errorReporting.ts";
-import { isSupabaseConfigured } from "./lib/supabase.ts";
+import { DEMO_PASSWORD, isDemoMode } from "./lib/demo.ts";
+import { isSupabaseConfigured, supabase } from "./lib/supabase.ts";
+import { DEMO_EMAIL } from "./demo/constants.ts";
 import "./index.css";
 
 // Erros técnicos inesperados (fora das mensagens amigáveis) vão para o log do administrador.
@@ -33,6 +35,15 @@ const queryClient = new QueryClient({
   mutationCache: new MutationCache({ onError: reportUnexpected("SITE_ACTION_ERROR") }),
   defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },
 });
+
+/** Demonstração: entra sozinho com o usuário fictício (nada sai do navegador). */
+async function prepareDemo() {
+  if (!isDemoMode) return;
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) await supabase.auth.signInWithPassword({ email: DEMO_EMAIL, password: DEMO_PASSWORD });
+}
+
+await prepareDemo();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

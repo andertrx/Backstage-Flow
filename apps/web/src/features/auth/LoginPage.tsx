@@ -56,6 +56,11 @@ export function LoginPage() {
           </Link>
         </p>
       </form>
+      <p className="mt-4 border-t border-slate-100 pt-4 text-center text-xs text-slate-500">
+        Quer conhecer o sistema sem acessar dados reais?{" "}
+        {/* Página inteira: a demonstração cria um "servidor" fictício só nesta aba. */}
+        <a href="/demo" className="font-medium text-amber-700 hover:text-amber-800">Ver demonstração com dados fictícios</a>
+      </p>
     </AuthLayout>
   );
 }
