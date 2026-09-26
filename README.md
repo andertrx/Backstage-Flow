@@ -25,7 +25,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 16 — Sincronização](docs/etapa-16-sincronizacao/README.md) ✅ concluída
 - [Etapa 17 — Logs](docs/etapa-17-logs/README.md) ✅ concluída
 - [Etapa 18 — Relatórios](docs/etapa-18-relatorios/README.md) ✅ concluída
-- Etapa 19 — Dashboard do cliente *(em espera, a pedido — será feita depois da 20)*
+- Etapa 19 — Dashboard do cliente *(em espera, a pedido)*
 - [Etapa 20 — Permissões](docs/etapa-20-permissoes/README.md) ✅ concluída
 - [Etapa 21 — Design](docs/etapa-21-design/README.md) ✅ concluída
 - [Etapa 22 — Busca global](docs/etapa-22-busca-global/README.md) ✅ concluída
@@ -38,6 +38,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 29 — Dashboard executivo](docs/etapa-29-dashboard-executivo/README.md) ✅ concluída
 - [Etapa 30 — Performance](docs/etapa-30-performance/README.md) ✅ concluída
 - [Etapa 31 — Responsividade](docs/etapa-31-responsividade/README.md) *(aguardando validação)*
+- Etapa 32 — Referências visuais *(em espera, a pedido — aguardando prints/modelos)*
 
 ## Estrutura
 
