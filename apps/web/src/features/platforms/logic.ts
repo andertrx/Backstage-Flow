@@ -1,13 +1,16 @@
-// Regras da visão de uma plataforma (Meta Ads; Google Ads na Etapa 14).
-import type { EntityStatus, KpiKey } from "@backstage/shared";
+// Regras da visão de uma plataforma. Os dados de cada plataforma vêm do
+// catálogo único (@backstage/shared → platforms/catalog.ts).
+import { type EntityStatus, type KpiKey, PLATFORMS, type PlatformDefinition } from "@backstage/shared";
 import type { DashboardFilters } from "@/features/dashboard/filters.ts";
 import type { FilterAccount } from "@/features/dashboard/types.ts";
 
-export type PlatformId = "meta" | "google";
+export type PlatformId = string;
 
 export interface PlatformView {
   id: PlatformId;
   label: string;
+  /** Endereço da tela no menu. */
+  path: string;
   /** Nome do nível do meio na plataforma. */
   groupLabel: string;
   /** Indicadores exibidos, na ordem. */
@@ -16,25 +19,29 @@ export interface PlatformView {
   labels?: Partial<Record<KpiKey, string>>;
   /** Resultado principal na lista de campanhas. */
   result: "leads" | "conversions";
+  /** "saldo" ou "orçamento". */
+  money: PlatformDefinition["money"];
+  capabilities: PlatformDefinition["capabilities"];
 }
 
-export const PLATFORM_VIEWS: Record<PlatformId, PlatformView> = {
-  meta: {
-    id: "meta",
-    label: "Meta Ads",
-    groupLabel: "Conjuntos",
-    kpis: ["spend", "reach", "impressions", "frequency", "clicks", "ctr", "cpc", "cpm", "leads", "messages", "conversions", "cpl", "cpa", "roas"],
-    result: "leads",
-  },
-  google: {
-    id: "google",
-    label: "Google Ads",
-    groupLabel: "Grupos",
-    kpis: ["spend", "impressions", "clicks", "ctr", "cpc", "cpm", "conversions", "cpa", "conversion_value", "roas"],
-    labels: { cpa: "Custo/conversão" },
-    result: "conversions",
-  },
-};
+export function platformView(p: PlatformDefinition): PlatformView {
+  return {
+    id: p.id,
+    label: p.name,
+    path: p.path,
+    groupLabel: p.groupLevel.short,
+    kpis: p.kpis,
+    labels: p.kpiLabels,
+    result: p.result,
+    money: p.money,
+    capabilities: p.capabilities,
+  };
+}
+
+/** Uma visão por plataforma do catálogo, na ordem do menu. */
+export const PLATFORM_VIEW_LIST: readonly PlatformView[] = PLATFORMS.map(platformView);
+
+export const PLATFORM_VIEWS: Record<PlatformId, PlatformView> = Object.fromEntries(PLATFORM_VIEW_LIST.map((v) => [v.id, v]));
 
 /** Definição do indicador com o nome usado pela plataforma. */
 export function platformKpiLabel(view: PlatformView, key: KpiKey, fallback: string): string {

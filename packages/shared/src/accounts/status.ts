@@ -32,11 +32,6 @@ export const AD_ACCOUNT_STATUS_SEVERITY: Record<AdAccountStatus, "ok" | "warning
   desconhecida: "neutral",
 };
 
-export const PLATFORM_LABELS: Record<string, string> = {
-  meta: "Meta Ads",
-  google: "Google Ads",
-};
-
 /** Deve ser igual ao tipo public.connection_status do banco. */
 export type ConnectionStatus = "ativa" | "erro" | "revogada";
 

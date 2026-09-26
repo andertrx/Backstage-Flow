@@ -1,6 +1,6 @@
 # ETAPA 27 — Dados fictícios (Modo demonstração)
 
-> Status: **concluída, aguardando validação**
+> Status: **concluída e validada** ✅
 
 ![Dashboard em modo demonstração](demo-dashboard.png)
 

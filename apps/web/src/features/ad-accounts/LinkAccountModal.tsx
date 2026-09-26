@@ -1,4 +1,4 @@
-import { formatAccountId, PLATFORM_LABELS } from "@backstage/shared";
+import { formatAccountId, PLATFORM_LABELS, platformBusiness } from "@backstage/shared";
 import { Badge } from "@/components/ui/badge.tsx";
 import { useState } from "react";
 import { Link } from "react-router";
@@ -94,7 +94,7 @@ export function LinkAccountModal({ clientId, platform, onClose }: Props) {
                         <p className="text-xs text-slate-500">
                           ID {formatAccountId(platform, a.externalId)}
                           {a.currency && ` · ${a.currency}`}
-                          {a.businessName && ` · ${platform === "google" ? "via " : ""}${a.businessName}`}
+                          {a.businessName && ` · ${platformBusiness(platform).via}${a.businessName}`}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

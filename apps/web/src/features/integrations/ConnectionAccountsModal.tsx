@@ -1,4 +1,4 @@
-import { formatAccountId, PLATFORM_LABELS } from "@backstage/shared";
+import { formatAccountId, platformBusiness, platformName } from "@backstage/shared";
 import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -25,7 +25,7 @@ export function ConnectionAccountsModal({ connection, onClose }: { connection: P
   return (
     <Modal title={`Contas desta conexão — ${connection.label}`} open onClose={onClose} size="lg">
       <div className="space-y-4">
-        {available.isLoading && <p className="text-sm text-slate-500">Buscando contas no {PLATFORM_LABELS[platform] ?? platform}...</p>}
+        {available.isLoading && <p className="text-sm text-slate-500">Buscando contas no {platformName(platform)}...</p>}
         {available.error && <Alert tone="error">{errorMessage(available.error)}</Alert>}
         {available.data && <ListFreshness updatedAt={available.dataUpdatedAt} fetching={available.isFetching} onRefresh={() => available.refetch()} />}
 
@@ -39,7 +39,7 @@ export function ConnectionAccountsModal({ connection, onClose }: { connection: P
                 contas. Depois, abra esta lista de novo — não precisa conectar outra vez.
               </p>
             ) : (
-              <p className="mt-1">Confira se o e-mail usado na conexão tem acesso às contas no Google Ads (direto ou por uma MCC).</p>
+              <p className="mt-1">Confira se o e-mail usado na conexão tem acesso às contas no {platformName(platform)} (direto ou por uma {platformBusiness(platform).short}).</p>
             )}
           </Alert>
         )}
@@ -48,7 +48,7 @@ export function ConnectionAccountsModal({ connection, onClose }: { connection: P
           <>
             <p className="text-sm text-slate-600" data-testid="connection-accounts-summary">
               {accounts.length} {accounts.length === 1 ? "conta encontrada" : "contas encontradas"} em {groups.length}{" "}
-              {platform === "google" ? (groups.length === 1 ? "grupo" : "grupos") : groups.length === 1 ? "BM" : "BMs"} · {linked}{" "}
+              {groups.length === 1 ? platformBusiness(platform).count.one : platformBusiness(platform).count.many} · {linked}{" "}
               {linked === 1 ? "já vinculada" : "já vinculadas"} a clientes.
             </p>
             <div className="space-y-4">

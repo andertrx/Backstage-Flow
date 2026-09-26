@@ -11,7 +11,9 @@ import {
   compareAlerts,
   countOpenBySeverity,
   formatAccountId,
+  PLATFORM_IDS,
   PLATFORM_LABELS,
+  PLATFORM_OPTIONS,
 } from "@backstage/shared";
 import { BellOff, CheckCircle2, Eye, RefreshCw, RotateCcw, Wrench } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -55,7 +57,7 @@ export function AlertsPage() {
   const severity = pick(params.get("gravidade"), ALERT_SEVERITIES);
   const type = pick(params.get("tipo"), ALERT_TYPES);
   const clientId = params.get("cliente");
-  const platform = pick(params.get("plataforma"), ["meta", "google"] as const);
+  const platform = pick(params.get("plataforma"), PLATFORM_IDS);
   const set = (key: string, value: string | null) =>
     updateParams((latest) => {
       if (value) latest.set(key, value);
@@ -161,8 +163,7 @@ export function AlertsPage() {
           <span className="mb-1 block font-medium text-slate-700">Plataforma</span>
           <Select value={platform ?? ""} onChange={(e) => set("plataforma", e.target.value || null)}>
             <option value="">Todas</option>
-            <option value="meta">Meta Ads</option>
-            <option value="google">Google Ads</option>
+            {PLATFORM_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
         </label>
       </Card>

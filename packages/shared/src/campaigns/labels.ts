@@ -1,4 +1,5 @@
 // Textos em português para campanhas, conjuntos/grupos e anúncios.
+import { getPlatform } from "../platforms/catalog.ts";
 
 /** Deve ser igual ao tipo public.entity_status do banco. */
 export const ENTITY_STATUSES = ["ativa", "pausada", "encerrada", "arquivada", "erro", "desconhecida"] as const;
@@ -61,11 +62,12 @@ export function objectiveLabel(objective: string | null | undefined): string | n
 
 export type StructureLevel = "campaign" | "ad_group" | "ad";
 
-/** Nome de cada nível como a plataforma chama (Meta: conjunto; Google: grupo). */
+/** Nome de cada nível como a plataforma chama (Meta: conjunto; Google: grupo). Vem do catálogo. */
 export function levelLabel(level: StructureLevel, platform: string, plural = false): string {
   if (level === "campaign") return plural ? "Campanhas" : "Campanha";
   if (level === "ad") return plural ? "Anúncios" : "Anúncio";
-  if (platform === "google") return plural ? "Grupos de anúncios" : "Grupo de anúncios";
+  const group = getPlatform(platform)?.groupLevel;
+  if (group) return plural ? group.plural : group.singular;
   return plural ? "Conjuntos de anúncios" : "Conjunto de anúncios";
 }
 

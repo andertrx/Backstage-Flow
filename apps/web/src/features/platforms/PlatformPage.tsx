@@ -8,7 +8,7 @@ import {
   type KpiKey,
   objectiveLabel,
 } from "@backstage/shared";
-import { ArrowRight, type LucideIcon, Megaphone, Search } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
 import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -32,15 +32,11 @@ import { useDashboardFilters } from "@/features/dashboard/useDashboardFilters.ts
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatKpi, formatMoney } from "@/lib/format.ts";
 import { type PeriodReach, usePeriodReach, usePlatformStructure } from "./api.ts";
-import { type LevelCount, type PlatformId, platformKpiLabel, type PlatformView, REACH_REASONS, reachScope } from "./logic.ts";
+import { type LevelCount, platformKpiLabel, type PlatformView, REACH_REASONS, reachScope } from "./logic.ts";
+import { platformLook } from "./look.ts";
 import { DataFreshness } from "@/features/sync/DataFreshness.tsx";
 
 /** Ícone e cor de cada plataforma (mesmas cores do gráfico por plataforma). */
-const LOOK: Record<PlatformId, { icon: LucideIcon; className: string }> = {
-  meta: { icon: Megaphone, className: "bg-[#2a78d6]/10 text-[#2a78d6]" },
-  google: { icon: Search, className: "bg-[#eb6834]/10 text-[#eb6834]" },
-};
-
 export function PlatformPage({ view }: { view: PlatformView }) {
   const { filters: urlFilters, setFilters, clear } = useDashboardFilters();
   // Esta tela é de uma plataforma só: o filtro de plataforma é fixo.
@@ -77,13 +73,14 @@ export function PlatformPage({ view }: { view: PlatformView }) {
   };
 
   const query = serializeFilters(filters).toString();
-  const Icon = LOOK[view.id].icon;
-  const money = view.id === "google" ? "orçamento" : "saldo";
+  const look = platformLook(view.id);
+  const Icon = look.icon;
+  const money = view.money;
 
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-3">
-        <span className={`mt-1 grid size-10 place-items-center rounded-xl ${LOOK[view.id].className}`}><Icon className="size-5" aria-hidden /></span>
+        <span className={`mt-1 grid size-10 place-items-center rounded-xl ${look.className}`}><Icon className="size-5" aria-hidden /></span>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{view.label}</h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -201,7 +198,7 @@ function AccountsSection({ view, filters }: { view: PlatformView; filters: Dashb
   return (
     <section aria-labelledby="contas-plataforma" className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="contas-plataforma" className="text-sm font-semibold uppercase tracking-wide text-slate-500">Contas: {view.id === "google" ? "orçamento" : "saldo"}, status e cobrança</h2>
+        <h2 id="contas-plataforma" className="text-sm font-semibold uppercase tracking-wide text-slate-500">Contas: {view.money}, status e cobrança</h2>
         <Link to="/contas" className="text-xs font-medium text-brand-600 hover:underline">Saúde das contas <ArrowRight className="inline size-3" aria-hidden /></Link>
       </div>
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
@@ -211,7 +208,7 @@ function AccountsSection({ view, filters }: { view: PlatformView; filters: Dashb
         <Alert tone="info">Nenhuma conta do {view.label} vinculada com os filtros escolhidos.</Alert>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {data.map((b) => <AccountCard key={b.ad_account_id} b={b} platform={view.id} />)}
+          {data.map((b) => <AccountCard key={b.ad_account_id} b={b} view={view} />)}
         </div>
       )}
     </section>
@@ -230,7 +227,7 @@ function Row({ label, hint, testId, children }: { label: string; hint?: string; 
   );
 }
 
-function AccountCard({ b, platform }: { b: AccountBalance; platform: PlatformId }) {
+function AccountCard({ b, view }: { b: AccountBalance; view: PlatformView }) {
   const currency = b.currency ?? "BRL";
   const alerts = assessBalance(b).alerts;
   const missing = <span className="font-normal text-slate-400" title={NOT_AVAILABLE}>Não informado pela API</span>;
@@ -246,9 +243,9 @@ function AccountCard({ b, platform }: { b: AccountBalance; platform: PlatformId 
         <AccountStatusBadge status={b.status as AdAccountStatus} />
       </div>
       <dl className="divide-y divide-slate-100 text-sm">
-        {platform === "google" ? (
+        {view.money === "orçamento" ? (
           <>
-            <Row label="Orçamento" testId="account-budget" hint="Orçamento da conta (faturamento mensal), aprovado no Google Ads.">
+            <Row label="Orçamento" testId="account-budget" hint={`Orçamento da conta (faturamento mensal), aprovado no ${view.label}.`}>
               {b.budget_micros == null ? missing : (
                 <>
                   {formatMoney(b.budget_micros / 1_000_000, currency)}
@@ -256,8 +253,8 @@ function AccountCard({ b, platform }: { b: AccountBalance; platform: PlatformId 
                 </>
               )}
             </Row>
-            <Row label="Já veiculado" testId="account-spent" hint="Quanto do orçamento já foi usado, como o Google informa.">{money(b.amount_spent_micros)}</Row>
-            <Row label="Disponível no orçamento" testId="account-available" hint="Orçamento − valor já veiculado, quando o Google informa os dois.">{money(b.available_micros)}</Row>
+            <Row label="Já veiculado" testId="account-spent" hint="Quanto do orçamento já foi usado, como a plataforma informa.">{money(b.amount_spent_micros)}</Row>
+            <Row label="Disponível no orçamento" testId="account-available" hint="Orçamento − valor já veiculado, quando a plataforma informa os dois.">{money(b.available_micros)}</Row>
           </>
         ) : (
           <>

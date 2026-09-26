@@ -1,18 +1,17 @@
-import { can, type Permission, type Role } from "@backstage/shared";
+import { can, type Permission, PLATFORMS, type Role } from "@backstage/shared";
 import {
   Bell,
   Building2,
   FileBarChart,
   LayoutDashboard,
   type LucideIcon,
-  Megaphone,
   RefreshCw,
   ScrollText,
-  Search,
   Settings,
   Target,
   Wallet,
 } from "lucide-react";
+import { platformLook } from "@/features/platforms/look.ts";
 
 export type NavGroup = "Visão geral" | "Anúncios" | "Análise" | "Sistema";
 
@@ -31,8 +30,8 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard, group: "Visão geral" },
   { label: "Clientes", path: "/clientes", icon: Building2, group: "Visão geral", permission: "clients.view" },
   { label: "Contas", path: "/contas", icon: Wallet, group: "Visão geral", permission: "internal.view" },
-  { label: "Meta Ads", path: "/meta-ads", icon: Megaphone, group: "Anúncios", permission: "internal.view" },
-  { label: "Google Ads", path: "/google-ads", icon: Search, group: "Anúncios", permission: "internal.view" },
+  // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...), na ordem do catálogo.
+  ...PLATFORMS.map((p): NavItem => ({ label: p.name, path: p.path, icon: platformLook(p.id).icon, group: "Anúncios", permission: "internal.view" })),
   { label: "Campanhas", path: "/campanhas", icon: Target, group: "Anúncios", permission: "internal.view" },
   { label: "Relatórios", path: "/relatorios", icon: FileBarChart, group: "Análise", permission: "reports.generate" },
   { label: "Alertas", path: "/alertas", icon: Bell, group: "Análise", permission: "internal.view" },

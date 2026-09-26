@@ -4,7 +4,7 @@ export * from "./clients/cnpj.ts";
 export * from "./clients/phone.ts";
 export * from "./clients/status.ts";
 export * from "./accounts/status.ts";
-export * from "./accounts/format.ts";
+export * from "./platforms/catalog.ts";
 export * from "./metrics/formulas.ts";
 export * from "./metrics/periods.ts";
 export * from "./metrics/kpis.ts";

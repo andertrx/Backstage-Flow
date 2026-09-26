@@ -6,6 +6,7 @@ import {
   DEFAULT_TIMEZONE,
   isValidRange,
   PERIOD_LABELS,
+  PLATFORM_OPTIONS,
   type PeriodPreset,
   resolvePeriod,
 } from "@backstage/shared";
@@ -17,10 +18,8 @@ export const PERIOD_OPTIONS: { value: PeriodChoice; label: string }[] = [
   { value: "custom", label: "Personalizado" },
 ];
 
-export const PLATFORM_OPTIONS = [
-  { value: "meta", label: "Meta Ads" },
-  { value: "google", label: "Google Ads" },
-] as const;
+/** Plataformas do filtro: vêm do catálogo único. */
+export { PLATFORM_OPTIONS } from "@backstage/shared";
 
 /** Status de campanha que podem ser filtrados. */
 export const CAMPAIGN_STATUS_OPTIONS = [

@@ -5,7 +5,7 @@ import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage.tsx";
 import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/features/auth/guards.tsx";
 import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
-import { PLATFORM_VIEWS } from "@/features/platforms/logic.ts";
+import { PLATFORM_VIEW_LIST } from "@/features/platforms/logic.ts";
 import { SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
 import { RouteError } from "./RouteError.tsx";
 
@@ -85,22 +85,15 @@ export const router = createBrowserRouter([
           </RequirePermission>
         ),
       })),
-      {
-        path: "meta-ads",
+      // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...).
+      ...PLATFORM_VIEW_LIST.map((view) => ({
+        path: view.path.slice(1),
         element: (
           <RequirePermission permission="internal.view">
-            <PlatformPage key="meta" view={PLATFORM_VIEWS.meta} />
+            <PlatformPage key={view.id} view={view} />
           </RequirePermission>
         ),
-      },
-      {
-        path: "google-ads",
-        element: (
-          <RequirePermission permission="internal.view">
-            <PlatformPage key="google" view={PLATFORM_VIEWS.google} />
-          </RequirePermission>
-        ),
-      },
+      })),
       {
         path: "alertas",
         element: (

@@ -1,4 +1,4 @@
-import { BUSINESS_LABELS, can, formatAccountId, PLATFORM_LABELS } from "@backstage/shared";
+import { can, formatAccountId, getPlatform, PLATFORM_LABELS, platformBusiness } from "@backstage/shared";
 import { Badge } from "@/components/ui/badge.tsx";
 import { AtSign, type LucideIcon, Plus, RefreshCw, Unlink } from "lucide-react";
 import { useState } from "react";
@@ -45,9 +45,9 @@ function AccountRow({ account, canManage, clientId }: { account: AdAccount; canM
             {account.timezone ?? NOT_AVAILABLE}
           </p>
           <p className="text-xs text-slate-500">
-            {BUSINESS_LABELS[account.platform_id] ?? "Agrupador"}:{" "}
-            {account.platform_id === "google" && !account.manager_customer_id
-              ? "acesso direto (sem MCC)"
+            {platformBusiness(account.platform_id).label}:{" "}
+            {getPlatform(account.platform_id)?.capabilities.managerAccess && !account.manager_customer_id
+              ? platformBusiness(account.platform_id).none.toLowerCase()
               : (account.business_name ?? NOT_AVAILABLE)}
           </p>
         </div>
@@ -62,7 +62,7 @@ function AccountRow({ account, canManage, clientId }: { account: AdAccount; canM
           </div>
         )}
       </div>
-      {account.platform_id === "meta" && (
+      {getPlatform(account.platform_id)?.capabilities.assets && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
         <span>
           <strong>Páginas:</strong> {pages.length ? pages.map((p) => p.name ?? p.external_id).join(", ") : "nenhuma encontrada"}

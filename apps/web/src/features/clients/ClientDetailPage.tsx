@@ -1,5 +1,5 @@
-import { can, formatCnpj, formatPhone } from "@backstage/shared";
-import { ArrowLeft, Megaphone, Pencil, Search } from "lucide-react";
+import { can, formatCnpj, formatPhone, PLATFORMS } from "@backstage/shared";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useParams } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -10,6 +10,7 @@ import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { useClient } from "./api.ts";
 import { PlatformAccountsCard } from "@/features/ad-accounts/PlatformAccountsCard.tsx";
+import { platformLook } from "@/features/platforms/look.ts";
 import { ClientAccessCard } from "./ClientAccessCard.tsx";
 import { ClientFormModal } from "./ClientFormModal.tsx";
 import { ClientStatusBadge } from "./StatusBadge.tsx";
@@ -84,8 +85,9 @@ export function ClientDetailPage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <PlatformAccountsCard clientId={client.id} platform="meta" icon={Megaphone} />
-        <PlatformAccountsCard clientId={client.id} platform="google" icon={Search} />
+        {PLATFORMS.map((p) => (
+          <PlatformAccountsCard key={p.id} clientId={client.id} platform={p.id} icon={platformLook(p.id).icon} />
+        ))}
       </div>
 
       {can(profile?.role, "users.manage") && <ClientAccessCard clientId={client.id} />}

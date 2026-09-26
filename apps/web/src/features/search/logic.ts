@@ -8,6 +8,7 @@ import {
   ENTITY_STATUS_LABELS,
   type EntityStatus,
   PLATFORM_LABELS,
+  PLATFORMS,
   type Role,
 } from "@backstage/shared";
 
@@ -84,8 +85,7 @@ export function clientShortcuts(clientId: string, role: Role | null | undefined)
   const q = `?cliente=${clientId}`;
   return [
     { label: "Dashboard", href: `/${q}` },
-    { label: "Meta Ads", href: `/meta-ads${q}` },
-    { label: "Google Ads", href: `/google-ads${q}` },
+    ...PLATFORMS.map((p) => ({ label: p.name, href: `${p.path}${q}` })),
     { label: "Campanhas", href: `/campanhas${q}` },
     ...(can(role, "reports.generate") ? [{ label: "Relatórios", href: `/relatorios${q}` }] : []),
   ];

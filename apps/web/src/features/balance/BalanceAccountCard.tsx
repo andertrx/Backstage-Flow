@@ -1,4 +1,4 @@
-import { type AdAccountStatus, assessBalance, describeForecast, formatAccountId } from "@backstage/shared";
+import { type AdAccountStatus, assessBalance, describeForecast, formatAccountId, getPlatform, platformName } from "@backstage/shared";
 import { RefreshCw, Settings2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -10,7 +10,6 @@ import { formatMoney } from "@/lib/format.ts";
 import type { AccountBalance } from "./types.ts";
 
 export const NOT_AVAILABLE = "Informação não disponível pela API.";
-const PLATFORM = { meta: "Meta Ads", google: "Google Ads" } as Record<string, string>;
 const BASIS = {
   meta_spend_cap: "Limite de gastos da conta − valor já gasto.",
   google_account_budget: "Orçamento da conta − valor já veiculado.",
@@ -51,7 +50,7 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
         <div className="min-w-0">
           <p className="truncate font-medium text-slate-900">{b.name}</p>
           <p className="text-xs text-slate-500">
-            {b.client_name} · {PLATFORM[b.platform_id] ?? b.platform_id} · {formatAccountId(b.platform_id, b.external_id)}
+            {b.client_name} · {platformName(b.platform_id)} · {formatAccountId(b.platform_id, b.external_id)}
           </p>
         </div>
         <AccountStatusBadge status={b.status as AdAccountStatus} />
@@ -87,11 +86,11 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
           <Row label="Crédito disponível" hint="Linhas de crédito não são informadas pelas APIs usadas.">
             <Missing />
           </Row>
-          {b.platform_id === "meta" && (
-            <Row label="Valor devido" hint="Valor que o Meta informa como devido na próxima cobrança (balance).">{money(b.amount_due_micros)}</Row>
+          {getPlatform(b.platform_id)?.money === "saldo" && (
+            <Row label="Valor devido" hint={`Valor que o ${platformName(b.platform_id)} informa como devido na próxima cobrança.`}>{money(b.amount_due_micros)}</Row>
           )}
-          {b.platform_id === "meta" && (
-            <Row label="Forma de pagamento" hint="Texto informado pelo Meta, exibido exatamente como veio.">
+          {getPlatform(b.platform_id)?.money === "saldo" && (
+            <Row label="Forma de pagamento" hint={`Texto informado pelo ${platformName(b.platform_id)}, exibido exatamente como veio.`}>
               {b.funding_description ?? <Missing />}
             </Row>
           )}
