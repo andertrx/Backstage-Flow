@@ -14,15 +14,18 @@ export function DemoBanner() {
       data-testid="demo-banner"
     >
       <FlaskConical className="size-4 shrink-0" aria-hidden />
+      {/* No celular a faixa fica em uma linha: o aviso principal continua sempre visível. */}
       <span>
-        <strong className="tracking-wide">MODO DEMONSTRAÇÃO</strong> · Dados fictícios, só para conhecer o sistema. Nada aqui é real e nada é salvo.
+        <strong className="tracking-wide">MODO DEMONSTRAÇÃO</strong> · Dados fictícios
+        <span className="hidden sm:inline">, só para conhecer o sistema. Nada aqui é real e nada é salvo.</span>
       </span>
       <button
         type="button"
         onClick={exitDemo}
+        aria-label="Sair da demonstração"
         className="inline-flex items-center gap-1 rounded-md bg-amber-950/10 px-2 py-0.5 font-semibold hover:bg-amber-950/20 focus-visible:outline-2 focus-visible:outline-amber-950"
       >
-        <LogOut className="size-3.5" aria-hidden /> Sair da demonstração
+        <LogOut className="size-3.5" aria-hidden /> Sair<span className="hidden sm:inline"> da demonstração</span>
       </button>
     </div>
   );

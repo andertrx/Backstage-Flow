@@ -36,7 +36,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 27 — Dados fictícios (modo demonstração)](docs/etapa-27-dados-ficticios/README.md) ✅ concluída
 - [Etapa 28 — Preparação para novas plataformas](docs/etapa-28-novas-plataformas/README.md) ✅ concluída
 - [Etapa 29 — Dashboard executivo](docs/etapa-29-dashboard-executivo/README.md) ✅ concluída
-- [Etapa 30 — Performance](docs/etapa-30-performance/README.md) *(aguardando validação)*
+- [Etapa 30 — Performance](docs/etapa-30-performance/README.md) ✅ concluída
+- [Etapa 31 — Responsividade](docs/etapa-31-responsividade/README.md) *(aguardando validação)*
 
 ## Estrutura
 

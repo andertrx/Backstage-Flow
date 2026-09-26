@@ -1,6 +1,6 @@
 import { formatAccountId } from "@backstage/shared";
-import { X } from "lucide-react";
-import { useMemo } from "react";
+import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
+import { useId, useMemo, useState } from "react";
 import { cn } from "@/lib/cn.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
@@ -48,9 +48,35 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
   );
   const campaignsReady = Boolean(filters.clientId || filters.accountId);
 
+  // Celular: os campos ficam recolhidos atrás do botão "Filtros" (o período continua
+  // visível no resumo abaixo), para os números aparecerem já na primeira tela.
+  const [open, setOpen] = useState(false);
+  const fieldsId = useId();
+  const active = [
+    filters.clientId,
+    lockedPlatform ? null : filters.platform,
+    accountField ? filters.accountId : null,
+    campaignFields ? filters.campaignId : null,
+    campaignFields ? filters.status : null,
+  ].filter(Boolean).length;
+
   return (
     <Card className="space-y-4 p-4" role="search" aria-label="Filtros do dashboard">
-      <div className={cn("grid gap-3 sm:grid-cols-2", campaignFields || !accountField ? "lg:grid-cols-3" : "lg:grid-cols-4")}>
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-2 text-sm font-medium text-slate-700 sm:hidden"
+        aria-expanded={open}
+        aria-controls={fieldsId}
+        onClick={() => setOpen((o) => !o)}
+        data-testid="filters-toggle"
+      >
+        <span className="inline-flex items-center gap-2">
+          <SlidersHorizontal className="size-4" aria-hidden /> Filtros
+          {active > 0 && <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs text-brand-700">{active} {active === 1 ? "ativo" : "ativos"}</span>}
+        </span>
+        <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden />
+      </button>
+      <div id={fieldsId} className={cn(open ? "grid" : "hidden", "gap-3 sm:grid sm:grid-cols-2", campaignFields || !accountField ? "lg:grid-cols-3" : "lg:grid-cols-4")}>
         <Field label="Período">
           {(id) => (
             <Select
@@ -135,7 +161,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
       </div>
 
       {filters.period === "custom" && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:max-w-md">
+        <div className={cn(open ? "grid" : "hidden", "gap-3 sm:grid sm:grid-cols-2 lg:max-w-md")}>
           <Field label="De">
             {(id) => (
               <Input id={id} type="date" value={filters.from ?? ""} max={filters.to ?? undefined}
