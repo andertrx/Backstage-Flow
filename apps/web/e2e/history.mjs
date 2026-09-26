@@ -94,8 +94,8 @@ const answer = (page) => page.getByTestId("history-sentence");
 
   // Um período livre
   await page.getByRole("radio", { name: "Um período" }).click();
-  await page.getByLabel("De").fill(`${TWO}-01`);
-  await page.getByLabel("Até").fill(`${TWO}-28`);
+  await page.getByLabel("De", { exact: true }).fill(`${TWO}-01`);
+  await page.getByLabel("Até", { exact: true }).fill(`${TWO}-28`);
   await page.waitForFunction((d) => document.querySelector("[data-testid=history-sentence]")?.textContent?.includes(d), br(`${TWO}-01`));
   const s3 = clean(await answer(page).innerText());
   check(s3 === `De ${br(`${TWO}-01`)} a ${br(`${TWO}-28`)}, a conta Excalibur Meta investiu R$ 80,00, teve 4 leads e CPL de R$ 20,00.`, `pergunta por período livre: ${s3}`);

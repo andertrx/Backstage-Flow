@@ -1,6 +1,6 @@
 # ETAPA 29 — Dashboard executivo
 
-> Status: **concluída, aguardando validação**
+> Status: **concluída e validada** ✅
 
 ![Visão executiva](executivo.png)
 

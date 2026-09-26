@@ -1,5 +1,5 @@
 import {
-  bucketsFor, buildSeries, CHART_METRICS, type ChartMetricKey, type DateRange, GRANULARITY_LABELS, type Granularity, PLATFORM_LABELS,
+  bucketsFor, buildSeries, CHART_METRICS, type ChartMetricKey, type DateRange, GRANULARITY_LABELS, type Granularity, PLATFORM_LABELS, type SeriesRow,
 } from "@backstage/shared";
 import { BarChart3, Table2 } from "lucide-react";
 import { useMemo } from "react";
@@ -35,6 +35,9 @@ function useChartParams() {
   return { metricKey, granularity, byPlatform, asTable, set };
 }
 
+/** Lista vazia fixa: evita refazer o gráfico a cada renderização enquanto carrega. */
+const NO_ROWS: SeriesRow[] = [];
+
 export function ChartsSection({ range, filters, currency }: { range: DateRange; filters: DashboardFilters; currency: string | null }) {
   const { metricKey, granularity: requested, byPlatform, asTable, set } = useChartParams();
   const days = Math.round((Date.parse(range.to) - Date.parse(range.from)) / 86_400_000) + 1;
@@ -42,17 +45,18 @@ export function ChartsSection({ range, filters, currency }: { range: DateRange; 
   const granularity: Granularity = requested === "day" && !dailyAllowed ? "week" : requested;
   const metric = CHART_METRICS.find((m) => m.key === metricKey)!;
 
-  const { data: rows = [], isLoading, isFetching, error } = useDashboardTimeseries(range, filters, granularity, byPlatform);
+  const { data: rows = NO_ROWS, isLoading, isFetching, error } = useDashboardTimeseries(range, filters, granularity, byPlatform);
   const buckets = useMemo(() => bucketsFor(range, granularity), [range, granularity]);
   const chartCurrency = currency ?? rows[0]?.currency ?? "BRL";
   const series = useMemo(() => buildSeries(rows, buckets, metric, chartCurrency, byPlatform), [rows, buckets, metric, chartCurrency, byPlatform]);
 
-  const lines: ChartLine[] = series.map((s) => ({
+  // Mesmas linhas enquanto os dados não mudam: o gráfico não é redesenhado à toa.
+  const lines: ChartLine[] = useMemo(() => series.map((s) => ({
     key: s.key,
     label: s.key === "total" ? metric.label : PLATFORM_LABELS[s.key] ?? s.key,
     color: COLORS[s.key] ?? "#64748b",
     values: s.points.map((p) => p.value),
-  }));
+  })), [series, metric]);
   const hasValues = lines.some((l) => l.values.some((v) => v != null));
   const fmt = (v: number) => formatKpi(v, metric.format, chartCurrency);
   const xLabels = buckets.map((b) => bucketAxisLabel(b, granularity));

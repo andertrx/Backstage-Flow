@@ -51,40 +51,6 @@ export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, form
   const x = (i: number) => M.left + (count <= 1 ? innerW / 2 : (i * innerW) / (count - 1));
   const y = (v: number) => M.top + innerH - (v / top) * innerH;
 
-  /** Caminho da linha, interrompido nos pontos sem dados. */
-  const pathOf = (values: (number | null)[]) => {
-    let d = "";
-    let pen = false;
-    values.forEach((v, i) => {
-      if (v == null) { pen = false; return; }
-      d += `${pen ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`;
-      pen = true;
-    });
-    return d;
-  };
-  /** Área clara sob a linha (só com uma linha), por trecho contínuo. */
-  const areaOf = (values: (number | null)[]) => {
-    const parts: string[] = [];
-    let run: number[] = [];
-    const flush = () => {
-      if (run.length > 1) {
-        const top = run.map((i, k) => `${k ? "L" : "M"}${x(i).toFixed(1)},${y(values[i]!).toFixed(1)}`).join("");
-        parts.push(`${top}L${x(run[run.length - 1]).toFixed(1)},${y(0)}L${x(run[0]).toFixed(1)},${y(0)}Z`);
-      }
-      run = [];
-    };
-    values.forEach((v, i) => (v == null ? flush() : run.push(i)));
-    flush();
-    return parts.join("");
-  };
-  /** Pontos visíveis: poucos pontos, pontos isolados e o último de cada linha. */
-  const markerIndexes = (values: (number | null)[]) => {
-    const last = values.reduce<number>((acc, v, i) => (v != null ? i : acc), -1);
-    return values.map((_, i) => i).filter((i) =>
-      values[i] != null && (count <= 16 || i === last || (values[i - 1] == null && values[i + 1] == null))
-    );
-  };
-
   const indexFromPointer = (e: PointerEvent<SVGRectElement>) => {
     const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
     const px = e.clientX - rect.left;
@@ -98,6 +64,71 @@ export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, form
   };
 
   const labeled = xLabelIndexes(count, width < 480 ? 4 : 6);
+
+  // Desenho fixo (grade, eixos, linhas, pontos): só é refeito quando os dados
+  // ou o tamanho mudam. Passar o mouse redesenha apenas a linha vertical e o tooltip.
+  const staticLayer = useMemo(() => {
+    /** Caminho da linha, interrompido nos pontos sem dados. */
+    const pathOf = (values: (number | null)[]) => {
+      let d = "";
+      let pen = false;
+      values.forEach((v, i) => {
+        if (v == null) { pen = false; return; }
+        d += `${pen ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`;
+        pen = true;
+      });
+      return d;
+    };
+    /** Área clara sob a linha (só com uma linha), por trecho contínuo. */
+    const areaOf = (values: (number | null)[]) => {
+      const parts: string[] = [];
+      let run: number[] = [];
+      const flush = () => {
+        if (run.length > 1) {
+          const top = run.map((i, k) => `${k ? "L" : "M"}${x(i).toFixed(1)},${y(values[i]!).toFixed(1)}`).join("");
+          parts.push(`${top}L${x(run[run.length - 1]).toFixed(1)},${y(0)}L${x(run[0]).toFixed(1)},${y(0)}Z`);
+        }
+        run = [];
+      };
+      values.forEach((v, i) => (v == null ? flush() : run.push(i)));
+      flush();
+      return parts.join("");
+    };
+    /** Pontos visíveis: poucos pontos, pontos isolados e o último de cada linha. */
+    const markerIndexes = (values: (number | null)[]) => {
+      const last = values.reduce<number>((acc, v, i) => (v != null ? i : acc), -1);
+      return values.map((_, i) => i).filter((i) =>
+        values[i] != null && (count <= 16 || i === last || (values[i - 1] == null && values[i + 1] == null))
+      );
+    };
+    return (
+      <>
+            {/* Grade e eixo Y */}
+            {ticks.map((t) => (
+              <g key={t}>
+                <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} stroke="#e2e8f0" strokeWidth={1} shapeRendering="crispEdges" />
+                <text x={M.left - 8} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="#64748b">{formatAxis(t)}</text>
+              </g>
+            ))}
+            {/* Eixo X */}
+            {labeled.map((i) => (
+              <text key={i} x={x(i)} y={height - 8} textAnchor={count > 1 && i === 0 ? "start" : count > 1 && i === count - 1 ? "end" : "middle"} fontSize={11} fill="#64748b">
+                {xLabels[i]}
+              </text>
+            ))}
+            {/* Área (uma linha só) */}
+            {lines.length === 1 && <path d={areaOf(lines[0].values)} fill={lines[0].color} fillOpacity={0.1} />}
+            {/* Linhas */}
+            {lines.map((l) => (
+              <path key={l.key} d={pathOf(l.values)} fill="none" stroke={l.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" data-testid={`line-${l.key}`} />
+            ))}
+            {/* Pontos */}
+            {lines.map((l) => markerIndexes(l.values).map((i) => (
+              <circle key={`${l.key}-${i}`} cx={x(i)} cy={y(l.values[i]!)} r={4} fill={l.color} stroke="#ffffff" strokeWidth={2} />
+            )))}
+      </>
+    );
+  }, [lines, width, height, count, top, ticks, xLabels, formatAxis]);
   const tipLeft = active == null ? 0 : x(active);
   const tipOnLeft = active != null && tipLeft > width * 0.6;
 
@@ -105,29 +136,7 @@ export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, form
     <div ref={boxRef} className="relative w-full select-none">
       {/* max-w-full: o desenho nunca impede a caixa de encolher (celular); o gráfico então se redesenha no tamanho novo. */}
       <svg width={width} height={height} role="img" aria-label={ariaLabel} className="block max-w-full overflow-visible">
-        {/* Grade e eixo Y */}
-        {ticks.map((t) => (
-          <g key={t}>
-            <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} stroke="#e2e8f0" strokeWidth={1} shapeRendering="crispEdges" />
-            <text x={M.left - 8} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="#64748b">{formatAxis(t)}</text>
-          </g>
-        ))}
-        {/* Eixo X */}
-        {labeled.map((i) => (
-          <text key={i} x={x(i)} y={height - 8} textAnchor={count > 1 && i === 0 ? "start" : count > 1 && i === count - 1 ? "end" : "middle"} fontSize={11} fill="#64748b">
-            {xLabels[i]}
-          </text>
-        ))}
-        {/* Área (uma linha só) */}
-        {lines.length === 1 && <path d={areaOf(lines[0].values)} fill={lines[0].color} fillOpacity={0.1} />}
-        {/* Linhas */}
-        {lines.map((l) => (
-          <path key={l.key} d={pathOf(l.values)} fill="none" stroke={l.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" data-testid={`line-${l.key}`} />
-        ))}
-        {/* Pontos */}
-        {lines.map((l) => markerIndexes(l.values).map((i) => (
-          <circle key={`${l.key}-${i}`} cx={x(i)} cy={y(l.values[i]!)} r={4} fill={l.color} stroke="#ffffff" strokeWidth={2} />
-        )))}
+        {staticLayer}
         {/* Linha vertical e destaque do ponto ativo */}
         {active != null && (
           <g pointerEvents="none">
