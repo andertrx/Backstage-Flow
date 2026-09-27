@@ -167,13 +167,13 @@ export function TrackingPage() {
             <Stat label="Leads" value={conv.leads} hint="Eventos Lead no período." />
             <Stat label="Conversões" value={conv.conversions} hint="Lead, cadastro, inscrição, agendamento e compra." />
             <Stat label="Compras" value={conv.purchases} hint="Sem repetir o mesmo nº de pedido." />
-            <div role="listitem" className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200" data-testid="tracking-revenue">
-              <span className="block text-xs font-medium text-slate-500">Receita do site</span>
+            <div role="listitem" className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200" data-testid="tracking-revenue">
+              <span className="block text-sm font-medium text-slate-500">Receita do site</span>
               {conv.revenue.length === 0 ? (
-                <span className="text-2xl font-semibold text-slate-900">—</span>
+                <span className="mt-1 block text-2xl font-semibold text-slate-900">—</span>
               ) : (
                 conv.revenue.map((r) => (
-                  <span key={r.currency} className="block text-lg font-semibold text-slate-900">{formatMoney(r.micros / 1_000_000, r.currency)}</span>
+                  <span key={r.currency} className="mt-1 block text-2xl font-semibold tracking-tight tabular-nums text-slate-900">{formatMoney(r.micros / 1_000_000, r.currency)}</span>
                 ))
               )}
             </div>
@@ -331,9 +331,9 @@ function sumOverview(rows: OverviewRow[]) {
 
 function Stat({ label, value, hint }: { label: string; value: number; hint?: string }) {
   return (
-    <div role="listitem" className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200" title={hint} data-testid="tracking-stat">
-      <span className="block text-xs font-medium text-slate-500">{label}</span>
-      <span className="text-2xl font-semibold text-slate-900">{value.toLocaleString("pt-BR")}</span>
+    <div role="listitem" className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200" title={hint} data-testid="tracking-stat">
+      <span className="block text-sm font-medium text-slate-500">{label}</span>
+      <span className="mt-1 block text-2xl font-semibold tracking-tight tabular-nums text-slate-900">{value.toLocaleString("pt-BR")}</span>
     </div>
   );
 }

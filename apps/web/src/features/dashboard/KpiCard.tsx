@@ -38,7 +38,7 @@ export function KpiCard({ definition, value, previous, currency, missing, loadin
       ) : value == null ? (
         <p className="text-sm text-slate-500" data-testid="kpi-missing">{missing}</p>
       ) : (
-        <p className="text-2xl font-semibold tracking-tight text-slate-900" data-testid="kpi-value">
+        <p className="text-2xl font-semibold tracking-tight tabular-nums text-slate-900" data-testid="kpi-value">
           {formatKpi(value, definition.format, currency)}
         </p>
       )}
@@ -84,7 +84,7 @@ export function BalanceCard({ totals, loading }: { totals: BalanceTotals; loadin
       ) : availableMicros == null ? (
         <p className="text-sm text-slate-500" data-testid="kpi-missing">Informação não disponível pela API.</p>
       ) : (
-        <p className="text-2xl font-semibold tracking-tight text-slate-900" data-testid="kpi-value">
+        <p className="text-2xl font-semibold tracking-tight tabular-nums text-slate-900" data-testid="kpi-value">
           {formatKpi(availableMicros / 1_000_000, "money", currency ?? "BRL")}
         </p>
       )}

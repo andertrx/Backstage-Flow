@@ -40,7 +40,7 @@ export function MetricsTable<R>({
 
   const header = (key: string, label: string, hint?: string, numeric?: boolean, sticky?: boolean) => {
     const sortable = !key.startsWith("info:");
-    const cls = cn("whitespace-nowrap px-3 py-2.5 font-medium", numeric && "text-right", sticky && "sticky left-0 z-10 min-w-56 bg-slate-50");
+    const cls = cn("whitespace-nowrap px-3 py-2.5 font-medium", numeric && "text-right", sticky && "sticky left-0 z-10 min-w-40 bg-slate-50 shadow-[1px_0_0_0_var(--color-slate-200)] sm:min-w-56");
     if (!sortable) return <th key={key} scope="col" className={cls} title={hint}>{label}</th>;
     const k = key as SortKey;
     return (
@@ -71,8 +71,8 @@ export function MetricsTable<R>({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map((r) => (
-              <tr key={rowKey(r)} data-testid={testId} className="hover:bg-slate-50/60">
-                <td className="sticky left-0 z-10 min-w-56 max-w-72 bg-white px-3 py-2.5">{renderName(r)}</td>
+              <tr key={rowKey(r)} data-testid={testId} className="group hover:bg-slate-50">
+                <td className="sticky left-0 z-10 min-w-40 max-w-56 bg-white px-3 py-2.5 shadow-[1px_0_0_0_var(--color-slate-200)] group-hover:bg-slate-50 sm:min-w-56 sm:max-w-72">{renderName(r)}</td>
                 {columns.map((c) => (
                   <td key={c.key} className={cn("whitespace-nowrap px-3 py-2.5 text-slate-700", c.numeric && "text-right tabular-nums")}>
                     {c.render(r)}

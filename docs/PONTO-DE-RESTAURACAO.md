@@ -34,3 +34,17 @@ O site volta na hora a ser a versão atual, sem o menu do agente.
 - Manualmente, o commit de referência é `25c5aef`.
 
 > Observação: tentei criar também uma *tag* no GitHub (`crm-v1-antes-do-agente-ia`), mas o ambiente só permite publicar na branch de trabalho. O commit acima já é permanente no histórico da branch e serve como ponto de restauração.
+
+---
+
+# Ponto de restauração — antes da Etapa 32 (melhorias visuais)
+
+Criado em 27/09/2026. Detalhes e instruções: [`docs/etapa-32-referencias-visuais/README.md`](etapa-32-referencias-visuais/README.md).
+
+| Parte | Versão |
+|---|---|
+| Código | commit **`81fa057`** |
+| Site | deploy **`dpl_4rhgpvRdwK5VfBfinHFYy4G2SwtK`** (`web-mbk8agi6n`) |
+| Banco | não muda na Etapa 32 |
+
+Para voltar: Vercel → Deployments → `web-mbk8agi6n` → **Promote to Production**, ou me peça **"desfaça a etapa 32"**.
