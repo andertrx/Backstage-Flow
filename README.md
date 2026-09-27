@@ -46,13 +46,13 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 32 — Melhorias visuais](docs/etapa-32-referencias-visuais/README.md) ✅ concluída (com ponto de volta)
 - [Etapa 33 — Agente de IA](docs/etapa-33-agente-ia/README.md) *(em espera, a pedido — auditoria e plano prontos, nada implementado)*
 - [Etapa 34 — Tracking & Atribuição (CAPI)](docs/etapa-34-tracking/ANALISE-E-PLANO.md) *(em andamento)*
-- [Etapa 35 — Meta Ads Campaign Builder (auditoria e plano)](docs/etapa-35-campaign-builder/35.0-AUDITORIA.md) *(aguardando aprovação)*
   - [34.1 — Fundação: script no site, recepção de eventos e origem](docs/etapa-34-tracking/34.1-FUNDACAO.md)
   - [34.2 — Eventos de conversão, leads (dados só em hash) e jornada](docs/etapa-34-tracking/34.2-EVENTOS-E-LEADS.md)
   - [34.3 — Envio das conversões ao Meta (API de Conversões)](docs/etapa-34-tracking/34.3-META-CAPI.md)
   - [34.4 — De onde vêm as conversões: atribuição por campanha e qualidade do tracking](docs/etapa-34-tracking/34.4-ATRIBUICAO.md)
   - [34.5-W — WhatsApp (aplicativo comum): código de rastreio e marcação de Lead/Venda](docs/etapa-34-tracking/34.5-W-WHATSAPP.md)
   - [34.5-W2 — WhatsApp pela API oficial: conversas automáticas, anúncios de WhatsApp e envio business_messaging](docs/etapa-34-tracking/34.5-W2-WHATSAPP-API.md)
+- [Etapa 35 — Meta Ads Campaign Builder (auditoria e plano)](docs/etapa-35-campaign-builder/35.0-AUDITORIA.md) *(aguardando aprovação)*
 
 ## Estrutura
 
