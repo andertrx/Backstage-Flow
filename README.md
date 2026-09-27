@@ -40,6 +40,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 31 — Responsividade](docs/etapa-31-responsividade/README.md) ✅ concluída
 - Etapa 32 — Referências visuais *(em espera, a pedido — aguardando prints/modelos)*
 - [Etapa 33 — Agente de IA](docs/etapa-33-agente-ia/README.md) *(em espera, a pedido — auditoria e plano prontos, nada implementado)*
+- [Etapa 34 — Tracking & Atribuição (CAPI)](docs/etapa-34-tracking/ANALISE-E-PLANO.md) *(análise e plano aguardando aprovação)*
 
 ## Estrutura
 
