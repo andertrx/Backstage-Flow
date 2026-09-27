@@ -8,9 +8,11 @@ import { Card } from "@/components/ui/card.tsx";
 import { Input, Select } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
+import { formatDate } from "@/lib/format.ts";
 import { type OpsSector, type OpsTeamMember, useMyOpsPermissions, useOpsSectors, useOpsTeam, useSaveMember } from "./api.ts";
 import { type MemberDraft, memberDraftFrom, MemberFields } from "./MemberFields.tsx";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
+import { type OpsTeamCount, useOpsTeamCounts } from "./tasksApi.ts";
 
 export function SectorChip({ sector, muted }: { sector: OpsSector | undefined; muted?: boolean }) {
   if (!sector) return null;
@@ -20,6 +22,18 @@ export function SectorChip({ sector, muted }: { sector: OpsSector | undefined; m
       <span className="size-2 rounded-full" style={{ background: sector.color }} aria-hidden />
       {sector.name}
     </span>
+  );
+}
+
+function TaskCounts({ c }: { c: OpsTeamCount | undefined }) {
+  return (
+    <>
+      <td className="px-4 py-3 whitespace-nowrap text-slate-600" data-testid="ops-team-tasks">
+        {c ? <>{c.abertas} abertas · {c.em_andamento} em andamento{c.atrasadas > 0 && <span className="font-semibold text-red-600"> · {c.atrasadas} atrasadas</span>}</> : "—"}
+      </td>
+      <td className="px-4 py-3 text-slate-600">{c?.concluidas_30d ?? 0}</td>
+      <td className="px-4 py-3 whitespace-nowrap text-slate-600">{c?.proxima_entrega ? formatDate(c.proxima_entrega) : "—"}</td>
+    </>
   );
 }
 
@@ -54,14 +68,15 @@ function MemberModal({ member, sectors, onClose }: { member: OpsTeamMember; sect
 }
 
 /**
- * Equipe da Central (36.1): quem está em cada setor. As contagens de tarefas
- * (abertas, em andamento, atrasadas, concluídas) entram junto com as tarefas (36.2).
+ * Equipe da Central: quem está em cada setor e quantas tarefas cada pessoa tem
+ * (como responsável principal ou adicional; arquivadas não contam).
  */
 export function TeamPage() {
   const perms = useMyOpsPermissions();
   const isAdmin = opsCan(perms.data, "ops.admin");
   const team = useOpsTeam();
   const sectors = useOpsSectors();
+  const counts = useOpsTeamCounts();
   const [q, setQ] = useState("");
   const [sector, setSector] = useState("");
   const [status, setStatus] = useState<"" | "ativo" | "inativo" | "fora">("");
@@ -119,6 +134,9 @@ export function TeamPage() {
                 <th className="px-4 py-3">Setor principal</th>
                 <th className="px-4 py-3">Outros setores</th>
                 <th className="px-4 py-3">Cargo</th>
+                <th className="px-4 py-3" title="Abertas · em andamento · atrasadas">Tarefas</th>
+                <th className="px-4 py-3">Concluídas (30 dias)</th>
+                <th className="px-4 py-3">Próxima entrega</th>
                 <th className="px-4 py-3">Situação</th>
                 {isAdmin && <th className="px-4 py-3 text-right">Ações</th>}
               </tr>
@@ -142,6 +160,7 @@ export function TeamPage() {
                     <div className="flex flex-wrap gap-1">{m.secondary_sector_ids.map((s) => <SectorChip key={s} sector={byId.get(s)} muted />)}</div>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{m.job_title || "—"}</td>
+                  <TaskCounts c={counts.data?.get(m.user_id)} />
                   <td className="px-4 py-3">
                     {!m.in_ops ? <Badge>Fora da Central</Badge>
                       : !m.profile_active ? <Badge tone="danger">Usuário desativado</Badge>

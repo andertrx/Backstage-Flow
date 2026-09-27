@@ -17,6 +17,7 @@ export const AUDIT_CATEGORIES = [
   { value: "ad_account", label: "Contas de anúncio" },
   { value: "connection", label: "Conexões com plataformas" },
   { value: "ops_sector", label: "Central de Operações: setores" },
+  { value: "ops_status", label: "Central de Operações: status das tarefas" },
 ] as const;
 
 export type AuditCategory = (typeof AUDIT_CATEGORIES)[number]["value"];
@@ -44,6 +45,10 @@ const ACTION_LABELS: Record<string, string> = {
   "ops.sector.reorder": "Central de Operações: mudou a ordem dos setores",
   "ops.sector.status": "Central de Operações: mudou a situação do setor",
   "ops.member.update": "Central de Operações: alterou setores/permissões da pessoa",
+  "ops.status.create": "Central de Operações: criou status de tarefa",
+  "ops.status.update": "Central de Operações: alterou status de tarefa",
+  "ops.status.reorder": "Central de Operações: mudou a ordem dos status",
+  "ops.status.active": "Central de Operações: ativou/desativou status de tarefa",
   "ad_account.insert": "Vinculou conta de anúncio",
   "ad_account.update": "Conta de anúncio alterada",
   "connection.insert": "Conectou plataforma",

@@ -42,9 +42,12 @@ export interface OpsMemberInput {
   permissions: string[];
 }
 
-/** Nossas funções explicam o problema em português (código 22023): mostra a explicação. */
-const ownDbError = (error: { code?: string; message?: string }, fallback: string) =>
-  error.code === "22023" && error.message ? error.message : friendlyDbError(error, fallback);
+/**
+ * Nossas funções explicam o problema em português: 22023 (dado recusado) e
+ * 40001 (alguém alterou antes de você). Mostra a explicação delas.
+ */
+export const ownDbError = (error: { code?: string; message?: string }, fallback: string) =>
+  (error.code === "22023" || error.code === "40001") && error.message ? error.message : friendlyDbError(error, fallback);
 
 const KEY = ["ops"] as const;
 

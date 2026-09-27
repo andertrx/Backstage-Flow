@@ -1,7 +1,8 @@
 -- =============================================================================
--- REMOÇÃO da Central de Operações (Etapa 36: 36.1).
+-- REMOÇÃO da Central de Operações (Etapa 36: 36.1 e 36.2).
 --
--- Apaga setores, equipe da Central e permissões da Central, e volta as regras
+-- Apaga tarefas (com comentários, anexos registrados e histórico delas), status,
+-- setores, equipe da Central e permissões da Central, e volta as regras
 -- de clientes dos módulos de anúncios como eram antes (sem o papel "equipe").
 -- NÃO mexe em clientes, usuários, métricas, campanhas nem anúncios.
 -- Só rodar com decisão explícita, no SQL Editor. Depois: reverter o commit da
@@ -10,6 +11,10 @@
 -- O papel "equipe" continua existindo no banco (o Postgres não remove valor de
 -- tipo sem recriar a tabela de perfis): antes de rodar, troque o papel das
 -- pessoas "Equipe" em Configurações → Usuários.
+--
+-- Arquivos anexados: o Supabase não deixa apagar arquivo nem bucket por SQL.
+-- Antes de rodar, baixe o que quiser guardar e apague o bucket "ops-files" pelo
+-- painel (Storage → ops-files → Delete bucket). O script confere isso.
 -- =============================================================================
 begin;
 
@@ -19,6 +24,69 @@ do $$ begin
   end if;
 end $$;
 
+do $$ begin
+  if exists (select 1 from storage.buckets where id = 'ops-files') then
+    raise exception 'O bucket ops-files ainda existe. Baixe o que quiser guardar e apague o bucket pelo painel (Storage) antes de remover.';
+  end if;
+end $$;
+
+-- 36.2: tarefas
+drop policy if exists "Central envia anexos das tarefas visíveis" on storage.objects;
+drop policy if exists "Central abre anexos das tarefas visíveis" on storage.objects;
+drop function if exists public.ops_status_set_active(text, boolean, text);
+drop function if exists private.ops_status_set_active_impl(text, boolean, text);
+drop function if exists public.ops_status_reorder(text[]);
+drop function if exists private.ops_status_reorder_impl(text[]);
+drop function if exists public.ops_status_save(text, text, text, text);
+drop function if exists private.ops_status_save_impl(text, text, text, text);
+drop function if exists public.ops_team_counts();
+drop function if exists private.ops_team_counts_impl();
+drop function if exists public.ops_directory();
+drop function if exists private.ops_directory_impl();
+drop function if exists public.ops_task_get(uuid);
+drop function if exists private.ops_task_get_impl(uuid);
+drop function if exists public.ops_task_list(jsonb, integer, integer);
+drop function if exists private.ops_task_list_impl(jsonb, integer, integer);
+drop function if exists public.ops_attachment_remove(uuid);
+drop function if exists private.ops_attachment_remove_impl(uuid);
+drop function if exists public.ops_attachment_add(uuid, text, text);
+drop function if exists private.ops_attachment_add_impl(uuid, text, text);
+drop function if exists public.ops_comment_remove(bigint);
+drop function if exists private.ops_comment_remove_impl(bigint);
+drop function if exists public.ops_comment_add(uuid, text, uuid[]);
+drop function if exists private.ops_comment_add_impl(uuid, text, uuid[]);
+drop function if exists public.ops_task_dependency(uuid, uuid, boolean);
+drop function if exists private.ops_task_dependency_impl(uuid, uuid, boolean);
+drop function if exists public.ops_task_archive(uuid, boolean);
+drop function if exists private.ops_task_archive_impl(uuid, boolean);
+drop function if exists public.ops_task_set_people(uuid, integer, jsonb);
+drop function if exists private.ops_task_set_people_impl(uuid, integer, jsonb);
+drop function if exists public.ops_task_set_status(uuid, integer, text);
+drop function if exists private.ops_task_set_status_impl(uuid, integer, text);
+drop function if exists public.ops_task_save(uuid, integer, jsonb);
+drop function if exists private.ops_task_save_impl(uuid, integer, jsonb);
+drop table if exists public.ops_activity;
+drop table if exists public.ops_attachments;
+drop table if exists public.ops_mentions;
+drop table if exists public.ops_comments;
+drop table if exists public.ops_task_tags;
+drop table if exists public.ops_tags;
+drop table if exists public.ops_task_deps;
+drop table if exists public.ops_task_people;
+drop table if exists public.ops_tasks;
+drop table if exists public.ops_statuses;
+drop function if exists private.ops_write_tags(uuid, jsonb);
+drop function if exists private.ops_write_people(uuid, jsonb);
+drop function if exists private.ops_task_people_json(uuid);
+drop function if exists private.ops_task_snapshot(uuid);
+drop function if exists private.ops_member_ok(uuid);
+drop function if exists private.ops_task_blockers(uuid);
+drop function if exists private.ops_log(uuid, uuid, text, jsonb, jsonb, text);
+drop function if exists private.ops_need(text);
+drop function if exists private.ops_task_folder_visible(text);
+drop function if exists private.ops_task_visible(uuid);
+
+-- 36.1: setores e equipe
 drop function if exists public.ops_team();
 drop function if exists private.ops_team_impl();
 drop function if exists public.ops_my_permissions();

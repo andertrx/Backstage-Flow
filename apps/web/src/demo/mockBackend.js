@@ -3,6 +3,7 @@
  * Usado pelos testes de navegador (e2e/support.mjs) e pelo MODO DEMONSTRAÇÃO
  * do site (Etapa 27): as mesmas regras das funções do banco, em JavaScript.
  */
+import { handleOpsTasks, seedOpsTasks } from "./mockOpsTasks.js";
 
 export const USER_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -117,6 +118,8 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
       ["Desenvolvimento (Dev)", "#3B82F6"], ["Áudio e Vídeo", "#64748B"],
     ].map(([name, color], i) => ({ id: `5ec70000-0000-4000-8000-0000000000${String(i + 10)}`, name, color, position: i + 1, status: "ativo" })),
     opsMembers: {},
+    /** Tarefas da Central (Etapa 36.2). */
+    ...seedOpsTasks(),
   };
 }
 
@@ -275,7 +278,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       }
     }
     // --- Logo (Storage público client-logos; só admin/gestor enviam e apagam)
-    if (url.includes("/storage/v1/object")) {
+    if (url.includes("/storage/v1/object") && !url.includes("/ops-files/")) {
       const path = decodeURIComponent(new URL(url).pathname.replace(/^.*\/storage\/v1\/object\/(public\/)?client-logos\/?/, ""));
       if (method === "GET") return db.storageObjects[path] ? { status: 200, body: undefined } : res(404, { message: "Object not found" });
       if (!["admin", "gestor"].includes(role)) return res(403, { statusCode: "403", error: "Unauthorized", message: "new row violates row-level security policy" });
@@ -298,6 +301,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     const opsDeny = (msg = "Só o administrador pode mudar a configuração da Central de Operações.") => res(403, { code: "42501", message: msg });
     const opsBad = (message) => res(400, { code: "22023", message });
     if (url.includes("/rest/v1/rpc/ops_my_permissions")) return res(200, opsPerms);
+    const opsTask = handleOpsTasks({ db, url, method, parse, rawBody, role, userId, opsPerms, res });
+    if (opsTask) return opsTask;
     if (url.includes("/rest/v1/ops_sectors")) {
       return res(200, opsPerms.includes("ops.access") ? [...db.opsSectors].sort((a, b) => a.position - b.position) : []);
     }
@@ -1298,3 +1303,4 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     return res(404, {});
   };
 }
+

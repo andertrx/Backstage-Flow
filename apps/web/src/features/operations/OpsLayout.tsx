@@ -1,5 +1,5 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { Lock, type LucideIcon, Settings, Users } from "lucide-react";
+import { ClipboardList, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, NavLink, Outlet } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -11,10 +11,11 @@ import { useMyOpsPermissions } from "./api.ts";
 
 /**
  * Abas da Central. Cada aba entra quando a sua fase fica pronta (nada de botão
- * que não funciona): Kanban, Tarefas, Clientes, Dashboard e Dailies chegam nas
- * fases 36.2 a 36.7.
+ * que não funciona): Clientes, Dashboard e Dailies chegam nas fases 36.3 a 36.7.
  */
 export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission: OpsPermission }[] = [
+  { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
+  { to: "/operacoes/tarefas", label: "Tarefas", icon: ClipboardList, permission: "ops.access" },
   { to: "/operacoes/equipe", label: "Equipe", icon: Users, permission: "ops.access" },
   { to: "/operacoes/configuracoes", label: "Configurações", icon: Settings, permission: "ops.admin" },
 ];
@@ -40,7 +41,7 @@ export function RequireOps({ permission, children }: { permission: OpsPermission
 export function OpsIndexRedirect() {
   const perms = useMyOpsPermissions();
   const first = OPS_TABS.find((t) => opsCan(perms.data, t.permission));
-  return <Navigate to={first?.to ?? "/operacoes/equipe"} replace />;
+  return <Navigate to={first?.to ?? "/operacoes/minhas-tarefas"} replace />;
 }
 
 export function OpsLayout() {
