@@ -101,13 +101,13 @@ Deno.test("handle devolve mensagem amigável e guarda o detalhe técnico", async
 
 Deno.test("CORS: só o site oficial, as versões de teste e o computador local", async () => {
   const { isAllowedOrigin, corsHeaders } = await import("./http.ts");
-  for (const ok of ["https://web-ivory-three-49.vercel.app", "https://web-gvvjd71eu-andertrxs-projects.vercel.app", "http://localhost:5173"]) {
+  for (const ok of ["https://backstageflow.com.br", "https://www.backstageflow.com.br", "https://web-ivory-three-49.vercel.app", "https://web-gvvjd71eu-andertrxs-projects.vercel.app", "http://localhost:5173"]) {
     assert(isAllowedOrigin(ok, ""), ok);
   }
-  for (const bad of ["https://evil.com", "https://web-ivory-three-49.vercel.app.evil.com", "https://web-x-outro-projects.vercel.app", "http://localhost:8080", ""]) {
+  for (const bad of ["https://evil.com", "https://backstageflow.com.br.evil.com", "http://backstageflow.com.br", "https://web-ivory-three-49.vercel.app.evil.com", "https://web-x-outro-projects.vercel.app", "http://localhost:8080", ""]) {
     assertFalse(isAllowedOrigin(bad, ""), bad);
   }
   assert(isAllowedOrigin("https://app.agencia.com.br", "https://app.agencia.com.br, https://outro.com"));
   const h = corsHeaders(new Request("http://x", { headers: { origin: "https://evil.com" } })) as Record<string, string>;
-  assertEquals(h["Access-Control-Allow-Origin"], "https://web-ivory-three-49.vercel.app");
+  assertEquals(h["Access-Control-Allow-Origin"], "https://backstageflow.com.br");
 });

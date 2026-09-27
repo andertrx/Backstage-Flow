@@ -1,7 +1,7 @@
 import { normalizeDomain } from "@backstage/shared";
 
 /** Endereço público do script (fica no site do CRM, na Vercel). */
-export const TRACKING_SCRIPT_URL = "https://web-ivory-three-49.vercel.app/t.js";
+export const TRACKING_SCRIPT_URL = "https://backstageflow.com.br/t.js";
 
 export type ContainerStatus = "ativo" | "pausado";
 export type ConsentMode = "nao_exigir" | "aguardar_consentimento";

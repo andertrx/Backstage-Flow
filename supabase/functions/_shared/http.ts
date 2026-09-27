@@ -17,11 +17,14 @@ export class AppError extends Error {
 }
 
 /**
- * Sites que podem chamar as funções pelo navegador (Etapa 26): o site oficial,
- * as versões de teste da Vercel deste projeto e o computador de desenvolvimento.
+ * Sites que podem chamar as funções pelo navegador (Etapa 26): o domínio oficial
+ * (backstageflow.com.br, com e sem www), o endereço antigo da Vercel (continua
+ * funcionando), as versões de teste da Vercel deste projeto e o computador de desenvolvimento.
  * Para um domínio próprio, somar em ALLOWED_ORIGINS (separados por vírgula).
  */
 const DEFAULT_ORIGINS: (string | RegExp)[] = [
+  "https://backstageflow.com.br",
+  "https://www.backstageflow.com.br",
   "https://web-ivory-three-49.vercel.app",
   /^https:\/\/web-[a-z0-9-]+-andertrxs-projects\.vercel\.app$/,
   /^http:\/\/localhost:(5173|4173)$/,

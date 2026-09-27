@@ -52,7 +52,7 @@ function seedClients(db) {
   check(JSON.stringify(saved.allowed_domains) === JSON.stringify(["www.excalibur.com.br", "excalibur.com.br"]), "domínios gravados limpos (sem https e caminho)");
   check(saved.client_id === EXC && saved.test_mode === true && saved.consent_mode === "nao_exigir" && !("public_key" in db.rpcCalls.find((c) => c.fn === "tracking_containers.insert")), "a chave pública é gerada pelo banco, não pela tela");
   const blocks = await install.getByTestId("copy-block").allInnerTexts();
-  check(blocks[0] === `<script async src="https://web-ivory-three-49.vercel.app/t.js" data-key="${saved.public_key}"></script>`, "código de instalação com a chave pública do container");
+  check(blocks[0] === `<script async src="https://backstageflow.com.br/t.js" data-key="${saved.public_key}"></script>`, "código de instalação com a chave pública do container");
   check(blocks.some((b) => b.includes("bf_c={{campaign.id}}&bf_s={{adset.id}}&bf_a={{ad.id}}")), "parâmetros de URL do Meta com os IDs do anúncio");
   check(blocks.some((b) => b.startsWith("{lpurl}?utm_source=google")), "modelo de rastreamento do Google Ads");
   check(!blocks.join(" ").match(/service_role|secret|sb_secret|eyJ/), "nenhum segredo no código de instalação");
