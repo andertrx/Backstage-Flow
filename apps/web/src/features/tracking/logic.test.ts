@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capiStatus, normalizeWaCode, parseMoneyInput, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions } from "./logic.ts";
+import { capiStatus, validateWaIds, waConnectionStatus, normalizeWaCode, parseMoneyInput, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions } from "./logic.ts";
 
 describe("domínios autorizados", () => {
   it("aceita um por linha, limpa o endereço e tira repetidos", () => {
@@ -94,5 +94,27 @@ describe("WhatsApp", () => {
   it("código na mensagem do WhatsApp entra no código de instalação só quando pedido", () => {
     expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false, waCode: true }, "https://x/t.js")).toContain('data-wa-code="1"');
     expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false }, "https://x/t.js")).not.toContain("data-wa-code");
+  });
+});
+
+describe("WhatsApp pela API oficial", () => {
+  const base = { has_app_secret: true, enabled: true, last_webhook_at: null as string | null, last_error_at: null as string | null, last_error_message: null as string | null };
+  it("mostra a situação da conexão em português", () => {
+    expect(waConnectionStatus(null).label).toBe("Não configurado");
+    expect(waConnectionStatus({ ...base, has_app_secret: false }).label).toBe("Falta o segredo do app");
+    expect(waConnectionStatus({ ...base, enabled: false }).label).toBe("Desligado");
+    expect(waConnectionStatus(base).label).toBe("Ligado, sem mensagem ainda");
+    expect(waConnectionStatus({ ...base, last_webhook_at: "2026-09-27T10:00:00Z" }).label).toBe("Funcionando");
+    expect(waConnectionStatus({ ...base, last_webhook_at: "2026-09-27T10:00:00Z", last_error_at: "2026-09-27T11:00:00Z", last_error_message: "assinatura" }))
+      .toMatchObject({ tone: "danger", detail: "assinatura" });
+    // erro antigo, mensagem depois: voltou a funcionar
+    expect(waConnectionStatus({ ...base, last_webhook_at: "2026-09-27T12:00:00Z", last_error_at: "2026-09-27T11:00:00Z" }).label).toBe("Funcionando");
+  });
+  it("confere os IDs e o segredo antes de mandar ao servidor", () => {
+    expect(validateWaIds("106540352242922", "102290129340398", "", false)).toBeNull();
+    expect(validateWaIds("+55 45", "102290129340398", "", false)).toContain("ID do número");
+    expect(validateWaIds("106540352242922", "abc", "", false)).toContain("conta do WhatsApp Business");
+    expect(validateWaIds("106540352242922", "102290129340398", "curto", false)).toContain("segredo do app");
+    expect(validateWaIds("106540352242922", "102290129340398", "", true)).toContain("antes de ligar");
   });
 });

@@ -35,6 +35,9 @@ export interface MockDb {
   trackingCapiLog: Row[];
   capiTokens: Record<string, string>;
   whatsappClicks: Row[];
+  whatsappConnections: Row[];
+  whatsappConversations: Row[];
+  waSecrets: Record<string, { app?: string; verify?: string }>;
   [key: string]: unknown;
 }
 

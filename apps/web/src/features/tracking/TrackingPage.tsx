@@ -28,6 +28,9 @@ import {
   useConversionsSummary,
   useDestinations,
   useWhatsAppClicks,
+  useWhatsAppConnections,
+  useWhatsAppConversations,
+  type WhatsAppConnection,
   useRecentEvents,
   useRecentLeads,
   useRecentTouchpoints,
@@ -36,8 +39,9 @@ import {
 } from "./api.ts";
 import { ContainerFormModal, InstallModal } from "./ContainerModals.tsx";
 import { LeadsSection } from "./LeadsSection.tsx";
-import { capiStatus, PERIOD_LABELS, type PeriodPreset, periodRange, summarizeConversions } from "./logic.ts";
+import { capiStatus, PERIOD_LABELS, type PeriodPreset, periodRange, summarizeConversions, waConnectionStatus } from "./logic.ts";
 import { MetaCapiModal } from "./MetaCapiModal.tsx";
+import { WhatsAppApiModal } from "./WhatsAppApiModal.tsx";
 import { WhatsAppSection } from "./WhatsAppSection.tsx";
 
 const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
@@ -77,6 +81,10 @@ export function TrackingPage() {
   const [metaFor, setMetaFor] = useState<TrackingContainer | null>(null);
   const waClicks = useWhatsAppClicks(hasContainers);
   const canMarkWhatsApp = can(profile?.role, "tracking.whatsapp");
+  const waConnections = useWhatsAppConnections(hasContainers);
+  const waConversations = useWhatsAppConversations(hasContainers);
+  const waConnOf = (containerId: string) => (waConnections.data ?? []).find((w) => w.container_id === containerId);
+  const [waApiFor, setWaApiFor] = useState<TrackingContainer | null>(null);
 
   const [editing, setEditing] = useState<TrackingContainer | "new" | null>(null);
   const [installing, setInstalling] = useState<TrackingContainer | null>(null);
@@ -179,6 +187,8 @@ export function TrackingPage() {
                   destination={destOf(c.id)}
                   capi={capiOf(destOf(c.id))}
                   onMeta={() => setMetaFor(c)}
+                  waConnection={waConnOf(c.id)}
+                  onWhatsApp={() => setWaApiFor(c)}
                 />
               ))}
             </ul>
@@ -186,6 +196,8 @@ export function TrackingPage() {
 
           <WhatsAppSection
             clicks={(waClicks.data ?? []).filter((c) => visibleIds.has(c.container_id))}
+            conversations={(waConversations.data ?? []).filter((c) => visibleIds.has(c.container_id))}
+            hasApi={(waConnections.data ?? []).some((w) => visibleIds.has(w.container_id)) || (waConversations.data ?? []).length > 0}
             siteName={(id) => byId.get(id)?.name ?? "—"}
             canMark={canMarkWhatsApp}
           />
@@ -283,6 +295,9 @@ export function TrackingPage() {
           onClose={() => setMetaFor(null)}
         />
       )}
+      {waApiFor && (
+        <WhatsAppApiModal container={waApiFor} connection={waConnOf(waApiFor.id)} canManage={canManage} onClose={() => setWaApiFor(null)} />
+      )}
     </div>
   );
 }
@@ -307,7 +322,7 @@ function Stat({ label, value, hint }: { label: string; value: number; hint?: str
   );
 }
 
-function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, destination, capi, onMeta }: {
+function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, destination, capi, onMeta, waConnection, onWhatsApp }: {
   container: TrackingContainer;
   stats?: OverviewRow;
   canManage: boolean;
@@ -316,8 +331,11 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
   destination: Destination | undefined;
   capi: CapiOverview | undefined;
   onMeta: () => void;
+  waConnection: WhatsAppConnection | undefined;
+  onWhatsApp: () => void;
 }) {
   const meta = capiStatus(destination, capi);
+  const wa = waConnectionStatus(waConnection);
   return (
     <li>
       <Card className="space-y-3 p-4" data-testid="container-card">
@@ -343,6 +361,11 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
           <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onMeta} aria-label={`Meta API de Conversões: ${c.name}`}>
             Meta CAPI · {meta.label}
           </Button>
+          {(canManage || waConnection) && (
+            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onWhatsApp} aria-label={`WhatsApp API oficial: ${c.name}`}>
+              WhatsApp API · {wa.label}
+            </Button>
+          )}
           <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onInstall} aria-label={`Código de instalação: ${c.name}`}>
             <Code2 className="size-3.5" aria-hidden /> Código de instalação
           </Button>

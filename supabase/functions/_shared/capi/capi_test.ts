@@ -106,3 +106,11 @@ Deno.test("conversão fechada no WhatsApp vai como 'chat' (sem endereço de pág
   assert(!("event_source_url" in e));
   assertEquals(e.user_data.fbc, "fb.1.1790000000000.IwAR");
 });
+
+Deno.test("anúncio de clique para o WhatsApp vai como 'business_messaging' com ctwa_clid e WABA", async () => {
+  const e = await buildMetaEvent(row({ action_source: "business_messaging", ctwa_clid: "ARAkLkA8", waba_id: "102290129340398", event_name: "Purchase" })) as Record<string, any>;
+  assertEquals([e.action_source, e.messaging_channel, e.user_data.ctwa_clid, e.user_data.whatsapp_business_account_id], ["business_messaging", "whatsapp", "ARAkLkA8", "102290129340398"]);
+  assert(!("event_source_url" in e));
+  const semClid = await buildMetaEvent(row({ action_source: "business_messaging", ctwa_clid: null, waba_id: "1" })) as Record<string, any>;
+  assertEquals(semClid.action_source, "chat");
+});

@@ -407,7 +407,9 @@ export function useWhatsAppLookup(code: string | null) {
 
 export interface WhatsAppMark {
   action: "mark";
-  code: string;
+  /** App comum: código da mensagem. API oficial: id da conversa. Um OU outro. */
+  code?: string;
+  conversationId?: number;
   kind: "lead" | "venda";
   value?: number;
   currency?: string;
@@ -423,6 +425,87 @@ export function useWhatsAppMark() {
       const { data, error } = await supabase.functions.invoke("tracking-whatsapp", { body });
       if (error) throw new FriendlyError(await friendlyFunctionError(error));
       return (data as { data: { status: "ok" | "ja_marcado" } }).data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+// -----------------------------------------------------------------------------
+// WhatsApp pela API oficial (34.5-W2): conexão por site e conversas recebidas
+// -----------------------------------------------------------------------------
+
+export interface WhatsAppConnection {
+  id: string;
+  container_id: string;
+  phone_number_id: string;
+  waba_id: string;
+  has_app_secret: boolean;
+  enabled: boolean;
+  last_webhook_at: string | null;
+  last_error_at: string | null;
+  last_error_message: string | null;
+}
+
+export function useWhatsAppConnections(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "whatsapp-connections"],
+    enabled,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tracking_whatsapp_connections")
+        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conexões do WhatsApp."));
+      return data as WhatsAppConnection[];
+    },
+  });
+}
+
+export interface WhatsAppConversation {
+  id: number;
+  container_id: string;
+  origin: "anuncio_whatsapp" | "site" | "desconhecida";
+  ad_id: string | null;
+  click_code: string | null;
+  first_message_at: string;
+  last_message_at: string;
+  messages: number;
+  status: "conversa" | "lead" | "venda";
+  sales: number;
+  test: boolean;
+  touch: { channel: Channel; evidence: Evidence; utm_campaign: string | null } | null;
+}
+
+export function useWhatsAppConversations(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "whatsapp-conversations"],
+    enabled,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tracking_whatsapp_conversations")
+        .select("id, container_id, origin, ad_id, click_code, first_message_at, last_message_at, messages, status, sales, test, touch:tracking_touchpoints!tracking_whatsapp_conversations_touchpoint_id_fkey(channel, evidence, utm_campaign)")
+        .order("last_message_at", { ascending: false })
+        .limit(50);
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conversas do WhatsApp."));
+      return data as unknown as WhatsAppConversation[];
+    },
+  });
+}
+
+export type WhatsAppConnectionAction =
+  | { action: "connection_save"; containerId: string; phoneNumberId: string; wabaId: string; appSecret?: string; enabled: boolean }
+  | { action: "connection_reveal"; containerId: string }
+  | { action: "connection_remove"; containerId: string };
+
+/** Segredo do app e token de verificação só passam pelo servidor (Edge Function tracking-whatsapp → Vault). */
+export function useWhatsAppConnectionAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: WhatsAppConnectionAction) => {
+      const { data, error } = await supabase.functions.invoke("tracking-whatsapp", { body });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      return (data as { data: { webhookUrl?: string; verifyToken?: string | null; removed?: boolean } }).data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });

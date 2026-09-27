@@ -84,6 +84,10 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     capiTestResult: { ok: true, eventsReceived: 1, message: null },
     /** WhatsApp (34.5-W): cliques com código de rastreio. */
     whatsappClicks: [],
+    /** WhatsApp pela API oficial (34.5-W2): conexões (segredos só aqui), conversas recebidas. */
+    whatsappConnections: [],
+    whatsappConversations: [],
+    waSecrets: {},
   };
 }
 
@@ -330,6 +334,12 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     }
     if (url.includes("/rest/v1/tracking_whatsapp_clicks")) {
       return res(200, [...db.whatsappClicks].sort((a, b) => b.clicked_at.localeCompare(a.clicked_at)).map((c) => ({ ...c, touch: c.touch ?? null })));
+    }
+    if (url.includes("/rest/v1/tracking_whatsapp_connections")) {
+      return res(200, db.whatsappConnections.map((w) => ({ ...w, has_app_secret: db.waSecrets[w.id]?.app != null })));
+    }
+    if (url.includes("/rest/v1/tracking_whatsapp_conversations")) {
+      return res(200, [...db.whatsappConversations].sort((a, b) => b.last_message_at.localeCompare(a.last_message_at)).map((c) => ({ ...c, touch: c.touch ?? null })));
     }
     if (url.includes("/rest/v1/rpc/tracking_whatsapp_lookup")) {
       let code = String(parse().p_code ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -839,11 +849,43 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/functions/v1/tracking-whatsapp")) {
       const body = parse();
       db.functionCalls.push({ fn: "tracking-whatsapp", ...body });
+      if (String(body.action).startsWith("connection_")) {
+        if (!["admin", "gestor"].includes(role)) return res(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para esta ação." } });
+        let conn = db.whatsappConnections.find((w) => w.container_id === body.containerId);
+        const webhookUrl = (id) => `https://demo.supabase.co/functions/v1/whatsapp-webhook?c=${id}`;
+        if (body.action === "connection_save") {
+          if (!/^\d{5,30}$/.test(body.phoneNumberId ?? "") || !/^\d{5,30}$/.test(body.wabaId ?? "")) {
+            return res(400, { error: { code: "INVALID_INPUT", message: "O ID do número de telefone tem só números (fica em WhatsApp → Configuração da API)." } });
+          }
+          if (db.whatsappConnections.some((w) => w.phone_number_id === body.phoneNumberId && w.container_id !== body.containerId)) {
+            return res(409, { error: { code: "INVALID_STATE", message: "Este número já está ligado a outro site." } });
+          }
+          if (!conn) {
+            conn = { id: crypto.randomUUID(), container_id: body.containerId, enabled: false, last_webhook_at: null, last_error_at: null, last_error_message: null };
+            db.whatsappConnections.push(conn);
+            db.waSecrets[conn.id] = { verify: "demo" + conn.id.replace(/-/g, "").slice(0, 20) };
+          }
+          Object.assign(conn, { phone_number_id: body.phoneNumberId, waba_id: body.wabaId });
+          if (body.appSecret) db.waSecrets[conn.id].app = body.appSecret;
+          if (body.enabled && !db.waSecrets[conn.id].app) {
+            return res(400, { error: { code: "INVALID_STATE", message: "Cole o segredo do app do Meta antes de ligar (sem ele não dá para conferir que o aviso veio mesmo do Meta)." } });
+          }
+          conn.enabled = body.enabled;
+          return res(200, { data: { id: conn.id, enabled: conn.enabled, hasAppSecret: true, webhookUrl: webhookUrl(conn.id) } });
+        }
+        if (!conn) return res(404, { error: { code: "NOT_FOUND", message: "Salve a conexão primeiro." } });
+        if (body.action === "connection_reveal") return res(200, { data: { webhookUrl: webhookUrl(conn.id), verifyToken: db.waSecrets[conn.id]?.verify ?? null } });
+        db.waSecrets[conn.id] = {};
+        conn.enabled = false;
+        return res(200, { data: { removed: true } });
+      }
       if (!["admin", "gestor", "operador"].includes(role)) return res(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para esta ação." } });
-      const c = db.whatsappClicks.find((x) => x.code === body.code);
-      if (!c) return res(404, { error: { code: "NOT_FOUND", message: "Código não encontrado." } });
+      const c = body.conversationId != null
+        ? db.whatsappConversations.find((x) => x.id === body.conversationId)
+        : db.whatsappClicks.find((x) => x.code === body.code);
+      if (!c) return res(404, { error: { code: "NOT_FOUND", message: body.conversationId != null ? "Conversa não encontrada." : "Código não encontrado." } });
       if (body.kind === "lead") {
-        if (c.status !== "clicado") return res(200, { data: { status: "ja_marcado" } });
+        if (c.status === "lead" || c.status === "venda") return res(200, { data: { status: "ja_marcado" } });
         c.status = "lead";
       } else {
         if (body.orderId && (c.orders ?? []).includes(body.orderId)) {

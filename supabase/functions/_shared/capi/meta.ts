@@ -30,8 +30,11 @@ export interface QueueRow {
   ph_hash: string | null;
   fn_hash: string | null;
   ln_hash: string | null;
-  /** "website" (padrão) ou "chat" (conversão fechada no WhatsApp). */
+  /** "website" (padrão), "chat" (conversa) ou "business_messaging" (anúncio de WhatsApp, API oficial). */
   action_source?: string | null;
+  /** Anúncio de clique para o WhatsApp: identificador do clique e a conta do WhatsApp Business. */
+  ctwa_clid?: string | null;
+  waba_id?: string | null;
 }
 
 export async function sha256Hex(text: string): Promise<string> {
@@ -71,9 +74,16 @@ export async function buildMetaEvent(row: QueueRow) {
     event_name: row.event_name,
     event_time: Math.floor(Date.parse(row.occurred_at) / 1000),
     event_id: row.event_id,
-    action_source: row.action_source === "chat" ? "chat" : "website",
+    action_source: row.action_source === "chat" || row.action_source === "business_messaging" ? "chat" : "website",
     user_data,
   };
+  // Anúncio de clique para o WhatsApp (API oficial): formato "business_messaging" do Meta.
+  if (row.action_source === "business_messaging" && row.ctwa_clid && row.waba_id) {
+    event.action_source = "business_messaging";
+    event.messaging_channel = "whatsapp";
+    user_data.ctwa_clid = row.ctwa_clid;
+    user_data.whatsapp_business_account_id = row.waba_id;
+  }
   // Endereço da página só faz sentido (e só é exigido) em evento do site.
   if (row.page_url && event.action_source === "website") event.event_source_url = row.page_url;
   const cd = customData(row.custom_data);

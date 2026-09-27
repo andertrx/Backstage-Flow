@@ -207,3 +207,32 @@ export function parseMoneyInput(text: string): number | null {
   const n = Number(normalized);
   return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
 }
+
+// -----------------------------------------------------------------------------
+// WhatsApp pela API oficial (34.5-W2)
+// -----------------------------------------------------------------------------
+
+export const WA_ORIGIN_LABELS = { anuncio_whatsapp: "Anúncio de WhatsApp", site: "Botão do site", desconhecida: "Direto no WhatsApp" } as const;
+export const WA_CONVERSATION_STATUS_LABELS = { conversa: "Conversa", lead: "Lead", venda: "Venda" } as const;
+
+/** Situação da conexão com a API oficial, em português. */
+export function waConnectionStatus(
+  conn: { has_app_secret: boolean; enabled: boolean; last_webhook_at: string | null; last_error_at: string | null; last_error_message: string | null } | null | undefined,
+): { tone: CapiTone; label: string; detail: string } {
+  if (!conn) return { tone: "neutral", label: "Não configurado", detail: "Para quem usa a API oficial do WhatsApp (WhatsApp Business Platform)." };
+  if (!conn.has_app_secret) return { tone: "warning", label: "Falta o segredo do app", detail: "Cole o segredo do app do Meta para poder ligar." };
+  if (!conn.enabled) return { tone: "neutral", label: "Desligado", detail: "As mensagens recebidas não estão sendo registradas." };
+  const failing = conn.last_error_at != null && (conn.last_webhook_at == null || conn.last_error_at > conn.last_webhook_at);
+  if (failing) return { tone: "danger", label: "Com erro", detail: conn.last_error_message ?? "O último aviso do Meta foi recusado." };
+  if (!conn.last_webhook_at) return { tone: "warning", label: "Ligado, sem mensagem ainda", detail: "Aguardando a primeira mensagem. Confira se o webhook foi cadastrado no app do Meta." };
+  return { tone: "success", label: "Funcionando", detail: "Mensagens chegando pela API oficial." };
+}
+
+/** IDs do Meta: só números. Devolve o erro em português ou null. */
+export function validateWaIds(phoneNumberId: string, wabaId: string, appSecret: string, needsSecret: boolean): string | null {
+  if (!/^\d{5,30}$/.test(phoneNumberId.trim())) return "O ID do número de telefone tem só números (WhatsApp → Configuração da API, abaixo do número).";
+  if (!/^\d{5,30}$/.test(wabaId.trim())) return "O ID da conta do WhatsApp Business tem só números (WhatsApp → Configuração da API).";
+  if (appSecret.trim() && !/^[A-Za-z0-9]{16,128}$/.test(appSecret.trim())) return "O segredo do app parece incompleto (Configurações do app → Básico → Chave secreta do app).";
+  if (needsSecret && !appSecret.trim()) return "Cole o segredo do app do Meta antes de ligar (sem ele não dá para conferir que o aviso veio mesmo do Meta).";
+  return null;
+}

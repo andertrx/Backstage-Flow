@@ -240,6 +240,69 @@ function seedClients(db) {
   await meta.getByRole("button", { name: "Fechar", exact: true }).last().click();
   check((await card.innerText()).includes("Meta CAPI · Falta o token"), "card do site mostra a situação do Meta");
 
+  // 34.5-W2: WhatsApp pela API oficial
+  check((await card.innerText()).includes("WhatsApp API · Não configurado"), "card do site mostra a situação da API oficial do WhatsApp");
+  check(await page.getByTestId("wa-conversations").count() === 0, "sem API oficial: lista de conversas não aparece (app comum segue igual)");
+  await page.getByRole("button", { name: "WhatsApp API oficial: Loja Excalibur" }).click();
+  const waApi = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
+  await waApi.getByLabel("ID do número de telefone *").fill("+55 45 9999");
+  await waApi.getByLabel("ID da conta do WhatsApp Business (WABA) *").fill("102290129340398");
+  await waApi.getByRole("button", { name: "Salvar" }).click();
+  await waApi.getByText("O ID do número de telefone tem só números").waitFor();
+  await waApi.getByLabel("ID do número de telefone *").fill("106540352242922");
+  await waApi.getByLabel("Registrar as conversas").check();
+  await waApi.getByRole("button", { name: "Salvar" }).click();
+  await waApi.getByText("Cole o segredo do app do Meta antes de ligar").waitFor();
+  check(!db.functionCalls.some((c) => c.fn === "tracking-whatsapp" && String(c.action).startsWith("connection_")), "API oficial: ID inválido ou sem segredo explica e não chama o servidor");
+  const APP_SECRET = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6";
+  await waApi.getByLabel("Segredo do app *").fill(APP_SECRET);
+  await waApi.getByRole("button", { name: "Salvar" }).click();
+  await waApi.getByText("Salvo. As mensagens recebidas passam a ser registradas.").waitFor();
+  const connCall = db.functionCalls.filter((c) => c.fn === "tracking-whatsapp").at(-1);
+  check(connCall.action === "connection_save" && connCall.appSecret === APP_SECRET && connCall.phoneNumberId === "106540352242922" && connCall.enabled, "segredo do app vai só para o servidor");
+  await waApi.getByText("Ligado, sem mensagem ainda").waitFor();
+  check(!(await page.content()).includes(APP_SECRET) && (await waApi.getByLabel("Segredo do app (salvo)").inputValue()) === "", "depois de salvo, o segredo do app não volta para a tela");
+  await waApi.getByRole("button", { name: "Ver endereço do webhook" }).click();
+  const hook = await waApi.getByTestId("wa-api-webhook").innerText();
+  check(/whatsapp-webhook\?c=[0-9a-f-]{36}/.test(hook) && /Token de verificação\s+\S{10,}/.test(hook), "mostra a URL do webhook e o token de verificação para colar no Meta");
+  await waApi.screenshot({ path: `${SHOTS}/tracking-whatsapp-api.png` });
+  await waApi.getByRole("button", { name: "Fechar", exact: true }).last().click();
+  check((await card.innerText()).includes("WhatsApp API · Ligado, sem mensagem ainda"), "card mostra a API oficial ligada");
+
+  db.whatsappConversations.push(
+    { id: 77, container_id: cid, origin: "anuncio_whatsapp", ad_id: "120210000000001", click_code: null, first_message_at: ago(5), last_message_at: ago(2),
+      messages: 3, status: "conversa", sales: 0, test: true, touch: { channel: "meta", evidence: "confirmada", utm_campaign: null } },
+    { id: 78, container_id: cid, origin: "desconhecida", ad_id: null, click_code: null, first_message_at: ago(9), last_message_at: ago(8),
+      messages: 1, status: "conversa", sales: 0, test: true, touch: null });
+  await page.reload();
+  const convRows = page.getByTestId("wa-conversation-row");
+  await convRows.first().waitFor();
+  const firstConv = await convRows.first().innerText();
+  check(firstConv.includes("Anúncio de WhatsApp") && firstConv.includes("Anúncio 120210000000001 · confirmada") && (await convRows.nth(1).innerText()).includes("Direto no WhatsApp"),
+    "conversas da API oficial chegam com a origem (anúncio confirmado / direto, sem inventar)");
+  await convRows.first().getByRole("button", { name: /Marcar conversa/ }).click();
+  const markForm = page.getByTestId("wa-conversations").getByTestId("wa-mark-form");
+  check(await markForm.getByLabel("Telefone do cliente (opcional)").count() === 0, "conversa da API oficial: telefone já vai sozinho (em código), não precisa digitar");
+  await markForm.getByRole("button", { name: "Marcar como Lead" }).click();
+  await markForm.getByText("Lead registrado.").waitFor();
+  const convCall = db.functionCalls.filter((c) => c.fn === "tracking-whatsapp").at(-1);
+  check(convCall.conversationId === 77 && convCall.code === undefined && convCall.kind === "lead", "marcação pela conversa (sem código)");
+  await markForm.getByLabel("Valor da venda").fill("90,00");
+  await markForm.getByLabel("Nº do pedido (recomendado)").fill("P-77");
+  await markForm.getByRole("button", { name: "Marcar como Venda" }).click();
+  await markForm.getByText("Venda registrada.").waitFor();
+  await convRows.first().getByText("Venda").waitFor();
+  check(true, "conversa marcada como Venda na lista");
+  await page.getByRole("region", { name: "WhatsApp" }).screenshot({ path: `${SHOTS}/tracking-whatsapp-conversas.png` });
+
+  await page.getByRole("button", { name: "WhatsApp API oficial: Loja Excalibur" }).click();
+  const waApi2 = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
+  await waApi2.getByRole("button", { name: "Apagar segredos" }).click();
+  await waApi2.getByText("Segredos apagados. A conexão foi desligada.").waitFor();
+  await waApi2.getByText("Falta o segredo do app").waitFor();
+  check(true, "apagar os segredos desliga a conexão");
+  await waApi2.getByRole("button", { name: "Fechar", exact: true }).last().click();
+
   await page.getByRole("button", { name: "Código de instalação: Loja Excalibur" }).click();
   const install2 = page.getByRole("dialog", { name: "Instalar no site — Loja Excalibur" });
   await install2.getByLabel("Disparar também o Pixel do Meta no navegador").check();
@@ -269,6 +332,7 @@ function seedClients(db) {
   await metaV.getByText("Só administradores e gestores configuram").waitFor();
   check(await metaV.getByLabel(/Token da API/).count() === 0, "visualizador vê a situação do Meta, sem campo de token");
   await metaV.getByRole("button", { name: "Fechar", exact: true }).last().click();
+  check(await page.getByRole("button", { name: "WhatsApp API oficial: Loja" }).count() === 0, "visualizador não vê a configuração da API oficial sem conexão");
   db.whatsappClicks.push({ id: 9, container_id: "t1", code: "V9SUAL", clicked_at: ago(5), status: "clicado", sales: 0, test: false, touch: null });
   await page.reload();
   const waV = page.getByRole("region", { name: "WhatsApp" });
@@ -277,6 +341,20 @@ function seedClients(db) {
   await waV.getByTestId("wa-lookup").waitFor();
   check(await waV.getByRole("button", { name: "Marcar como Lead" }).count() === 0 && (await waV.getByTestId("wa-origin").innerText()).includes("desconhecida"),
     "visualizador consulta o código (origem desconhecida, sem inventar) mas não marca");
+  db.whatsappConnections.push({ id: "00000000-0000-4000-8000-0000000000c1", container_id: "t1", phone_number_id: "100000000000009", waba_id: "100000000000010",
+    enabled: true, last_webhook_at: ago(3), last_error_at: null, last_error_message: null });
+  db.waSecrets["00000000-0000-4000-8000-0000000000c1"] = { app: "x".repeat(32), verify: "v".repeat(20) };
+  db.whatsappConversations.push({ id: 5, container_id: "t1", origin: "anuncio_whatsapp", ad_id: "1", click_code: null, first_message_at: ago(4), last_message_at: ago(3),
+    messages: 1, status: "conversa", sales: 0, test: false, touch: null });
+  await page.reload();
+  await page.getByTestId("wa-conversation-row").first().waitFor();
+  check(await page.getByRole("button", { name: /Marcar conversa/ }).count() === 0, "visualizador vê as conversas da API oficial mas não marca");
+  await page.getByRole("button", { name: "WhatsApp API oficial: Loja" }).click();
+  const waApiV = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
+  await waApiV.getByText("Só administradores e gestores configuram a API oficial").waitFor();
+  check((await waApiV.getByTestId("wa-api-status").innerText()).includes("Funcionando") && await waApiV.getByLabel(/Segredo do app/).count() === 0,
+    "visualizador vê a situação da API oficial, sem campo de segredo");
+  await waApiV.getByRole("button", { name: "Fechar", exact: true }).last().click();
   await browser.close();
 }
 {
@@ -529,4 +607,4 @@ const waitSent = async (page, sent, n) => {
   await browser.close();
 }
 
-console.log("\nEtapa 34 (tracking 34.1 a 34.5-W): todos os testes passaram.");
+console.log("\nEtapa 34 (tracking 34.1 a 34.5-W2): todos os testes passaram.");

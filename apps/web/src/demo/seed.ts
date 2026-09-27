@@ -397,6 +397,20 @@ export function seedDemo(): MockDb {
       touch: { channel: "busca_organica", evidence: "provavel", paid: false, utm_campaign: null, ad_campaign_id: null, reason: "Veio de um buscador (www.google.com)." } },
   ];
 
+  // WhatsApp pela API oficial (fictício): conexão ligada e três conversas recebidas.
+  const demoWa = "00000000-0000-4000-8000-00000000d0a1";
+  db.whatsappConnections = [{ id: demoWa, container_id: trackingContainer, phone_number_id: "100000000000001", waba_id: "100000000000002",
+    enabled: true, last_webhook_at: ago(6), last_error_at: null, last_error_message: null }];
+  db.waSecrets = { [demoWa]: { app: "segredo-ficticio-do-modo-demonstracao", verify: "token-ficticio-de-verificacao" } };
+  db.whatsappConversations = [
+    { id: 1, container_id: trackingContainer, origin: "anuncio_whatsapp", ad_id: "120210000000001", click_code: null, first_message_at: ago(40), last_message_at: ago(6),
+      messages: 5, status: "lead", sales: 0, test: true, touch: { channel: "meta", evidence: "confirmada", utm_campaign: null } },
+    { id: 2, container_id: trackingContainer, origin: "site", ad_id: null, click_code: "D3M0Q9", first_message_at: ago(11), last_message_at: ago(9),
+      messages: 2, status: "conversa", sales: 0, test: true, touch: { channel: "busca_organica", evidence: "provavel", utm_campaign: null } },
+    { id: 3, container_id: trackingContainer, origin: "desconhecida", ad_id: null, click_code: null, first_message_at: ago(25), last_message_at: ago(20),
+      messages: 1, status: "conversa", sales: 0, test: true, touch: { channel: "whatsapp", evidence: "desconhecida", utm_campaign: null } },
+  ];
+
   db.lastSyncedAt = ago(35);
   return db;
 }
