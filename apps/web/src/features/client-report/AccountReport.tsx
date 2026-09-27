@@ -1,5 +1,5 @@
 import {
-  ACTION_CATEGORY_LABELS, type ActionCategory, type ActionRow, actionRows, type ClientReportSettings, computeReportKpis, ENTITY_STATUS_LABELS, funnelStages,
+  ACTION_CATEGORY_LABELS, type ActionCategory, type ActionRow, actionRows, type BreakdownRow, type ClientReportSettings, computeReportKpis, ENTITY_STATUS_LABELS, funnelStages,
   type KpiDirection, kpiVariation, mainResultFor, mainResultValue, PLATFORM_LABELS, reportKpiDefinitions, summaryParts, toReportTotals,
 } from "@backstage/shared";
 import { ChevronRight } from "lucide-react";
@@ -10,7 +10,8 @@ import { KpiCard } from "@/features/dashboard/KpiCard.tsx";
 import { platformLook } from "@/features/platforms/look.ts";
 import { cn } from "@/lib/cn.ts";
 import { formatAxisValue, formatChange, formatKpi } from "@/lib/format.ts";
-import type { ReportAccount, ReportCampaignRow, ReportDailyRow } from "./api.ts";
+import type { BreakdownCoverage, ReportAccount, ReportCampaignRow, ReportDailyRow } from "./api.ts";
+import { BreakdownSection } from "./BreakdownSection.tsx";
 import { type DailyMetric, dailyValues, joinPt, rangeText, summarySentence } from "./logic.ts";
 
 /** Uma cor só (série única): azul validado da paleta do sistema. */
@@ -28,12 +29,14 @@ function Change({ cur, prev, direction }: { cur: number | null; prev: number | n
   return <span className={cn("tabular-nums", toneText[v.tone])}>{formatChange(v.percent)}</span>;
 }
 
-export function AccountReport({ account, daily, campaigns, settings, days }: {
+export function AccountReport({ account, daily, campaigns, settings, days, breakdowns, coverage }: {
   account: ReportAccount;
   daily: ReportDailyRow[];
   campaigns: ReportCampaignRow[];
   settings: ClientReportSettings;
   days: string[];
+  breakdowns: BreakdownRow[];
+  coverage: BreakdownCoverage | null;
 }) {
   const main = mainResultFor(settings.main_result, account.platform_id);
   const defs = reportKpiDefinitions(main);
@@ -155,6 +158,10 @@ export function AccountReport({ account, daily, campaigns, settings, days }: {
                 ))}
               </div>
             </div>
+          )}
+
+          {on.breakdowns && (
+            <BreakdownSection rows={breakdowns} coverage={coverage} range={{ from: days[0], to: days[days.length - 1] }} main={main} currency={currency} />
           )}
 
           {on.actions && actions.length > 0 && (

@@ -96,6 +96,9 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     /** Acesso do cliente (Etapa 19.2): por cliente, e código do link → cliente (só no servidor). */
     portals: {},
     portalTokens: {},
+    /** Divisões (Etapa 19.3): linhas por dia (como metrics_breakdown_daily) e cobertura por conta. */
+    breakdowns: [],
+    breakdownCoverage: [],
   };
 }
 
@@ -185,6 +188,23 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           .sort((x, y) => (y.spend_micros ?? 0) - (x.spend_micros ?? 0)).slice(0, 200);
         return out;
       }
+      if (fn === "client_report_breakdowns") {
+        const ids = new Set(accts.map((a) => a.id));
+        const rows = db.breakdowns.filter((b) => ids.has(b.ad_account_id) && inRange(b, p.p_from, p.p_to));
+        return [...Map.groupBy(rows, (b) => `${b.ad_account_id}|${b.dimension}|${b.value}`).values()].map((list) => {
+          const withActions = list.filter((b) => b.actions);
+          const acts = {};
+          for (const b of withActions) for (const [k, v] of Object.entries(b.actions)) acts[k] = (acts[k] ?? 0) + v;
+          return {
+            ad_account_id: list[0].ad_account_id, dimension: list[0].dimension, value: list[0].value,
+            ...Object.fromEntries(KEYS.slice(0, 8).map((k) => [k, sum(list, k)])), actions: withActions.length ? acts : null,
+          };
+        });
+      }
+      if (fn === "client_report_breakdown_coverage") {
+        const ids = new Set(accts.map((a) => a.id));
+        return db.breakdownCoverage.filter((c) => ids.has(c.ad_account_id));
+      }
       return [];
   }
 
@@ -267,6 +287,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         client: { name: client.name, timezone: client.timezone }, settings: settings ? cleanSettings : null,
         period, from, to, today,
         accounts: reportRpc("client_report_accounts", q), daily: reportRpc("client_report_daily", q), campaigns: reportRpc("client_report_campaigns", q),
+        breakdowns: reportRpc("client_report_breakdowns", q), breakdown_coverage: reportRpc("client_report_breakdown_coverage", { p_client_id: clientId }),
       });
     }
     if (url.includes("/rest/v1/rpc/client_report_")) {

@@ -43,6 +43,8 @@ export interface MockDb {
   reportSettings: Row[];
   portals: Record<string, Row>;
   portalTokens: Record<string, string>;
+  breakdowns: Row[];
+  breakdownCoverage: Row[];
   [key: string]: unknown;
 }
 

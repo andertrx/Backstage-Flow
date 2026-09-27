@@ -6,6 +6,7 @@ import { MAX_ACCESSIBLE_CUSTOMERS } from "./config.ts";
 import { ACCOUNT_BUDGET_QUERY, BILLING_SETUP_QUERY, mapGoogleFunding, type RawAccountBudget, type RawBillingSetup } from "./funding.ts";
 import { mapCustomer, type RawCustomer } from "./mapping.ts";
 import { fetchUserInfo, refreshAccessToken } from "./oauth.ts";
+import { fetchGoogleBreakdowns } from "./breakdowns.ts";
 import { fetchGoogleDailyMetrics, fetchGoogleStructure } from "./sync.ts";
 
 const CUSTOMER_QUERY =
@@ -124,6 +125,12 @@ export function createGoogleAdapter(fetchImpl: typeof fetch = fetch): PlatformAd
       assertCustomerId(externalId);
       const token = await accessToken(refreshToken);
       return fetchGoogleDailyMetrics(externalId, range, { accessToken: token, loginCustomerId: access?.managerId ?? externalId, fetchImpl });
+    },
+
+    async fetchBreakdowns(refreshToken, externalId, access, range) {
+      assertCustomerId(externalId);
+      const token = await accessToken(refreshToken);
+      return fetchGoogleBreakdowns(externalId, range, { accessToken: token, loginCustomerId: access?.managerId ?? externalId, fetchImpl });
     },
 
     listAssets() {

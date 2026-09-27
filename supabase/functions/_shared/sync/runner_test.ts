@@ -187,3 +187,26 @@ Deno.test("importação do passado: conta já completa não chama a plataforma",
   assertEquals(r, null);
   assertEquals(log, []);
 });
+
+Deno.test("divisões (19.3): gravadas depois do alcance; se falharem, a sincronização continua com sucesso", async () => {
+  const now = new Date("2026-09-24T15:00:00Z");
+  const ok = fakeStore();
+  const ingested: { dims: string[]; range: unknown }[] = [];
+  ok.store.loadBreakdownCoverage = () => Promise.resolve(null);
+  ok.store.ingestBreakdowns = (_a, result, range) => (ok.log.push("divisoes"), ingested.push({ dims: result.dimensions, range }), Promise.resolve(result.rows.length));
+  const adapter = fakeAdapter({
+    fetchBreakdowns: () => Promise.resolve({ rows: [{} as never, {} as never], dimensions: ["age", "hour"], failed: [] }),
+  });
+  const r = await syncAccount(ok.store, adapter, account, { trigger: "manual", requestedBy: null, now });
+  assertEquals(ok.log.slice(-4), ["alcance", "divisoes", "cobertura", "fim"]);
+  assertEquals(r.details.divisoes, 2);
+  assertEquals(ingested[0], { dims: ["age", "hour"], range: { from: "2026-08-26", to: "2026-09-24" } });
+
+  const bad = fakeStore();
+  bad.store.loadBreakdownCoverage = () => Promise.resolve(null);
+  bad.store.ingestBreakdowns = () => Promise.resolve(0);
+  const failing = fakeAdapter({ fetchBreakdowns: () => Promise.reject(new AppError(400, "PLATFORM_BAD_REQUEST", "recusado")) });
+  const r2 = await syncAccount(bad.store, failing, account, { trigger: "manual", requestedBy: null, now });
+  assertEquals(r2.status, "sucesso");
+  assertEquals(r2.details.divisoes_erro, "PLATFORM_BAD_REQUEST");
+});

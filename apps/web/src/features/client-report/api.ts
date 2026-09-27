@@ -1,4 +1,4 @@
-import { type ClientReportSettings, type DateRange, type ReportTotals, toReportTotals } from "@backstage/shared";
+import { type BreakdownRow, type ClientReportSettings, type DateRange, type ReportTotals, toReportTotals } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { EntityStatus } from "@backstage/shared";
 import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
@@ -93,6 +93,38 @@ export function useReportCampaigns(clientId: string | undefined, range: DateRang
       const { data, error } = await supabase.rpc("client_report_campaigns", args(clientId!, range));
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as campanhas."));
       return (data as Record<string, unknown>[]).map((r) => numericRow<ReportCampaignRow>(r));
+    },
+  });
+}
+
+export interface BreakdownCoverage {
+  ad_account_id: string;
+  covered_from: string;
+  covered_to: string;
+}
+
+export const toBreakdownRow = (r: Record<string, unknown>): BreakdownRow => ({
+  ...numericRow<BreakdownRow>(r),
+  spend_micros: Number(r.spend_micros ?? 0), impressions: Number(r.impressions ?? 0), clicks: Number(r.clicks ?? 0),
+});
+
+/** Divisões por idade, gênero, horário… (Etapa 19.3) e até onde já foram buscadas. */
+export function useReportBreakdowns(clientId: string | undefined, range: DateRange) {
+  return useQuery({
+    queryKey: ["client-report", "breakdowns", clientId, range],
+    enabled: Boolean(clientId),
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const [rows, cov] = await Promise.all([
+        supabase.rpc("client_report_breakdowns", args(clientId!, range)),
+        supabase.rpc("client_report_breakdown_coverage", { p_client_id: clientId }),
+      ]);
+      const error = rows.error ?? cov.error;
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as divisões."));
+      return {
+        rows: (rows.data as Record<string, unknown>[]).map(toBreakdownRow),
+        coverage: cov.data as BreakdownCoverage[],
+      };
     },
   });
 }
@@ -203,6 +235,8 @@ export interface PublicReport {
   accounts: ReportAccount[];
   daily: ReportDailyRow[];
   campaigns: ReportCampaignRow[];
+  breakdowns: BreakdownRow[];
+  breakdown_coverage: BreakdownCoverage[];
 }
 
 export type PublicQuery = { period?: string; from?: string; to?: string };
@@ -226,6 +260,8 @@ export function usePublicReport(token: string | undefined, q: PublicQuery) {
         accounts: ((d.accounts as Record<string, unknown>[]) ?? []).map(toReportAccount),
         daily: ((d.daily as Record<string, unknown>[]) ?? []).map((r) => numericRow<ReportDailyRow>(r)),
         campaigns: ((d.campaigns as Record<string, unknown>[]) ?? []).map((r) => numericRow<ReportCampaignRow>(r)),
+        breakdowns: ((d.breakdowns as Record<string, unknown>[]) ?? []).map(toBreakdownRow),
+        breakdown_coverage: (d.breakdown_coverage as BreakdownCoverage[]) ?? [],
       } as PublicReport;
     },
   });

@@ -182,6 +182,52 @@ function metaActions(row: Record<string, number | null>, isSale: boolean): Recor
 }
 const toRaw = (a: Record<string, number>) => ({ actions: Object.entries(a).map(([action_type, value]) => ({ action_type, value: String(value) })), action_values: [] });
 
+/** Fatias fixas das divisões do modo demonstração (somam 1). */
+const SPLITS: Record<string, Record<string, [string, number][]>> = {
+  meta: {
+    age: [["18-24", 0.14], ["25-34", 0.33], ["35-44", 0.26], ["45-54", 0.15], ["55-64", 0.08], ["65+", 0.03], ["unknown", 0.01]],
+    gender: [["female", 0.56], ["male", 0.42], ["unknown", 0.02]],
+    publisher_platform: [["instagram", 0.58], ["facebook", 0.36], ["audience_network", 0.04], ["messenger", 0.02]],
+    device: [["mobile_app", 0.86], ["mobile_web", 0.08], ["desktop", 0.06]],
+    region: [["São Paulo", 0.46], ["Rio de Janeiro", 0.16], ["Minas Gerais", 0.12], ["Paraná", 0.08], ["Santa Catarina", 0.06], ["Rio Grande do Sul", 0.05], ["Bahia", 0.04], ["unknown", 0.03]],
+  },
+  google: {
+    age: [["18-24", 0.1], ["25-34", 0.28], ["35-44", 0.27], ["45-54", 0.16], ["55-64", 0.08], ["65+", 0.03], ["unknown", 0.08]],
+    gender: [["female", 0.47], ["male", 0.45], ["unknown", 0.08]],
+    device: [["mobile", 0.71], ["desktop", 0.25], ["tablet", 0.04]],
+    city: [["São Paulo (State of Sao Paulo)", 0.38], ["Campinas (State of Sao Paulo)", 0.11], ["Santo André (State of Sao Paulo)", 0.07], ["Guarulhos (State of Sao Paulo)", 0.06], ["Osasco (State of Sao Paulo)", 0.05], ["unknown", 0.33]],
+  },
+};
+/** Peso de cada hora (madrugada fraca, pico à noite). */
+const HOUR_WEIGHTS = [1, 0.6, 0.4, 0.3, 0.3, 0.5, 1.2, 2.2, 3, 3.4, 3.6, 3.8, 4, 3.8, 3.6, 3.6, 3.8, 4.2, 4.8, 5.4, 5.8, 5.6, 4.4, 2.4];
+const HOUR_SPLIT: [string, number][] = HOUR_WEIGHTS.map((w, h) => [String(h).padStart(2, "0"), w / HOUR_WEIGHTS.reduce((a, b) => a + b, 0)]);
+
+/** Divide os números de um dia pelas fatias; a última fatia leva o resto (a soma confere). */
+function splitDay(daily: Record<string, number>, actions: Record<string, number> | null, split: [string, number][]) {
+  const keys = ["spend_micros", "impressions", "clicks", "link_clicks", "leads", "messages", "conversions", "conversion_value_micros"];
+  const used: Record<string, number> = Object.fromEntries(keys.map((k) => [k, 0]));
+  const usedActions: Record<string, number> = {};
+  return split.map(([value, share], i) => {
+    const last = i === split.length - 1;
+    const row: Record<string, unknown> = { value };
+    for (const k of keys) {
+      const v = last ? (daily[k] ?? 0) - used[k] : Math.floor((daily[k] ?? 0) * share);
+      used[k] += v;
+      row[k] = v;
+    }
+    if (actions) {
+      const a: Record<string, number> = {};
+      for (const [k, total] of Object.entries(actions)) {
+        const v = last ? total - (usedActions[k] ?? 0) : Math.floor(total * share);
+        usedActions[k] = (usedActions[k] ?? 0) + v;
+        if (v > 0) a[k] = v;
+      }
+      row.actions = a;
+    }
+    return row;
+  });
+}
+
 /** Monta o "banco" simulado com 13 meses de dados fictícios. */
 export function seedDemo(): MockDb {
   const db = createMockDb({ role: "admin", userId: DEMO_USER.id, email: DEMO_USER.email, fullName: DEMO_USER.name });
@@ -307,7 +353,21 @@ export function seedDemo(): MockDb {
           raw_actions: acc.platform === "meta" ? toRaw(accountActions.get(date) ?? {}) : null,
         });
         for (const k of METRIC_KEYS) account[k] += daily[k];
+        // Divisões (19.3): só os últimos 30 dias, como a sincronização real.
+        if (date >= shift(end, -29)) {
+          const acts = acc.platform === "meta" ? accountActions.get(date) ?? {} : null;
+          for (const [dimension, split] of [...Object.entries(SPLITS[acc.platform] ?? {}), ["hour", HOUR_SPLIT] as const]) {
+            for (const r of splitDay(daily, acts, split as [string, number][])) {
+              db.breakdowns.push({
+                date, ad_account_id: accountId, client_id: clientId, platform_id: acc.platform, currency: acc.currency, dimension, ...r,
+                link_clicks: acc.platform === "meta" ? r.link_clicks : null, leads: acc.platform === "meta" ? r.leads : null,
+                messages: acc.platform === "meta" ? r.messages : null, actions: acc.platform === "meta" ? r.actions : null,
+              });
+            }
+          }
+        }
       }
+      db.breakdownCoverage.push({ ad_account_id: accountId, covered_from: shift(end, -29), covered_to: end });
 
       const spent = account.spend_micros;
       db.snapshots[accountId] = {

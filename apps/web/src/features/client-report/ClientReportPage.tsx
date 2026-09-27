@@ -9,7 +9,7 @@ import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useClient } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
-import { useReportAccounts, useReportCampaigns, useReportDaily, useReportSettings } from "./api.ts";
+import { useReportAccounts, useReportBreakdowns, useReportCampaigns, useReportDaily, useReportSettings } from "./api.ts";
 import { reportPeriodFromParams } from "./logic.ts";
 import { ReportSettingsModal } from "./ReportSettingsModal.tsx";
 import { periodUpdaters, ReportView } from "./ReportView.tsx";
@@ -36,6 +36,7 @@ export function ClientReportPage() {
   const accounts = useReportAccounts(ready ? id : undefined, period.range);
   const daily = useReportDaily(ready ? id : undefined, period.range);
   const campaigns = useReportCampaigns(ready ? id : undefined, period.range);
+  const breakdowns = useReportBreakdowns(ready && settings.sections.breakdowns ? id : undefined, period.range);
 
   if (client.isLoading || settingsRow.isLoading) return <FullPageSpinner />;
   if (client.error) return <Alert tone="error">{errorMessage(client.error)}</Alert>;
@@ -55,9 +56,11 @@ export function ClientReportPage() {
         accounts={accounts.data ?? []}
         daily={daily.data ?? []}
         campaigns={campaigns.data ?? []}
-        loading={accounts.isLoading || daily.isLoading || campaigns.isLoading}
+        breakdowns={breakdowns.data?.rows ?? []}
+        coverage={breakdowns.data?.coverage ?? []}
+        loading={accounts.isLoading || daily.isLoading || campaigns.isLoading || breakdowns.isLoading}
         fetching={accounts.isFetching}
-        error={accounts.error ?? daily.error ?? campaigns.error}
+        error={accounts.error ?? daily.error ?? campaigns.error ?? breakdowns.error}
         noAccountsText={staff ? "Nenhuma conta de anúncio vinculada a este cliente. Vincule as contas na página do cliente." : "Ainda não há contas de anúncio neste painel."}
         toolbarStart={staff && (
           <Link to={`/clientes/${client.data.id}`} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">

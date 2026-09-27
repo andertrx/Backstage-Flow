@@ -3,6 +3,7 @@ import type { PlatformAdapter } from "../adapter.ts";
 import { graphGet, graphGetAll } from "./client.ts";
 import { mapMetaFunding, type RawFundingAccount } from "./funding.ts";
 import { mapAccount, mapPages, type RawAdAccount, type RawPage } from "./mapping.ts";
+import { fetchMetaBreakdowns } from "./breakdowns.ts";
 import { fetchMetaDailyMetrics, fetchMetaPeriodReach, fetchMetaStructure } from "./sync.ts";
 
 const ACCOUNT_FIELDS = "id,account_id,name,currency,timezone_name,account_status,disable_reason,is_prepay_account,business{id,name}";
@@ -54,6 +55,11 @@ export function createMetaAdapter(fetchImpl: typeof fetch = fetch): PlatformAdap
     fetchPeriodReach(token, externalId, _access, ranges) {
       if (!/^\d+$/.test(externalId)) throw new AppError(400, "INVALID_INPUT", "Id de conta Meta inválido.");
       return fetchMetaPeriodReach(token, externalId, ranges, fetchImpl);
+    },
+
+    fetchBreakdowns(token, externalId, _access, range) {
+      if (!/^\d+$/.test(externalId)) throw new AppError(400, "INVALID_INPUT", "Id de conta Meta inválido.");
+      return fetchMetaBreakdowns(token, externalId, range, fetchImpl);
     },
 
     async listAssets(token, externalId) {

@@ -69,6 +69,8 @@ export function PublicReportPage() {
             accounts={data.accounts}
             daily={data.daily}
             campaigns={data.campaigns}
+            breakdowns={data.breakdowns}
+            coverage={data.breakdown_coverage}
             loading={false}
             fetching={report.isFetching}
             error={report.error}

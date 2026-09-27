@@ -37,13 +37,14 @@ export const REPORT_KPI_KEYS = [
 ] as const;
 export type ReportKpiKey = (typeof REPORT_KPI_KEYS)[number];
 
-export const REPORT_SECTIONS = ["summary", "kpis", "funnel", "daily", "actions", "campaigns", "notes"] as const;
+export const REPORT_SECTIONS = ["summary", "kpis", "funnel", "daily", "breakdowns", "actions", "campaigns", "notes"] as const;
 export type ReportSection = (typeof REPORT_SECTIONS)[number];
 export const REPORT_SECTION_LABELS: Record<ReportSection, string> = {
   summary: "Resumo em uma frase",
   kpis: "Cartões de métricas",
   funnel: "Funil (impressões → cliques → resultado)",
   daily: "Gráficos dia a dia",
+  breakdowns: "Quem viu e onde (idade, gênero, horário, aparelho, plataforma, localização)",
   actions: "Ações por tipo (Meta)",
   campaigns: "Campanhas",
   notes: "Análise da agência e próximos passos",
@@ -267,6 +268,13 @@ export interface ActionRow {
   category: ActionCategory;
   value: number;
   previous: number | null;
+}
+
+const KNOWN_ACTION_TYPES = new Set(META_ACTION_GROUPS.flatMap((g) => g.types));
+
+/** Tipos de ação que o painel usa (os demais não precisam ser guardados nas divisões). */
+export function isReportActionType(type: string): boolean {
+  return KNOWN_ACTION_TYPES.has(type) || CUSTOM_CONVERSION.test(type);
 }
 
 /** Nome em português de um tipo de ação (ou null se não conhecemos). */

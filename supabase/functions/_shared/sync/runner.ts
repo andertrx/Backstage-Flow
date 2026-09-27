@@ -11,7 +11,7 @@ import { addDays, comparisonPeriod, PERIOD_LABELS, type PeriodPreset, resolvePer
 import { recordError } from "../errorlog.ts";
 import { AppError } from "../http.ts";
 import type { PlatformAdapter } from "../platforms/adapter.ts";
-import type { AccountFunding, DailyMetric, DateRange, PeriodReach, PlatformAccount, PlatformStructure } from "../platforms/types.ts";
+import type { AccountFunding, BreakdownResult, DailyMetric, DateRange, PeriodReach, PlatformAccount, PlatformStructure } from "../platforms/types.ts";
 
 export interface SyncAccount {
   id: string;
@@ -55,11 +55,39 @@ export interface SyncStore {
   markCoverage(account: SyncAccount, range: DateRange): Promise<void>;
   /** Ids internos das campanhas, conjuntos e anúncios já gravados (importação do passado). */
   loadIdMaps(account: SyncAccount): Promise<IdMaps>;
+  /** Divisões (Etapa 19.3): até onde já foram buscadas e quando. */
+  loadBreakdownCoverage?(account: SyncAccount): Promise<BreakdownCoverage | null>;
+  /** Grava as divisões do período (só as dimensões que vieram). */
+  ingestBreakdowns?(account: SyncAccount, result: BreakdownResult, range: DateRange): Promise<number>;
   /** Fecha uma execução da importação do passado (sem mexer no estado do dia a dia). */
   finishBackfill(runId: number, account: SyncAccount, result: RunResult, durationMs: number, retryAt: Date | null): Promise<void>;
 }
 
 export type SyncTrigger = "agendada" | "manual" | "historico";
+
+export interface BreakdownCoverage {
+  from: string;
+  to: string;
+  syncedAt: string | null;
+}
+
+/** Divisões: na primeira vez, os últimos 30 dias; depois, no máximo a cada 6 horas. */
+export const BREAKDOWN_DAYS = 30;
+export const BREAKDOWN_EVERY_HOURS = 6;
+
+/**
+ * Período das divisões (ou null = ainda não é hora). Economiza chamadas às
+ * plataformas: idade, horário etc. mudam pouco de hora em hora.
+ */
+export function breakdownRange(cov: BreakdownCoverage | null, timeZone: string, now: Date, syncRange: DateRange): DateRange | null {
+  const today = todayInZone(timeZone, now);
+  const start = addDays(today, -(BREAKDOWN_DAYS - 1));
+  if (!cov || cov.from > start || cov.to < start) return { from: start, to: today };
+  const fresh = cov.syncedAt && now.getTime() - Date.parse(cov.syncedAt) < BREAKDOWN_EVERY_HOURS * 3_600_000;
+  if (fresh && cov.to >= addDays(today, -1)) return null;
+  const from = cov.to < syncRange.from ? cov.to : syncRange.from;
+  return { from: from < start ? start : from, to: today };
+}
 
 /** Próxima sincronização: 1 hora depois do sucesso; 30 minutos depois de um erro. */
 export const INTERVAL_MINUTES = 60;
@@ -157,7 +185,33 @@ export async function syncAccount(
       details.alcance = await store.upsertReach(account, reach);
     }
 
-    const records = ["saldo", "estrutura", "metricas", "alcance"].reduce((t, k) => t + (Number(details[k]) || 0), 0);
+    // 5) Divisões por idade, gênero, horário… (Etapa 19.3). Uma falha aqui não
+    //    derruba a sincronização: fica no log e tenta de novo na próxima.
+    if (adapter.fetchBreakdowns && store.ingestBreakdowns && store.loadBreakdownCoverage) {
+      try {
+        const bdRange = breakdownRange(await store.loadBreakdownCoverage(account), fresh.timezone || tz, now, range);
+        if (bdRange) {
+          const bd = await adapter.fetchBreakdowns(token, account.external_id, access, bdRange);
+          details.divisoes = await store.ingestBreakdowns(account, bd, bdRange);
+          if (bd.failed.length) {
+            await recordError({
+              source: "sincronizacao", code: "BREAKDOWN_PARTIAL", technical: bd.failed,
+              context: { periodo: `${bdRange.from}..${bdRange.to}`, dimensoes: bd.failed.map((f) => `${f.dimension}:${f.code}`).join(",") },
+              adAccountId: account.id, clientId: account.client_id,
+            });
+          }
+        }
+      } catch (err) {
+        details.divisoes_erro = err instanceof AppError ? err.code : "UNKNOWN";
+        await recordError({
+          source: "sincronizacao", code: "BREAKDOWN_FAILED", technical: err,
+          userMessage: "Não conseguimos atualizar as divisões (idade, horário…) desta conta. Os outros números foram atualizados.",
+          adAccountId: account.id, clientId: account.client_id,
+        });
+      }
+    }
+
+    const records = ["saldo", "estrutura", "metricas", "alcance", "divisoes"].reduce((t, k) => t + (Number(details[k]) || 0), 0);
     result = { status: "sucesso", records, details };
     await store.markCoverage(account, range).catch((err) =>
       recordError({ source: "sincronizacao", code: "COVERAGE_UPDATE_FAILED", technical: err, adAccountId: account.id, clientId: account.client_id }));

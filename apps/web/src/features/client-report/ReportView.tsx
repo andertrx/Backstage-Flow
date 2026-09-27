@@ -1,4 +1,4 @@
-import { addDays, type ClientReportSettings, PERIOD_LABELS, REPORT_PERIODS, type ReportPeriod } from "@backstage/shared";
+import { addDays, type BreakdownRow, type ClientReportSettings, PERIOD_LABELS, REPORT_PERIODS, type ReportPeriod } from "@backstage/shared";
 import { FileDown } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { AccountReport } from "./AccountReport.tsx";
-import type { ReportAccount, ReportCampaignRow, ReportDailyRow } from "./api.ts";
+import type { BreakdownCoverage, ReportAccount, ReportCampaignRow, ReportDailyRow } from "./api.ts";
 import { daysOf, MAX_REPORT_DAYS, pdfTitle, rangeText, type ReportPeriodState } from "./logic.ts";
 
 /**
@@ -37,6 +37,8 @@ export interface ReportViewProps {
   accounts: ReportAccount[];
   daily: ReportDailyRow[];
   campaigns: ReportCampaignRow[];
+  breakdowns: BreakdownRow[];
+  coverage: BreakdownCoverage[];
   loading: boolean;
   fetching: boolean;
   error: unknown;
@@ -138,6 +140,8 @@ export function ReportView(p: ReportViewProps) {
               campaigns={p.campaigns.filter((r) => r.ad_account_id === a.ad_account_id)}
               settings={settings}
               days={days}
+              breakdowns={p.breakdowns.filter((r) => r.ad_account_id === a.ad_account_id)}
+              coverage={p.coverage.find((c) => c.ad_account_id === a.ad_account_id) ?? null}
             />
           ))}
           {withData.length === 0 && (

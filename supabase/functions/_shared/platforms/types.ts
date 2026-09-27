@@ -181,3 +181,35 @@ export interface PeriodReach {
   impressions: number | null;
   frequency: number | null;
 }
+
+/** Dimensões das divisões (Etapa 19.3). region = estado (Meta); city = cidade (Google). */
+export type BreakdownDimension = "age" | "gender" | "publisher_platform" | "device" | "hour" | "region" | "city";
+
+/**
+ * Números de UM dia de UMA conta, numa fatia de UMA dimensão (ex.: idade "25-34").
+ * Valores normalizados: idade "18-24"…"65+"; gênero female/male; horário "00"…"23";
+ * "unknown" = a plataforma não identificou.
+ */
+export interface BreakdownMetric {
+  date: string;
+  dimension: BreakdownDimension;
+  value: string;
+  spendMicros: number;
+  impressions: number;
+  clicks: number;
+  linkClicks: number | null;
+  leads: number | null;
+  messages: number | null;
+  conversions: number | null;
+  conversionValueMicros: number | null;
+  /** Ações do Meta resumidas {"tipo": total} (só os tipos que o painel usa). */
+  actions: Record<string, number> | null;
+}
+
+export interface BreakdownResult {
+  rows: BreakdownMetric[];
+  /** Dimensões buscadas com sucesso (as demais ficam como estavam). */
+  dimensions: BreakdownDimension[];
+  /** Dimensões que a plataforma recusou nesta busca (vão para o log). */
+  failed: { dimension: BreakdownDimension; code: string }[];
+}

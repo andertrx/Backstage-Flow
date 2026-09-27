@@ -189,6 +189,31 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
       return rows.length;
     },
 
+    async loadBreakdownCoverage(account) {
+      const { data, error } = await db.from("breakdown_coverage").select("date_from, date_to, synced_at").eq("ad_account_id", account.id).maybeSingle();
+      if (error) throw error;
+      return data ? { from: data.date_from, to: data.date_to, syncedAt: data.synced_at } : null;
+    },
+
+    async ingestBreakdowns(account, result, range) {
+      if (!result.dimensions.length) return 0;
+      // Em blocos de até 10 dias; cada bloco substitui só o próprio período.
+      let total = 0;
+      for (const w of splitDays(range, 10)) {
+        const rows = result.rows.filter((r) => r.date >= w.from && r.date <= w.to).map((r) => ({
+          date: r.date, dimension: r.dimension, value: r.value, spend_micros: r.spendMicros, impressions: r.impressions, clicks: r.clicks,
+          link_clicks: r.linkClicks, leads: r.leads, messages: r.messages, conversions: r.conversions,
+          conversion_value_micros: r.conversionValueMicros, actions: r.actions,
+        }));
+        const { data, error } = await db.rpc("ingest_breakdowns", {
+          p_ad_account_id: account.id, p_from: w.from, p_to: w.to, p_dimensions: result.dimensions, p_rows: rows,
+        });
+        if (error) throw error;
+        total += Number(data) || 0;
+      }
+      return total;
+    },
+
     async finishRun(runId, account: SyncAccount, result, durationMs, nextRunAt) {
       const finishedAt = new Date().toISOString();
       const { error } = await db.from("sync_runs").update({
@@ -255,4 +280,18 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
       await db.from("platform_connections").update({ status: "erro", last_error: message.slice(0, 500) }).eq("id", connectionId);
     },
   };
+}
+
+/** Divide um período em blocos de N dias. */
+function splitDays(range: { from: string; to: string }, days: number): { from: string; to: string }[] {
+  const out: { from: string; to: string }[] = [];
+  const day = 86_400_000;
+  let start = Date.parse(`${range.from}T00:00:00Z`);
+  const end = Date.parse(`${range.to}T00:00:00Z`);
+  while (start <= end) {
+    const stop = Math.min(start + (days - 1) * day, end);
+    out.push({ from: new Date(start).toISOString().slice(0, 10), to: new Date(stop).toISOString().slice(0, 10) });
+    start = stop + day;
+  }
+  return out;
 }

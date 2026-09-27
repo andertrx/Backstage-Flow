@@ -1,5 +1,6 @@
 import type {
   AccountAccess,
+  BreakdownResult,
   AccountFunding,
   CredentialOwner,
   DailyMetric,
@@ -33,4 +34,6 @@ export interface PlatformAdapter {
   fetchDailyMetrics(token: string, externalId: string, access: AccountAccess | undefined, range: DateRange, currency: string | null): Promise<DailyMetric[]>;
   /** Alcance de períodos exatos (só plataformas que informam alcance). */
   fetchPeriodReach?(token: string, externalId: string, access: AccountAccess | undefined, ranges: DateRange[]): Promise<PeriodReach[]>;
+  /** Números por dia divididos por idade, gênero, horário, aparelho etc. (Etapa 19.3). */
+  fetchBreakdowns?(token: string, externalId: string, access: AccountAccess | undefined, range: DateRange): Promise<BreakdownResult>;
 }

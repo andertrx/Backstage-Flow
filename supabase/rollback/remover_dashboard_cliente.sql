@@ -1,15 +1,26 @@
 -- =============================================================================
--- REMOÇÃO do Dashboard do cliente (Etapa 19: 19.1 e 19.2).
+-- REMOÇÃO do Dashboard do cliente (Etapa 19: 19.1, 19.2 e 19.3).
 --
 -- Apaga o modelo de relatório de cada cliente (título, métricas escolhidas,
 -- análise da agência), o acesso do cliente (login e link secreto; todos os
--- links param de funcionar) e as funções do dashboard. Volta a regra antiga
+-- links param de funcionar), as divisões por idade/gênero/horário… (19.3) e
+-- as funções do dashboard. Volta a regra antiga
 -- de visibilidade do papel "cliente". NÃO mexe nas
 -- métricas, campanhas, contas nem clientes. Só rodar com decisão explícita,
 -- no SQL Editor. Depois: apagar a Edge Function "client-report-link" no painel
 -- do Supabase e reverter o commit da Etapa 19 no GitHub.
 -- =============================================================================
 begin;
+
+-- 19.3: divisões. A sincronização continua funcionando sem estas tabelas, mas
+-- registraria um aviso a cada rodada: publique antes a versão anterior da
+-- Edge Function "sync" (a do commit antes da Etapa 19.3).
+drop function if exists public.client_report_breakdown_coverage(uuid);
+drop function if exists public.client_report_breakdowns(uuid, date, date);
+drop function if exists public.ingest_breakdowns(uuid, date, date, text[], jsonb);
+drop function if exists private.sum_action_maps(jsonb[]);
+drop table if exists public.breakdown_coverage;
+drop table if exists public.metrics_breakdown_daily;
 
 -- 19.2: acesso do cliente
 drop function if exists public.client_report_public(text, text, date, date);
