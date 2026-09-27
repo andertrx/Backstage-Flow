@@ -121,7 +121,7 @@ export function AppLayout() {
       {/* Sidebar fixa no desktop (pode ser recolhida) */}
       <aside
         className={cn(
-          "sticky top-0 hidden h-screen shrink-0 flex-col bg-slate-900 transition-[width] duration-200 lg:flex",
+          "sticky top-0 hidden h-screen shrink-0 flex-col bg-slate-900 transition-[width] duration-200 lg:flex print:hidden",
           collapsed ? "w-[4.5rem]" : "w-64",
         )}
         data-testid="sidebar"
@@ -165,7 +165,7 @@ export function AppLayout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="sticky top-0 z-30">
+        <div className="sticky top-0 z-30 print:hidden">
         <DemoBanner />
         <header className="flex h-16 items-center gap-3 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6 lg:px-8">
           <button className="-ml-1 rounded-lg p-1 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
@@ -194,7 +194,7 @@ export function AppLayout() {
         </header>
         </div>
 
-        <main id="conteudo" tabIndex={-1} className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
+        <main id="conteudo" tabIndex={-1} className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">
           {/* Uma tela com erro não derruba o resto (o menu continua funcionando). */}
           <ErrorBoundary key={pathname} onReset={() => queryClient.removeQueries()}>
             <Suspense fallback={<FullPageSpinner label="Abrindo a página..." />}>

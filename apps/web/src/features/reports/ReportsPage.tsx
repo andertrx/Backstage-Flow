@@ -1,5 +1,6 @@
 import { DEFAULT_TIMEZONE, ENTITY_STATUS_LABELS, type EntityStatus, PLATFORM_LABELS } from "@backstage/shared";
-import { FileDown, FileSpreadsheet, FileText } from "lucide-react";
+import { FileDown, FileSpreadsheet, FileText, LayoutDashboard } from "lucide-react";
+import { Link } from "react-router";
 import { useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -87,6 +88,20 @@ export function ReportsPage() {
 
       <FiltersBar filters={filters} period={period} clients={clients} onChange={setFilters} onClear={clear} />
       <DataFreshness clientId={filters.clientId} platform={filters.platform} accountId={filters.accountId} />
+
+      <Card className="flex flex-wrap items-center justify-between gap-3 border-l-4 border-l-brand-600 p-4" data-testid="client-dashboard-cta">
+        <div className="text-sm text-slate-600">
+          <p className="font-medium text-slate-900">Dashboard do cliente</p>
+          <p>Visual para o cliente final: resumo, métricas escolhidas, funil, dia a dia, ações e campanhas. Também vira PDF.</p>
+        </div>
+        {filters.clientId ? (
+          <Link to={`/clientes/${filters.clientId}/dashboard`} className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
+            <LayoutDashboard className="size-4" aria-hidden /> Abrir dashboard de {clientName}
+          </Link>
+        ) : (
+          <p className="text-sm text-slate-500">Escolha um cliente no filtro para abrir.</p>
+        )}
+      </Card>
 
       <Card className="flex flex-wrap items-center justify-between gap-3 p-4" data-testid="report-actions">
         <div className="text-sm text-slate-600">

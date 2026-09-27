@@ -1,5 +1,5 @@
 import { can, formatCnpj, formatPhone, PLATFORMS } from "@backstage/shared";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, LayoutDashboard, Pencil } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useParams } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -59,11 +59,19 @@ export function ClientDetailPage() {
           </div>
           {client.company && <p className="mt-1 text-sm text-slate-500">{client.company}</p>}
         </div>
-        {can(profile?.role, "clients.edit") && (
-          <Button variant="secondary" onClick={() => setEditing(true)}>
-            <Pencil className="size-4" aria-hidden /> Editar
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to={`/clientes/${client.id}/dashboard`}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+          >
+            <LayoutDashboard className="size-4" aria-hidden /> Dashboard do cliente
+          </Link>
+          {can(profile?.role, "clients.edit") && (
+            <Button variant="secondary" onClick={() => setEditing(true)}>
+              <Pencil className="size-4" aria-hidden /> Editar
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card className="p-6">

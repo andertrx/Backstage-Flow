@@ -162,6 +162,26 @@ const PROFILE: Record<Objective, { cpm: number; ctr: number; result: number; tic
 
 const METRIC_KEYS = ["spend_micros", "impressions", "clicks", "link_clicks", "leads", "messages", "conversions", "conversion_value_micros"] as const;
 
+/**
+ * Ações do Meta no formato da API ({actions:[{action_type, value}]}), com os
+ * nomes repetidos que o Meta usa (purchase/omni_purchase, lead/pixel_lead...).
+ */
+function metaActions(row: Record<string, number | null>, isSale: boolean): Record<string, number> {
+  const imp = row.impressions ?? 0, link = row.link_clicks ?? 0, leads = row.leads ?? 0, msgs = row.messages ?? 0;
+  const out: Record<string, number> = {
+    link_click: link, landing_page_view: Math.round(link * 0.62), omni_landing_page_view: Math.round(link * 0.62),
+    lead: leads, "offsite_conversion.fb_pixel_lead": leads,
+    "onsite_conversion.messaging_conversation_started_7d": msgs, "onsite_conversion.messaging_first_reply": Math.round(msgs * 0.7),
+    post_engagement: Math.round(imp * 0.012), post_reaction: Math.round(imp * 0.0015), video_view: Math.round(imp * 0.08),
+  };
+  if (isSale) {
+    const n = row.conversions ?? 0;
+    Object.assign(out, { omni_purchase: n, purchase: n, "offsite_conversion.fb_pixel_purchase": n, omni_add_to_cart: n * 3, add_to_cart: n * 3 });
+  }
+  return Object.fromEntries(Object.entries(out).filter(([, v]) => v > 0));
+}
+const toRaw = (a: Record<string, number>) => ({ actions: Object.entries(a).map(([action_type, value]) => ({ action_type, value: String(value) })), action_values: [] });
+
 /** Monta o "banco" simulado com 13 meses de dados fictícios. */
 export function seedDemo(): MockDb {
   const db = createMockDb({ role: "admin", userId: DEMO_USER.id, email: DEMO_USER.email, fullName: DEMO_USER.name });
@@ -204,6 +224,7 @@ export function seedDemo(): MockDb {
       });
       const account: Record<string, number> = Object.fromEntries(METRIC_KEYS.map((k) => [k, 0]));
       const accountDaily = new Map<string, Record<string, number>>();
+      const accountActions = new Map<string, Record<string, number>>();
 
       for (const c of acc.campaigns) {
         const campaignId = did("d", ++campaignN);
@@ -251,7 +272,13 @@ export function seedDemo(): MockDb {
             conversion_value_micros: p.ticket ? Math.round(results * p.ticket * (0.8 + rnd() * 0.4) * M) : 0,
           };
           const base = { date, ad_account_id: accountId, client_id: clientId, platform_id: acc.platform, currency: acc.currency, reach: null };
-          db.metrics.push({ ...base, level: "campaign", campaign_id: campaignId, ad_group_id: null, ad_id: null, ...row });
+          const acts = acc.platform === "meta" ? metaActions(row, c.objective === "vendas") : null;
+          db.metrics.push({ ...base, level: "campaign", campaign_id: campaignId, ad_group_id: null, ad_id: null, ...row, raw_actions: acts ? toRaw(acts) : null });
+          if (acts) {
+            const dayActs = accountActions.get(date) ?? {};
+            for (const [k, v] of Object.entries(acts)) dayActs[k] = (dayActs[k] ?? 0) + v;
+            accountActions.set(date, dayActs);
+          }
           // Divide o dia da campanha entre conjuntos e anúncios (a soma confere).
           const split = (value: number | null, parts: number, idx: number) => {
             if (value == null) return null;
@@ -277,6 +304,7 @@ export function seedDemo(): MockDb {
           campaign_id: null, ad_group_id: null, ad_id: null, reach: null, ...daily,
           link_clicks: acc.platform === "meta" ? daily.link_clicks : null,
           leads: acc.platform === "meta" ? daily.leads : null, messages: acc.platform === "meta" ? daily.messages : null,
+          raw_actions: acc.platform === "meta" ? toRaw(accountActions.get(date) ?? {}) : null,
         });
         for (const k of METRIC_KEYS) account[k] += daily[k];
       }

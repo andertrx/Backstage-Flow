@@ -91,6 +91,8 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     /** Atribuição (34.4): linhas prontas por modelo e qualidade por site. */
     trackingAttribution: { last: [], first: [] },
     trackingQuality: [],
+    /** Dashboard do cliente (Etapa 19): modelo por cliente (como public.client_report_settings). */
+    reportSettings: [],
   };
 }
 
@@ -156,6 +158,72 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/profiles")) {
       const id = eqParam(url, "id");
       return id ? res(200, db.profiles.find((p) => p.id === id)) : res(200, db.profiles);
+    }
+
+    // --- Dashboard do cliente (Etapa 19; mesmas regras das funções client_report_*)
+    if (url.includes("/rest/v1/client_report_settings")) {
+      const clientId = eqParam(url, "client_id");
+      if (method === "GET") return res(200, db.reportSettings.find((r) => r.client_id === clientId) ?? null);
+      if (method === "POST") {
+        if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "new row violates row-level security policy" });
+        const row = parse();
+        db.reportSettings = db.reportSettings.filter((r) => r.client_id !== row.client_id);
+        db.reportSettings.push({ ...row, updated_at: new Date().toISOString() });
+        return res(201);
+      }
+    }
+    if (url.includes("/rest/v1/rpc/client_report_")) {
+      const p = parse();
+      const fn = url.match(/rpc\/(client_report_\w+)/)[1];
+      db.rpcCalls.push({ fn, ...p });
+      const accts = db.adAccounts.filter((a) => a.client_id === p.p_client_id && !a.unlinked_at);
+      const sumActions = (list) => {
+        const out = {};
+        for (const m of list) for (const a of m.raw_actions?.actions ?? []) out[a.action_type] = (out[a.action_type] ?? 0) + Number(a.value);
+        return out;
+      };
+      const sum = (list, k) => (list.every((r) => r[k] == null) ? null : list.reduce((t, r) => t + (r[k] ?? 0), 0));
+      const KEYS = ["spend_micros", "impressions", "clicks", "link_clicks", "leads", "messages", "conversions", "conversion_value_micros", "video_views"];
+      const inRange = (m, from, to) => m.date >= from && m.date <= to;
+      if (fn === "client_report_accounts") {
+        const days = Math.round((Date.parse(p.p_to) - Date.parse(p.p_from)) / 86_400_000) + 1;
+        const shift = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+        const pf = shift(p.p_from, -days), pt = shift(p.p_from, -1);
+        const reach = (a, from, to) => (db.reachRows ?? []).find((r) => r.ad_account_id === a.id && r.level === "account" &&
+          r.entity_external_id === a.external_id && r.period_start === from && r.period_end === to);
+        const totals = (a, from, to) => {
+          const list = db.metrics.filter((m) => m.ad_account_id === a.id && m.level === "account" && inRange(m, from, to));
+          if (!list.length) return null;
+          const r = reach(a, from, to);
+          const withActions = list.filter((m) => m.raw_actions);
+          return { ...Object.fromEntries(KEYS.map((k) => [k, sum(list, k)])), days: list.length, reach: r?.reach ?? null, frequency: r?.frequency ?? null,
+            actions: withActions.length ? sumActions(withActions) : {} };
+        };
+        const out = accts.map((a) => ({
+          ad_account_id: a.id, platform_id: a.platform_id, name: a.name, external_id: a.external_id, currency: a.currency,
+          cur: totals(a, p.p_from, p.p_to), prev: totals(a, pf, pt), prev_from: pf, prev_to: pt, last_synced_at: db.lastSyncedAt ?? "2026-09-23T22:10:00Z",
+        })).sort((x, y) => (y.cur?.spend_micros ?? 0) - (x.cur?.spend_micros ?? 0));
+        return res(200, out);
+      }
+      if (fn === "client_report_daily") {
+        const ids = new Set(accts.map((a) => a.id));
+        return res(200, db.metrics.filter((m) => ids.has(m.ad_account_id) && m.level === "account" && inRange(m, p.p_from, p.p_to))
+          .map((m) => ({ ad_account_id: m.ad_account_id, date: m.date, ...Object.fromEntries(KEYS.slice(0, 8).map((k) => [k, m[k] ?? null])),
+            actions: m.raw_actions ? sumActions([m]) : null }))
+          .sort((x, y) => x.ad_account_id.localeCompare(y.ad_account_id) || x.date.localeCompare(y.date)));
+      }
+      if (fn === "client_report_campaigns") {
+        const ids = new Set(accts.map((a) => a.id));
+        const rows = db.metrics.filter((m) => ids.has(m.ad_account_id) && m.level === "campaign" && inRange(m, p.p_from, p.p_to));
+        const out = [...Map.groupBy(rows, (m) => m.campaign_id)].map(([cid, list]) => {
+          const c = db.campaigns.find((x) => x.id === cid);
+          const withActions = list.filter((m) => m.raw_actions);
+          return { campaign_id: cid, ad_account_id: c.ad_account_id, name: c.name, status: c.status, objective: c.objective,
+            ...Object.fromEntries(KEYS.slice(0, 8).map((k) => [k, sum(list, k)])), actions: withActions.length ? sumActions(withActions) : null };
+        }).filter((r) => r.spend_micros > 0 || r.leads > 0 || r.messages > 0 || r.conversions > 0)
+          .sort((x, y) => (y.spend_micros ?? 0) - (x.spend_micros ?? 0)).slice(0, 200);
+        return res(200, out);
+      }
     }
 
     // --- Clientes

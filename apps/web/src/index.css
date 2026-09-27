@@ -45,3 +45,14 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* PDF do dashboard do cliente (Etapa 19): A4, cores de fundo mantidas,
+   blocos sem quebra no meio. */
+/* Largura útil de uma folha A4 com margem de 12 mm (ver printPdf). */
+html.pdf-mode .pdf-width { width: 186mm; max-width: 186mm; }
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html, body { background: white !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-avoid-break { break-inside: avoid; }
+}

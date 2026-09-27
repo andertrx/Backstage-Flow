@@ -135,7 +135,7 @@ export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, form
   return (
     <div ref={boxRef} className="relative w-full select-none">
       {/* max-w-full: o desenho nunca impede a caixa de encolher (celular); o gráfico então se redesenha no tamanho novo. */}
-      <svg width={width} height={height} role="img" aria-label={ariaLabel} className="block max-w-full overflow-visible">
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={ariaLabel} className="block h-auto max-w-full overflow-visible">
         {staticLayer}
         {/* Linha vertical e destaque do ponto ativo */}
         {active != null && (

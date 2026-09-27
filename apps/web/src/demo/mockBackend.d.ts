@@ -40,6 +40,7 @@ export interface MockDb {
   waSecrets: Record<string, { app?: string; verify?: string }>;
   trackingAttribution: { last: Row[]; first: Row[] };
   trackingQuality: Row[];
+  reportSettings: Row[];
   [key: string]: unknown;
 }
 

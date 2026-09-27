@@ -12,6 +12,7 @@ import { RouteError } from "./RouteError.tsx";
 /** Cada página só é baixada quando for aberta (o site abre mais rápido). */
 const AccountPage = lazy(() => import("@/features/account/AccountPage.tsx").then((m) => ({ default: m.AccountPage })));
 const ClientDetailPage = lazy(() => import("@/features/clients/ClientDetailPage.tsx").then((m) => ({ default: m.ClientDetailPage })));
+const ClientReportPage = lazy(() => import("@/features/client-report/ClientReportPage.tsx").then((m) => ({ default: m.ClientReportPage })));
 const ClientsPage = lazy(() => import("@/features/clients/ClientsPage.tsx").then((m) => ({ default: m.ClientsPage })));
 const ExecutivePage = lazy(() => import("@/features/executive/ExecutivePage.tsx").then((m) => ({ default: m.ExecutivePage })));
 const ComparisonPage = lazy(() => import("@/features/comparison/ComparisonPage.tsx").then((m) => ({ default: m.ComparisonPage })));
@@ -69,6 +70,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="clients.view">
             <ClientDetailPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "clientes/:id/dashboard",
+        element: (
+          <RequirePermission permission="clients.view">
+            <ClientReportPage />
           </RequirePermission>
         ),
       },
