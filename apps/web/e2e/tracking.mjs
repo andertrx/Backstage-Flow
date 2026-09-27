@@ -303,6 +303,43 @@ function seedClients(db) {
   check(true, "apagar os segredos desliga a conexão");
   await waApi2.getByRole("button", { name: "Fechar", exact: true }).last().click();
 
+  // 34.4: atribuição por campanha e qualidade do tracking
+  const bf = { client_id: EXC, channel: "meta", campaign_id: "k1", campaign_label: "Black Friday", match: "id", leads: 2, purchases: 2, confirmed: 4,
+    revenue: { BRL: 200_000_000, USD: 50_000_000 }, spend_currency: "BRL", spend_micros: 100_000_000, platform_leads: 5, platform_conversions: 2, platform_value_micros: 300_000_000 };
+  const none = { client_id: EXC, channel: null, campaign_id: null, campaign_label: null, match: null, leads: 1, purchases: 0, confirmed: 0, revenue: {},
+    spend_currency: null, spend_micros: null, platform_leads: null, platform_conversions: null, platform_value_micros: null };
+  db.trackingAttribution = {
+    last: [bf,
+      { ...none, channel: "meta", campaign_id: "k2", campaign_label: "Remarketing", match: "nome" },
+      { ...none, channel: "meta", campaign_label: "Dup" },
+      none,
+      { ...none, channel: "meta", campaign_id: "k5", campaign_label: "Sem conversão", match: "sem_conversao", leads: 0, spend_currency: "BRL", spend_micros: 50_000_000, platform_leads: 0 }],
+    first: [{ ...bf, leads: 1, purchases: 1, revenue: { BRL: 200_000_000 } }, { ...none, channel: "google", purchases: 1, revenue: { USD: 50_000_000 } }, none],
+  };
+  db.trackingQuality = [{ container_id: cid, sessions: 6, sessions_unknown: 1, paid_sessions: 5, paid_without_campaign_id: 3, leads: 5, leads_without_origin: 1,
+    leads_with_contact: 1, purchases: 2, purchases_without_order: 1, purchases_without_lead: 0 }];
+  await page.reload();
+  const attr = page.getByRole("region", { name: "Atribuição" });
+  await attr.getByTestId("attr-campaign-row").first().waitFor();
+  const bfRow = (await attr.getByTestId("attr-campaign-row").first().innerText()).replace(/\u00a0/g, " ");
+  check(bfRow.includes("Black Friday") && bfRow.includes("ID da campanha") && bfRow.includes("R$ 200,00 + US$ 50,00"), "campanha ligada pelo ID; receita em BRL e USD separadas (nunca somadas)");
+  check(/R\$\s?100,00/.test(bfRow) && /R\$\s?50,00/.test(bfRow) && bfRow.includes("2×"), "investimento, custo por lead e ROAS (só na mesma moeda)");
+  check(bfRow.split(/\t/).map((c) => c.trim()).includes("5"), "mostra ao lado os leads que a própria plataforma contou");
+  const allRows = (await attr.getByTestId("attr-campaign-row").allInnerTexts()).join("\n");
+  check(allRows.includes("Pelo nome") && allRows.includes("Não ligada a uma campanha") && allRows.includes("Sem conversão no site") && allRows.includes("Sem origem identificada"),
+    "diz como cada linha foi ligada (ID / nome / não ligada / sem conversão / sem origem) — sem inventar");
+  const chanRows = await attr.getByTestId("attr-channel-row").allInnerTexts();
+  check(chanRows[0].includes("Meta Ads") && chanRows[0].includes("4") && chanRows.some((r) => r.includes("Sem origem identificada")), "resumo por canal");
+  await attr.getByRole("button", { name: "Primeiro contato" }).click();
+  await attr.getByText("Google Ads — campanha não identificada").waitFor();
+  check(page.url().includes("atribuicao=primeiro") && (await attr.getByRole("button", { name: "Primeiro contato" }).getAttribute("aria-pressed")) === "true",
+    "troca para primeiro contato (fica no endereço)");
+  const q = await page.getByTestId("quality-card").first().innerText();
+  check(q.includes("Fraca") && q.includes("3 de 5 visitas de anúncio vieram sem o ID da campanha") && q.includes("bf_c={{campaign.id}}") && q.includes("sem nº do pedido"),
+    "qualidade do tracking com os motivos e como corrigir");
+  await attr.screenshot({ path: `${SHOTS}/tracking-atribuicao.png` });
+  await attr.getByRole("button", { name: "Último contato" }).click();
+
   await page.getByRole("button", { name: "Código de instalação: Loja Excalibur" }).click();
   const install2 = page.getByRole("dialog", { name: "Instalar no site — Loja Excalibur" });
   await install2.getByLabel("Disparar também o Pixel do Meta no navegador").check();
@@ -607,4 +644,4 @@ const waitSent = async (page, sent, n) => {
   await browser.close();
 }
 
-console.log("\nEtapa 34 (tracking 34.1 a 34.5-W2): todos os testes passaram.");
+console.log("\nEtapa 34 (tracking 34.1 a 34.5-W2, com 34.4): todos os testes passaram.");

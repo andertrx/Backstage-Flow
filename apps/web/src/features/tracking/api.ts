@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Channel, Evidence } from "@backstage/shared";
 import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
-import type { ConsentMode, ContainerInput, ContainerStatus } from "./logic.ts";
+import type { AttributionModel, AttributionRowInput, ConsentMode, ContainerInput, ContainerStatus, QualityInput } from "./logic.ts";
 
 export interface TrackingContainer {
   id: string;
@@ -508,5 +508,36 @@ export function useWhatsAppConnectionAction() {
       return (data as { data: { webhookUrl?: string; verifyToken?: string | null; removed?: boolean } }).data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Atribuição e qualidade (34.4)
+// -----------------------------------------------------------------------------
+
+export type AttributionRow = AttributionRowInput;
+export type QualityRow = QualityInput & { container_id: string };
+
+export function useAttribution(from: string, to: string, model: AttributionModel, enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "attribution", from.slice(0, 13), to.slice(0, 13), model],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("tracking_attribution", { p_from: from, p_to: to, p_model: model });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos calcular a atribuição."));
+      return ((data ?? []) as AttributionRow[]).map((r) => ({ ...r, revenue: r.revenue ?? {} }));
+    },
+  });
+}
+
+export function useTrackingQuality(from: string, to: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "quality", from.slice(0, 13), to.slice(0, 13)],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("tracking_quality", { p_from: from, p_to: to });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos calcular a qualidade do tracking."));
+      return (data ?? []) as QualityRow[];
+    },
   });
 }

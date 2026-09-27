@@ -44,6 +44,8 @@ drop table if exists public.tracking_capi_log;
 drop table if exists public.tracking_capi_queue;
 drop table if exists public.tracking_destinations;
 
+drop function if exists public.tracking_attribution(timestamptz, timestamptz, text);
+drop function if exists public.tracking_quality(timestamptz, timestamptz);
 drop function if exists public.tracking_lead_journey(bigint);
 drop function if exists public.tracking_conversions_summary(timestamptz, timestamptz);
 drop function if exists public.tracking_overview(timestamptz, timestamptz, uuid[]);

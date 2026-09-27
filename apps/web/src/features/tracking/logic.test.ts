@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capiStatus, validateWaIds, waConnectionStatus, normalizeWaCode, parseMoneyInput, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions } from "./logic.ts";
+import { attributionMetrics, type AttributionRowInput, capiStatus, qualityReport, summarizeByChannel, validateWaIds, waConnectionStatus, normalizeWaCode, parseMoneyInput, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions } from "./logic.ts";
 
 describe("domínios autorizados", () => {
   it("aceita um por linha, limpa o endereço e tira repetidos", () => {
@@ -116,5 +116,38 @@ describe("WhatsApp pela API oficial", () => {
     expect(validateWaIds("106540352242922", "abc", "", false)).toContain("conta do WhatsApp Business");
     expect(validateWaIds("106540352242922", "102290129340398", "curto", false)).toContain("segredo do app");
     expect(validateWaIds("106540352242922", "102290129340398", "", true)).toContain("antes de ligar");
+  });
+});
+
+describe("atribuição e qualidade (34.4)", () => {
+  const row = (over: Partial<AttributionRowInput> = {}): AttributionRowInput => ({
+    client_id: "c1", channel: "meta", campaign_id: "k1", campaign_label: "Black Friday", match: "id", leads: 4, purchases: 2, confirmed: 6,
+    revenue: { BRL: 600_000_000, USD: 50_000_000 }, spend_currency: "BRL", spend_micros: 200_000_000, platform_leads: 5, platform_conversions: 2,
+    platform_value_micros: 300_000_000, ...over,
+  });
+  it("custo por lead e ROAS só na mesma moeda do investimento", () => {
+    expect(attributionMetrics(row())).toEqual({ costPerLeadMicros: 50_000_000, roas: 3 });
+    expect(attributionMetrics(row({ revenue: { USD: 50_000_000 } })).roas).toBeNull();
+    expect(attributionMetrics(row({ spend_micros: null, spend_currency: null }))).toEqual({ costPerLeadMicros: null, roas: null });
+    expect(attributionMetrics(row({ leads: 0 })).costPerLeadMicros).toBeNull();
+  });
+  it("soma por canal sem misturar moedas e ignora campanhas sem conversão", () => {
+    const s = summarizeByChannel([row(), row({ campaign_id: "k2", leads: 1, purchases: 0, revenue: { BRL: 10 } }), row({ channel: null, leads: 2, purchases: 0, revenue: {} }),
+      row({ match: "sem_conversao", leads: 0, purchases: 0, revenue: {} })]);
+    expect(s).toEqual([
+      { channel: "meta", leads: 5, purchases: 2, revenue: { BRL: 600_000_010, USD: 50_000_000 } },
+      { channel: null, leads: 2, purchases: 0, revenue: {} },
+    ]);
+  });
+  it("qualidade: explica os motivos, sem nota inventada", () => {
+    const base = { sessions: 100, sessions_unknown: 10, paid_sessions: 40, paid_without_campaign_id: 0, leads: 10, leads_without_origin: 0,
+      leads_with_contact: 8, purchases: 3, purchases_without_order: 0, purchases_without_lead: 0 };
+    expect(qualityReport(base)).toEqual({ level: "boa", label: "Boa", reasons: [] });
+    const a = qualityReport({ ...base, paid_without_campaign_id: 10, purchases_without_order: 1 });
+    expect(a.level).toBe("atencao");
+    expect(a.reasons.map((r) => r.text).join(" ")).toContain("10 de 40 visitas de anúncio vieram sem o ID da campanha");
+    expect(qualityReport({ ...base, sessions_unknown: 60 }).level).toBe("fraca");
+    expect(qualityReport({ ...base, leads_with_contact: 2 }).reasons[0].text).toContain("Só 20% dos leads");
+    expect(qualityReport({ ...base, sessions: 0, leads: 0, purchases: 0 }).level).toBe("sem_dados");
   });
 });

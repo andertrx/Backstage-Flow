@@ -30,6 +30,8 @@ import {
   useWhatsAppClicks,
   useWhatsAppConnections,
   useWhatsAppConversations,
+  useAttribution,
+  useTrackingQuality,
   type WhatsAppConnection,
   useRecentEvents,
   useRecentLeads,
@@ -37,6 +39,7 @@ import {
   useTrackingContainers,
   useTrackingOverview,
 } from "./api.ts";
+import { AttributionSection } from "./AttributionSection.tsx";
 import { ContainerFormModal, InstallModal } from "./ContainerModals.tsx";
 import { LeadsSection } from "./LeadsSection.tsx";
 import { capiStatus, PERIOD_LABELS, type PeriodPreset, periodRange, summarizeConversions, waConnectionStatus } from "./logic.ts";
@@ -85,6 +88,9 @@ export function TrackingPage() {
   const waConversations = useWhatsAppConversations(hasContainers);
   const waConnOf = (containerId: string) => (waConnections.data ?? []).find((w) => w.container_id === containerId);
   const [waApiFor, setWaApiFor] = useState<TrackingContainer | null>(null);
+  const model = params.get("atribuicao") === "primeiro" ? "first" : "last";
+  const attribution = useAttribution(range.from, range.to, model, hasContainers);
+  const quality = useTrackingQuality(range.from, range.to, hasContainers);
 
   const [editing, setEditing] = useState<TrackingContainer | "new" | null>(null);
   const [installing, setInstalling] = useState<TrackingContainer | null>(null);
@@ -113,8 +119,8 @@ export function TrackingPage() {
       </div>
 
       <Alert tone="info">
-        Fase atual: visitas, origem de cada chegada (UTMs, fbclid, gclid e IDs do anúncio), leads, compras e a jornada de cada lead.
-        As conversões podem ser enviadas ao Meta pela API de Conversões (botão “Meta CAPI” em cada site).
+        Fase atual: visitas, origem de cada chegada (UTMs, fbclid, gclid e IDs do anúncio), leads, compras, a jornada de cada lead e
+        de onde vêm as conversões por campanha. As conversões podem ser enviadas ao Meta pela API de Conversões (botão “Meta CAPI” em cada site).
       </Alert>
 
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
@@ -193,6 +199,16 @@ export function TrackingPage() {
               ))}
             </ul>
           </section>
+
+          <AttributionSection
+            rows={(attribution.data ?? []).filter((r) => !clientId || r.client_id === clientId)}
+            quality={(quality.data ?? []).filter((q) => visibleIds.has(q.container_id))}
+            model={model}
+            onModel={(m) => set("atribuicao", m === "first" ? "primeiro" : null)}
+            isLoading={attribution.isLoading}
+            error={attribution.error ?? quality.error}
+            siteName={(id) => byId.get(id)?.name ?? "—"}
+          />
 
           <WhatsAppSection
             clicks={(waClicks.data ?? []).filter((c) => visibleIds.has(c.container_id))}

@@ -88,6 +88,9 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     whatsappConnections: [],
     whatsappConversations: [],
     waSecrets: {},
+    /** Atribuição (34.4): linhas prontas por modelo e qualidade por site. */
+    trackingAttribution: { last: [], first: [] },
+    trackingQuality: [],
   };
 }
 
@@ -340,6 +343,13 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     }
     if (url.includes("/rest/v1/tracking_whatsapp_conversations")) {
       return res(200, [...db.whatsappConversations].sort((a, b) => b.last_message_at.localeCompare(a.last_message_at)).map((c) => ({ ...c, touch: c.touch ?? null })));
+    }
+    if (url.includes("/rest/v1/rpc/tracking_attribution")) {
+      const model = parse().p_model === "first" ? "first" : "last";
+      return res(200, db.trackingAttribution[model] ?? []);
+    }
+    if (url.includes("/rest/v1/rpc/tracking_quality")) {
+      return res(200, db.trackingQuality);
     }
     if (url.includes("/rest/v1/rpc/tracking_whatsapp_lookup")) {
       let code = String(parse().p_code ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");

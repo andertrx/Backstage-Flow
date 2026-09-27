@@ -236,3 +236,101 @@ export function validateWaIds(phoneNumberId: string, wabaId: string, appSecret: 
   if (needsSecret && !appSecret.trim()) return "Cole o segredo do app do Meta antes de ligar (sem ele não dá para conferir que o aviso veio mesmo do Meta).";
   return null;
 }
+
+// -----------------------------------------------------------------------------
+// Atribuição e qualidade (34.4)
+// -----------------------------------------------------------------------------
+
+export type AttributionModel = "last" | "first";
+export const ATTRIBUTION_MODEL_LABELS: Record<AttributionModel, string> = { last: "Último contato", first: "Primeiro contato" };
+
+export interface AttributionRowInput {
+  client_id: string;
+  channel: string | null;
+  campaign_id: string | null;
+  campaign_label: string | null;
+  match: "id" | "nome" | "sem_conversao" | null;
+  leads: number;
+  purchases: number;
+  confirmed: number;
+  revenue: Record<string, number>;
+  spend_currency: string | null;
+  spend_micros: number | null;
+  platform_leads: number | null;
+  platform_conversions: number | null;
+  platform_value_micros: number | null;
+}
+
+/** Custo por lead e ROAS só quando dá para calcular sem misturar moedas. */
+export function attributionMetrics(r: AttributionRowInput): { costPerLeadMicros: number | null; roas: number | null } {
+  const spend = Number(r.spend_micros ?? 0);
+  const costPerLeadMicros = spend > 0 && r.leads > 0 ? Math.round(spend / r.leads) : null;
+  const sameCurrencyRevenue = r.spend_currency ? Number(r.revenue[r.spend_currency] ?? 0) : 0;
+  const roas = spend > 0 && sameCurrencyRevenue > 0 ? Math.round((sameCurrencyRevenue / spend) * 100) / 100 : null;
+  return { costPerLeadMicros, roas };
+}
+
+/** Totais por canal. Receita separada por moeda (nunca soma BRL com USD). */
+export function summarizeByChannel(rows: AttributionRowInput[]) {
+  const map = new Map<string, { channel: string | null; leads: number; purchases: number; revenue: Record<string, number> }>();
+  for (const r of rows) {
+    if (r.leads === 0 && r.purchases === 0) continue;
+    const key = r.channel ?? "";
+    const acc = map.get(key) ?? { channel: r.channel, leads: 0, purchases: 0, revenue: {} };
+    acc.leads += r.leads;
+    acc.purchases += r.purchases;
+    for (const [cur, v] of Object.entries(r.revenue)) acc.revenue[cur] = (acc.revenue[cur] ?? 0) + Number(v);
+    map.set(key, acc);
+  }
+  return [...map.values()].sort((a, b) => b.leads + b.purchases - (a.leads + a.purchases));
+}
+
+export interface QualityInput {
+  sessions: number;
+  sessions_unknown: number;
+  paid_sessions: number;
+  paid_without_campaign_id: number;
+  leads: number;
+  leads_without_origin: number;
+  leads_with_contact: number;
+  purchases: number;
+  purchases_without_order: number;
+  purchases_without_lead: number;
+}
+
+const pct = (part: number, total: number) => (total > 0 ? Math.round((part * 100) / total) : 0);
+
+/**
+ * Qualidade do tracking de um site, com os motivos em português.
+ * Sem nota inventada: só "Boa", "Atenção" ou "Fraca", sempre com o porquê.
+ */
+export function qualityReport(q: QualityInput): { level: "sem_dados" | "boa" | "atencao" | "fraca"; label: string; reasons: { tone: "warning" | "danger" | "info"; text: string }[] } {
+  const n = (v: number) => Number(v ?? 0);
+  if (n(q.sessions) === 0 && n(q.leads) === 0 && n(q.purchases) === 0) {
+    return { level: "sem_dados", label: "Sem dados no período", reasons: [{ tone: "info", text: "Nenhuma visita registrada no período. Confira se o código está instalado no site." }] };
+  }
+  const reasons: { tone: "warning" | "danger" | "info"; text: string }[] = [];
+  const unknown = pct(n(q.sessions_unknown), n(q.sessions));
+  if (unknown >= 50) reasons.push({ tone: "danger", text: `${unknown}% das visitas chegaram sem origem identificada.` });
+  else if (unknown >= 25) reasons.push({ tone: "warning", text: `${unknown}% das visitas chegaram sem origem identificada.` });
+  if (n(q.paid_without_campaign_id) > 0) {
+    reasons.push({
+      tone: pct(n(q.paid_without_campaign_id), n(q.paid_sessions)) >= 50 ? "danger" : "warning",
+      text: `${n(q.paid_without_campaign_id)} de ${n(q.paid_sessions)} visitas de anúncio vieram sem o ID da campanha. Adicione bf_c={{campaign.id}} (Meta) ou bf_c={campaignid} (Google) no link do anúncio.`,
+    });
+  }
+  if (n(q.leads_without_origin) > 0) {
+    reasons.push({ tone: pct(n(q.leads_without_origin), n(q.leads)) >= 50 ? "danger" : "warning", text: `${n(q.leads_without_origin)} de ${n(q.leads)} leads sem origem identificada.` });
+  }
+  if (n(q.leads) > 0 && pct(n(q.leads_with_contact), n(q.leads)) < 50) {
+    reasons.push({ tone: "warning", text: `Só ${pct(n(q.leads_with_contact), n(q.leads))}% dos leads têm e-mail ou telefone (cifrados). Com menos contato, o Meta reconhece menos pessoas.` });
+  }
+  if (n(q.purchases_without_order) > 0) {
+    reasons.push({ tone: "warning", text: `${n(q.purchases_without_order)} de ${n(q.purchases)} compras sem nº do pedido (não dá para evitar contar duas vezes).` });
+  }
+  if (n(q.purchases_without_lead) > 0) {
+    reasons.push({ tone: "info", text: `${n(q.purchases_without_lead)} compras sem lead identificado antes (a jornada fica incompleta).` });
+  }
+  const level = reasons.some((r) => r.tone === "danger") ? "fraca" : reasons.some((r) => r.tone === "warning") ? "atencao" : "boa";
+  return { level, label: level === "fraca" ? "Fraca" : level === "atencao" ? "Atenção" : "Boa", reasons };
+}

@@ -38,6 +38,8 @@ export interface MockDb {
   whatsappConnections: Row[];
   whatsappConversations: Row[];
   waSecrets: Record<string, { app?: string; verify?: string }>;
+  trackingAttribution: { last: Row[]; first: Row[] };
+  trackingQuality: Row[];
   [key: string]: unknown;
 }
 

@@ -44,6 +44,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [34.1 — Fundação: script no site, recepção de eventos e origem](docs/etapa-34-tracking/34.1-FUNDACAO.md)
   - [34.2 — Eventos de conversão, leads (dados só em hash) e jornada](docs/etapa-34-tracking/34.2-EVENTOS-E-LEADS.md)
   - [34.3 — Envio das conversões ao Meta (API de Conversões)](docs/etapa-34-tracking/34.3-META-CAPI.md)
+  - [34.4 — De onde vêm as conversões: atribuição por campanha e qualidade do tracking](docs/etapa-34-tracking/34.4-ATRIBUICAO.md)
   - [34.5-W — WhatsApp (aplicativo comum): código de rastreio e marcação de Lead/Venda](docs/etapa-34-tracking/34.5-W-WHATSAPP.md)
   - [34.5-W2 — WhatsApp pela API oficial: conversas automáticas, anúncios de WhatsApp e envio business_messaging](docs/etapa-34-tracking/34.5-W2-WHATSAPP-API.md)
 

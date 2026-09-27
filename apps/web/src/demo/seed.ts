@@ -411,6 +411,14 @@ export function seedDemo(): MockDb {
       messages: 1, status: "conversa", sales: 0, test: true, touch: { channel: "whatsapp", evidence: "desconhecida", utm_campaign: null } },
   ];
 
+  // Atribuição fictícia (34.4): o lead e a compra do exemplo, ligados à campanha de leads do Meta pelo ID.
+  const demoCampaign = (db.campaigns as { id: string; client_id: string; name: string }[]).find((c) => c.name === "Matrículas - Leads" && c.client_id === did("a", 1));
+  const attrMeta = { client_id: did("a", 1), channel: "meta", campaign_id: demoCampaign?.id ?? null, campaign_label: "Matrículas - Leads", match: demoCampaign ? "id" : null,
+    leads: 1, purchases: 1, confirmed: 2, revenue: { BRL: 149_900_000 }, spend_currency: "BRL", spend_micros: 85_000_000, platform_leads: 3, platform_conversions: 1, platform_value_micros: 149_900_000 };
+  db.trackingAttribution = { last: [attrMeta], first: [attrMeta] };
+  db.trackingQuality = [{ container_id: trackingContainer, sessions: 5, sessions_unknown: 1, paid_sessions: 2, paid_without_campaign_id: 1, leads: 1, leads_without_origin: 0,
+    leads_with_contact: 1, purchases: 1, purchases_without_order: 0, purchases_without_lead: 0 }];
+
   db.lastSyncedAt = ago(35);
   return db;
 }
