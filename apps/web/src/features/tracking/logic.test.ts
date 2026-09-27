@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions } from "./logic.ts";
+import { capiStatus, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions } from "./logic.ts";
 
 describe("domínios autorizados", () => {
   it("aceita um por linha, limpa o endereço e tira repetidos", () => {
@@ -56,5 +56,24 @@ describe("conversões", () => {
   it("captura de formulários entra no código só quando pedida", () => {
     expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: true }, "https://x/t.js")).toBe('<script async src="https://x/t.js" data-key="bf_x" data-forms="lead"></script>');
     expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false }, "https://x/t.js")).not.toContain("data-forms");
+  });
+});
+
+describe("Meta CAPI", () => {
+  const base = { has_token: true, enabled: true, test_event_code: null, last_success_at: null, last_error_at: null, last_error_message: null };
+  it("situação em português, sem inventar sucesso", () => {
+    expect(capiStatus(null).label).toBe("Não configurado");
+    expect(capiStatus({ ...base, has_token: false }).label).toBe("Falta o token");
+    expect(capiStatus({ ...base, enabled: false }).label).toBe("Desligado");
+    expect(capiStatus(base).label).toBe("Ligado, sem envio ainda");
+    expect(capiStatus({ ...base, last_success_at: "2026-09-27T10:00:00Z" })).toMatchObject({ tone: "success", label: "Funcionando" });
+    expect(capiStatus({ ...base, last_success_at: "2026-09-27T10:00:00Z", last_error_at: "2026-09-27T11:00:00Z", last_error_message: "Token inválido" }))
+      .toMatchObject({ tone: "danger", detail: "Token inválido" });
+    expect(capiStatus({ ...base, test_event_code: "TEST1" }).label).toBe("Ligado (teste)");
+  });
+
+  it("Pixel no navegador entra no código só com ID válido", () => {
+    expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false, pixelId: "123456789" }, "https://x/t.js")).toContain('data-pixel="123456789"');
+    expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false, pixelId: "abc" }, "https://x/t.js")).not.toContain("data-pixel");
   });
 });

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Channel, Evidence } from "@backstage/shared";
-import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import type { ConsentMode, ContainerInput, ContainerStatus } from "./logic.ts";
 
@@ -241,5 +241,105 @@ export function useConversionsSummary(from: string, to: string, enabled: boolean
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conversões."));
       return ((data ?? []) as ConversionRow[]).map((r) => ({ ...r, revenue_micros: Number(r.revenue_micros) }));
     },
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Meta CAPI (34.3)
+// -----------------------------------------------------------------------------
+
+export interface Destination {
+  id: string;
+  container_id: string;
+  pixel_id: string;
+  has_token: boolean;
+  enabled: boolean;
+  test_event_code: string | null;
+  send_events: string[];
+  last_success_at: string | null;
+  last_error_at: string | null;
+  last_error_message: string | null;
+}
+
+export interface CapiOverview {
+  destination_id: string;
+  pending: number;
+  sent_24h: number;
+  errors_24h: number;
+  discarded_24h: number;
+  last_sent_at: string | null;
+}
+
+export interface CapiLogRow {
+  id: number;
+  requested_at: string;
+  kind: "envio" | "teste";
+  events_count: number;
+  test: boolean;
+  http_status: number | null;
+  events_received: number | null;
+  error_message: string | null;
+}
+
+/** Configuração do Meta de cada site. O token nunca vem: só "tem token". */
+export function useDestinations(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "destinations"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tracking_destinations")
+        .select("id, container_id, pixel_id, has_token, enabled, test_event_code, send_events, last_success_at, last_error_at, last_error_message");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar a configuração do Meta."));
+      return data as Destination[];
+    },
+  });
+}
+
+export function useCapiOverview(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "capi-overview"],
+    enabled,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("tracking_capi_overview");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o envio ao Meta."));
+      return (data ?? []) as CapiOverview[];
+    },
+  });
+}
+
+export function useCapiLog(destinationId: string | null) {
+  return useQuery({
+    queryKey: [...KEY, "capi-log", destinationId],
+    enabled: destinationId != null,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tracking_capi_log")
+        .select("id, requested_at, kind, events_count, test, http_status, events_received, error_message")
+        .eq("destination_id", destinationId!)
+        .order("requested_at", { ascending: false })
+        .limit(10);
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o registro de envios."));
+      return data as CapiLogRow[];
+    },
+  });
+}
+
+export type DestinationAction =
+  | { action: "save"; containerId: string; pixelId: string; token?: string; testEventCode: string | null; sendEvents: string[]; enabled: boolean }
+  | { action: "remove_token"; containerId: string }
+  | { action: "test"; containerId: string };
+
+/** Tudo que mexe no token passa pelo servidor (Edge Function tracking-destinations). */
+export function useDestinationAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: DestinationAction) => {
+      const { data, error } = await supabase.functions.invoke("tracking-destinations", { body });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      return (data as { data: Record<string, unknown> }).data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });
 }

@@ -43,6 +43,9 @@ export const beaconSchema = z.object({
   cd: z.record(z.string().max(50), z.union([z.string().max(500), z.number(), z.boolean(), z.null()])).optional(),
   /** Dados de contato JÁ CIFRADOS no navegador (SHA-256). Texto legível é recusado. */
   ud: z.object({ em: HASH, ph: HASH, fn: HASH, ln: HASH }).partial().strict().optional(),
+  /** Cookies do Meta (_fbp / _fbc), para a API de Conversões. Formato inválido é ignorado. */
+  fbp: z.string().max(200).optional(),
+  fbc: z.string().max(500).optional(),
 });
 export type Beacon = z.infer<typeof beaconSchema>;
 
@@ -156,7 +159,24 @@ export function eventTime(clientMs: number, nowMs: number): string {
 }
 
 /** Monta o pacote de `tracking_ingest`. A origem é recalculada aqui, no servidor. */
-export function buildIngest(b: Beacon, container: Container, opts: { nowMs: number; userAgent: string | null }) {
+const FBP = /^fb\.[0-2]\.\d{10,16}\.\d{1,20}$/;
+const FBC = /^fb\.[0-2]\.\d{10,16}\.[\x21-\x7e]{1,480}$/;
+const IP = /^[0-9a-fA-F.:]{3,45}$/;
+
+/**
+ * Para o Meta (CAPI): navegador e IP são exigidos/recomendados. Ficam só na fila
+ * de envio e são apagados depois de enviados. Não vão para as tabelas de tracking.
+ */
+export function capiContext(b: Beacon, opts: { userAgent: string | null; ip: string | null }) {
+  return {
+    user_agent: opts.userAgent ? opts.userAgent.slice(0, 500) : null,
+    ip: opts.ip && IP.test(opts.ip) ? opts.ip : null,
+    fbp: b.fbp && FBP.test(b.fbp) ? b.fbp : null,
+    fbc: b.fbc && FBC.test(b.fbc) ? b.fbc : null,
+  };
+}
+
+export function buildIngest(b: Beacon, container: Container, opts: { nowMs: number; userAgent: string | null; ip?: string | null }) {
   const page = sanitizeUrl(b.u);
   const referrerHost = hostOf(b.r);
   let touch: Record<string, unknown> | null = null;
@@ -194,6 +214,7 @@ export function buildIngest(b: Beacon, container: Container, opts: { nowMs: numb
     consent_status: b.c === "concedido" ? "concedido" : "nao_exigido",
     consent_version: b.cv ?? null,
     user: b.ud ?? null,
+    capi: capiContext(b, { userAgent: opts.userAgent, ip: opts.ip ?? null }),
     event: {
       event_id: b.e,
       name: b.n,

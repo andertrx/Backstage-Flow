@@ -21,8 +21,12 @@ import { formatDateTime, formatMoney, formatRelative } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import {
   type OverviewRow,
+  type CapiOverview,
+  type Destination,
   type TrackingContainer,
+  useCapiOverview,
   useConversionsSummary,
+  useDestinations,
   useRecentEvents,
   useRecentLeads,
   useRecentTouchpoints,
@@ -31,7 +35,8 @@ import {
 } from "./api.ts";
 import { ContainerFormModal, InstallModal } from "./ContainerModals.tsx";
 import { LeadsSection } from "./LeadsSection.tsx";
-import { PERIOD_LABELS, type PeriodPreset, periodRange, summarizeConversions } from "./logic.ts";
+import { capiStatus, PERIOD_LABELS, type PeriodPreset, periodRange, summarizeConversions } from "./logic.ts";
+import { MetaCapiModal } from "./MetaCapiModal.tsx";
 
 const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
   confirmada: "success",
@@ -63,6 +68,11 @@ export function TrackingPage() {
   const events = useRecentEvents(hasContainers);
   const leads = useRecentLeads(hasContainers);
   const conversions = useConversionsSummary(range.from, range.to, hasContainers);
+  const destinations = useDestinations(hasContainers);
+  const capiOverview = useCapiOverview(hasContainers);
+  const destOf = (containerId: string) => (destinations.data ?? []).find((d) => d.container_id === containerId);
+  const capiOf = (dest: Destination | undefined) => (dest ? (capiOverview.data ?? []).find((o) => o.destination_id === dest.id) : undefined);
+  const [metaFor, setMetaFor] = useState<TrackingContainer | null>(null);
 
   const [editing, setEditing] = useState<TrackingContainer | "new" | null>(null);
   const [installing, setInstalling] = useState<TrackingContainer | null>(null);
@@ -92,7 +102,7 @@ export function TrackingPage() {
 
       <Alert tone="info">
         Fase atual: visitas, origem de cada chegada (UTMs, fbclid, gclid e IDs do anúncio), leads, compras e a jornada de cada lead.
-        O envio das conversões ao Meta (API de Conversões) entra na próxima fase.
+        As conversões podem ser enviadas ao Meta pela API de Conversões (botão “Meta CAPI” em cada site).
       </Alert>
 
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
@@ -162,6 +172,9 @@ export function TrackingPage() {
                   canManage={canManage}
                   onEdit={() => setEditing(c)}
                   onInstall={() => setInstalling(c)}
+                  destination={destOf(c.id)}
+                  capi={capiOf(destOf(c.id))}
+                  onMeta={() => setMetaFor(c)}
                 />
               ))}
             </ul>
@@ -249,16 +262,25 @@ export function TrackingPage() {
         />
       )}
       {installing && (
-        <InstallModalLoader id={installing.id} containers={containers} onClose={() => setInstalling(null)} />
+        <InstallModalLoader id={installing.id} containers={containers} destinations={destinations.data ?? []} onClose={() => setInstalling(null)} />
+      )}
+      {metaFor && (
+        <MetaCapiModal
+          container={metaFor}
+          destination={destOf(metaFor.id)}
+          overview={capiOf(destOf(metaFor.id))}
+          canManage={canManage}
+          onClose={() => setMetaFor(null)}
+        />
       )}
     </div>
   );
 }
 
 /** Abre as instruções assim que o container recém-criado aparece na lista. */
-function InstallModalLoader({ id, containers, onClose }: { id: string; containers: TrackingContainer[]; onClose: () => void }) {
+function InstallModalLoader({ id, containers, destinations, onClose }: { id: string; containers: TrackingContainer[]; destinations: Destination[]; onClose: () => void }) {
   const container = containers.find((c) => c.id === id);
-  return container ? <InstallModal container={container} onClose={onClose} /> : null;
+  return container ? <InstallModal container={container} pixelId={destinations.find((d) => d.container_id === id)?.pixel_id ?? null} onClose={onClose} /> : null;
 }
 
 function sumOverview(rows: OverviewRow[]) {
@@ -275,13 +297,17 @@ function Stat({ label, value, hint }: { label: string; value: number; hint?: str
   );
 }
 
-function ContainerCard({ container: c, stats, canManage, onEdit, onInstall }: {
+function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, destination, capi, onMeta }: {
   container: TrackingContainer;
   stats?: OverviewRow;
   canManage: boolean;
   onEdit: () => void;
   onInstall: () => void;
+  destination: Destination | undefined;
+  capi: CapiOverview | undefined;
+  onMeta: () => void;
 }) {
+  const meta = capiStatus(destination, capi);
   return (
     <li>
       <Card className="space-y-3 p-4" data-testid="container-card">
@@ -304,6 +330,9 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall }: {
           <div className="rounded-lg bg-slate-50 p-2"><dt>Eventos</dt><dd className="text-base font-semibold text-slate-900">{stats?.events ?? 0}</dd></div>
         </dl>
         <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onMeta} aria-label={`Meta API de Conversões: ${c.name}`}>
+            Meta CAPI · {meta.label}
+          </Button>
           <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onInstall} aria-label={`Código de instalação: ${c.name}`}>
             <Code2 className="size-3.5" aria-hidden /> Código de instalação
           </Button>

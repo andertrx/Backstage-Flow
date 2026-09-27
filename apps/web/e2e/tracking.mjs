@@ -154,6 +154,54 @@ function seedClients(db) {
   await journey.screenshot({ path: `${SHOTS}/tracking-jornada.png` });
   await journey.getByRole("button", { name: "Fechar", exact: true }).click();
 
+  // 34.3: Meta CAPI
+  await page.getByRole("button", { name: "Meta API de Conversões: Loja Excalibur" }).click();
+  const meta = page.getByRole("dialog", { name: /Meta — API de Conversões/ });
+  check((await meta.getByTestId("capi-status").innerText()).includes("Não configurado"), "Meta CAPI: começa como não configurado");
+  await meta.getByLabel("ID do Pixel (conjunto de dados) *").fill("abc");
+  await meta.getByRole("button", { name: "Salvar" }).click();
+  await meta.getByText("O ID do Pixel tem só números").waitFor();
+  check(!db.functionCalls.some((c) => c.fn === "tracking-destinations"), "Pixel inválido: explica e não chama o servidor");
+  const TOKEN = "EAA" + "x".repeat(80);
+  await meta.getByLabel("ID do Pixel (conjunto de dados) *").fill("123456789012345");
+  await meta.getByLabel("Token da API de Conversões *").fill(TOKEN);
+  await meta.getByLabel("Enviar eventos ao Meta").check();
+  await meta.getByRole("button", { name: "Salvar" }).click();
+  await meta.getByText("Salvo. O envio ao Meta está ligado.").waitFor();
+  const saveCall = db.functionCalls.filter((c) => c.fn === "tracking-destinations").at(-1);
+  check(saveCall.token === TOKEN && saveCall.pixelId === "123456789012345" && saveCall.enabled && saveCall.sendEvents.includes("Purchase") && !saveCall.sendEvents.includes("PageView"),
+    "token vai só para o servidor; eventos padrão = conversões (sem Página vista)");
+  await meta.getByText("Ligado, sem envio ainda").waitFor();
+  check(await meta.getByLabel("Token da API de Conversões *").count() === 0 && (await meta.getByLabel("Token da API de Conversões (salvo)").inputValue()) === "", "depois de salvo, o token não volta para a tela");
+  check(!(await page.content()).includes(TOKEN), "o token não aparece em nenhum lugar da página");
+  await meta.getByRole("button", { name: "Enviar evento de teste" }).click();
+  await meta.getByText("Informe o código de teste do Meta").waitFor();
+  check(true, "teste sem código de teste: explica onde pegar o código");
+  await meta.getByLabel("Código de teste (opcional)").fill("TEST12345");
+  await meta.getByRole("button", { name: "Salvar" }).click();
+  await meta.getByText("Ligado (teste)").waitFor();
+  await meta.getByRole("button", { name: "Enviar evento de teste" }).click();
+  await meta.getByText(/Evento de teste recebido pelo Meta/).waitFor();
+  await meta.getByTestId("capi-log").getByText("Teste").waitFor();
+  check(true, "evento de teste recebido e registrado nas últimas chamadas");
+  db.capiTestResult = { ok: false, message: "Token inválido ou expirado. Gere um novo token no Gerenciador de Eventos e cole no CRM." };
+  await meta.getByRole("button", { name: "Enviar evento de teste" }).click();
+  await meta.getByRole("alert").getByText(/Token inválido ou expirado/).waitFor();
+  check(true, "token recusado pelo Meta: mensagem clara em português");
+  await meta.screenshot({ path: `${SHOTS}/tracking-meta-capi.png` });
+  await meta.getByRole("button", { name: "Apagar token" }).click();
+  await meta.getByText("Token apagado. O envio foi desligado.").waitFor();
+  await meta.getByText("Falta o token").waitFor();
+  check(true, "apagar token desliga o envio");
+  await meta.getByRole("button", { name: "Fechar", exact: true }).last().click();
+  check((await card.innerText()).includes("Meta CAPI · Falta o token"), "card do site mostra a situação do Meta");
+
+  await page.getByRole("button", { name: "Código de instalação: Loja Excalibur" }).click();
+  const install2 = page.getByRole("dialog", { name: "Instalar no site — Loja Excalibur" });
+  await install2.getByLabel("Disparar também o Pixel do Meta no navegador").check();
+  check((await install2.getByTestId("copy-block").allInnerTexts())[0].includes('data-pixel="123456789012345"'), "opção de disparar o Pixel no navegador entra no código");
+  await install2.getByRole("button", { name: "Fechar", exact: true }).click();
+
   await page.screenshot({ path: `${SHOTS}/tracking.png`, fullPage: true });
   check(errors.length === 0, `sem erros na página${errors.length ? `: ${errors.join(" | ")}` : ""}`);
   await browser.close();
@@ -172,6 +220,10 @@ function seedClients(db) {
   await page.getByTestId("container-card").waitFor();
   check(await page.getByRole("button", { name: "Novo container" }).count() === 0 && await page.getByRole("button", { name: "Editar Loja" }).count() === 0, "visualizador vê o tracking mas não cria nem edita");
   check(await page.getByRole("button", { name: "Código de instalação: Loja" }).count() === 1, "visualizador pode ver o código de instalação");
+  await page.getByRole("button", { name: "Meta API de Conversões: Loja" }).click();
+  const metaV = page.getByRole("dialog", { name: /Meta — API de Conversões/ });
+  await metaV.getByText("Só administradores e gestores configuram").waitFor();
+  check(await metaV.getByLabel(/Token da API/).count() === 0, "visualizador vê a situação do Meta, sem campo de token");
   await browser.close();
 }
 {
@@ -349,4 +401,41 @@ const waitSent = async (page, sent, n) => {
   await browser.close();
 }
 
-console.log("\nEtapa 34 (tracking 34.1 + 34.2): todos os testes passaram.");
+{
+  // 34.3: cookies do Meta e Pixel no navegador com o MESMO event_id
+  const { browser, page, errors } = await launch();
+  const sent = [];
+  await page.route("https://connect.facebook.net/**", (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: "/* fbevents fictício */" }));
+  await site(page, sent, html("", ' data-pixel="123456789012345"'));
+  await page.goto(`${SITE}/?fbclid=IwTesteClique`);
+  await waitSent(page, sent, 2);
+  const pv = sent.find((b) => b.n === "PageView");
+  check(/^fb\.1\.\d{13}\.\d{10}$/.test(pv.fbp) && /^fb\.1\.\d{13}\.IwTesteClique$/.test(pv.fbc), "cria _fbp e _fbc (a partir do fbclid) no formato do Meta");
+  const ck = await page.context().cookies(SITE);
+  check(ck.find((c) => c.name === "_fbp")?.value === pv.fbp && ck.find((c) => c.name === "_fbc")?.value === pv.fbc, "cookies _fbp/_fbc gravados no próprio site");
+  const calls = await page.evaluate(() => (window.fbq?.queue ?? []).map((a) => Array.from(a)));
+  const pixelPv = calls.find((c) => c[0] === "track" && c[1] === "PageView");
+  check(calls[0][0] === "init" && calls[0][1] === "123456789012345" && pixelPv && pixelPv[3].eventID === pv.e, "Pixel do navegador dispara com o MESMO event_id do servidor (o Meta conta uma vez)");
+  await page.evaluate(() => window.bf("track", "Purchase", { value: 10, currency: "BRL", transaction_id: "P-9" }));
+  await waitSent(page, sent, 3);
+  const buy = sent.find((b) => b.n === "Purchase");
+  const pixelBuy = (await page.evaluate(() => window.fbq.queue.map((a) => Array.from(a)))).find((c) => c[1] === "Purchase");
+  check(pixelBuy[2].order_id === "P-9" && pixelBuy[2].value === 10 && pixelBuy[3].eventID === buy.e, "compra no Pixel com valor, pedido e o mesmo event_id");
+  check(errors.length === 0, "sem erros com o Pixel");
+  await browser.close();
+}
+
+{
+  // Sem data-pixel: nosso script não carrega o Pixel
+  const { browser, page } = await launch();
+  const sent = [];
+  let pixelLoaded = false;
+  await page.route("https://connect.facebook.net/**", (route) => { pixelLoaded = true; return route.fulfill({ status: 200, body: "" }); });
+  await site(page, sent, html());
+  await page.goto(`${SITE}/`);
+  await waitSent(page, sent, 2);
+  check(!pixelLoaded && (await page.evaluate(() => typeof window.fbq)) === "undefined", "sem a opção, o Pixel não é carregado (evita contar em dobro)");
+  await browser.close();
+}
+
+console.log("\nEtapa 34 (tracking 34.1 a 34.3): todos os testes passaram.");

@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     }
     if ((await Promise.all(checks)).includes(false)) throw new TrackError(429, "TOO_MANY_REQUESTS");
 
-    const payload = buildIngest(beacon, container, { nowMs: Date.now(), userAgent: req.headers.get("user-agent") });
+    const payload = buildIngest(beacon, container, { nowMs: Date.now(), userAgent: req.headers.get("user-agent"), ip: ip || null });
     const { error } = await db.rpc("tracking_ingest", { p: payload });
     if (error) throw error;
     return reply(204, allowOrigin);

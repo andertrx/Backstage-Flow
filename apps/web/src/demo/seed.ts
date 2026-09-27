@@ -376,6 +376,19 @@ export function seedDemo(): MockDb {
     ],
   };
 
+  // Meta CAPI fictício: ligado em modo de teste, com 3 envios nas últimas 24 h.
+  const demoDest = did("f", 2);
+  db.trackingDestinations = [{
+    id: demoDest, container_id: trackingContainer, pixel_id: "100000000000001", test_event_code: "TEST0000", enabled: true,
+    send_events: ["Lead", "CompleteRegistration", "SubmitApplication", "Schedule", "Purchase", "Contact"],
+    last_success_at: ago(8), last_error_at: null, last_error_message: null, sent_24h: 3,
+  }];
+  db.capiTokens = { [demoDest]: "token-ficticio-do-modo-demonstracao" };
+  db.trackingCapiLog = [
+    { id: 1, destination_id: demoDest, requested_at: ago(8), kind: "envio", events_count: 2, test: true, http_status: 200, events_received: 2, error_message: null },
+    { id: 2, destination_id: demoDest, requested_at: ago(10), kind: "envio", events_count: 1, test: true, http_status: 200, events_received: 1, error_message: null },
+  ];
+
   db.lastSyncedAt = ago(35);
   return db;
 }

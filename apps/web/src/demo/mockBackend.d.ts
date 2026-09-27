@@ -31,6 +31,9 @@ export interface MockDb {
   trackingLeads: Row[];
   trackingPurchases: Row[];
   trackingJourneys: Record<string, Row[]>;
+  trackingDestinations: Row[];
+  trackingCapiLog: Row[];
+  capiTokens: Record<string, string>;
   [key: string]: unknown;
 }
 

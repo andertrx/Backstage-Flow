@@ -116,3 +116,11 @@ Deno.test("compra: valor e moeda obrigatórios, valor em micros e nº do pedido"
     assertEquals(assertThrows(() => parseBeacon(JSON.stringify({ ...base, n: "Purchase", cd })), TrackError).code, "INVALID_PURCHASE");
   }
 });
+
+Deno.test("CAPI: cookies do Meta válidos seguem; navegador e IP vão só para a fila", () => {
+  const b = parseBeacon(JSON.stringify({ ...base, fbp: "fb.1.1790000000000.1234567890", fbc: "fb.1.1790000000000.IwAR-x_1" }));
+  const p = buildIngest(b, container, { nowMs: NOW, userAgent: "Mozilla/5.0", ip: "200.1.2.3" });
+  assertEquals(p.capi, { user_agent: "Mozilla/5.0", ip: "200.1.2.3", fbp: "fb.1.1790000000000.1234567890", fbc: "fb.1.1790000000000.IwAR-x_1" });
+  const bad = buildIngest(parseBeacon(JSON.stringify({ ...base, fbp: "qualquer", fbc: "x" })), container, { nowMs: NOW, userAgent: null, ip: "não é ip" });
+  assertEquals(bad.capi, { user_agent: null, ip: null, fbp: null, fbc: null });
+});

@@ -77,6 +77,11 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     trackingLeads: [],
     trackingPurchases: [],
     trackingJourneys: {},
+    /** Meta CAPI (34.3): destinos (o "token" fica só aqui no servidor simulado), resumo e registro. */
+    trackingDestinations: [],
+    trackingCapiLog: [],
+    capiTokens: {},
+    capiTestResult: { ok: true, eventsReceived: 1, message: null },
   };
 }
 
@@ -310,6 +315,16 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     }
     if (url.includes("/rest/v1/rpc/tracking_lead_journey")) {
       return res(200, db.trackingJourneys[parse().p_lead_id] ?? []);
+    }
+    if (url.includes("/rest/v1/tracking_destinations")) {
+      return res(200, db.trackingDestinations.map(({ token: _t, ...d }) => ({ ...d, has_token: db.capiTokens[d.id] != null })));
+    }
+    if (url.includes("/rest/v1/rpc/tracking_capi_overview")) {
+      return res(200, db.trackingDestinations.map((d) => ({ destination_id: d.id, pending: d.pending ?? 0, sent_24h: d.sent_24h ?? 0, errors_24h: d.errors_24h ?? 0, discarded_24h: 0, last_sent_at: d.last_success_at ?? null })));
+    }
+    if (url.includes("/rest/v1/tracking_capi_log")) {
+      const dest = eqParam(url, "destination_id");
+      return res(200, db.trackingCapiLog.filter((l) => l.destination_id === dest).sort((a, b) => b.requested_at.localeCompare(a.requested_at)).slice(0, 10));
     }
     if (url.includes("/rest/v1/tracking_leads")) {
       return res(200, [...db.trackingLeads].sort((a, b) => b.last_converted_at.localeCompare(a.last_converted_at)).slice(0, 50));
@@ -770,6 +785,38 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           db.adAccounts.find((a) => a.id === body.adAccountId).unlinked_at = now;
           return res(200, { data: { adAccountId: body.adAccountId } });
         }
+      }
+    }
+
+    // --- Edge Function tracking-destinations (Meta CAPI)
+    if (url.includes("/functions/v1/tracking-destinations")) {
+      const body = parse();
+      db.functionCalls.push({ fn: "tracking-destinations", ...body });
+      if (!["admin", "gestor"].includes(role)) return res(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para esta ação." } });
+      let dest = db.trackingDestinations.find((d) => d.container_id === body.containerId);
+      if (body.action === "save") {
+        if (!dest) {
+          dest = { id: crypto.randomUUID(), container_id: body.containerId, last_success_at: null, last_error_at: null, last_error_message: null };
+          db.trackingDestinations.push(dest);
+        }
+        Object.assign(dest, { pixel_id: body.pixelId, test_event_code: body.testEventCode, send_events: body.sendEvents });
+        if (body.token) db.capiTokens[dest.id] = body.token;
+        if (body.enabled && !db.capiTokens[dest.id]) {
+          return res(400, { error: { code: "INVALID_STATE", message: "Cole o token da API de Conversões antes de ligar o envio." } });
+        }
+        dest.enabled = body.enabled;
+        return res(200, { data: { id: dest.id, hasToken: db.capiTokens[dest.id] != null, enabled: dest.enabled } });
+      }
+      if (body.action === "remove_token") {
+        delete db.capiTokens[dest.id];
+        dest.enabled = false;
+        return res(200, { data: { removed: true } });
+      }
+      if (body.action === "test") {
+        if (!dest?.test_event_code) return res(400, { error: { code: "INVALID_STATE", message: "Informe o código de teste do Meta (Gerenciador de Eventos → Testar eventos) para enviar um evento de teste." } });
+        const r = db.capiTestResult;
+        db.trackingCapiLog.push({ id: db.trackingCapiLog.length + 1, destination_id: dest.id, requested_at: new Date().toISOString(), kind: "teste", events_count: 1, test: true, http_status: r.ok ? 200 : 400, events_received: r.ok ? 1 : null, error_message: r.ok ? null : r.message });
+        return res(200, { data: { ok: r.ok, eventsReceived: r.ok ? 1 : null, message: r.message, fbtraceId: "demo" } });
       }
     }
 

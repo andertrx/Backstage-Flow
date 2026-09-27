@@ -143,7 +143,44 @@ export const IDENTIFY_EXAMPLE =
   `bf("track", "Lead", { formulario: "orcamento" }, { email: "ana@exemplo.com", phone: "(45) 99999-8888", name: "Ana Souza" });\n` +
   `// O e-mail, o telefone e o nome são cifrados no navegador: só o código (hash) é enviado.`;
 
-export function installSnippetWithOptions(publicKey: string, consentMode: ConsentMode, opts: { forms: boolean }, scriptUrl = TRACKING_SCRIPT_URL): string {
-  const base = installSnippet(publicKey, consentMode, scriptUrl);
-  return opts.forms ? base.replace("></script>", ' data-forms="lead"></script>') : base;
+export function installSnippetWithOptions(
+  publicKey: string,
+  consentMode: ConsentMode,
+  opts: { forms: boolean; pixelId?: string | null },
+  scriptUrl = TRACKING_SCRIPT_URL,
+): string {
+  let extra = "";
+  if (opts.forms) extra += ' data-forms="lead"';
+  if (opts.pixelId && /^\d{5,20}$/.test(opts.pixelId)) extra += ` data-pixel="${opts.pixelId}"`;
+  return installSnippet(publicKey, consentMode, scriptUrl).replace("></script>", `${extra}></script>`);
+}
+
+// -----------------------------------------------------------------------------
+// Meta CAPI (34.3)
+// -----------------------------------------------------------------------------
+
+export const CAPI_EVENT_OPTIONS = [
+  "Lead", "CompleteRegistration", "SubmitApplication", "Schedule", "Purchase", "Contact", "ViewContent", "AddToCart", "InitiateCheckout", "PageView",
+] as const;
+export const DEFAULT_CAPI_EVENTS = ["Lead", "CompleteRegistration", "SubmitApplication", "Schedule", "Purchase", "Contact"];
+
+export type CapiTone = "neutral" | "warning" | "danger" | "success";
+
+/** Situação do envio ao Meta de um site, em português, para o card e a janela. */
+export function capiStatus(
+  dest: { has_token: boolean; enabled: boolean; test_event_code: string | null; last_success_at: string | null; last_error_at: string | null; last_error_message: string | null } | null | undefined,
+  overview?: { pending: number; errors_24h: number } | null,
+): { tone: CapiTone; label: string; detail: string } {
+  if (!dest) return { tone: "neutral", label: "Não configurado", detail: "Informe o ID do Pixel e o token da API de Conversões." };
+  if (!dest.has_token) return { tone: "warning", label: "Falta o token", detail: "Cole o token da API de Conversões para poder ligar o envio." };
+  if (!dest.enabled) return { tone: "neutral", label: "Desligado", detail: "Os eventos não estão sendo enviados ao Meta." };
+  const failing = dest.last_error_at != null && (dest.last_success_at == null || dest.last_error_at > dest.last_success_at);
+  if (failing) return { tone: "danger", label: "Com erro", detail: dest.last_error_message ?? "O último envio falhou." };
+  if (dest.test_event_code) {
+    return { tone: "warning", label: "Ligado (teste)", detail: "Com código de teste: os eventos aparecem só em “Testar eventos” do Meta. Apague o código para valer de verdade." };
+  }
+  if (!dest.last_success_at) {
+    return { tone: "warning", label: "Ligado, sem envio ainda", detail: overview && overview.pending > 0 ? "Há eventos na fila; o envio roda a cada minuto." : "Aguardando o primeiro evento do site." };
+  }
+  return { tone: "success", label: "Funcionando", detail: "Eventos chegando ao Meta pela API de Conversões." };
 }

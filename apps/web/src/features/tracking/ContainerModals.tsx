@@ -146,9 +146,10 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
   );
 }
 
-export function InstallModal({ container, onClose }: { container: TrackingContainer; onClose: () => void }) {
+export function InstallModal({ container, pixelId = null, onClose }: { container: TrackingContainer; pixelId?: string | null; onClose: () => void }) {
   const [forms, setForms] = useState(false);
-  const snippet = installSnippetWithOptions(container.public_key, container.consent_mode, { forms });
+  const [pixel, setPixel] = useState(false);
+  const snippet = installSnippetWithOptions(container.public_key, container.consent_mode, { forms, pixelId: pixel ? pixelId : null });
   return (
     <Modal title={`Instalar no site — ${container.name}`} open onClose={onClose} size="lg">
       <div className="space-y-5 text-sm text-slate-700">
@@ -158,6 +159,17 @@ export function InstallModal({ container, onClose }: { container: TrackingContai
             <span className="font-medium text-slate-800">Capturar formulários como Lead automaticamente</span>
             <span className="block text-xs text-slate-500">
               Todo formulário enviado com e-mail ou telefone vira Lead. E-mail, telefone e nome são cifrados no navegador (só o código vai).
+            </span>
+          </span>
+        </label>
+        <label className={`flex items-start gap-2 rounded-lg bg-slate-50 p-3 ${pixelId ? "" : "opacity-60"}`}>
+          <input type="checkbox" className="mt-0.5" checked={pixel} disabled={!pixelId} onChange={(e) => setPixel(e.target.checked)} />
+          <span>
+            <span className="font-medium text-slate-800">Disparar também o Pixel do Meta no navegador</span>
+            <span className="block text-xs text-slate-500">
+              {pixelId
+                ? "Recomendado se o site ainda NÃO tem o Pixel. Usa o mesmo código de evento do servidor: o Meta conta uma vez só. Se o site já tem o Pixel instalado, deixe desmarcado."
+                : "Configure o Pixel em “Meta CAPI” para usar esta opção."}
             </span>
           </span>
         </label>
