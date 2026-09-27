@@ -1,5 +1,5 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { Lock } from "lucide-react";
+import { Lock, type LucideIcon, Settings, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, NavLink, Outlet } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -14,9 +14,9 @@ import { useMyOpsPermissions } from "./api.ts";
  * que não funciona): Kanban, Tarefas, Clientes, Dashboard e Dailies chegam nas
  * fases 36.2 a 36.7.
  */
-export const OPS_TABS: { to: string; label: string; permission: OpsPermission }[] = [
-  { to: "/operacoes/equipe", label: "Equipe", permission: "ops.access" },
-  { to: "/operacoes/configuracoes", label: "Configurações", permission: "ops.admin" },
+export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission: OpsPermission }[] = [
+  { to: "/operacoes/equipe", label: "Equipe", icon: Users, permission: "ops.access" },
+  { to: "/operacoes/configuracoes", label: "Configurações", icon: Settings, permission: "ops.admin" },
 ];
 
 /** Só quem tem a permissão da Central (conferida no banco) entra. */
@@ -53,19 +53,23 @@ export function OpsLayout() {
           <h1 className="text-2xl font-semibold tracking-tight">Central de Operações</h1>
           <p className="mt-1 text-sm text-slate-500">Setores, equipe, tarefas e reuniões do dia a dia. Separada da gestão de anúncios.</p>
         </div>
-        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200" aria-label="Central de Operações">
-          {tabs.map((tab) => (
+        {/* Abas em "pílula", no padrão da referência visual (tema claro). */}
+        <nav className="flex flex-wrap gap-2" aria-label="Central de Operações">
+          {tabs.map(({ to, label, icon: Icon }) => (
             <NavLink
-              key={tab.to}
-              to={tab.to}
+              key={to}
+              to={to}
               className={({ isActive }) =>
                 cn(
-                  "-mb-px whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium",
-                  isActive ? "border-violet-600 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-800",
+                  "inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all",
+                  isActive
+                    ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
+                    : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400",
                 )
               }
             >
-              {tab.label}
+              <Icon className="size-4" aria-hidden />
+              {label}
             </NavLink>
           ))}
         </nav>

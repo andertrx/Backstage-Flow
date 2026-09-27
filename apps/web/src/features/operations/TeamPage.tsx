@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { type OpsSector, type OpsTeamMember, useMyOpsPermissions, useOpsSectors, useOpsTeam, useSaveMember } from "./api.ts";
 import { type MemberDraft, memberDraftFrom, MemberFields } from "./MemberFields.tsx";
+import { OpsModuleHeader } from "./OpsHeader.tsx";
 
 export function SectorChip({ sector, muted }: { sector: OpsSector | undefined; muted?: boolean }) {
   if (!sector) return null;
@@ -82,6 +83,7 @@ export function TeamPage() {
   const error = team.error ?? sectors.error;
   return (
     <div className="space-y-4" data-testid="ops-team">
+      <OpsModuleHeader icon={Users} title="Equipe" description="Quem está em cada setor: setor principal, outros setores, cargo e situação." />
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-56 flex-1">
           <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden />
@@ -126,7 +128,7 @@ export function TeamPage() {
                 <tr key={m.user_id} data-testid="ops-team-row">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700" aria-hidden>
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700" aria-hidden>
                         {(m.full_name || m.email).trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase()}
                       </span>
                       <div>

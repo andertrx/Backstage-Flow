@@ -1,0 +1,3411 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>STG FLOW — Sistema de Gestão para Agência de Marketing</title>
+    <style>
+      /* ── Reset & Base ── */
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --bg: #0a0c14;
+        --bg2: #10131f;
+        --bg3: #161929;
+        --card: rgba(255, 255, 255, 0.04);
+        --border: rgba(255, 255, 255, 0.08);
+        --p1: #7c3aed;
+        --p2: #a855f7;
+        --p3: #c084fc;
+        --acc: #06b6d4;
+        --acc2: #22d3ee;
+        --green: #10b981;
+        --yellow: #f59e0b;
+        --red: #ef4444;
+        --txt: #e2e8f0;
+        --muted: #64748b;
+        --radius: 14px;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--bg);
+        color: var(--txt);
+        font-family:
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        line-height: 1.6;
+        overflow-x: hidden;
+      }
+
+      /* ── Scrollbar ── */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--bg2);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--p1);
+        border-radius: 3px;
+      }
+
+      /* ── Noise texture overlay ── */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 9999;
+        opacity: 0.4;
+      }
+
+      /* ── NAV ── */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 2.5rem;
+        background: rgba(10, 12, 20, 0.85);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border);
+      }
+      .nav-logo {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-weight: 700;
+        font-size: 1.15rem;
+        letter-spacing: -0.02em;
+      }
+      .nav-logo .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--p1), var(--acc));
+        box-shadow: 0 0 12px var(--p2);
+      }
+      .nav-links {
+        display: flex;
+        gap: 1.8rem;
+        list-style: none;
+      }
+      .nav-links a {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: color 0.2s;
+        font-weight: 500;
+      }
+      .nav-links a:hover {
+        color: var(--p3);
+      }
+      .nav-cta {
+        background: linear-gradient(135deg, var(--p1), var(--acc));
+        border: none;
+        color: #fff;
+        padding: 0.5rem 1.25rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          opacity 0.2s,
+          transform 0.2s;
+      }
+      .nav-cta:hover {
+        opacity: 0.85;
+        transform: translateY(-1px);
+      }
+
+      /* ── Progress bar ── */
+      #progress-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        z-index: 200;
+        background: linear-gradient(90deg, var(--p1), var(--acc), var(--green));
+        width: 0%;
+        transition: width 0.1s;
+      }
+
+      /* ── Sections ── */
+      section {
+        min-height: 100vh;
+        padding: 8rem 2rem 5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+      }
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      /* ── HERO ── */
+      #hero {
+        overflow: hidden;
+        background:
+          radial-gradient(
+            ellipse 80% 60% at 50% 0%,
+            rgba(124, 58, 237, 0.18) 0%,
+            transparent 70%
+          ),
+          radial-gradient(
+            ellipse 50% 40% at 80% 80%,
+            rgba(6, 182, 212, 0.1) 0%,
+            transparent 60%
+          );
+      }
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(124, 58, 237, 0.15);
+        border: 1px solid rgba(124, 58, 237, 0.35);
+        padding: 0.35rem 0.9rem;
+        border-radius: 100px;
+        font-size: 0.78rem;
+        color: var(--p3);
+        margin-bottom: 2rem;
+        font-weight: 600;
+        animation: fadeDown 0.6s ease both;
+      }
+      .hero-badge::before {
+        content: "●";
+        font-size: 0.5rem;
+        color: var(--green);
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+      .hero-title {
+        font-size: clamp(2.4rem, 6vw, 4.8rem);
+        font-weight: 800;
+        line-height: 1.05;
+        letter-spacing: -0.04em;
+        animation: fadeDown 0.6s 0.1s ease both;
+        margin-bottom: 1.2rem;
+      }
+      .hero-title .grad {
+        background: linear-gradient(
+          135deg,
+          var(--p2) 0%,
+          var(--acc2) 60%,
+          var(--green) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .hero-sub {
+        font-size: 1.15rem;
+        color: var(--muted);
+        max-width: 600px;
+        animation: fadeDown 0.6s 0.2s ease both;
+        margin-bottom: 2.5rem;
+      }
+      .hero-btns {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        animation: fadeDown 0.6s 0.3s ease both;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, var(--p1), var(--p2));
+        color: #fff;
+        border: none;
+        padding: 0.8rem 1.8rem;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+        box-shadow: 0 0 24px rgba(124, 58, 237, 0.4);
+        text-decoration: none;
+        display: inline-block;
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0 36px rgba(124, 58, 237, 0.6);
+      }
+      .btn-ghost {
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--txt);
+        padding: 0.8rem 1.8rem;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          background 0.2s,
+          transform 0.2s;
+        text-decoration: none;
+        display: inline-block;
+      }
+      .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.08);
+        transform: translateY(-2px);
+      }
+      .hero-stats {
+        display: flex;
+        gap: 3rem;
+        margin-top: 4rem;
+        flex-wrap: wrap;
+        animation: fadeDown 0.6s 0.4s ease both;
+      }
+      .stat {
+        display: flex;
+        flex-direction: column;
+      }
+      .stat-num {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--p3);
+      }
+      .stat-lbl {
+        font-size: 0.78rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      /* Floating modules illustration */
+      .hero-visual {
+        position: absolute;
+        right: -40px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 420px;
+        pointer-events: none;
+        opacity: 0.55;
+        animation: float 6s ease-in-out infinite;
+        display: none;
+      }
+      @media (min-width: 1050px) {
+        .hero-visual {
+          display: block;
+        }
+      }
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(-50%) translateX(0);
+        }
+        50% {
+          transform: translateY(-52%) translateX(-8px);
+        }
+      }
+
+      /* ── Section headers ── */
+      .section-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--acc2);
+        margin-bottom: 0.75rem;
+      }
+      .section-tag::before {
+        content: "";
+        width: 20px;
+        height: 2px;
+        background: var(--acc2);
+      }
+      .section-title {
+        font-size: clamp(1.8rem, 4vw, 2.8rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        margin-bottom: 0.75rem;
+        line-height: 1.1;
+      }
+      .section-desc {
+        color: var(--muted);
+        font-size: 1.05rem;
+        max-width: 560px;
+        margin-bottom: 3rem;
+      }
+
+      /* ── Cards grid ── */
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.25rem;
+      }
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.25rem;
+      }
+      .grid-4 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.25rem;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        transition:
+          border-color 0.25s,
+          transform 0.25s,
+          box-shadow 0.25s;
+        position: relative;
+        overflow: hidden;
+      }
+      .card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--p1), var(--acc));
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .card:hover {
+        border-color: rgba(124, 58, 237, 0.4);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+      }
+      .card:hover::before {
+        opacity: 1;
+      }
+      .card-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        margin-bottom: 1rem;
+      }
+      .card h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+      }
+      .card p {
+        font-size: 0.875rem;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      /* ── OVERVIEW section ── */
+      #visao {
+        background: var(--bg2);
+      }
+      .big-number {
+        font-size: 5rem;
+        font-weight: 900;
+        line-height: 1;
+        background: linear-gradient(135deg, var(--p1), var(--acc2));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .overview-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+        margin-top: 1rem;
+      }
+      .overview-list li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        font-size: 0.9rem;
+        color: var(--txt);
+      }
+      .overview-list li::before {
+        content: "✓";
+        width: 20px;
+        height: 20px;
+        min-width: 20px;
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+        color: var(--green);
+        font-weight: 700;
+        line-height: 20px;
+        text-align: center;
+      }
+      .side-panel {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 2rem;
+      }
+      .side-panel h4 {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        margin-bottom: 1.25rem;
+      }
+      .obj-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.875rem;
+      }
+      .obj-item:last-child {
+        border-bottom: none;
+      }
+      .obj-item span {
+        font-size: 1.1rem;
+      }
+
+      /* ── MODULES ── */
+      #modulos {
+        overflow: hidden;
+      }
+      .modules-tabs {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+      }
+      .tab-btn {
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 0.55rem 1.1rem;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .tab-btn.active {
+        background: linear-gradient(135deg, var(--p1), var(--p2));
+        border-color: transparent;
+        color: #fff;
+        box-shadow: 0 0 20px rgba(124, 58, 237, 0.35);
+      }
+      .tab-btn:hover:not(.active) {
+        border-color: var(--p1);
+        color: var(--p3);
+      }
+      .tab-panel {
+        display: none;
+        animation: fadeIn 0.35s ease;
+      }
+      .tab-panel.active {
+        display: block;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      /* Module header */
+      .mod-header {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+      }
+      .mod-num {
+        font-size: 2.5rem;
+        font-weight: 900;
+        line-height: 1;
+        background: linear-gradient(135deg, var(--p2), var(--acc2));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        min-width: 50px;
+      }
+      .mod-header h2 {
+        font-size: 1.4rem;
+        font-weight: 700;
+      }
+      .mod-header p {
+        font-size: 0.875rem;
+        color: var(--muted);
+        margin-top: 0.2rem;
+      }
+      .mod-icon {
+        margin-left: auto;
+        font-size: 2.5rem;
+        opacity: 0.6;
+      }
+
+      /* Feature list */
+      .feat-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+      }
+      .feat-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.9rem 1.2rem;
+        transition: border-color 0.2s;
+      }
+      .feat-item:hover {
+        border-color: rgba(124, 58, 237, 0.3);
+      }
+      .feat-icon {
+        font-size: 1.2rem;
+        min-width: 24px;
+      }
+      .feat-item h4 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.15rem;
+      }
+      .feat-item p {
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+
+      /* Status badges */
+      .status-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+      .badge {
+        padding: 0.3rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border: 1px solid;
+      }
+      .badge-blue {
+        background: rgba(6, 182, 212, 0.1);
+        border-color: rgba(6, 182, 212, 0.3);
+        color: var(--acc2);
+      }
+      .badge-purple {
+        background: rgba(124, 58, 237, 0.1);
+        border-color: rgba(124, 58, 237, 0.3);
+        color: var(--p3);
+      }
+      .badge-green {
+        background: rgba(16, 185, 129, 0.1);
+        border-color: rgba(16, 185, 129, 0.3);
+        color: var(--green);
+      }
+      .badge-yellow {
+        background: rgba(245, 158, 11, 0.1);
+        border-color: rgba(245, 158, 11, 0.3);
+        color: var(--yellow);
+      }
+      .badge-red {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: rgba(239, 68, 68, 0.3);
+        color: var(--red);
+      }
+
+      /* ── KANBAN preview ── */
+      .kanban-preview {
+        display: flex;
+        gap: 0.75rem;
+        overflow-x: auto;
+        padding-bottom: 1rem;
+        margin-top: 1.5rem;
+      }
+      .kanban-col {
+        min-width: 150px;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.75rem;
+        flex-shrink: 0;
+      }
+      .kanban-col h5 {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin-bottom: 0.75rem;
+        font-weight: 700;
+      }
+      .kcard {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 0.6rem 0.75rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.75rem;
+        cursor: grab;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+      .kcard:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+      }
+      .kcard-label {
+        font-weight: 700;
+        margin-bottom: 0.2rem;
+      }
+      .kcard-meta {
+        color: var(--muted);
+      }
+      .kcard-prio {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        margin-right: 4px;
+        vertical-align: middle;
+      }
+      .prio-high {
+        background: var(--red);
+      }
+      .prio-med {
+        background: var(--yellow);
+      }
+      .prio-low {
+        background: var(--green);
+      }
+
+      /* ── KANBAN: sector overview bar ── */
+      .ksectors-bar {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.25rem;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+      }
+      .ksector-pill {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex: 1;
+        padding: 0.85rem 1.1rem;
+        border-radius: 10px;
+        min-width: 200px;
+      }
+      .ksector-pill > .ksp-icon {
+        font-size: 1.5rem;
+      }
+      .ksector-pill strong {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+      .ksector-pill .ksp-sub {
+        display: block;
+        font-size: 0.72rem;
+        color: var(--muted);
+        margin-top: 0.1rem;
+      }
+      .commercial-pill {
+        background: rgba(6, 182, 212, 0.08);
+        border: 1px solid rgba(6, 182, 212, 0.22);
+      }
+      .operational-pill {
+        background: rgba(124, 58, 237, 0.08);
+        border: 1px solid rgba(124, 58, 237, 0.22);
+      }
+      .ksector-arrow-big {
+        font-size: 1.6rem;
+        color: var(--muted);
+        flex-shrink: 0;
+      }
+
+      /* ── Kanban sub-tabs ── */
+      .kanban-subtabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+      }
+      .ktab-btn {
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 0.45rem 0.9rem;
+        border-radius: 7px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .ktab-btn.active {
+        background: rgba(124, 58, 237, 0.15);
+        border-color: rgba(124, 58, 237, 0.45);
+        color: var(--p3);
+      }
+      .ktab-btn:hover:not(.active) {
+        border-color: var(--p1);
+        color: var(--p3);
+      }
+      .ktab-panel {
+        display: none;
+        animation: fadeIn 0.3s ease;
+      }
+      .ktab-panel.active {
+        display: block;
+      }
+
+      /* flow label */
+      .flow-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 0.45rem 0.9rem;
+        border-radius: 7px;
+        margin-bottom: 1rem;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+
+      /* lost reasons */
+      .lost-panel {
+        background: rgba(239, 68, 68, 0.06);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin-top: 0.85rem;
+      }
+      .lost-panel-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--red);
+        margin-bottom: 0.6rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .lost-reasons-row {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .lost-reason {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+        color: #f87171;
+        padding: 0.28rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+
+      /* handoff banner */
+      .handoff-banner {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        background: linear-gradient(
+          135deg,
+          rgba(16, 185, 129, 0.07),
+          rgba(124, 58, 237, 0.07)
+        );
+        border: 1px solid rgba(16, 185, 129, 0.25);
+        border-radius: var(--radius);
+        padding: 1.1rem 1.75rem;
+        margin-top: 1.1rem;
+        flex-wrap: wrap;
+      }
+      .handoff-side {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex: 1;
+        min-width: 180px;
+      }
+      .handoff-side strong {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+      .handoff-side span {
+        display: block;
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+      .handoff-connector {
+        flex: 1;
+        min-width: 60px;
+        display: flex;
+        align-items: center;
+        gap: 0;
+        justify-content: center;
+      }
+      .hc-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--green);
+        flex-shrink: 0;
+      }
+      .hc-line {
+        flex: 1;
+        height: 2px;
+        background: linear-gradient(90deg, var(--green), var(--p1));
+      }
+
+      /* onboarding flow */
+      .ob-section-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin-bottom: 0.85rem;
+      }
+      .ob-flow {
+        display: flex;
+        align-items: center;
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+        gap: 0;
+      }
+      .ob-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.4rem;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        min-width: 108px;
+        flex-shrink: 0;
+        transition: all 0.2s;
+      }
+      .ob-step.done {
+        border-color: rgba(16, 185, 129, 0.4);
+        background: rgba(16, 185, 129, 0.07);
+      }
+      .ob-step.active-ob {
+        border-color: rgba(124, 58, 237, 0.5);
+        background: rgba(124, 58, 237, 0.1);
+        box-shadow: 0 0 16px rgba(124, 58, 237, 0.2);
+      }
+      .ob-step.release-ob {
+        border-color: rgba(6, 182, 212, 0.4);
+        background: rgba(6, 182, 212, 0.08);
+      }
+      .ob-step-icon {
+        font-size: 1.25rem;
+      }
+      .ob-step-name {
+        font-size: 0.68rem;
+        font-weight: 600;
+        text-align: center;
+        line-height: 1.3;
+      }
+      .ob-connector {
+        width: 26px;
+        min-width: 26px;
+        height: 2px;
+        flex-shrink: 0;
+        background: linear-gradient(90deg, var(--p1), var(--acc));
+        position: relative;
+      }
+      .ob-connector::after {
+        content: "▸";
+        position: absolute;
+        right: -5px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 0.55rem;
+        color: var(--acc);
+      }
+
+      /* parallel sectors */
+      .parallel-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-bottom: 0.85rem;
+      }
+      .parallel-badge {
+        background: rgba(6, 182, 212, 0.12);
+        border: 1px solid rgba(6, 182, 212, 0.3);
+        color: var(--acc2);
+        padding: 0.2rem 0.6rem;
+        border-radius: 6px;
+        font-size: 0.67rem;
+        font-weight: 700;
+      }
+      .sectors-parallel-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 0.85rem;
+      }
+      .sector-box {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .sector-box-header {
+        padding: 0.55rem 0.9rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+      .design-h {
+        background: rgba(124, 58, 237, 0.15);
+        color: var(--p3);
+      }
+      .copy-h {
+        background: rgba(6, 182, 212, 0.15);
+        color: var(--acc2);
+      }
+      .trafego-h {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--yellow);
+      }
+      .social-h {
+        background: rgba(16, 185, 129, 0.15);
+        color: var(--green);
+      }
+      .dev-h {
+        background: rgba(239, 68, 68, 0.12);
+        color: #f87171;
+      }
+      .audio-h {
+        background: rgba(168, 85, 247, 0.15);
+        color: var(--p2);
+      }
+      .sector-status-list {
+        padding: 0.55rem 0.9rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+      .sec-status {
+        font-size: 0.74rem;
+        padding: 0.22rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      }
+      .sec-status:last-child {
+        border-bottom: none;
+      }
+      .sec-status.s-done {
+        color: var(--green);
+      }
+      .sec-status.s-active {
+        color: var(--acc2);
+      }
+      .sec-status.s-waiting {
+        color: var(--yellow);
+      }
+      .sec-status.s-pending {
+        color: var(--muted);
+      }
+
+      /* status legend */
+      .status-legend {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        font-size: 0.72rem;
+        color: var(--muted);
+        padding: 0.4rem 0 1rem;
+      }
+      .leg-item {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      .leg-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+      }
+      .ld-done {
+        background: var(--green);
+      }
+      .ld-active {
+        background: var(--acc2);
+      }
+      .ld-waiting {
+        background: var(--yellow);
+      }
+      .ld-pending {
+        background: var(--muted);
+      }
+
+      /* client tracker */
+      .client-tracker {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.25rem;
+        margin-top: 0.5rem;
+      }
+      .tracker-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+      }
+      .tracker-pct {
+        font-size: 1.5rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, var(--p2), var(--green));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .tracker-bar-bg {
+        height: 5px;
+        background: var(--border);
+        border-radius: 3px;
+        margin-bottom: 0.8rem;
+      }
+      .tracker-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: linear-gradient(90deg, var(--p1), var(--green));
+        transition: width 1.2s ease;
+      }
+      .tracker-sectors {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .tracker-sector {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2rem;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.5rem 0.7rem;
+        min-width: 58px;
+        font-size: 0.7rem;
+        transition: border-color 0.2s;
+      }
+      .tracker-sector.ts-done {
+        border-color: rgba(16, 185, 129, 0.35);
+      }
+      .tracker-sector.ts-active {
+        border-color: rgba(6, 182, 212, 0.35);
+      }
+      .tracker-sector.ts-waiting {
+        border-color: rgba(245, 158, 11, 0.35);
+      }
+      .tracker-sector.ts-pending {
+        opacity: 0.45;
+      }
+      .ts-ico {
+        font-size: 1.1rem;
+      }
+      .ts-nm {
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .ts-st {
+        font-size: 0.82rem;
+      }
+      .tracker-sector.ts-done .ts-st {
+        color: var(--green);
+      }
+      .tracker-sector.ts-active .ts-st {
+        color: var(--acc2);
+      }
+      .tracker-sector.ts-waiting .ts-st {
+        color: var(--yellow);
+      }
+
+      /* ── DASHBOARD preview ── */
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem;
+        margin: 1.5rem 0;
+      }
+      .metric-card {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .metric-card::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--p1), var(--acc));
+      }
+      .metric-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      .metric-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+      }
+      .metric-change {
+        font-size: 0.72rem;
+        color: var(--green);
+        margin-top: 0.2rem;
+      }
+      .metric-change.down {
+        color: var(--red);
+      }
+
+      /* Mini bar chart */
+      .mini-chart {
+        display: flex;
+        align-items: flex-end;
+        gap: 4px;
+        height: 40px;
+        margin-top: 1rem;
+      }
+      .bar {
+        flex: 1;
+        border-radius: 3px 3px 0 0;
+        background: linear-gradient(to top, var(--p1), var(--acc));
+        opacity: 0.7;
+        transition: opacity 0.2s;
+      }
+      .bar:hover {
+        opacity: 1;
+      }
+
+      /* Alert cards */
+      .alert-card {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.9rem 1.2rem;
+        border-left: 3px solid;
+      }
+      .alert-card.warn {
+        border-left-color: var(--yellow);
+      }
+      .alert-card.danger {
+        border-left-color: var(--red);
+      }
+      .alert-card.info {
+        border-left-color: var(--acc2);
+      }
+      .alert-icon {
+        font-size: 1.3rem;
+      }
+      .alert-card h4 {
+        font-size: 0.875rem;
+        font-weight: 700;
+      }
+      .alert-card p {
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+
+      /* ── EXTRAS / PERMISSIONS ── */
+      #extras {
+        background: var(--bg2);
+      }
+      .perm-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--bg3);
+        border-radius: var(--radius);
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+      .perm-table th {
+        background: rgba(124, 58, 237, 0.12);
+        padding: 0.85rem 1rem;
+        text-align: left;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--p3);
+        border-bottom: 1px solid var(--border);
+      }
+      .perm-table td {
+        padding: 0.8rem 1rem;
+        font-size: 0.85rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      }
+      .perm-table tr:last-child td {
+        border-bottom: none;
+      }
+      .perm-table tr:hover td {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .check {
+        color: var(--green);
+      }
+      .cross {
+        color: var(--red);
+      }
+      .partial {
+        color: var(--yellow);
+      }
+
+      /* ── MVP ROADMAP ── */
+      #roadmap {
+        background: var(--bg2);
+      }
+      .roadmap-row {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      @media (min-width: 800px) {
+        .roadmap-row {
+          flex-direction: row;
+        }
+      }
+      .phase {
+        flex: 1;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .phase::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 4px;
+      }
+      .phase.p1::before {
+        background: var(--green);
+      }
+      .phase.p2::before {
+        background: var(--yellow);
+      }
+      .phase.p3::before {
+        background: var(--p2);
+      }
+      .phase-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+      }
+      .p1 .phase-label {
+        color: var(--green);
+      }
+      .p2 .phase-label {
+        color: var(--yellow);
+      }
+      .p3 .phase-label {
+        color: var(--p3);
+      }
+      .phase h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+      }
+      .phase ul {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .phase ul li {
+        font-size: 0.85rem;
+        color: var(--txt);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .phase ul li::before {
+        content: "→";
+        color: var(--muted);
+        font-size: 0.75rem;
+      }
+
+      /* ── RESULT ── */
+      #resultado {
+        background: radial-gradient(
+          ellipse 80% 60% at 50% 100%,
+          rgba(124, 58, 237, 0.15) 0%,
+          transparent 70%
+        );
+      }
+      .result-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.25rem;
+        margin-top: 2rem;
+      }
+      .result-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        transition: all 0.25s;
+      }
+      .result-card:hover {
+        border-color: rgba(124, 58, 237, 0.4);
+        box-shadow: 0 8px 32px rgba(124, 58, 237, 0.15);
+        transform: translateY(-3px);
+      }
+      .result-icon {
+        font-size: 1.8rem;
+      }
+      .result-card h4 {
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+      .result-card p {
+        font-size: 0.83rem;
+        color: var(--muted);
+      }
+
+      /* CTA final */
+      .final-cta {
+        text-align: center;
+        padding: 5rem 2rem;
+        background: var(--bg3);
+        border-top: 1px solid var(--border);
+      }
+      .final-cta h2 {
+        font-size: clamp(1.8rem, 4vw, 3rem);
+        font-weight: 800;
+        margin-bottom: 1rem;
+      }
+      .final-cta p {
+        color: var(--muted);
+        margin-bottom: 2rem;
+      }
+      .glow-btn {
+        display: inline-block;
+        background: linear-gradient(135deg, var(--p1), var(--acc));
+        color: #fff;
+        padding: 1rem 2.5rem;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: 0 0 40px rgba(124, 58, 237, 0.45);
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+      .glow-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 0 60px rgba(124, 58, 237, 0.65);
+      }
+
+      /* ── Utility ── */
+      @keyframes fadeDown {
+        from {
+          opacity: 0;
+          transform: translateY(-16px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .divider {
+        height: 1px;
+        background: var(--border);
+        margin: 2rem 0;
+      }
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+      }
+      @media (max-width: 700px) {
+        .two-col {
+          grid-template-columns: 1fr;
+        }
+      }
+      .reveal {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s ease,
+          transform 0.6s ease;
+      }
+      .reveal.visible {
+        opacity: 1;
+        transform: none;
+      }
+
+      /* ── Floating particles ── */
+      .particles {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .particle {
+        position: absolute;
+        border-radius: 50%;
+        background: var(--p2);
+        opacity: 0;
+        animation: particle-float linear infinite;
+      }
+      @keyframes particle-float {
+        0% {
+          opacity: 0;
+          transform: translateY(0) scale(0);
+        }
+        10% {
+          opacity: 0.6;
+          transform: translateY(-20px) scale(1);
+        }
+        90% {
+          opacity: 0.2;
+        }
+        100% {
+          opacity: 0;
+          transform: translateY(-120vh) scale(0.5);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Progress Bar -->
+    <div id="progress-bar"></div>
+
+    <!-- Particles -->
+    <div class="particles" id="particles"></div>
+
+    <!-- NAV -->
+    <nav>
+      <div class="nav-logo">
+        <div class="dot"></div>
+        STG FLOW
+      </div>
+      <ul class="nav-links">
+        <li><a href="#visao">Visão</a></li>
+        <li><a href="#modulos">Módulos</a></li>
+        <li><a href="#extras">Extras</a></li>
+        <li><a href="#roadmap">Roadmap</a></li>
+      </ul>
+      <button
+        class="nav-cta"
+        onclick="
+          document
+            .getElementById('resultado')
+            .scrollIntoView({ behavior: 'smooth' })
+        "
+      >
+        Ver Resultado →
+      </button>
+    </nav>
+
+    <!-- ════════ HERO ════════ -->
+    <section id="hero">
+      <div class="container">
+        <div class="hero-badge">Documento de Escopo · 2026</div>
+        <h1 class="hero-title">
+          Sistema de Gestão <br />
+          para a <span class="grad">STG</span>
+        </h1>
+        <p class="hero-sub">
+          Uma plataforma única, visual e organizada para centralizar operações,
+          campanhas e clientes — eliminando planilhas e sistemas fragmentados.
+        </p>
+        <div class="hero-btns">
+          <a href="#modulos" class="btn-primary">Explorar Módulos</a>
+          <a href="#roadmap" class="btn-ghost">Ver Roadmap</a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat">
+            <span class="stat-num">5</span
+            ><span class="stat-lbl">Módulos Principais</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num">3</span
+            ><span class="stat-lbl">Fases MVP</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num">∞</span
+            ><span class="stat-lbl">Potencial de Escala</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num">100%</span
+            ><span class="stat-lbl">Centralizado</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ VISÃO GERAL ════════ -->
+    <section id="visao">
+      <div class="container">
+        <div class="section-tag">Visão Geral</div>
+        <div class="two-col reveal">
+          <div>
+            <h2 class="section-title">O que o sistema resolve</h2>
+            <p class="section-desc">
+              Substituir controles manuais, planilhas e múltiplos sistemas
+              separados por uma plataforma intuitiva, rápida e altamente visual.
+            </p>
+            <ul class="overview-list">
+              <li>Gestão de tarefas e fluxos internos</li>
+              <li>Organização operacional por setores</li>
+              <li>Cadastro e histórico completo de clientes</li>
+              <li>Dashboard de métricas de campanhas em tempo real</li>
+              <li>Monitoramento financeiro de contas de anúncios</li>
+              <li>Envio automatizado de relatórios via WhatsApp</li>
+              <li>Registro estruturado de reuniões diárias</li>
+              <li>Controle de permissões por nível de acesso</li>
+            </ul>
+          </div>
+          <div>
+            <div class="side-panel">
+              <h4>Objetivos Principais</h4>
+              <div class="obj-item">
+                <span>🎯</span> Centralizar operações da agência
+              </div>
+              <div class="obj-item">
+                <span>📋</span> Melhorar organização das demandas
+              </div>
+              <div class="obj-item">
+                <span>🔗</span> Reduzir falhas de comunicação
+              </div>
+              <div class="obj-item">
+                <span>📊</span> Facilitar acompanhamento de campanhas
+              </div>
+              <div class="obj-item">
+                <span>⚙️</span> Automatizar processos repetitivos
+              </div>
+              <div class="obj-item">
+                <span>💰</span> Gestão financeira de clientes
+              </div>
+              <div class="obj-item">
+                <span>📨</span> Geração automática de relatórios
+              </div>
+              <div class="obj-item">
+                <span>🗂️</span> Criar histórico operacional completo
+              </div>
+            </div>
+            <div
+              style="
+                display: flex;
+                gap: 0.75rem;
+                margin-top: 1rem;
+                flex-wrap: wrap;
+              "
+            >
+              <div
+                style="
+                  flex: 1;
+                  background: var(--bg3);
+                  border: 1px solid var(--border);
+                  border-radius: 10px;
+                  padding: 1rem;
+                  text-align: center;
+                "
+              >
+                <div class="big-number" style="font-size: 2.5rem">Zero</div>
+                <div
+                  style="
+                    font-size: 0.78rem;
+                    color: var(--muted);
+                    margin-top: 0.3rem;
+                  "
+                >
+                  Planilhas separadas
+                </div>
+              </div>
+              <div
+                style="
+                  flex: 1;
+                  background: var(--bg3);
+                  border: 1px solid var(--border);
+                  border-radius: 10px;
+                  padding: 1rem;
+                  text-align: center;
+                "
+              >
+                <div class="big-number" style="font-size: 2.5rem">1</div>
+                <div
+                  style="
+                    font-size: 0.78rem;
+                    color: var(--muted);
+                    margin-top: 0.3rem;
+                  "
+                >
+                  Plataforma unificada
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ MÓDULOS ════════ -->
+    <section id="modulos">
+      <div class="container">
+        <div class="section-tag">Módulos</div>
+        <h2 class="section-title">5 Módulos Principais</h2>
+        <p class="section-desc">
+          Cada módulo foi desenhado para resolver um problema operacional
+          específico da agência.
+        </p>
+
+        <div class="modules-tabs reveal">
+          <button class="tab-btn active" onclick="showTab('t2', this)">
+            🗂 Kanban
+          </button>
+          <button class="tab-btn" onclick="showTab('t1', this)">
+            📋 Tarefas (Kanban)
+          </button>
+          <button class="tab-btn" onclick="showTab('t3', this)">
+            👥 Clientes
+          </button>
+          <button class="tab-btn" onclick="showTab('t4', this)">
+            📊 Dashboard
+          </button>
+          <button class="tab-btn" onclick="showTab('t5', this)">
+            🎙 Dailies
+          </button>
+        </div>
+
+        <!-- ── TAB 1: Tarefas (Kanban) ── -->
+        <div id="t1" class="tab-panel reveal">
+          <div class="mod-header">
+            <div class="mod-num">02</div>
+            <div>
+              <h2>Tarefas (Kanban)</h2>
+              <p>
+                Complemento do Kanban — cada tarefa segue os mesmos status do
+                fluxo operacional.
+              </p>
+            </div>
+            <div class="mod-icon">📋</div>
+          </div>
+          <div class="grid-2">
+            <div>
+              <div class="feat-list">
+                <div class="feat-item">
+                  <div class="feat-icon">✏️</div>
+                  <div>
+                    <h4>Criação de Tarefas Completas</h4>
+                    <p>
+                      Título, descrição, responsável, setor, prioridade, prazo,
+                      cliente, anexos, comentários e tags.
+                    </p>
+                  </div>
+                </div>
+                <div class="feat-item">
+                  <div class="feat-icon">🔄</div>
+                  <div>
+                    <h4>Status — idênticos ao fluxo Kanban</h4>
+                    <div class="status-row" style="margin-top: 0.5rem">
+                      <span class="badge badge-blue">○ Não Iniciado</span>
+                      <span class="badge badge-yellow">⚡ Em Andamento</span>
+                      <span
+                        class="badge badge-yellow"
+                        style="
+                          background: rgba(245, 158, 11, 0.1);
+                          border-color: rgba(245, 158, 11, 0.3);
+                          color: var(--yellow);
+                        "
+                        >⏸ Aguardando Cliente</span
+                      >
+                      <span class="badge badge-green">✓ Finalizado</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="feat-item">
+                  <div class="feat-icon">@</div>
+                  <div>
+                    <h4>Menções Internas</h4>
+                    <p>
+                      Marque colaboradores com @nome para notificações
+                      automáticas e rastreamento de interações.
+                    </p>
+                  </div>
+                </div>
+                <div class="feat-item">
+                  <div class="feat-icon">📜</div>
+                  <div>
+                    <h4>Histórico Completo</h4>
+                    <p>
+                      Toda ação registrada: criação, alteração, mudança de
+                      status, comentários e arquivos enviados.
+                    </p>
+                  </div>
+                </div>
+                <div class="feat-item">
+                  <div class="feat-icon">🔔</div>
+                  <div>
+                    <h4>Notificações Automáticas</h4>
+                    <p>
+                      Nova tarefa, alteração de status, comentários, prazo
+                      próximo e menções.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="card" style="height: 100%">
+                <h3
+                  style="
+                    margin-bottom: 1rem;
+                    font-size: 0.8rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.08em;
+                    color: var(--muted);
+                  "
+                >
+                  Exemplo de Tarefa
+                </h3>
+                <div
+                  style="
+                    background: var(--bg);
+                    border: 1px solid var(--border);
+                    border-radius: 10px;
+                    padding: 1.25rem;
+                  "
+                >
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: center;
+                      margin-bottom: 1rem;
+                    "
+                  >
+                    <span class="badge badge-yellow">Em Andamento</span>
+                    <span class="badge badge-red">🔥 Alta</span>
+                  </div>
+                  <h4 style="margin-bottom: 0.5rem">
+                    Criar criativos para campanha Black Friday
+                  </h4>
+                  <p
+                    style="
+                      font-size: 0.8rem;
+                      color: var(--muted);
+                      margin-bottom: 1rem;
+                    "
+                  >
+                    Desenvolver 6 peças para feed e stories no formato exigido
+                    pelo cliente XYZ.
+                  </p>
+                  <div
+                    style="
+                      display: flex;
+                      gap: 0.5rem;
+                      flex-wrap: wrap;
+                      margin-bottom: 1rem;
+                    "
+                  >
+                    <span class="badge badge-purple">Design</span>
+                    <span class="badge badge-blue">Campanha</span>
+                  </div>
+                  <div
+                    style="
+                      font-size: 0.78rem;
+                      color: var(--muted);
+                      display: flex;
+                      flex-direction: column;
+                      gap: 0.3rem;
+                    "
+                  >
+                    <span>👤 Responsável: Ana Silva</span>
+                    <span>🏢 Setor: Design</span>
+                    <span>📅 Prazo: 28/11/2025</span>
+                    <span>🏷 Cliente: Loja ABC</span>
+                  </div>
+                  <div class="divider"></div>
+                  <div style="font-size: 0.78rem; color: var(--muted)">
+                    <span style="color: var(--green)">✓</span> @carlos aprovado
+                    briefing &nbsp;·&nbsp; há 2h
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB 2: Kanban ── -->
+        <div id="t2" class="tab-panel active">
+          <div class="mod-header">
+            <div class="mod-num">01</div>
+            <div>
+              <h2>Kanban Operacional</h2>
+              <p>
+                Fluxo completo do lead até a execução — do primeiro contato à
+                entrega nos setores.
+              </p>
+            </div>
+            <div class="mod-icon">🗂</div>
+          </div>
+
+          <!-- Two sectors overview -->
+          <div class="ksectors-bar">
+            <div class="ksector-pill commercial-pill">
+              <span class="ksp-icon">💼</span>
+              <div>
+                <strong>Comercial &amp; Atendimento</strong>
+                <span class="ksp-sub">Prospecção → Contrato Pago</span>
+              </div>
+            </div>
+            <div class="ksector-arrow-big">⟶</div>
+            <div class="ksector-pill operational-pill">
+              <span class="ksp-icon">⚙️</span>
+              <div>
+                <strong>Account Manager &amp; Operacional</strong>
+                <span class="ksp-sub"
+                  >Onboarding → Execução Paralela por Setor</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-navigation -->
+          <div class="kanban-subtabs">
+            <button class="ktab-btn active" onclick="showKTab('kcom', this)">
+              💼 Comercial
+            </button>
+            <button class="ktab-btn" onclick="showKTab('kop', this)">
+              ⚙️ Operacional
+            </button>
+            <button class="ktab-btn" onclick="showKTab('kfeat', this)">
+              ⚡ Funcionalidades
+            </button>
+          </div>
+
+          <!-- ══ COMERCIAL ══ -->
+          <div id="kcom" class="ktab-panel active">
+            <div class="flow-label">
+              💼 &nbsp; FLUXO COMERCIAL — Da prospecção ao contrato pago
+            </div>
+
+            <div class="kanban-preview">
+              <!-- Prospecção -->
+              <div class="kanban-col">
+                <h5>📥 Prospecção</h5>
+                <div class="kcard">
+                  <div class="kcard-label">
+                    <span class="kcard-prio prio-high"></span>Indicação — Bruno
+                    S.
+                  </div>
+                  <div class="kcard-meta">E-commerce · hoje</div>
+                </div>
+                <div class="kcard">
+                  <div class="kcard-label">
+                    <span class="kcard-prio prio-med"></span>Lead Ads —
+                    Restaurante
+                  </div>
+                  <div class="kcard-meta">Alimentação · 1 dia</div>
+                </div>
+                <div class="kcard">
+                  <div class="kcard-label">
+                    <span class="kcard-prio prio-low"></span>Site — Escola de
+                    Inglês
+                  </div>
+                  <div class="kcard-meta">Educação · 2 dias</div>
+                </div>
+              </div>
+              <!-- 1º Contato -->
+              <div class="kanban-col">
+                <h5 style="color: var(--acc2)">📞 1º Contato</h5>
+                <div class="kcard">
+                  <div class="kcard-label">
+                    <span class="kcard-prio prio-high"></span>Clínica Estética
+                    Plus
+                  </div>
+                  <div class="kcard-meta">Saúde · Ana · hoje</div>
+                </div>
+                <div class="kcard">
+                  <div class="kcard-label">
+                    <span class="kcard-prio prio-med"></span>Loja de Roupas MR
+                  </div>
+                  <div class="kcard-meta">Moda · Carlos · ontem</div>
+                </div>
+              </div>
+              <!-- Reunião Agendada -->
+              <div class="kanban-col">
+                <h5 style="color: var(--p3)">📅 Reunião Agendada</h5>
+                <div class="kcard">
+                  <div class="kcard-label">
+                    <span class="kcard-prio prio-high"></span>Pet Shop Canino
+                  </div>
+                  <div class="kcard-meta">Pet · Pedro · 27/05</div>
+                </div>
+              </div>
+              <!-- Reunião Realizada -->
+              <div class="kanban-col">
+                <h5 style="color: var(--p3)">🤝 Reunião Realizada</h5>
+                <div class="kcard">
+                  <div class="kcard-label">
+                    <span class="kcard-prio prio-high"></span>Construtora Nova
+                    Era
+                  </div>
+                  <div class="kcard-meta">Imóveis · Ana · ontem</div>
+                </div>
+                <div class="kcard">
+                  <div class="kcard-label">
+                    <span class="kcard-prio prio-med"></span>Academia FitLife
+                  </div>
+                  <div class="kcard-meta">Saúde · Carlos · 24/05</div>
+                </div>
+              </div>
+              <!-- Proposta Enviada -->
+              <div class="kanban-col">
+                <h5 style="color: var(--yellow)">📄 Proposta Enviada</h5>
+                <div class="kcard">
+                  <div class="kcard-label">
+                    <span class="kcard-prio prio-high"></span>Tech Solutions
+                    Ltda
+                  </div>
+                  <div class="kcard-meta">Tecnologia · Pedro</div>
+                </div>
+              </div>
+              <!-- Negociação -->
+              <div class="kanban-col">
+                <h5 style="color: var(--yellow)">🔄 Negociação</h5>
+                <div
+                  class="kcard"
+                  style="border-color: rgba(245, 158, 11, 0.3)"
+                >
+                  <div class="kcard-label">
+                    <span class="kcard-prio prio-high"></span>Supermercado Bom
+                    Preço
+                  </div>
+                  <div class="kcard-meta">Varejo · Ana · R$2.800/mês</div>
+                </div>
+              </div>
+              <!-- Não Fechado -->
+              <div
+                class="kanban-col"
+                style="
+                  border-color: rgba(239, 68, 68, 0.2);
+                  background: rgba(239, 68, 68, 0.04);
+                "
+              >
+                <h5 style="color: var(--red)">❌ Não Fechado</h5>
+                <div
+                  class="kcard"
+                  style="border-color: rgba(239, 68, 68, 0.3); opacity: 0.7"
+                >
+                  <div class="kcard-label">Farmácia Saúde Total</div>
+                  <div class="kcard-meta" style="color: var(--red)">
+                    Valor incompatível
+                  </div>
+                </div>
+                <div
+                  class="kcard"
+                  style="border-color: rgba(239, 68, 68, 0.3); opacity: 0.7"
+                >
+                  <div class="kcard-label">Ótica Visão Clara</div>
+                  <div class="kcard-meta" style="color: var(--red)">
+                    Sem retorno
+                  </div>
+                </div>
+              </div>
+              <!-- Contrato Efetivado -->
+              <div
+                class="kanban-col"
+                style="border-color: rgba(16, 185, 129, 0.22)"
+              >
+                <h5 style="color: var(--green)">✅ Contrato Efetivado</h5>
+                <div
+                  class="kcard"
+                  style="border-color: rgba(16, 185, 129, 0.3)"
+                >
+                  <div class="kcard-label">
+                    <span class="kcard-prio prio-low"></span>Loja ABC
+                  </div>
+                  <div class="kcard-meta">E-commerce · aguardando pag.</div>
+                </div>
+              </div>
+              <!-- Contrato Pago -->
+              <div
+                class="kanban-col"
+                style="
+                  border-color: rgba(16, 185, 129, 0.45);
+                  background: rgba(16, 185, 129, 0.05);
+                "
+              >
+                <h5 style="color: var(--green)">💰 Contrato Pago</h5>
+                <div
+                  class="kcard"
+                  style="
+                    border-color: rgba(16, 185, 129, 0.55);
+                    background: rgba(16, 185, 129, 0.09);
+                  "
+                >
+                  <div class="kcard-label">Café Gourmet Premium</div>
+                  <div class="kcard-meta" style="color: var(--green)">
+                    ✓ Liberado para AM
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lost reasons panel -->
+            <div class="lost-panel">
+              <div class="lost-panel-title">
+                ❌ &nbsp; Categorias de "Não Fechado" — motivo da perda
+              </div>
+              <div class="lost-reasons-row">
+                <span class="lost-reason"
+                  >😕 Sem fit com a empresa (Coisa de fresco)</span
+                >
+                <span class="lost-reason">💸 Sem interesse no plano</span>
+                <span class="lost-reason">💰 Valor incompatível</span>
+                <span class="lost-reason">📵 Sem retorno</span>
+                <span class="lost-reason">📝 Outros motivos</span>
+              </div>
+            </div>
+
+            <!-- Handoff banner -->
+            <div class="handoff-banner">
+              <div class="handoff-side">
+                <span style="font-size: 1.6rem">💰</span>
+                <div>
+                  <strong>Contrato Pago</strong>
+                  <span>Gatilho automático no sistema</span>
+                </div>
+              </div>
+              <div class="handoff-connector">
+                <div class="hc-dot"></div>
+                <div class="hc-line"></div>
+                <div class="hc-dot" style="background: var(--p2)"></div>
+              </div>
+              <div class="handoff-side">
+                <span style="font-size: 1.6rem">⚙️</span>
+                <div>
+                  <strong>Account Manager recebe o cliente</strong>
+                  <span>Fluxo operacional é iniciado automaticamente</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ══ OPERACIONAL ══ -->
+          <div id="kop" class="ktab-panel">
+            <div class="flow-label">
+              ⚙️ &nbsp; FLUXO OPERACIONAL — Account Manager &amp; Execução por
+              Setores
+            </div>
+
+            <!-- Onboarding steps -->
+            <div style="margin-bottom: 1.5rem">
+              <div class="ob-section-title">
+                Etapas de Onboarding conduzidas pelo Account Manager
+              </div>
+              <div class="ob-flow">
+                <div class="ob-step done">
+                  <div class="ob-step-icon">🎯</div>
+                  <div class="ob-step-name">Reunião de Start</div>
+                </div>
+                <div class="ob-connector"></div>
+                <div class="ob-step done">
+                  <div class="ob-step-icon">🚀</div>
+                  <div class="ob-step-name">Onboarding</div>
+                </div>
+                <div class="ob-connector"></div>
+                <div class="ob-step">
+                  <div class="ob-step-icon">🔑</div>
+                  <div class="ob-step-name">Coleta de Acessos</div>
+                </div>
+                <div class="ob-connector"></div>
+                <div class="ob-step active-ob">
+                  <div class="ob-step-icon">🧭</div>
+                  <div class="ob-step-name">
+                    AC — Preenchimento dos dados do cliente no CRM
+                  </div>
+                </div>
+                <div class="ob-connector"></div>
+                <div class="ob-step release-ob">
+                  <div class="ob-step-icon">📤</div>
+                  <div class="ob-step-name">Liberar para Setores</div>
+                </div>
+                <div class="ob-connector"></div>
+                <div class="ob-step done">
+                  <div class="ob-step-icon">✅</div>
+                  <div class="ob-step-name">Finalizado</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Parallel sectors -->
+            <div class="parallel-section">
+              <div class="parallel-title">
+                Execução Paralela por Setor
+                <span class="parallel-badge"
+                  >⚡ Independente &amp; Simultâneo</span
+                >
+              </div>
+              <div class="sectors-parallel-grid">
+                <div class="sector-box">
+                  <div class="sector-box-header design-h">
+                    <span>🎨</span> Design
+                  </div>
+                  <div class="sector-status-list">
+                    <div class="sec-status s-done">✓ Loja ABC</div>
+                    <div class="sec-status s-active">⚡ Tech Solutions</div>
+                    <div class="sec-status s-waiting">⏸ Pet Shop</div>
+                    <div class="sec-status s-pending">○ Café Gourmet</div>
+                  </div>
+                </div>
+                <div class="sector-box">
+                  <div class="sector-box-header copy-h">
+                    <span>✍️</span> Copy
+                  </div>
+                  <div class="sector-status-list">
+                    <div class="sec-status s-done">✓ Loja ABC</div>
+                    <div class="sec-status s-active">⚡ Café Gourmet</div>
+                    <div class="sec-status s-pending">○ Tech Solutions</div>
+                  </div>
+                </div>
+                <div class="sector-box">
+                  <div class="sector-box-header trafego-h">
+                    <span>📡</span> Tráfego
+                  </div>
+                  <div class="sector-status-list">
+                    <div class="sec-status s-active">⚡ Tech Solutions</div>
+                    <div class="sec-status s-active">⚡ Loja ABC</div>
+                    <div class="sec-status s-waiting">⏸ Pet Shop</div>
+                  </div>
+                </div>
+                <div class="sector-box">
+                  <div class="sector-box-header dev-h">
+                    <span>💻</span> Desenvolvimento
+                  </div>
+                  <div class="sector-status-list">
+                    <div class="sec-status s-active">⚡ Tech Solutions</div>
+                    <div class="sec-status s-pending">○ Café Gourmet</div>
+                  </div>
+                </div>
+              </div>
+              <div class="status-legend">
+                <span class="leg-item"
+                  ><span class="leg-dot ld-done"></span> Finalizado</span
+                >
+                <span class="leg-item"
+                  ><span class="leg-dot ld-active"></span> Em Andamento</span
+                >
+                <span class="leg-item"
+                  ><span class="leg-dot ld-waiting"></span> Aguardando
+                  Cliente</span
+                >
+                <span class="leg-item"
+                  ><span class="leg-dot ld-pending"></span> Não Iniciado</span
+                >
+              </div>
+            </div>
+
+            <!-- Client tracker -->
+            <div class="client-tracker">
+              <div
+                style="
+                  font-size: 0.68rem;
+                  text-transform: uppercase;
+                  letter-spacing: 0.09em;
+                  color: var(--muted);
+                  margin-bottom: 0.75rem;
+                  font-weight: 700;
+                "
+              >
+                Acompanhamento por Cliente — Account Manager
+              </div>
+              <div class="tracker-header">
+                <div style="display: flex; align-items: center; gap: 0.75rem">
+                  <div
+                    style="
+                      width: 36px;
+                      height: 36px;
+                      border-radius: 50%;
+                      background: linear-gradient(
+                        135deg,
+                        var(--p1),
+                        var(--acc)
+                      );
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-weight: 700;
+                      font-size: 0.85rem;
+                      flex-shrink: 0;
+                    "
+                  >
+                    LA
+                  </div>
+                  <div>
+                    <div style="font-weight: 700; font-size: 0.9rem">
+                      Loja ABC
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--muted)">
+                      Account Manager: Victor do Borel · Desde 15/05/1999
+                    </div>
+                  </div>
+                </div>
+                <div class="tracker-pct">83%</div>
+              </div>
+              <div class="tracker-bar-bg">
+                <div class="tracker-bar-fill" style="width: 83%"></div>
+              </div>
+              <div class="tracker-sectors">
+                <div class="tracker-sector ts-done">
+                  <span class="ts-ico">🎨</span>
+                  <span class="ts-nm">Design</span>
+                  <span class="ts-st">✓</span>
+                </div>
+                <div class="tracker-sector ts-done">
+                  <span class="ts-ico">✍️</span>
+                  <span class="ts-nm">Copy</span>
+                  <span class="ts-st">✓</span>
+                </div>
+                <div class="tracker-sector ts-active">
+                  <span class="ts-ico">📡</span>
+                  <span class="ts-nm">Tráfego</span>
+                  <span class="ts-st">⚡</span>
+                </div>
+                <div class="tracker-sector ts-pending">
+                  <span class="ts-ico">💻</span>
+                  <span class="ts-nm">Dev</span>
+                  <span class="ts-st">—</span>
+                </div>
+              </div>
+              <div
+                style="
+                  font-size: 0.72rem;
+                  color: var(--muted);
+                  margin-top: 0.85rem;
+                  padding: 0.6rem 0.8rem;
+                  background: rgba(245, 158, 11, 0.06);
+                  border: 1px solid rgba(245, 158, 11, 0.2);
+                  border-radius: 8px;
+                "
+              >
+                ⚠️ O cliente só avança para o próximo estágio quando
+                <strong style="color: var(--txt)"
+                  >todos os setores obrigatórios</strong
+                >
+                estiverem com status Finalizado.
+              </div>
+            </div>
+          </div>
+
+          <!-- ══ FUNCIONALIDADES ══ -->
+          <div id="kfeat" class="ktab-panel">
+            <div class="feat-list">
+              <div class="feat-item">
+                <div class="feat-icon">🖱️</div>
+                <div>
+                  <h4>Drag &amp; Drop</h4>
+                  <p>
+                    Movimentação visual de cartões entre colunas nos dois fluxos
+                    (comercial e operacional).
+                  </p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <div class="feat-icon">🔀</div>
+                <div>
+                  <h4>Execução Paralela por Setor</h4>
+                  <p>
+                    O Account Manager libera múltiplos setores simultaneamente.
+                    Cada setor atua de forma independente no mesmo cliente.
+                  </p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <div class="feat-icon">👁️</div>
+                <div>
+                  <h4>Visualização Filtrada por Setor</h4>
+                  <p>
+                    Cada equipe visualiza apenas os clientes liberados para seu
+                    setor, com pendências, prioridades e prazos.
+                  </p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <div class="feat-icon">🔁</div>
+                <div>
+                  <h4>Progressão Automática por Conclusão</h4>
+                  <p>
+                    O cliente só avança de estágio quando todas as tarefas
+                    obrigatórias dos setores liberados forem concluídas.
+                  </p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <div class="feat-icon">📊</div>
+                <div>
+                  <h4>Acompanhamento do Account Manager</h4>
+                  <p>
+                    Visão em tempo real de quais setores finalizaram e quais
+                    ainda têm pendências por cliente.
+                  </p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <div class="feat-icon">🔍</div>
+                <div>
+                  <h4>Filtros Avançados</h4>
+                  <p>
+                    Filtre por cliente, responsável, setor, prioridade, prazo e
+                    status em ambos os fluxos.
+                  </p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <div class="feat-icon">⚡</div>
+                <div>
+                  <h4>Alertas Visuais e Automáticos</h4>
+                  <p>
+                    Indicadores de prazo vencido, tarefas paradas, gargalos e
+                    pendências aguardando cliente.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB 3: Clientes ── -->
+        <div id="t3" class="tab-panel">
+          <div class="mod-header">
+            <div class="mod-num">03</div>
+            <div>
+              <h2>Gestão de Clientes</h2>
+              <p>
+                Centralizar todas as informações e histórico completo de cada
+                cliente.
+              </p>
+            </div>
+            <div class="mod-icon">👥</div>
+          </div>
+          <div class="grid-2">
+            <div class="feat-list">
+              <div class="feat-item">
+                <div class="feat-icon">📄</div>
+                <div>
+                  <h4>Cadastro Completo</h4>
+                  <p>
+                    Empresa, CNPJ, responsável, contato, nicho, cidade,
+                    investimento, tipo de pagamento, data de início e status do
+                    contrato.
+                  </p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <div class="feat-icon">📝</div>
+                <div>
+                  <h4>Área de Observações</h4>
+                  <p>
+                    Campo livre para informações importantes, restrições,
+                    estratégias e histórico comercial.
+                  </p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <div class="feat-icon">🕐</div>
+                <div>
+                  <h4>Histórico de Alterações</h4>
+                  <p>
+                    Toda mudança registrada automaticamente: campo alterado,
+                    valor anterior, novo valor, usuário e horário.
+                  </p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <div class="feat-icon">🔍</div>
+                <div>
+                  <h4>Rastreabilidade Total</h4>
+                  <p>
+                    Histórico garante transparência e evita perda de informações
+                    críticas dos clientes.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <h3
+                style="
+                  font-size: 0.78rem;
+                  text-transform: uppercase;
+                  letter-spacing: 0.08em;
+                  color: var(--muted);
+                  margin-bottom: 1rem;
+                "
+              >
+                Ficha do Cliente
+              </h3>
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 0.75rem;
+                  margin-bottom: 1rem;
+                "
+              >
+                <div
+                  style="
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, var(--p1), var(--acc));
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 700;
+                    font-size: 0.9rem;
+                  "
+                >
+                  LA
+                </div>
+                <div>
+                  <div style="font-weight: 700">Loja ABC</div>
+                  <div style="font-size: 0.75rem; color: var(--muted)">
+                    E-commerce · São Paulo, SP
+                  </div>
+                </div>
+                <span class="badge badge-green" style="margin-left: auto"
+                  >Ativo</span
+                >
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 0.5rem;
+                  font-size: 0.78rem;
+                  color: var(--muted);
+                "
+              >
+                <span>💰 Inv. Diário: R$150</span>
+                <span>📅 Desde: Jan/2024</span>
+                <span>💳 Boleto mensal</span>
+                <span>📊 Inv. Mensal: R$4.500</span>
+                <span>📞 (11) 9xxxx-xxxx</span>
+                <span>✉️ contato@loja.com</span>
+              </div>
+              <div class="divider"></div>
+              <div style="font-size: 0.75rem">
+                <div
+                  style="
+                    color: var(--muted);
+                    text-transform: uppercase;
+                    letter-spacing: 0.08em;
+                    margin-bottom: 0.5rem;
+                    font-size: 0.65rem;
+                  "
+                >
+                  Últimas alterações
+                </div>
+                <div
+                  style="display: flex; flex-direction: column; gap: 0.35rem"
+                >
+                  <div>
+                    📝 <strong>Investimento</strong> alterado de R$120 → R$150
+                    &nbsp;<span style="color: var(--muted)"
+                      >por Ana · 10/05</span
+                    >
+                  </div>
+                  <div>
+                    📝 <strong>Status</strong> alterado de Inativo → Ativo
+                    &nbsp;<span style="color: var(--muted)"
+                      >por Carlos · 02/05</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB 4: Dashboard ── -->
+        <div id="t4" class="tab-panel">
+          <div class="mod-header">
+            <div class="mod-num">04</div>
+            <div>
+              <h2>Dashboard de Marketing e Campanhas</h2>
+              <p>
+                Visualização centralizada das métricas de todos os clientes em
+                tempo real.
+              </p>
+            </div>
+            <div class="mod-icon">📊</div>
+          </div>
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-label">Total de Leads</div>
+              <div class="metric-value" style="color: var(--acc2)">1.248</div>
+              <div class="metric-change">↑ 12% vs mês anterior</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">CPL Médio</div>
+              <div class="metric-value" style="color: var(--green)">
+                R$18,40
+              </div>
+              <div class="metric-change">↓ 8% — melhorou</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Invest. Total</div>
+              <div class="metric-value" style="color: var(--p3)">R$42.800</div>
+              <div class="metric-change">↑ 5% vs mês anterior</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">ROAS Médio</div>
+              <div class="metric-value" style="color: var(--yellow)">4.2x</div>
+              <div class="metric-change">↑ 0.3x vs mês anterior</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">CTR Médio</div>
+              <div class="metric-value" style="color: var(--acc2)">3.7%</div>
+              <div class="metric-change down">↓ 0.2% vs mês anterior</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Clientes Ativos</div>
+              <div class="metric-value" style="color: var(--green)">23</div>
+              <div class="metric-change">↑ 2 novos este mês</div>
+            </div>
+          </div>
+          <div class="mini-chart">
+            <div class="bar" style="height: 40%"></div>
+            <div class="bar" style="height: 55%"></div>
+            <div class="bar" style="height: 45%"></div>
+            <div class="bar" style="height: 70%"></div>
+            <div class="bar" style="height: 60%"></div>
+            <div class="bar" style="height: 85%"></div>
+            <div class="bar" style="height: 75%"></div>
+            <div class="bar" style="height: 90%"></div>
+            <div class="bar" style="height: 80%"></div>
+            <div class="bar" style="height: 100%"></div>
+            <div class="bar" style="height: 88%"></div>
+            <div class="bar" style="height: 95%"></div>
+          </div>
+          <p
+            style="font-size: 0.72rem; color: var(--muted); margin-top: 0.5rem"
+          >
+            Leads por período (últimos 12 meses)
+          </p>
+          <div style="margin-top: 1.5rem">
+            <h4
+              style="
+                font-size: 0.8rem;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: var(--muted);
+                margin-bottom: 0.75rem;
+              "
+            >
+              Alertas Ativos
+            </h4>
+            <div style="display: flex; flex-direction: column; gap: 0.6rem">
+              <div class="alert-card danger">
+                <div class="alert-icon">🚨</div>
+                <div>
+                  <h4>Campanha Pausada — Clínica XYZ</h4>
+                  <p>Cartão recusado em Meta Ads. Ação necessária.</p>
+                </div>
+              </div>
+              <div class="alert-card warn">
+                <div class="alert-icon">⚠️</div>
+                <div>
+                  <h4>Saldo Baixo — Tech Co.</h4>
+                  <p>Saldo disponível: R$48. Recarregar em breve.</p>
+                </div>
+              </div>
+              <div class="alert-card info">
+                <div class="alert-icon">📉</div>
+                <div>
+                  <h4>Queda de Performance — Café Gourmet</h4>
+                  <p>CPL subiu 35% em relação à semana passada.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top: 1.5rem">
+            <h4
+              style="
+                font-size: 0.8rem;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: var(--muted);
+                margin-bottom: 0.75rem;
+              "
+            >
+              Integrações de Plataformas
+            </h4>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap">
+              <div
+                style="
+                  background: var(--bg3);
+                  border: 1px solid var(--border);
+                  border-radius: 10px;
+                  padding: 0.75rem 1.25rem;
+                  font-size: 0.85rem;
+                  font-weight: 600;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+                "
+              >
+                <span style="font-size: 1.2rem">📘</span> Meta Ads
+              </div>
+              <div
+                style="
+                  background: var(--bg3);
+                  border: 1px solid var(--border);
+                  border-radius: 10px;
+                  padding: 0.75rem 1.25rem;
+                  font-size: 0.85rem;
+                  font-weight: 600;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+                "
+              >
+                <span style="font-size: 1.2rem">🔍</span> Google Ads
+              </div>
+              <div
+                style="
+                  background: var(--bg3);
+                  border: 1px solid var(--border);
+                  border-radius: 10px;
+                  padding: 0.75rem 1.25rem;
+                  font-size: 0.85rem;
+                  font-weight: 600;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+                "
+              >
+                <span style="font-size: 1.2rem">🎵</span> TikTok Ads
+              </div>
+              <div
+                style="
+                  background: var(--bg3);
+                  border: 1px solid var(--border);
+                  border-radius: 10px;
+                  padding: 0.75rem 1.25rem;
+                  font-size: 0.85rem;
+                  font-weight: 600;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+                "
+              >
+                <span style="font-size: 1.2rem">📱</span> Reportei
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB 5: Dailies ── -->
+        <div id="t5" class="tab-panel">
+          <div class="mod-header">
+            <div class="mod-num">05</div>
+            <div>
+              <h2>Dailies e Reuniões</h2>
+              <p>
+                Registrar e consultar alinhamentos diários da equipe com
+                histórico organizado.
+              </p>
+            </div>
+            <div class="mod-icon">🎙</div>
+          </div>
+          <div class="grid-2">
+            <div class="feat-list">
+              <div class="feat-item">
+                <div class="feat-icon">📅</div>
+                <div>
+                  <h4>Registro de Daily</h4>
+                  <p>
+                    Data, participantes, pendências, objetivos do dia, problemas
+                    encontrados, decisões tomadas e próximos passos.
+                  </p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <div class="feat-icon">📁</div>
+                <div>
+                  <h4>Histórico Semanal</h4>
+                  <p>
+                    Visualização organizada por dia, semana, equipe e cliente
+                    para acompanhamento completo.
+                  </p>
+                </div>
+              </div>
+              <div class="feat-item">
+                <div class="feat-icon">🏢</div>
+                <div>
+                  <h4>Histórico Organizacional</h4>
+                  <p>
+                    Cria rastreabilidade das decisões e facilita acompanhamento
+                    interno de longo prazo.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div
+                style="
+                  font-size: 0.72rem;
+                  text-transform: uppercase;
+                  letter-spacing: 0.08em;
+                  color: var(--muted);
+                  margin-bottom: 1rem;
+                "
+              >
+                Daily — 25/05/2025
+              </div>
+              <div
+                style="
+                  display: flex;
+                  gap: 0.4rem;
+                  flex-wrap: wrap;
+                  margin-bottom: 1rem;
+                "
+              >
+                <span class="badge badge-blue">Ana</span>
+                <span class="badge badge-purple">Carlos</span>
+                <span class="badge badge-green">Pedro</span>
+                <span class="badge badge-yellow">Bia</span>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  flex-direction: column;
+                  gap: 0.75rem;
+                  font-size: 0.82rem;
+                "
+              >
+                <div>
+                  <div
+                    style="
+                      font-weight: 700;
+                      color: var(--p3);
+                      margin-bottom: 0.25rem;
+                    "
+                  >
+                    🎯 Objetivos do Dia
+                  </div>
+                  <p style="color: var(--muted)">
+                    Finalizar criativos da campanha Loja ABC e revisar
+                    relatórios da semana.
+                  </p>
+                </div>
+                <div>
+                  <div
+                    style="
+                      font-weight: 700;
+                      color: var(--yellow);
+                      margin-bottom: 0.25rem;
+                    "
+                  >
+                    ⚠️ Pendências
+                  </div>
+                  <p style="color: var(--muted)">
+                    Brief da Clínica XYZ ainda aguardando aprovação do cliente.
+                  </p>
+                </div>
+                <div>
+                  <div
+                    style="
+                      font-weight: 700;
+                      color: var(--green);
+                      margin-bottom: 0.25rem;
+                    "
+                  >
+                    ✅ Decisões
+                  </div>
+                  <p style="color: var(--muted)">
+                    Subir investimento da campanha Tech Co. para R$200/dia a
+                    partir de amanhã.
+                  </p>
+                </div>
+                <div>
+                  <div
+                    style="
+                      font-weight: 700;
+                      color: var(--acc2);
+                      margin-bottom: 0.25rem;
+                    "
+                  >
+                    ➡️ Próximos Passos
+                  </div>
+                  <p style="color: var(--muted)">
+                    Carlos entrar em contato com Clínica XYZ até quinta-feira.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ EXTRAS ════════ -->
+    <section id="extras">
+      <div class="container">
+        <div class="section-tag">Funcionalidades Extras</div>
+        <h2 class="section-title reveal">Além do Essencial</h2>
+        <p class="section-desc reveal">
+          Recursos que elevam a experiência operacional da equipe.
+        </p>
+
+        <div class="grid-3 reveal">
+          <div class="card">
+            <div class="card-icon" style="background: rgba(124, 58, 237, 0.15)">
+              🔐
+            </div>
+            <h3>Controle de Permissões</h3>
+            <p>
+              5 níveis de acesso: Administrador, Gestor, Operacional, Financeiro
+              e Atendimento — cada um com visibilidades específicas.
+            </p>
+          </div>
+          <div class="card">
+            <div class="card-icon" style="background: rgba(6, 182, 212, 0.15)">
+              🔎
+            </div>
+            <h3>Pesquisa Global</h3>
+            <p>
+              Barra de busca unificada para localizar clientes, tarefas,
+              comentários, relatórios e logs em qualquer lugar do sistema.
+            </p>
+          </div>
+          <div class="card">
+            <div class="card-icon" style="background: rgba(245, 158, 11, 0.15)">
+              📜
+            </div>
+            <h3>Logs do Sistema</h3>
+            <p>
+              Registro automático de todas as ações importantes: exclusões,
+              alterações, logins e mudanças de permissão.
+            </p>
+          </div>
+          <div class="card">
+            <div class="card-icon" style="background: rgba(16, 185, 129, 0.15)">
+              📎
+            </div>
+            <h3>Upload de Arquivos</h3>
+            <p>
+              Anexos disponíveis em tarefas, clientes e dailies para centralizar
+              todos os materiais produzidos.
+            </p>
+          </div>
+          <div class="card">
+            <div class="card-icon" style="background: rgba(239, 68, 68, 0.15)">
+              🏠
+            </div>
+            <h3>Dashboard Inicial</h3>
+            <p>
+              Tela home com tarefas pendentes, alertas, campanhas pausadas,
+              saldo baixo e atividades recentes.
+            </p>
+          </div>
+          <div class="card">
+            <div class="card-icon" style="background: rgba(124, 58, 237, 0.15)">
+              📲
+            </div>
+            <h3>Relatórios via WhatsApp</h3>
+            <p>
+              Integração com Reportei para seleção múltipla de clientes, geração
+              automática de mensagem e envio direto.
+            </p>
+          </div>
+        </div>
+
+        <div class="divider" style="margin: 3rem 0"></div>
+
+        <h3
+          style="margin-bottom: 1.25rem; font-size: 1.1rem; font-weight: 700"
+          class="reveal"
+        >
+          Controle de Permissões por Nível
+          <span
+            style="font-size: 0.75rem; font-weight: 500; color: var(--yellow)"
+            >(Exemplo de permissões — precisa ser avaliado como serão essas
+            liberações)</span
+          >
+        </h3>
+        <div style="overflow-x: auto" class="reveal">
+          <table class="perm-table">
+            <thead>
+              <tr>
+                <th>Funcionalidade</th>
+                <th>Admin</th>
+                <th>Gestor</th>
+                <th>Operacional</th>
+                <th>Financeiro</th>
+                <th>Atendimento</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Criar/editar tarefas</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="partial">●</td>
+                <td class="check">✓</td>
+              </tr>
+              <tr>
+                <td>Excluir tarefas</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="cross">✗</td>
+                <td class="cross">✗</td>
+                <td class="cross">✗</td>
+              </tr>
+              <tr>
+                <td>Visualizar dashboard</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="partial">●</td>
+                <td class="check">✓</td>
+                <td class="partial">●</td>
+              </tr>
+              <tr>
+                <td>Editar clientes</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="cross">✗</td>
+                <td class="partial">●</td>
+                <td class="check">✓</td>
+              </tr>
+              <tr>
+                <td>Dados financeiros</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="cross">✗</td>
+                <td class="check">✓</td>
+                <td class="cross">✗</td>
+              </tr>
+              <tr>
+                <td>Gerenciar permissões</td>
+                <td class="check">✓</td>
+                <td class="cross">✗</td>
+                <td class="cross">✗</td>
+                <td class="cross">✗</td>
+                <td class="cross">✗</td>
+              </tr>
+              <tr>
+                <td>Enviar relatórios</td>
+                <td class="check">✓</td>
+                <td class="check">✓</td>
+                <td class="partial">●</td>
+                <td class="cross">✗</td>
+                <td class="check">✓</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size: 0.72rem; color: var(--muted); margin-top: 0.5rem">
+          ✓ Acesso total &nbsp; ● Acesso parcial &nbsp; ✗ Sem acesso
+        </p>
+      </div>
+    </section>
+
+    <!-- ════════ ROADMAP ════════ -->
+    <section id="roadmap">
+      <div class="container">
+        <div class="section-tag">Roadmap do MVP</div>
+        <h2 class="section-title reveal">Fases de Entrega</h2>
+        <p class="section-desc reveal">
+          Priorização estratégica para entregar valor rapidamente e iterar com
+          feedback real.
+        </p>
+
+        <div class="roadmap-row reveal">
+          <div class="phase p1">
+            <div class="phase-label">🟢 Prioridade 1 — MVP Core</div>
+            <h3>Fundação Operacional</h3>
+            <ul>
+              <li>Gestão de tarefas completa</li>
+              <li>Kanban por setores</li>
+              <li>Cadastro de clientes</li>
+              <li>Dashboard básico de métricas</li>
+              <li>Controle de permissões</li>
+              <li>Dailies e reuniões</li>
+              <li>Notificações internas</li>
+            </ul>
+          </div>
+          <div class="phase p2">
+            <div class="phase-label">🟡 Prioridade 2 — Integrações</div>
+            <h3>Conectividade e Alertas</h3>
+            <ul>
+              <li>Integração Meta Ads</li>
+              <li>Integração Google Ads</li>
+              <li>Alertas automáticos</li>
+              <li>Saldo baixo em tempo real</li>
+              <li>Relatórios visuais</li>
+              <li>Filtros avançados</li>
+              <li>Histórico de envios</li>
+            </ul>
+          </div>
+          <div class="phase p3">
+            <div class="phase-label">🟣 Prioridade 3 — Automação</div>
+            <h3>Inteligência Operacional</h3>
+            <ul>
+              <li>Automação WhatsApp</li>
+              <li>Integração completa Reportei</li>
+              <li>TikTok Ads integrado</li>
+              <li>Templates de relatórios</li>
+              <li>IA para insights</li>
+              <li>Pesquisa global avançada</li>
+              <li>Logs completos do sistema</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Timeline visual -->
+        <div
+          style="
+            margin-top: 3rem;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2rem;
+          "
+          class="reveal"
+        >
+          <h4
+            style="margin-bottom: 1.5rem; font-weight: 700; font-size: 0.9rem"
+          >
+            Linha do Tempo Estimada
+          </h4>
+          <div style="position: relative; padding-bottom: 1rem">
+            <div
+              style="
+                height: 4px;
+                background: var(--border);
+                border-radius: 2px;
+                position: relative;
+              "
+            >
+              <div
+                style="
+                  height: 100%;
+                  width: 33%;
+                  background: var(--green);
+                  border-radius: 2px;
+                  transition: width 1s;
+                "
+              ></div>
+            </div>
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                margin-top: 0.75rem;
+                font-size: 0.75rem;
+                color: var(--muted);
+              "
+            >
+              <span style="color: var(--green); font-weight: 700"
+                >Fase 1 (Mês 1-2)</span
+              >
+              <span style="color: var(--yellow); font-weight: 700"
+                >Fase 2 (Mês 3-4)</span
+              >
+              <span style="color: var(--p3); font-weight: 700"
+                >Fase 3 (Mês 5-6)</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ RESULTADO ════════ -->
+    <section id="resultado">
+      <div class="container">
+        <div class="section-tag">Resultado Esperado</div>
+        <h2 class="section-title reveal">O que a agência terá ao final</h2>
+        <p class="section-desc reveal">
+          Uma transformação completa na forma como a agência opera, comunica e
+          cresce.
+        </p>
+        <div class="result-grid reveal">
+          <div class="result-card">
+            <div class="result-icon">🎯</div>
+            <h4>Controle Operacional Centralizado</h4>
+            <p>
+              Todas as demandas, clientes e campanhas em um único lugar,
+              acessível por toda a equipe.
+            </p>
+          </div>
+          <div class="result-card">
+            <div class="result-icon">💬</div>
+            <h4>Melhor Comunicação Interna</h4>
+            <p>
+              Menções, notificações e histórico de tarefas eliminam ruídos e
+              retrabalho entre setores.
+            </p>
+          </div>
+          <div class="result-card">
+            <div class="result-icon">📂</div>
+            <h4>Gestão Organizada de Clientes</h4>
+            <p>
+              Ficha completa, histórico de alterações e rastreabilidade total de
+              cada cliente.
+            </p>
+          </div>
+          <div class="result-card">
+            <div class="result-icon">📈</div>
+            <h4>Monitoramento Rápido de Campanhas</h4>
+            <p>
+              Dashboard em tempo real com alertas proativos de saldo, pausas e
+              quedas de performance.
+            </p>
+          </div>
+          <div class="result-card">
+            <div class="result-icon">⏱️</div>
+            <h4>Redução de Tempo Operacional</h4>
+            <p>
+              Automações e fluxos estruturados reduzem tarefas manuais e
+              repetitivas da equipe.
+            </p>
+          </div>
+          <div class="result-card">
+            <div class="result-icon">📨</div>
+            <h4>Automação de Relatórios</h4>
+            <p>
+              Relatórios enviados via WhatsApp automaticamente, com templates e
+              histórico de envios.
+            </p>
+          </div>
+          <div class="result-card">
+            <div class="result-icon">🗂️</div>
+            <h4>Histórico Completo das Operações</h4>
+            <p>
+              Logs, dailies e histórico de clientes formam uma base de
+              conhecimento organizacional.
+            </p>
+          </div>
+          <div class="result-card">
+            <div class="result-icon">🚀</div>
+            <h4>Escala com Qualidade</h4>
+            <p>
+              Infraestrutura pronta para crescer junto com a agência sem perder
+              organização.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ FINAL CTA ════════ -->
+    <div class="final-cta">
+      <h2>
+        Por enquanto é isso
+        <span
+          style="
+            background: linear-gradient(135deg, var(--p2), var(--acc2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+          "
+          >Tigrada!</span
+        >
+      </h2>
+      <p>
+        Um sistema completo, visual e escalável — construído para o crescimento.
+      </p>
+      <a href="#hero" class="glow-btn">Voltar ao início ↑</a>
+      <div style="margin-top: 2rem; font-size: 0.78rem; color: var(--muted)">
+        STG FLOW · Sistema de Gestão para Agência de Marketing · Documento de
+        Escopo 2026
+      </div>
+    </div>
+
+    <script>
+      // ── Progress bar ──
+      window.addEventListener("scroll", () => {
+        const el = document.getElementById("progress-bar");
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        el.style.width = (window.scrollY / max) * 100 + "%";
+      });
+
+      // ── Module tabs ──
+      function showTab(id, btn) {
+        document
+          .querySelectorAll(".tab-panel")
+          .forEach((p) => p.classList.remove("active"));
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((b) => b.classList.remove("active"));
+        document.getElementById(id).classList.add("active");
+        btn.classList.add("active");
+      }
+
+      // ── Kanban sub-tabs ──
+      function showKTab(id, btn) {
+        document
+          .querySelectorAll(".ktab-panel")
+          .forEach((p) => p.classList.remove("active"));
+        document
+          .querySelectorAll(".ktab-btn")
+          .forEach((b) => b.classList.remove("active"));
+        document.getElementById(id).classList.add("active");
+        btn.classList.add("active");
+      }
+
+      // ── Reveal on scroll ──
+      const revealEls = document.querySelectorAll(".reveal");
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) {
+              e.target.classList.add("visible");
+            }
+          });
+        },
+        { threshold: 0.12 },
+      );
+      revealEls.forEach((el) => io.observe(el));
+
+      // ── Particles ──
+      (function spawnParticles() {
+        const container = document.getElementById("particles");
+        const colors = ["#7c3aed", "#a855f7", "#06b6d4", "#10b981"];
+        for (let i = 0; i < 30; i++) {
+          const p = document.createElement("div");
+          p.className = "particle";
+          const size = Math.random() * 4 + 1;
+          p.style.cssText = [
+            `width:${size}px`,
+            `height:${size}px`,
+            `left:${Math.random() * 100}%`,
+            `top:${Math.random() * 100 + 100}%`,
+            `background:${colors[Math.floor(Math.random() * colors.length)]}`,
+            `animation-duration:${Math.random() * 20 + 15}s`,
+            `animation-delay:${Math.random() * 15}s`,
+          ].join(";");
+          container.appendChild(p);
+        }
+      })();
+
+      // ── Nav active link ──
+      const sections = document.querySelectorAll("section[id]");
+      const navLinks = document.querySelectorAll(".nav-links a");
+      window.addEventListener("scroll", () => {
+        let cur = "";
+        sections.forEach((s) => {
+          if (window.scrollY >= s.offsetTop - 100) cur = s.id;
+        });
+        navLinks.forEach((a) => {
+          a.style.color =
+            a.getAttribute("href") === "#" + cur ? "var(--p3)" : "";
+        });
+      });
+
+      // ── Animate metric bars on scroll ──
+      const chart = document.querySelector(".mini-chart");
+      if (chart) {
+        const chartIO = new IntersectionObserver(
+          ([e]) => {
+            if (e.isIntersecting) {
+              chart.querySelectorAll(".bar").forEach((b, i) => {
+                const h = b.style.height;
+                b.style.height = "0%";
+                setTimeout(() => {
+                  b.style.transition = `height .6s ease ${i * 60}ms`;
+                  b.style.height = h;
+                }, 100);
+              });
+              chartIO.disconnect();
+            }
+          },
+          { threshold: 0.5 },
+        );
+        chartIO.observe(chart);
+      }
+    </script>
+  </body>
+</html>

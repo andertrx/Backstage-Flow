@@ -1,5 +1,5 @@
 import { OPS_COLORS, OPS_SECTOR_STATUS_LABELS, type OpsSectorStatus } from "@backstage/shared";
-import { ArrowDown, ArrowUp, Pencil, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Plus, Settings } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -9,6 +9,7 @@ import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
+import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { type OpsSector, useOpsSectors, useOpsTeam, useReorderSectors, useSaveSector, useSetSectorStatus } from "./api.ts";
 
 function SectorModal({ sector, onClose }: { sector: OpsSector | null; onClose: () => void }) {
@@ -131,6 +132,7 @@ export function SectorsSettingsPage() {
 
   return (
     <div className="space-y-4" data-testid="ops-sectors">
+      <OpsModuleHeader icon={Settings} title="Configurações da Central" description="Setores, fluxos e listas da Central. Só o administrador muda." />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">Setores</h2>
