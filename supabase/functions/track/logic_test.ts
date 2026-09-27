@@ -7,7 +7,9 @@ import {
   eventTime,
   ipBucket,
   parseBeacon,
+  purchaseOf,
   sanitizeUrl,
+  stripPersonalData,
   TrackError,
 } from "./logic.ts";
 
@@ -86,4 +88,31 @@ Deno.test("IP vira um código que muda todo dia (não dá para voltar ao IP)", a
   assertEquals(a.length, 35);
   assertEquals(a === (await ipBucket("200.1.2.3", "sal", "2026-09-28")), false);
   assertEquals(a.includes("200"), false);
+});
+
+const H = "a".repeat(64);
+
+Deno.test("dados de contato: só aceita hash (texto legível é recusado)", () => {
+  const b = parseBeacon(JSON.stringify({ ...base, n: "Lead", ud: { em: H, ph: H } }));
+  assertEquals(buildIngest(b, container, { nowMs: NOW, userAgent: null }).user, { em: H, ph: H });
+  assertEquals(assertThrows(() => parseBeacon(JSON.stringify({ ...base, n: "Lead", ud: { em: "ana@x.com" } })), TrackError).status, 400);
+  assertEquals(assertThrows(() => parseBeacon(JSON.stringify({ ...base, n: "Lead", ud: { email: H } })), TrackError).status, 400);
+  assertEquals(buildIngest(parseBeacon(JSON.stringify(base)), container, { nowMs: NOW, userAgent: null }).user, null);
+});
+
+Deno.test("dados extras: o que parece dado pessoal é descartado", () => {
+  assertEquals(
+    stripPersonalData({ formulario: "contato", email: "a@b.com", obs: "me liga 45 99999-8888", produto_nome: "Plano", nota: "x@y.com.br", valor: 10 }),
+    { formulario: "contato", produto_nome: "Plano", valor: 10 },
+  );
+});
+
+Deno.test("compra: valor e moeda obrigatórios, valor em micros e nº do pedido", () => {
+  const b = parseBeacon(JSON.stringify({ ...base, n: "Purchase", cd: { value: 199.9, currency: "brl", transaction_id: "P-1" } }));
+  const ev = buildIngest(b, container, { nowMs: NOW, userAgent: null }).event as Record<string, unknown>;
+  assertEquals([ev.value_micros, ev.currency, ev.transaction_id], [199_900_000, "BRL", "P-1"]);
+  assertEquals(purchaseOf({ ...b, cd: { value: 10, currency: "USD" } }).transaction_id, null);
+  for (const cd of [{ currency: "BRL" }, { value: 10 }, { value: -1, currency: "BRL" }, { value: 10, currency: "REAL" }, { value: 1, currency: "BRL", transaction_id: "pedido 1" }]) {
+    assertEquals(assertThrows(() => parseBeacon(JSON.stringify({ ...base, n: "Purchase", cd })), TrackError).code, "INVALID_PURCHASE");
+  }
 });

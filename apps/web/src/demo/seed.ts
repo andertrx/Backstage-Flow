@@ -358,6 +358,24 @@ export function seedDemo(): MockDb {
     { event_id: `demo.${i}.2`, container_id: trackingContainer, event_name: i === 0 ? "Lead" : "PageView", occurred_at: ago(Number(touches[i][5]) - 2), page_path: i === 0 ? "/obrigado" : "/planos", test: true, touchpoint_id: null, session_id: `s${i}`, visitor_id: `v${i}` },
   ]);
 
+  // Um lead fictício: chegou pelo Meta, enviou o formulário e comprou.
+  const metaTouch = db.trackingTouchpoints[0] as Record<string, unknown>;
+  const touchSummary = { channel: "meta", evidence: "confirmada", paid: true, utm_campaign: "Matrículas - Leads", ad_campaign_id: "120000000000001" };
+  db.trackingEvents.push({ event_id: "demo.0.3", container_id: trackingContainer, event_name: "Purchase", occurred_at: ago(8), page_path: "/pedido", test: true, touchpoint_id: null, session_id: "s0", visitor_id: "v0" });
+  db.trackingPurchases = [{ id: 1, container_id: trackingContainer, occurred_at: ago(8), value_micros: 149_900_000, currency: "BRL", transaction_id: "DEMO-1" }];
+  db.trackingLeads = [{
+    id: 1, container_id: trackingContainer, first_event_name: "Lead", first_converted_at: ago(10), last_converted_at: ago(8), conversions: 2, purchases: 1, test: true,
+    em_hash: "d".repeat(64), ph_hash: null, first_touch: touchSummary, last_touch: touchSummary,
+  }];
+  db.trackingJourneys = {
+    1: [
+      { kind: "origem", occurred_at: String(metaTouch.occurred_at), name: null, channel: "meta", paid: true, evidence: "confirmada", reason: "IDs do anúncio do Meta na URL.", campaign: "Matrículas - Leads", page_path: null, value_micros: null, currency: null, transaction_id: null, visitor_id: "v0", test: false },
+      { kind: "evento", occurred_at: String(metaTouch.occurred_at), name: "PageView", channel: null, paid: null, evidence: null, reason: null, campaign: null, page_path: "/", value_micros: null, currency: null, transaction_id: null, visitor_id: "v0", test: true },
+      { kind: "evento", occurred_at: ago(10), name: "Lead", channel: null, paid: null, evidence: null, reason: null, campaign: null, page_path: "/obrigado", value_micros: null, currency: null, transaction_id: null, visitor_id: "v0", test: true },
+      { kind: "compra", occurred_at: ago(8), name: "Purchase", channel: null, paid: null, evidence: null, reason: null, campaign: null, page_path: null, value_micros: 149_900_000, currency: "BRL", transaction_id: "DEMO-1", visitor_id: "v0", test: true },
+    ],
+  };
+
   db.lastSyncedAt = ago(35);
   return db;
 }

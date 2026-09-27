@@ -24,6 +24,7 @@ export const MAX_PAST_MS = 3 * 24 * 60 * 60 * 1000 - 60 * 60 * 1000;
 export const MAX_FUTURE_MS = 30 * 60 * 1000;
 
 const ID = /^[A-Za-z0-9_-]{8,64}$/;
+const HASH = z.string().regex(/^[0-9a-f]{64}$/);
 
 /** O que o script `t.js` envia (nomes curtos para caber no beacon). */
 export const beaconSchema = z.object({
@@ -40,6 +41,8 @@ export const beaconSchema = z.object({
   c: z.enum(["concedido"]).optional(),
   cv: z.string().max(40).optional(),
   cd: z.record(z.string().max(50), z.union([z.string().max(500), z.number(), z.boolean(), z.null()])).optional(),
+  /** Dados de contato JÁ CIFRADOS no navegador (SHA-256). Texto legível é recusado. */
+  ud: z.object({ em: HASH, ph: HASH, fn: HASH, ln: HASH }).partial().strict().optional(),
 });
 export type Beacon = z.infer<typeof beaconSchema>;
 
@@ -61,7 +64,39 @@ export function parseBeacon(body: string): Beacon {
   const parsed = beaconSchema.safeParse(raw);
   if (!parsed.success) throw new TrackError(400, "INVALID_INPUT");
   if (parsed.data.cd && JSON.stringify(parsed.data.cd).length > 3000) throw new TrackError(400, "INVALID_INPUT");
+  if (parsed.data.n === "Purchase") purchaseOf(parsed.data);
   return parsed.data;
+}
+
+/**
+ * Compra: valor e moeda obrigatórios (o Meta exige); nº do pedido opcional,
+ * mas é ele que impede contar a mesma venda duas vezes.
+ */
+export function purchaseOf(b: Beacon): { value_micros: number; currency: string; transaction_id: string | null } {
+  const value = b.cd?.value;
+  const currency = typeof b.cd?.currency === "string" ? b.cd.currency.trim().toUpperCase() : "";
+  const tx = b.cd?.transaction_id;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1e9) throw new TrackError(400, "INVALID_PURCHASE");
+  if (!/^[A-Z]{3}$/.test(currency)) throw new TrackError(400, "INVALID_PURCHASE");
+  const txId = tx == null || tx === "" ? null : String(tx).trim();
+  if (txId != null && !/^[A-Za-z0-9_.:/#-]{1,100}$/.test(txId)) throw new TrackError(400, "INVALID_PURCHASE");
+  return { value_micros: Math.round(value * 1_000_000), currency, transaction_id: txId };
+}
+
+const PERSONAL_KEY =
+  /^(e-?mail|email_address|phone|phone_number|telefone|fone|celular|whatsapp|cpf|cnpj|rg|nome|name|first_?name|last_?name|full_?name|nome_completo|sobrenome|endereco|endereço|address|cep|zip|zip_?code|birth_?date|data_nascimento|nascimento)$/i;
+const EMAIL_VALUE = /[^\s@]+@[^\s@]+\.[a-z]{2,}/i;
+const PHONE_OR_DOC_VALUE = /\d[\d\s().-]{9,}\d/;
+
+/** Tira dos dados extras o que parece dado pessoal (o certo é mandar só em hash, pelo "ud"). */
+export function stripPersonalData(cd: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(cd)) {
+    if (PERSONAL_KEY.test(k)) continue;
+    if (typeof v === "string" && (EMAIL_VALUE.test(v) || PHONE_OR_DOC_VALUE.test(v))) continue;
+    out[k] = v;
+  }
+  return out;
 }
 
 export function hostOf(url: string | null | undefined): string | null {
@@ -158,6 +193,7 @@ export function buildIngest(b: Beacon, container: Container, opts: { nowMs: numb
     device_type: deviceFromUserAgent(opts.userAgent),
     consent_status: b.c === "concedido" ? "concedido" : "nao_exigido",
     consent_version: b.cv ?? null,
+    user: b.ud ?? null,
     event: {
       event_id: b.e,
       name: b.n,
@@ -165,7 +201,8 @@ export function buildIngest(b: Beacon, container: Container, opts: { nowMs: numb
       page_url: page.url,
       page_path: page.path,
       referrer_host: referrerHost,
-      custom_data: b.cd ?? {},
+      custom_data: stripPersonalData(b.cd ?? {}),
+      ...(b.n === "Purchase" ? purchaseOf(b) : {}),
     },
     touch,
   };

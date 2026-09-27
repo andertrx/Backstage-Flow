@@ -3,7 +3,10 @@
  * Supabase SIMULADO (support.mjs). O script roda num site fictício servido
  * pelo próprio teste; o envio dos eventos é interceptado (nada sai daqui).
  */
+import { createHash } from "node:crypto";
 import { BASE, check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
+
+const sha = (t) => createHash("sha256").update(t).digest("hex");
 
 const EXC = "e0000000-0000-4000-8000-000000000001";
 const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -54,6 +57,10 @@ function seedClients(db) {
   check(blocks.some((b) => b.startsWith("{lpurl}?utm_source=google")), "modelo de rastreamento do Google Ads");
   check(!blocks.join(" ").match(/service_role|secret|sb_secret|eyJ/), "nenhum segredo no código de instalação");
   await install.screenshot({ path: `${SHOTS}/tracking-instalar.png` });
+  await install.getByLabel("Capturar formulários como Lead automaticamente").check();
+  const withForms = (await install.getByTestId("copy-block").allInnerTexts())[0];
+  check(withForms.endsWith(' data-forms="lead"></script>'), "opção de capturar formulários entra no código de instalação");
+  check((await install.innerText()).includes('bf("track", "Purchase", { value: 199.90, currency: "BRL", transaction_id:'), "exemplo de compra com valor, moeda e nº do pedido");
   await install.getByRole("button", { name: "Fechar", exact: true }).click();
 
   const card = page.getByTestId("container-card");
@@ -108,6 +115,45 @@ function seedClients(db) {
   await tester.getByText("Cole a URL completa").waitFor();
   check(true, "testar link: URL incompleta explica o erro");
 
+  // 34.2: leads, conversões e jornada
+  const touchSummary = { channel: "meta", evidence: "confirmada", paid: true, utm_campaign: "Black Friday", ad_campaign_id: "120" };
+  db.trackingEvents.push(
+    { event_id: "e4", container_id: cid, event_name: "Purchase", occurred_at: ago(3), page_path: "/pedido", test: true, touchpoint_id: null, session_id: "s1", visitor_id: "v1" },
+    { event_id: "e5", container_id: cid, event_name: "Purchase", occurred_at: ago(2), page_path: "/pedido", test: true, touchpoint_id: null, session_id: "s1", visitor_id: "v1" },
+  );
+  db.trackingPurchases.push(
+    { id: 1, container_id: cid, occurred_at: ago(3), value_micros: 199_900_000, currency: "BRL", transaction_id: "P-1" },
+    { id: 2, container_id: cid, occurred_at: ago(2), value_micros: 50_000_000, currency: "USD", transaction_id: "P-2" },
+  );
+  db.trackingLeads.push(
+    { id: 7, container_id: cid, first_event_name: "Lead", first_converted_at: ago(4), last_converted_at: ago(2), conversions: 3, purchases: 2, test: true, em_hash: sha("ana@x.com"), ph_hash: null, first_touch: touchSummary, last_touch: { ...touchSummary, channel: "google", utm_campaign: null, ad_campaign_id: null } },
+    { id: 8, container_id: cid, first_event_name: "Lead", first_converted_at: ago(30), last_converted_at: ago(30), conversions: 1, purchases: 0, test: true, em_hash: null, ph_hash: null, first_touch: null, last_touch: null },
+  );
+  db.trackingJourneys[7] = [
+    { kind: "origem", occurred_at: ago(5), name: null, channel: "meta", paid: true, evidence: "confirmada", reason: "IDs", campaign: "Black Friday", page_path: null, value_micros: null, currency: null, transaction_id: null, visitor_id: "v1", test: false },
+    { kind: "evento", occurred_at: ago(4), name: "Lead", channel: null, paid: null, evidence: null, reason: null, campaign: null, page_path: "/obrigado", value_micros: null, currency: null, transaction_id: null, visitor_id: "v1", test: true },
+    { kind: "origem", occurred_at: ago(3.5), name: null, channel: "google", paid: true, evidence: "confirmada", reason: "gclid", campaign: null, page_path: null, value_micros: null, currency: null, transaction_id: null, visitor_id: "v9", test: false },
+    { kind: "compra", occurred_at: ago(3), name: "Purchase", channel: null, paid: null, evidence: null, reason: null, campaign: null, page_path: null, value_micros: 199_900_000, currency: "BRL", transaction_id: "P-1", visitor_id: "v9", test: true },
+  ];
+  await page.reload();
+  await page.getByTestId("lead-row").first().waitFor();
+  const convStats = (await page.getByRole("list", { name: "Conversões do período" }).innerText()).replace(/\s+/g, " ");
+  check(/Leads 1 Conversões 3 Compras 2/.test(convStats), `conversões do dia (${convStats})`);
+  const revenue = (await page.getByTestId("tracking-revenue").innerText()).replace(/\u00a0/g, " ");
+  check(revenue.includes("R$ 199,90") && revenue.includes("US$ 50,00") && !revenue.includes("249"), "receita separada por moeda (BRL e USD nunca somados)");
+  const leadRows = await page.getByTestId("lead-row").allInnerTexts();
+  check(leadRows[0].includes("E-mail") && leadRows[0].includes("Meta Ads · Confirmada · Black Friday") && leadRows[0].includes("Google Ads") && leadRows[0].includes("2 compras"), "lead com e-mail, primeira origem Meta, última Google e compras");
+  check(!(await page.getByTestId("leads").innerText()).includes(sha("ana@x.com").slice(0, 12)), "o hash do e-mail não aparece na tela");
+  check(leadRows[1].includes("Anônimo") && leadRows[1].includes("Origem desconhecida"), "lead sem contato nem origem: anônimo e origem desconhecida (não inventa)");
+  await page.getByRole("button", { name: "Ver jornada do lead 7" }).click();
+  const journey = page.getByRole("dialog", { name: "Jornada do lead" });
+  await journey.getByTestId("journey-item").first().waitFor();
+  const steps = (await journey.getByTestId("journey-item").allInnerTexts()).map((t) => t.replace(/\s+/g, " "));
+  check(steps.length === 4 && steps[0].includes("Chegou por Meta Ads") && steps[1].includes("Lead em /obrigado") && steps[2].includes("Chegou por Google Ads") && steps[3].includes("Compra de R$ 199,90") && steps[3].includes("pedido P-1"), "jornada em ordem: Meta → Lead → Google → Compra");
+  check((await journey.innerText()).includes("Visto em 2 aparelhos"), "jornada mostra que a pessoa usou 2 aparelhos");
+  await journey.screenshot({ path: `${SHOTS}/tracking-jornada.png` });
+  await journey.getByRole("button", { name: "Fechar", exact: true }).click();
+
   await page.screenshot({ path: `${SHOTS}/tracking.png`, fullPage: true });
   check(errors.length === 0, `sem erros na página${errors.length ? `: ${errors.join(" | ")}` : ""}`);
   await browser.close();
@@ -146,9 +192,11 @@ const ENDPOINT = "https://coletor.teste.example/track";
 // O t.js publicado pelo site (dist), servido como se viesse de outro domínio (igual à vida real).
 const SCRIPT_URL = "https://cdn.teste.example/t.js";
 const SCRIPT = await (await fetch(`${BASE}/t.js`)).text();
-const html = (extra = "", attrs = "") => `<!doctype html><html><head><title>Site</title>
+// Site sem UTF-8 declarado lê acentos errado: o código do script precisa ser só ASCII (comentários podem ter acento).
+check(/^[\x00-\x7F]*$/.test(SCRIPT.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")), "código do t.js só com caracteres simples (funciona em site sem UTF-8)");
+const html = (extra = "", attrs = "", body = "") => `<!doctype html><html><head><title>Site</title>
 <script>window.bf = window.bf || function () { (window.bf.q = window.bf.q || []).push(arguments); }; bf("track", "ViewContent", { produto: "plano" });</script>
-<script async src="${SCRIPT_URL}" data-key="${KEY}" data-endpoint="${ENDPOINT}"${attrs}></script>${extra}</head><body><h1>Oi</h1></body></html>`;
+<script async src="${SCRIPT_URL}" data-key="${KEY}" data-endpoint="${ENDPOINT}"${attrs}></script>${extra}</head><body><h1>Oi</h1>${body}</body></html>`;
 
 async function site(page, sent, markup) {
   await page.route(`${SITE}/**`, (route) => route.fulfill({ status: 200, contentType: "text/html", body: markup }));
@@ -234,4 +282,71 @@ const waitSent = async (page, sent, n) => {
   await browser.close();
 }
 
-console.log("\nEtapa 34.1 (tracking): todos os testes passaram.");
+{
+  // 34.2: formulários, WhatsApp, identificação e compra
+  const FORM = `
+    <form id="orcamento" onsubmit="event.preventDefault()">
+      <input name="nome" aria-label="Nome"><input type="email" name="email" aria-label="E-mail"><input type="tel" name="whatsapp" aria-label="WhatsApp">
+      <input type="password" name="senha" aria-label="Senha"><button>Enviar</button>
+    </form>
+    <form id="busca" onsubmit="event.preventDefault()"><input name="q" aria-label="Buscar"><button>Buscar</button></form>
+    <a href="https://wa.me/5545999998888?text=oi" target="_blank" onclick="event.preventDefault()">Fale no WhatsApp</a>`;
+  const { browser, page, errors } = await launch();
+  const sent = [];
+  await site(page, sent, html("", ' data-forms="lead"', FORM));
+  await page.goto(`${SITE}/`);
+  await waitSent(page, sent, 2);
+  sent.length = 0;
+
+  await page.getByLabel("Nome").fill("Ana Maria Souza");
+  await page.getByLabel("E-mail").fill("  Ana@X.com ");
+  await page.getByLabel("WhatsApp").fill("(45) 99999-8888");
+  await page.getByLabel("Senha").fill("segredo123");
+  await page.getByRole("button", { name: "Enviar" }).click();
+  await waitSent(page, sent, 1);
+  const lead = sent.find((b) => b.n === "Lead");
+  check(lead && lead.cd.formulario === "orcamento", "formulário com e-mail/telefone enviado = Lead (com o nome do formulário)");
+  check(lead.ud.em === sha("ana@x.com") && lead.ud.ph === sha("5545999998888") && lead.ud.fn === sha("ana") && lead.ud.ln === sha("souza"),
+    "e-mail, telefone e nome cifrados no navegador com a mesma regra do servidor (padrão do Meta)");
+  const raw = JSON.stringify(sent);
+  check(!/ana@x|99999|souza|segredo/i.test(raw), "nenhum dado legível (nem a senha) sai do navegador");
+
+  sent.length = 0;
+  await page.getByLabel("Buscar").fill("planos");
+  await page.getByRole("button", { name: "Buscar" }).click();
+  await page.waitForTimeout(500);
+  check(sent.length === 0, "formulário sem e-mail/telefone (busca) não vira Lead");
+
+  await page.getByRole("link", { name: "Fale no WhatsApp" }).click();
+  await waitSent(page, sent, 1);
+  check(sent.some((b) => b.n === "Contact" && b.cd.canal === "whatsapp" && !b.ud), "clique no WhatsApp = Contato (sem dados pessoais)");
+
+  sent.length = 0;
+  await page.evaluate(() => window.bf("identify", { email: "joao@y.com" }));
+  await page.waitForTimeout(200);
+  await page.evaluate(() => window.bf("track", "Purchase", { value: 199.9, currency: "BRL", transaction_id: "P-1" }));
+  await page.evaluate(() => window.bf("track", "ViewContent", { item: "x" }));
+  await waitSent(page, sent, 2);
+  const buy = sent.find((b) => b.n === "Purchase");
+  check(buy && buy.cd.value === 199.9 && buy.cd.currency === "BRL" && buy.cd.transaction_id === "P-1" && buy.ud?.em === sha("joao@y.com"), "compra leva valor, moeda, nº do pedido e a identificação feita antes (em hash)");
+  check(!sent.find((b) => b.n === "ViewContent").ud, "identificação só vai junto de conversões");
+  check(errors.length === 0, `sem erros no site${errors.length ? `: ${errors.join(" | ")}` : ""}`);
+  await browser.close();
+}
+
+{
+  // Sem data-forms="lead": formulários não são capturados
+  const { browser, page } = await launch();
+  const sent = [];
+  await site(page, sent, html("", "", '<form onsubmit="event.preventDefault()"><input type="email" aria-label="E-mail"><button>Enviar</button></form>'));
+  await page.goto(`${SITE}/`);
+  await waitSent(page, sent, 2);
+  sent.length = 0;
+  await page.getByLabel("E-mail").fill("ana@x.com");
+  await page.getByRole("button", { name: "Enviar" }).click();
+  await page.waitForTimeout(500);
+  check(sent.length === 0, "captura de formulários só funciona quando ligada");
+  await browser.close();
+}
+
+console.log("\nEtapa 34 (tracking 34.1 + 34.2): todos os testes passaram.");

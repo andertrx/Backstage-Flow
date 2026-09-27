@@ -58,20 +58,81 @@
       return { visitor: visitor, session: session, isNew: !!isNew };
     };
 
-    var send = function (name, data) {
+    // ---- Dados de contato: normalizados e cifrados (SHA-256) AQUI, no navegador.
+    // Mesmas regras de packages/shared/src/tracking/identity.ts (normalizeLead*) (padrão do Meta).
+    // O texto legível nunca é enviado. Site sem https (sem crypto.subtle): nada vai.
+    var CONVERSIONS = { Lead: 1, CompleteRegistration: 1, SubmitApplication: 1, Schedule: 1, Purchase: 1 };
+    var NOT_LETTER;
+    try { NOT_LETTER = new RegExp("[^\\p{L}]", "gu"); } catch (e) { NOT_LETTER = /[^a-z\u00c0-\u024f]/g; }
+    var norm = {
+      em: function (v) { var t = String(v || "").trim().toLowerCase(); return /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(t) && t.length <= 254 ? t : null; },
+      ph: function (v) {
+        var raw = String(v || ""), intl = /^\s*(\+|00)/.test(raw), n = raw.replace(/\D/g, "").replace(/^0+/, "");
+        if (!intl && (n.length === 10 || n.length === 11)) n = "55" + n;
+        return n.length >= 11 && n.length <= 15 ? n : null;
+      },
+      nm: function (v) { var t = String(v || "").trim().toLowerCase(); if (t.normalize) t = t.normalize("NFC"); t = t.replace(NOT_LETTER, ""); return t ? t.slice(0, 100) : null; }
+    };
+    var canHash = !!(w.crypto && w.crypto.subtle && w.TextEncoder);
+    var hashCache = {};
+    var sha = function (text) {
+      if (hashCache[text]) return Promise.resolve(hashCache[text]);
+      return w.crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)).then(function (buf) {
+        var a = new Uint8Array(buf), h = "";
+        for (var i = 0; i < a.length; i++) h += (a[i] < 16 ? "0" : "") + a[i].toString(16);
+        hashCache[text] = h;
+        return h;
+      });
+    };
+    // {email, phone, first_name, last_name | name} → {em, ph, fn, ln} já normalizados (texto).
+    var plainUser = function (u) {
+      if (!u || typeof u !== "object") return {};
+      var first = u.first_name || u.firstName, last = u.last_name || u.lastName;
+      if (!first && u.name) {
+        var parts = String(u.name).trim().split(/\s+/);
+        first = parts[0];
+        if (!last && parts.length > 1) last = parts[parts.length - 1];
+      }
+      var p = { em: norm.em(u.email), ph: norm.ph(u.phone), fn: norm.nm(first), ln: norm.nm(last) }, out = {};
+      for (var k in p) if (p[k]) out[k] = p[k];
+      return out;
+    };
+    // Já cifrado antes (ex.: ao sair do campo)? Então dá para enviar na hora, mesmo com a página indo embora.
+    var hashNow = function (plain) {
+      var out = {}, n = 0;
+      for (var k in plain) { if (!hashCache[plain[k]]) return null; out[k] = hashCache[plain[k]]; n++; }
+      return n ? out : null;
+    };
+    var hashUser = function (u) {
+      var plain = plainUser(u), keys = [], jobs = [];
+      if (!canHash) return Promise.resolve(null);
+      for (var k in plain) { keys.push(k); jobs.push(sha(plain[k])); }
+      return Promise.all(jobs).then(function (h) {
+        if (!h.length) return null;
+        var out = {};
+        for (var i = 0; i < h.length; i++) out[keys[i]] = h[i];
+        return out;
+      });
+    };
+    var identity = null;
+    try { if (consent) identity = JSON.parse(sessionStorage.getItem("_bfu") || "null"); } catch (e) { identity = null; }
+
+    var send = function (name, data, ud) {
       if (!consent) {
-        if (queue.length < 20) queue.push([name, data, Date.now(), location.href, d.referrer]);
+        if (queue.length < 20) queue.push([name, data, Date.now(), location.href, d.referrer, ud]);
         return;
       }
-      transmit(name, data, Date.now(), location.href, d.referrer);
+      transmit(name, data, Date.now(), location.href, d.referrer, ud);
     };
-    var transmit = function (name, data, at, url, referrer) {
+    var transmit = function (name, data, at, url, referrer, ud) {
       var s = ids();
       var body = { k: KEY, v: s.visitor, s: s.session, e: at.toString(36) + "." + rand(12), n: name, t: at, u: url };
       if (referrer) body.r = referrer;
       if (s.isNew) body.nt = true;
       if (NEEDS_CONSENT) body.c = "concedido";
       if (data && typeof data === "object") body.cd = data;
+      if (!ud && CONVERSIONS[name] && identity) ud = identity;
+      if (ud) body.ud = ud;
       var json = JSON.stringify(body);
       try {
         if (navigator.sendBeacon && navigator.sendBeacon(ENDPOINT, new Blob([json], { type: "text/plain" }))) return;
@@ -80,19 +141,34 @@
         fetch(ENDPOINT, { method: "POST", body: json, keepalive: true, mode: "no-cors", headers: { "Content-Type": "text/plain" } });
       } catch (e) { /* nunca quebra o site */ }
     };
+    var track = function (name, data, user) {
+      if (!user) return send(name, data);
+      var ready = canHash ? hashNow(plainUser(user)) : null;
+      if (ready || !canHash) return send(name, data, ready);
+      hashUser(user).then(function (ud) { send(name, data, ud); }, function () { send(name, data); });
+    };
 
-    var api = function (cmd, a, b) {
+    var api = function (cmd, a, b, c) {
       try {
-        if (cmd === "track" && typeof a === "string" && /^[A-Za-z][A-Za-z0-9_]{1,49}$/.test(a)) send(a, b);
-        else if (cmd === "consent") {
+        if (cmd === "track" && typeof a === "string" && /^[A-Za-z][A-Za-z0-9_]{1,49}$/.test(a)) track(a, b, c);
+        else if (cmd === "identify") {
+          hashUser(a).then(function (ud) {
+            if (!ud) return;
+            identity = identity || {};
+            for (var k in ud) identity[k] = ud[k];
+            try { if (consent) sessionStorage.setItem("_bfu", JSON.stringify(identity)); } catch (e) { /* sem armazenamento */ }
+          });
+        } else if (cmd === "consent") {
           consent = a !== false;
           if (consent) {
             setCookie("_bfc", "1", 365 * 24 * 3600);
             var q = queue;
             queue = [];
-            for (var i = 0; i < q.length; i++) transmit(q[i][0], q[i][1], q[i][2], q[i][3], q[i][4]);
+            for (var i = 0; i < q.length; i++) transmit(q[i][0], q[i][1], q[i][2], q[i][3], q[i][4], q[i][5]);
           } else {
             queue = [];
+            identity = null;
+            try { sessionStorage.removeItem("_bfu"); } catch (e) { /* sem armazenamento */ }
             setCookie("_bfc", "0", 365 * 24 * 3600);
           }
         }
@@ -100,6 +176,55 @@
     };
     var pending = (w.bf && w.bf.q) || [];
     w.bf = api;
+
+    // ---- Formulários (só com data-forms="lead"): envio com e-mail ou telefone = Lead.
+    var fieldKind = function (inp) {
+      var t = (inp.type || "").toLowerCase();
+      if (t === "password" || t === "hidden" || t === "checkbox" || t === "radio" || t === "submit") return null;
+      var n = ((inp.name || "") + " " + (inp.id || "") + " " + (inp.getAttribute("autocomplete") || "")).toLowerCase();
+      if (t === "email" || /e-?mail/.test(n)) return "email";
+      if (t === "tel" || /(phone|fone|tel|celular|whats)/.test(n)) return "phone";
+      if (/(first|given|primeiro)/.test(n)) return "first_name";
+      if (/(last|family|sobrenome|surname)/.test(n)) return "last_name";
+      if (/(^|[\s_-])(nome|name|full)/.test(n)) return "name";
+      return null;
+    };
+    if (el.getAttribute("data-forms") === "lead") {
+      // Cifra ao sair do campo: no envio o hash já está pronto (a página pode ir embora logo depois).
+      d.addEventListener("change", function (ev) {
+        try {
+          var k = ev.target && ev.target.tagName === "INPUT" ? fieldKind(ev.target) : null;
+          if (k && canHash) { var u = {}; u[k] = ev.target.value; hashUser(u); }
+        } catch (e) { /* nunca quebra o site */ }
+      }, true);
+      d.addEventListener("submit", function (ev) {
+        try {
+          var f = ev.target, u = {}, found = false;
+          if (!f || !f.elements) return;
+          for (var i = 0; i < f.elements.length; i++) {
+            var inp = f.elements[i], k = inp.tagName === "INPUT" ? fieldKind(inp) : null;
+            if (k && inp.value && !u[k]) {
+              u[k] = inp.value;
+              if (k === "email" || k === "phone") found = true;
+            }
+          }
+          if (!found) return;
+          track("Lead", { formulario: (f.getAttribute("id") || f.getAttribute("name") || "sem_nome").slice(0, 80) }, u);
+        } catch (e) { /* nunca quebra o site */ }
+      }, true);
+    }
+
+    // ---- Clique para o WhatsApp = Contact (desligar com data-whatsapp="off").
+    if (el.getAttribute("data-whatsapp") !== "off") {
+      d.addEventListener("click", function (ev) {
+        try {
+          var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
+          if (a && /^(https?:\/\/)?(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)(\/|$|\?)|^whatsapp:/i.test(a.getAttribute("href") || "")) {
+            send("Contact", { canal: "whatsapp" });
+          }
+        } catch (e) { /* nunca quebra o site */ }
+      }, true);
+    }
 
     send("PageView");
     for (var i = 0; i < pending.length; i++) api.apply(null, pending[i]);

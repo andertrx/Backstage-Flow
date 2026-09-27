@@ -73,6 +73,10 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     trackingContainers: [],
     trackingTouchpoints: [],
     trackingEvents: [],
+    /** Leads (com first_touch/last_touch já resumidos), compras e jornada por lead. */
+    trackingLeads: [],
+    trackingPurchases: [],
+    trackingJourneys: {},
   };
 }
 
@@ -284,6 +288,31 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           last_event_at: ev.length ? ev.map((e) => e.occurred_at).sort().at(-1) : null,
         };
       }));
+    }
+    if (url.includes("/rest/v1/rpc/tracking_conversions_summary")) {
+      const p = parse();
+      const inRange = (t) => t >= p.p_from && t < p.p_to;
+      const conv = ["Lead", "CompleteRegistration", "SubmitApplication", "Schedule", "Purchase"];
+      const rows = [];
+      for (const c of db.trackingContainers) {
+        const ev = db.trackingEvents.filter((e) => e.container_id === c.id && conv.includes(e.event_name) && inRange(e.occurred_at));
+        if (ev.length) rows.push({ container_id: c.id, currency: null, leads: ev.filter((e) => e.event_name === "Lead").length, conversions: ev.length, purchases: 0, revenue_micros: 0 });
+        const byCur = new Map();
+        for (const pu of db.trackingPurchases.filter((x) => x.container_id === c.id && inRange(x.occurred_at))) {
+          const r = byCur.get(pu.currency) ?? { container_id: c.id, currency: pu.currency, leads: 0, conversions: 0, purchases: 0, revenue_micros: 0 };
+          r.purchases += 1;
+          r.revenue_micros += pu.value_micros;
+          byCur.set(pu.currency, r);
+        }
+        rows.push(...byCur.values());
+      }
+      return res(200, rows);
+    }
+    if (url.includes("/rest/v1/rpc/tracking_lead_journey")) {
+      return res(200, db.trackingJourneys[parse().p_lead_id] ?? []);
+    }
+    if (url.includes("/rest/v1/tracking_leads")) {
+      return res(200, [...db.trackingLeads].sort((a, b) => b.last_converted_at.localeCompare(a.last_converted_at)).slice(0, 50));
     }
     if (url.includes("/rest/v1/tracking_touchpoints")) {
       return res(200, [...db.trackingTouchpoints].sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)).slice(0, 50));

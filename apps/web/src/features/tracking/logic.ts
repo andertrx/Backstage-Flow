@@ -112,3 +112,38 @@ export function periodRange(preset: PeriodPreset, now = new Date()): { from: str
   const end = new Date(now.getTime() + 60_000);
   return { from: start.toISOString(), to: end.toISOString() };
 }
+
+/** Soma as conversões dos sites visíveis. Receita fica separada por moeda (nunca somar BRL com USD). */
+export function summarizeConversions(
+  rows: { container_id: string; currency: string | null; leads: number; conversions: number; purchases: number; revenue_micros: number }[],
+  visible: ReadonlySet<string>,
+) {
+  let leads = 0;
+  let conversions = 0;
+  let purchases = 0;
+  const revenue = new Map<string, number>();
+  for (const r of rows) {
+    if (!visible.has(r.container_id)) continue;
+    leads += Number(r.leads);
+    conversions += Number(r.conversions);
+    purchases += Number(r.purchases);
+    if (r.currency) revenue.set(r.currency, (revenue.get(r.currency) ?? 0) + Number(r.revenue_micros));
+  }
+  return {
+    leads,
+    conversions,
+    purchases,
+    revenue: [...revenue.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([currency, micros]) => ({ currency, micros })),
+  };
+}
+
+/** Exemplos para a janela de instalação. */
+export const PURCHASE_EXAMPLE = `bf("track", "Purchase", { value: 199.90, currency: "BRL", transaction_id: "PEDIDO-123" });`;
+export const IDENTIFY_EXAMPLE =
+  `bf("track", "Lead", { formulario: "orcamento" }, { email: "ana@exemplo.com", phone: "(45) 99999-8888", name: "Ana Souza" });\n` +
+  `// O e-mail, o telefone e o nome são cifrados no navegador: só o código (hash) é enviado.`;
+
+export function installSnippetWithOptions(publicKey: string, consentMode: ConsentMode, opts: { forms: boolean }, scriptUrl = TRACKING_SCRIPT_URL): string {
+  const base = installSnippet(publicKey, consentMode, scriptUrl);
+  return opts.forms ? base.replace("></script>", ' data-forms="lead"></script>') : base;
+}

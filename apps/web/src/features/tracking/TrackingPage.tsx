@@ -5,6 +5,7 @@ import {
   classifyTouch,
   type Evidence,
   EVIDENCE_LABELS,
+  eventLabel,
 } from "@backstage/shared";
 import { Code2, MousePointerClick, Pencil, Plus, Radar } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
@@ -16,18 +17,21 @@ import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useClients } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
-import { formatDateTime, formatRelative } from "@/lib/format.ts";
+import { formatDateTime, formatMoney, formatRelative } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import {
   type OverviewRow,
   type TrackingContainer,
+  useConversionsSummary,
   useRecentEvents,
+  useRecentLeads,
   useRecentTouchpoints,
   useTrackingContainers,
   useTrackingOverview,
 } from "./api.ts";
 import { ContainerFormModal, InstallModal } from "./ContainerModals.tsx";
-import { PERIOD_LABELS, type PeriodPreset, periodRange } from "./logic.ts";
+import { LeadsSection } from "./LeadsSection.tsx";
+import { PERIOD_LABELS, type PeriodPreset, periodRange, summarizeConversions } from "./logic.ts";
 
 const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
   confirmada: "success",
@@ -57,6 +61,8 @@ export function TrackingPage() {
   const overview = useTrackingOverview(range.from, range.to, hasContainers);
   const touchpoints = useRecentTouchpoints(hasContainers);
   const events = useRecentEvents(hasContainers);
+  const leads = useRecentLeads(hasContainers);
+  const conversions = useConversionsSummary(range.from, range.to, hasContainers);
 
   const [editing, setEditing] = useState<TrackingContainer | "new" | null>(null);
   const [installing, setInstalling] = useState<TrackingContainer | null>(null);
@@ -66,6 +72,7 @@ export function TrackingPage() {
   const byId = new Map(containers.map((c) => [c.id, c]));
   const stats = new Map((overview.data ?? []).map((r) => [r.container_id, r]));
   const total = sumOverview(visible.map((c) => stats.get(c.id)).filter((r): r is OverviewRow => !!r));
+  const conv = summarizeConversions(conversions.data ?? [], visibleIds);
 
   return (
     <div className="space-y-6">
@@ -84,8 +91,8 @@ export function TrackingPage() {
       </div>
 
       <Alert tone="info">
-        Fase atual: coleta de visitas e da origem de cada chegada (UTMs, fbclid, gclid e IDs do anúncio). O envio de conversões ao Meta
-        (API de Conversões) entra na próxima fase.
+        Fase atual: visitas, origem de cada chegada (UTMs, fbclid, gclid e IDs do anúncio), leads, compras e a jornada de cada lead.
+        O envio das conversões ao Meta (API de Conversões) entra na próxima fase.
       </Alert>
 
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
@@ -128,6 +135,22 @@ export function TrackingPage() {
             <Stat label="Origem desconhecida" value={total.unknown_origin_sessions} hint="Sessões sem parâmetros nem site de origem." />
           </div>
 
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" role="list" aria-label="Conversões do período">
+            <Stat label="Leads" value={conv.leads} hint="Eventos Lead no período." />
+            <Stat label="Conversões" value={conv.conversions} hint="Lead, cadastro, inscrição, agendamento e compra." />
+            <Stat label="Compras" value={conv.purchases} hint="Sem repetir o mesmo nº de pedido." />
+            <div role="listitem" className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200" data-testid="tracking-revenue">
+              <span className="block text-xs font-medium text-slate-500">Receita do site</span>
+              {conv.revenue.length === 0 ? (
+                <span className="text-2xl font-semibold text-slate-900">—</span>
+              ) : (
+                conv.revenue.map((r) => (
+                  <span key={r.currency} className="block text-lg font-semibold text-slate-900">{formatMoney(r.micros / 1_000_000, r.currency)}</span>
+                ))
+              )}
+            </div>
+          </div>
+
           <section aria-label="Sites configurados" className="space-y-3">
             <h2 className="text-base font-semibold text-slate-900">Sites</h2>
             <ul className="grid gap-3 lg:grid-cols-2">
@@ -143,6 +166,11 @@ export function TrackingPage() {
               ))}
             </ul>
           </section>
+
+          <LeadsSection
+            leads={(leads.data ?? []).filter((l) => visibleIds.has(l.container_id))}
+            siteName={(id) => byId.get(id)?.name ?? "—"}
+          />
 
           <section aria-label="Últimas origens" className="space-y-3">
             <h2 className="text-base font-semibold text-slate-900">Últimas chegadas e origem</h2>
@@ -189,7 +217,7 @@ export function TrackingPage() {
                 {(events.data ?? []).filter((e) => visibleIds.has(e.container_id)).map((e) => (
                   <li key={`${e.container_id}-${e.event_id}`} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2" data-testid="event-row">
                     <span className="flex min-w-0 items-center gap-2">
-                      <span className="font-medium text-slate-900">{e.event_name}</span>
+                      <span className="font-medium text-slate-900">{eventLabel(e.event_name)}</span>
                       <span className="truncate text-slate-500">{e.page_path ?? ""}</span>
                       {e.test && <Badge tone="warning">Teste</Badge>}
                     </span>

@@ -42,6 +42,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 33 — Agente de IA](docs/etapa-33-agente-ia/README.md) *(em espera, a pedido — auditoria e plano prontos, nada implementado)*
 - [Etapa 34 — Tracking & Atribuição (CAPI)](docs/etapa-34-tracking/ANALISE-E-PLANO.md) *(em andamento)*
   - [34.1 — Fundação: script no site, recepção de eventos e origem](docs/etapa-34-tracking/34.1-FUNDACAO.md)
+  - [34.2 — Eventos de conversão, leads (dados só em hash) e jornada](docs/etapa-34-tracking/34.2-EVENTOS-E-LEADS.md)
 
 ## Estrutura
 
