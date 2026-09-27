@@ -38,7 +38,7 @@ export function BalanceSettingsModal({ balance, onClose }: { balance: AccountBal
         <p className="text-sm text-slate-600">
           Conta <strong>{balance.name}</strong>. O alerta aparece quando <strong>qualquer</strong> das regras abaixo for atingida.
         </p>
-        <Field label="Avisar quando o saldo durar menos de (dias)" hint="Com base no gasto médio dos últimos 7 dias.">
+        <Field label="Avisar quando o saldo durar menos de (dias)" hint="Com base no gasto médio dos 2 dias anteriores (ontem e anteontem).">
           {(id) => <Input id={id} type="number" min={1} max={60} value={days} onChange={(e) => setDays(e.target.value)} />}
         </Field>
         <Field label={`Avisar quando o disponível for até (${balance.currency ?? "moeda da conta"})`} hint="Opcional. Deixe vazio para não usar.">

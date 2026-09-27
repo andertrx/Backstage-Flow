@@ -39,7 +39,7 @@ export interface BalanceInput {
   status: string;
   available_micros: number | null;
   spend_last_7_days_micros: number | null;
-  /** Quantos dias (dos últimos 7 completos) têm dados de gasto. */
+  /** Quantos dias (dos 2 anteriores: ontem e anteontem) têm dados de gasto. */
   spend_days: number;
   low_balance_days: number;
   low_balance_amount_micros: number | null;

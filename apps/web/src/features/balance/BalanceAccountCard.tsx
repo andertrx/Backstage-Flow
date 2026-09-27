@@ -120,7 +120,7 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
             <div>
               <p className="flex items-center gap-1 text-xs text-slate-500">
                 Previsão de duração
-                <InfoTooltip label="Sobre Previsão de duração">Valor disponível ÷ gasto médio por dia.</InfoTooltip>
+                <InfoTooltip label="Sobre Previsão de duração">Valor disponível ÷ gasto médio por dia dos 2 dias anteriores (ontem e anteontem).</InfoTooltip>
               </p>
               <p className={cn("text-lg font-semibold", a.forecastDays == null ? "text-slate-400" : a.alerts.length > 0 ? "text-amber-700" : "text-slate-900")}>
                 {a.forecastDays != null ? describeForecast(a.forecastDays) : "—"}
@@ -135,7 +135,7 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
             {rows.filter((r) => r.value != null).map((r) => (
               <Row key={r.label} label={r.label} hint={r.hint}>{r.value}</Row>
             ))}
-            <Row label="Gasto médio por dia" hint="Média dos últimos 7 dias completos com dados (hoje não conta).">
+            <Row label="Gasto médio por dia" hint="Média dos 2 dias anteriores: ontem e anteontem (hoje não conta, ainda está incompleto).">
               {a.avgDailySpendMicros == null ? <Missing text="Sem histórico de gasto." /> : formatMoney(a.avgDailySpendMicros / 1_000_000, currency)}
             </Row>
             <Row label="Última atualização">

@@ -15,7 +15,7 @@ O dashboard ganhou a área **"Saldo por conta"**, com uma ficha para cada conta 
 | **Crédito disponível** | As APIs usadas **não informam**, então aparece "Informação não disponível pela API." |
 | **Valor devido** (Meta) | O que o Meta informa como devido na próxima cobrança |
 | **Forma de pagamento** (Meta) | Texto do Meta, **exatamente como veio** (ex.: "Visa final 1234") |
-| **Gasto médio por dia** | Média dos últimos 7 dias completos, calculada do nosso histórico |
+| **Gasto médio por dia** | Média dos **2 dias anteriores** (ontem e anteontem), calculada do nosso histórico. *(Até 27/09/2026 eram os últimos 7 dias; mudado a pedido.)* |
 | **Previsão de duração** | Disponível ÷ gasto médio. Ex.: "cerca de 2 dias" |
 | **Última atualização** | Quando o saldo foi consultado. Avisa se a consulta tiver mais de 24 horas |
 
@@ -64,7 +64,7 @@ Os botões e a configuração de alertas aparecem só para **administrador e ges
 | `account_snapshots.issues` | lista de textos | Problemas de cobrança. Só aceita códigos conhecidos |
 | `ad_accounts.low_balance_days` | inteiro (1 a 60, padrão 3) | Regra do alerta de saldo baixo por dias |
 | `ad_accounts.low_balance_amount_micros` | número inteiro (opcional) | Regra do alerta de saldo baixo por valor |
-| Consulta `account_balances` | — | Última fotografia de cada conta + gasto dos últimos 7 dias. Roda **com a permissão de quem pergunta** |
+| Consulta `account_balances` | — | Última fotografia de cada conta + gasto dos 2 dias anteriores (ontem e anteontem). Roda **com a permissão de quem pergunta** |
 
 **Retenção:** permanente. As fotografias formam o histórico do saldo.
 Só o servidor grava. O site apenas lê.
@@ -75,7 +75,7 @@ Só o servidor grava. O site apenas lê.
 |---|---|
 | **Banco** (`supabase/tests/etapa07_balance.sql`) | ✅ |
 | ↳ usa a fotografia mais recente | ✅ |
-| ↳ gasto de 7 dias sem contar hoje nem dias antigos | ✅ |
+| ↳ gasto dos 2 dias anteriores, sem contar hoje nem dias mais antigos | ✅ |
 | ↳ conta sem fotografia não quebra | ✅ |
 | ↳ problema desconhecido recusado | ✅ |
 | ↳ site não grava; gestor não vê cliente não liberado; visitante sem login bloqueado | ✅ |

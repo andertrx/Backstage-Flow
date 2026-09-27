@@ -27,10 +27,12 @@ insert into public.account_snapshots (ad_account_id, client_id, platform_id, sta
   ('00000000-0000-0000-0000-000000000701', '00000000-0000-0000-0000-0000000007f1', 'meta', 'ativa', 'BRL', now() - interval '1 hour', 1000000000, 700000000, 300000000, 'meta_spend_cap', 'Visa final 1234', '{}'),
   ('00000000-0000-0000-0000-000000000704', '00000000-0000-0000-0000-0000000007f2', 'google', 'pagamento_pendente', 'USD', now(), null, null, null, null, null, '{pagamento_pendente}');
 
--- Gasto dos últimos 7 dias completos (no fuso da conta): 2 dias, R$ 200 no total; hoje não conta
+-- Gasto dos 2 dias anteriores (ontem e anteontem, no fuso da conta): R$ 150 + R$ 50 = R$ 200 em 2 dias.
+-- Hoje, 3 dias atrás e 9 dias atrás NÃO contam.
 select public.ingest_metrics_daily(jsonb_build_array(
   jsonb_build_object('date', ((now() at time zone 'America/Sao_Paulo')::date - 1)::text, 'ad_account_id','00000000-0000-0000-0000-000000000701','level','account','entity_external_id','711','spend_micros',150000000),
-  jsonb_build_object('date', ((now() at time zone 'America/Sao_Paulo')::date - 3)::text, 'ad_account_id','00000000-0000-0000-0000-000000000701','level','account','entity_external_id','711','spend_micros',50000000),
+  jsonb_build_object('date', ((now() at time zone 'America/Sao_Paulo')::date - 2)::text, 'ad_account_id','00000000-0000-0000-0000-000000000701','level','account','entity_external_id','711','spend_micros',50000000),
+  jsonb_build_object('date', ((now() at time zone 'America/Sao_Paulo')::date - 3)::text, 'ad_account_id','00000000-0000-0000-0000-000000000701','level','account','entity_external_id','711','spend_micros',777000000),
   jsonb_build_object('date', ((now() at time zone 'America/Sao_Paulo')::date)::text,     'ad_account_id','00000000-0000-0000-0000-000000000701','level','account','entity_external_id','711','spend_micros',999000000),
   jsonb_build_object('date', ((now() at time zone 'America/Sao_Paulo')::date - 9)::text, 'ad_account_id','00000000-0000-0000-0000-000000000701','level','account','entity_external_id','711','spend_micros',999000000)
 ));
@@ -55,7 +57,7 @@ begin
   select * into b from public.account_balances() where ad_account_id = '00000000-0000-0000-0000-000000000701';
   if b.available_micros <> 300000000 or b.funding_description <> 'Visa final 1234' then raise exception 'FALHOU: não usou a fotografia mais recente'; end if;
   if b.spend_last_7_days_micros <> 200000000 or b.spend_days <> 2 then
-    raise exception 'FALHOU: gasto dos últimos 7 dias = % em % dias (hoje e dias antigos não contam)', b.spend_last_7_days_micros, b.spend_days;
+    raise exception 'FALHOU: gasto dos 2 dias anteriores = % em % dias (hoje e dias mais antigos não contam)', b.spend_last_7_days_micros, b.spend_days;
   end if;
   if b.low_balance_days <> 3 or b.low_balance_amount_micros is not null then raise exception 'FALHOU: limite padrão de alerta'; end if;
 
