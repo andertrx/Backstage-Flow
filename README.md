@@ -53,7 +53,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [34.5-W — WhatsApp (aplicativo comum): código de rastreio e marcação de Lead/Venda](docs/etapa-34-tracking/34.5-W-WHATSAPP.md)
   - [34.5-W2 — WhatsApp pela API oficial: conversas automáticas, anúncios de WhatsApp e envio business_messaging](docs/etapa-34-tracking/34.5-W2-WHATSAPP-API.md)
 - [Etapa 35 — Meta Ads Campaign Builder (auditoria e plano)](docs/etapa-35-campaign-builder/35.0-AUDITORIA.md) *(em espera: prompt enviado por engano; auditoria guardada para depois)*
-- [Etapa 36 — Central de Operações (auditoria e plano)](docs/etapa-36-central-operacoes/36.0-AUDITORIA.md) *(aguardando aprovação)*
+- [Etapa 36 — Central de Operações (auditoria e plano)](docs/etapa-36-central-operacoes/36.0-AUDITORIA.md) *(em andamento)*
+  - [36.1 — Setores, equipe e permissões](docs/etapa-36-central-operacoes/36.1-SETORES-EQUIPE.md) ✅ concluída
 
 ## Estrutura
 

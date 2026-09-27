@@ -10,13 +10,26 @@ describe("menu lateral", () => {
 
   it("somente administrador vê Configurações", () => {
     expect(labels("admin")).toContain("Configurações");
-    for (const role of ["gestor", "operador", "visualizador", "cliente"] as const) {
+    for (const role of ["gestor", "operador", "visualizador", "equipe", "cliente"] as const) {
       expect(labels(role)).not.toContain("Configurações");
     }
   });
 
   it("cliente vê apenas o Dashboard", () => {
     expect(labels("cliente")).toEqual(["Dashboard"]);
+  });
+
+  it("Central de Operações: admin sempre; os demais só com a permissão da Central", () => {
+    expect(labels("admin")).toContain("Central de Operações");
+    expect(labels("gestor")).not.toContain("Central de Operações");
+    expect(navItemsFor("gestor", ["ops.access"]).map((i) => i.label)).toContain("Central de Operações");
+    expect(navItemsFor("gestor", ["ops.kanban.view"]).map((i) => i.label)).not.toContain("Central de Operações");
+    expect(navItemsFor("cliente", ["ops.access"]).map((i) => i.label)).toEqual(["Dashboard"]);
+  });
+
+  it("papel Equipe vê só a Central de Operações", () => {
+    expect(labels("equipe")).toEqual([]);
+    expect(navItemsFor("equipe", ["ops.access"]).map((i) => i.label)).toEqual(["Central de Operações"]);
   });
 
   it("operador não vê Logs", () => {
@@ -26,9 +39,9 @@ describe("menu lateral", () => {
 });
 
 describe("grupos do menu", () => {
-  it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34)", () => {
+  it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36)", () => {
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Meta Ads", "Google Ads", "Campanhas",
+      "Dashboard", "Clientes", "Contas", "Central de Operações", "Meta Ads", "Google Ads", "Campanhas",
       "Relatórios", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações",
     ]);
   });

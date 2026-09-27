@@ -42,9 +42,13 @@ function ClientHome() {
   );
 }
 
-/** Na página inicial: o cliente vai para o painel dele; a equipe vê o Dashboard normal. */
+/**
+ * Na página inicial: o cliente vai para o painel dele; o papel Equipe (Etapa 36)
+ * vai para a Central de Operações; os demais veem o Dashboard normal.
+ */
 export function ClientHomeOr({ children }: { children: ReactNode }) {
   const { profile } = useAuth();
+  if (profile?.role === "equipe") return <Navigate to="/operacoes" replace />;
   return profile?.role === "cliente" ? <ClientHome /> : children;
 }
 

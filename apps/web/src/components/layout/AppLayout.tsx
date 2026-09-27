@@ -7,6 +7,7 @@ import { ErrorBoundary } from "@/components/feedback/ErrorBoundary.tsx";
 import { DemoBanner } from "@/components/feedback/DemoBanner.tsx";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { useUnseenAlertsCount } from "@/features/alerts/api.ts";
+import { useMyOpsPermissions } from "@/features/operations/api.ts";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { GlobalSearch } from "@/features/search/GlobalSearch.tsx";
 import { cn } from "@/lib/cn.ts";
@@ -21,9 +22,10 @@ const EXTRA_TITLES: Record<string, string> = { "/minha-conta": "Minha conta", "/
 function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const { profile } = useAuth();
   const { data: unseen = 0 } = useUnseenAlertsCount(can(profile?.role, "internal.view"));
+  const { data: opsPermissions } = useMyOpsPermissions();
   return (
     <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Menu principal">
-      {navGroupsFor(profile?.role).map(({ group, items }, gi) => (
+      {navGroupsFor(profile?.role, opsPermissions).map(({ group, items }, gi) => (
         <div key={group} className={cn(gi > 0 && "mt-5")}>
           {collapsed ? (
             gi > 0 && <div className="mx-2 mb-3 border-t border-white/10" aria-hidden />

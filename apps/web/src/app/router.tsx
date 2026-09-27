@@ -20,6 +20,10 @@ const ClientsPage = lazy(() => import("@/features/clients/ClientsPage.tsx").then
 const ExecutivePage = lazy(() => import("@/features/executive/ExecutivePage.tsx").then((m) => ({ default: m.ExecutivePage })));
 const ComparisonPage = lazy(() => import("@/features/comparison/ComparisonPage.tsx").then((m) => ({ default: m.ComparisonPage })));
 const AlertsPage = lazy(() => import("@/features/alerts/AlertsPage.tsx").then((m) => ({ default: m.AlertsPage })));
+const OpsLayout = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsLayout })));
+const OpsIndexRedirect = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsIndexRedirect })));
+const OpsTeamPage = lazy(() => import("@/features/operations/TeamPage.tsx").then((m) => ({ default: m.TeamPage })));
+const OpsSettingsPage = lazy(() => import("@/features/operations/OpsSettingsPage.tsx").then((m) => ({ default: m.OpsSettingsPage })));
 const TrackingPage = lazy(() => import("@/features/tracking/TrackingPage.tsx").then((m) => ({ default: m.TrackingPage })));
 const SyncPage = lazy(() => import("@/features/sync/SyncPage.tsx").then((m) => ({ default: m.SyncPage })));
 const LogsPage = lazy(() => import("@/features/logs/LogsPage.tsx").then((m) => ({ default: m.LogsPage })));
@@ -126,6 +130,16 @@ export const router = createBrowserRouter([
             <AlertsPage />
           </RequirePermission>
         ),
+      },
+      // Etapa 36: Central de Operações (permissões próprias, conferidas no banco).
+      {
+        path: "operacoes",
+        element: <OpsLayout />,
+        children: [
+          { index: true, element: <OpsIndexRedirect /> },
+          { path: "equipe", element: <OpsTeamPage /> },
+          { path: "configuracoes", element: <OpsSettingsPage /> },
+        ],
       },
       {
         path: "tracking",

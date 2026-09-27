@@ -16,6 +16,7 @@ export const AUDIT_CATEGORIES = [
   { value: "client_access", label: "Acesso a clientes" },
   { value: "ad_account", label: "Contas de anúncio" },
   { value: "connection", label: "Conexões com plataformas" },
+  { value: "ops_sector", label: "Central de Operações: setores" },
 ] as const;
 
 export type AuditCategory = (typeof AUDIT_CATEGORIES)[number]["value"];
@@ -38,6 +39,11 @@ const ACTION_LABELS: Record<string, string> = {
   "client_portal.link_new": "Gerou um novo link secreto do dashboard",
   "email_settings.update": "Alterou o envio de e-mails (Resend)",
   "email_settings.remove_key": "Removeu a chave do Resend",
+  "ops.sector.create": "Central de Operações: criou setor",
+  "ops.sector.update": "Central de Operações: alterou setor",
+  "ops.sector.reorder": "Central de Operações: mudou a ordem dos setores",
+  "ops.sector.status": "Central de Operações: mudou a situação do setor",
+  "ops.member.update": "Central de Operações: alterou setores/permissões da pessoa",
   "ad_account.insert": "Vinculou conta de anúncio",
   "ad_account.update": "Conta de anúncio alterada",
   "connection.insert": "Conectou plataforma",

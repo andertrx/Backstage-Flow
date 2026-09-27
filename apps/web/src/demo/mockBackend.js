@@ -110,6 +110,13 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     /** Resultado do "Resend" simulado: "ok" ou uma mensagem de erro. */
     emailResult: "ok",
     emailsSent: [],
+    /** Central de Operações (Etapa 36): setores, pessoas (setores, cargo, permissões). */
+    opsSectors: [
+      ["Comercial", "#7C3AED"], ["Atendimento", "#06B6D4"], ["Account Manager", "#A855F7"], ["Operacional", "#10B981"],
+      ["Design", "#F59E0B"], ["Copy", "#22D3EE"], ["Gestão de Tráfego", "#EF4444"], ["Social Media", "#EC4899"],
+      ["Desenvolvimento (Dev)", "#3B82F6"], ["Áudio e Vídeo", "#64748B"],
+    ].map(([name, color], i) => ({ id: `5ec70000-0000-4000-8000-0000000000${String(i + 10)}`, name, color, position: i + 1, status: "ativo" })),
+    opsMembers: {},
   };
 }
 
@@ -281,6 +288,74 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         for (const p of prefixes) delete db.storageObjects[p];
         return res(200, prefixes.map((name) => ({ name })));
       }
+    }
+    // --- Central de Operações (Etapa 36; mesmas regras de private.ops_can)
+    const OPS_ALL = ["ops.access", "ops.kanban.view", "ops.tasks.create", "ops.tasks.edit", "ops.tasks.archive", "ops.tasks.assign",
+      "ops.tasks.sector", "ops.cards.move", "ops.clients.view", "ops.history.edit", "ops.meetings.manage", "ops.dashboard.view", "ops.commercial"];
+    const me = db.opsMembers[userId];
+    const opsPerms = role === "admin" ? [...OPS_ALL, "ops.admin"]
+      : role !== "cliente" && me?.active && me.permissions.includes("ops.access") ? me.permissions : [];
+    const opsDeny = (msg = "Só o administrador pode mudar a configuração da Central de Operações.") => res(403, { code: "42501", message: msg });
+    const opsBad = (message) => res(400, { code: "22023", message });
+    if (url.includes("/rest/v1/rpc/ops_my_permissions")) return res(200, opsPerms);
+    if (url.includes("/rest/v1/ops_sectors")) {
+      return res(200, opsPerms.includes("ops.access") ? [...db.opsSectors].sort((a, b) => a.position - b.position) : []);
+    }
+    if (url.includes("/rest/v1/rpc/ops_team")) {
+      if (!opsPerms.includes("ops.access")) return res(200, []);
+      return res(200, db.profiles.filter((p) => p.role !== "cliente" && (db.opsMembers[p.id] || role === "admin")).map((p) => {
+        const m = db.opsMembers[p.id];
+        return { user_id: p.id, full_name: p.full_name, email: p.email, role: p.role, profile_active: p.active, in_ops: Boolean(m),
+          job_title: m?.job_title ?? null, member_active: m?.active ?? false, joins_meetings: m?.joins_meetings ?? false,
+          primary_sector_id: m?.primary ?? null, secondary_sector_ids: m?.secondary ?? [], permissions: role === "admin" ? (m?.permissions ?? []) : null };
+      }).sort((a, b) => a.full_name.localeCompare(b.full_name)));
+    }
+    if (url.includes("/rest/v1/rpc/ops_sector_save")) {
+      const p = parse();
+      if (role !== "admin") return opsDeny();
+      if (db.opsSectors.some((x) => x.status !== "arquivado" && x.name.toLowerCase() === p.p_name.trim().toLowerCase() && x.id !== p.p_id)) {
+        return opsBad("Já existe um setor com esse nome.");
+      }
+      db.rpcCalls.push({ fn: "ops_sector_save", ...p });
+      if (p.p_id) Object.assign(db.opsSectors.find((x) => x.id === p.p_id), { name: p.p_name.trim(), color: p.p_color });
+      else {
+        const id = crypto.randomUUID();
+        db.opsSectors.push({ id, name: p.p_name.trim(), color: p.p_color, position: Math.max(0, ...db.opsSectors.map((x) => x.position)) + 1, status: "ativo" });
+        return res(200, id);
+      }
+      return res(200, p.p_id);
+    }
+    if (url.includes("/rest/v1/rpc/ops_sector_reorder")) {
+      if (role !== "admin") return opsDeny();
+      parse().p_ids.forEach((id, i) => { const x = db.opsSectors.find((y) => y.id === id); if (x) x.position = i + 1; });
+      return res(204);
+    }
+    if (url.includes("/rest/v1/rpc/ops_sector_set_status")) {
+      const p = parse();
+      if (role !== "admin") return opsDeny();
+      const members = Object.values(db.opsMembers).filter((m) => m.primary === p.p_id || m.secondary.includes(p.p_id));
+      if (p.p_status !== "ativo" && members.length) {
+        if (!p.p_move_to) return opsBad(`Este setor tem ${members.length} pessoa(s). Escolha para qual setor elas vão antes de desativar.`);
+        for (const m of members) {
+          if (m.primary === p.p_id) { m.primary = p.p_move_to; m.secondary = m.secondary.filter((s) => s !== p.p_move_to); }
+          else m.secondary = [...new Set(m.secondary.map((s) => (s === p.p_id ? p.p_move_to : s)))].filter((s) => s !== m.primary);
+        }
+      }
+      db.opsSectors.find((x) => x.id === p.p_id).status = p.p_status;
+      db.rpcCalls.push({ fn: "ops_sector_set_status", ...p });
+      return res(204);
+    }
+    if (url.includes("/rest/v1/rpc/ops_member_save")) {
+      const p = parse();
+      if (role !== "admin") return opsDeny();
+      const prof = db.profiles.find((x) => x.id === p.p_user_id);
+      if (!prof) return opsBad("Usuário não encontrado.");
+      if (prof.role === "cliente") return opsBad("Usuários com papel Cliente não entram na Central de Operações.");
+      if (!p.p_primary_sector) return opsBad("Escolha o setor principal.");
+      db.opsMembers[p.p_user_id] = { primary: p.p_primary_sector, secondary: (p.p_secondary ?? []).filter((s) => s !== p.p_primary_sector),
+        job_title: p.p_job_title, active: p.p_active, joins_meetings: p.p_joins_meetings, permissions: p.p_permissions ?? [] };
+      db.rpcCalls.push({ fn: "ops_member_save", ...p });
+      return res(204);
     }
     // --- E-mail semanal (Etapa 19.4)
     const canEditEmail = ["admin", "gestor"].includes(role);
@@ -1207,7 +1282,17 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       if (body.email === "repetido@agencia.com") {
         return res(409, { error: { code: "EMAIL_IN_USE", message: "Já existe um usuário com este e-mail." } });
       }
-      return res(200, { data: { id: "x" } });
+      if (body.action === "create") {
+        const id = crypto.randomUUID();
+        db.profiles.push({ id, email: body.email, full_name: body.fullName, role: body.role, active: true, created_at: new Date().toISOString(), updated_at: "" });
+        return res(200, { data: { id } });
+      }
+      if (body.action === "update") {
+        const p = db.profiles.find((x) => x.id === body.userId);
+        if (p) Object.assign(p, body.fullName !== undefined ? { full_name: body.fullName } : {}, body.role ? { role: body.role } : {},
+          body.active !== undefined ? { active: body.active } : {});
+      }
+      return res(200, { data: { id: body.userId ?? "x" } });
     }
 
     return res(404, {});

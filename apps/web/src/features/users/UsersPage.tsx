@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import type { Profile } from "@/features/auth/types.ts";
 import { errorMessage } from "@/lib/errors.ts";
+import { useOpsSectors, useOpsTeam } from "@/features/operations/api.ts";
 import { useAdminUsers, useUsers } from "./api.ts";
 import { UserFormModal } from "./UserFormModal.tsx";
 
@@ -47,6 +48,13 @@ export function UsersPage() {
   const { data: users, isLoading, error } = useUsers();
   // undefined = fechado; null = novo; Profile = editar
   const [editing, setEditing] = useState<Profile | null | undefined>(undefined);
+  // Etapa 36: setor principal na Central de Operações (quando houver).
+  const team = useOpsTeam();
+  const sectors = useOpsSectors();
+  const sectorOf = (userId: string) => {
+    const m = team.data?.find((x) => x.user_id === userId);
+    return m?.in_ops ? sectors.data?.find((s) => s.id === m.primary_sector_id) : undefined;
+  };
 
   return (
     <div className="space-y-6">
@@ -71,6 +79,7 @@ export function UsersPage() {
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3">E-mail</th>
                 <th className="px-4 py-3">Papel</th>
+                <th className="px-4 py-3">Setor (Central)</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Cadastro</th>
                 <th className="px-4 py-3 text-right">Ações</th>
@@ -83,6 +92,14 @@ export function UsersPage() {
                   <td className="px-4 py-3 text-slate-600">{user.email}</td>
                   <td className="px-4 py-3">
                     <Badge tone={user.role === "admin" ? "brand" : "neutral"}>{ROLE_LABELS[user.role]}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600" data-testid="user-sector">
+                    {sectorOf(user.id) ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="size-2 rounded-full" style={{ background: sectorOf(user.id)!.color }} aria-hidden />
+                        {sectorOf(user.id)!.name}
+                      </span>
+                    ) : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <Badge tone={user.active ? "success" : "danger"}>{user.active ? "Ativo" : "Inativo"}</Badge>

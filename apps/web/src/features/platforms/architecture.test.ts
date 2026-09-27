@@ -58,7 +58,7 @@ describe("arquitetura preparada para novas plataformas", () => {
 
   it("a ordem do menu não mudou", () => {
     expect(NAV_ITEMS.map((n) => n.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Meta Ads", "Google Ads", "Campanhas",
+      "Dashboard", "Clientes", "Contas", "Central de Operações", "Meta Ads", "Google Ads", "Campanhas",
       "Relatórios", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações",
     ]);
   });

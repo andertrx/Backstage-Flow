@@ -3,8 +3,8 @@ import { can, PERMISSION_LABELS, PERMISSIONS, ROLE_SCOPE } from "./permissions.t
 import { isRole, ROLES } from "./roles.ts";
 
 describe("papéis", () => {
-  it("reconhece somente os 5 papéis válidos", () => {
-    expect(ROLES).toHaveLength(5);
+  it("reconhece somente os 6 papéis válidos", () => {
+    expect(ROLES).toHaveLength(6);
     expect(isRole("admin")).toBe(true);
     expect(isRole("superadmin")).toBe(false);
     expect(isRole(undefined)).toBe(false);
@@ -43,5 +43,9 @@ describe("tela de papéis e permissões", () => {
   it("toda permissão e todo papel têm explicação em português", () => {
     for (const p of PERMISSIONS) expect(PERMISSION_LABELS[p]?.length).toBeGreaterThan(5);
     for (const r of ROLES) expect(ROLE_SCOPE[r]?.length).toBeGreaterThan(5);
+  });
+
+  it("papel Equipe (Etapa 36) não vê nada dos módulos de anúncios", () => {
+    expect(PERMISSIONS.filter((p) => can("equipe", p))).toEqual([]);
   });
 });

@@ -23,3 +23,4 @@ export * from "./tracking/identity.ts";
 export * from "./reports/clientReport.ts";
 export * from "./reports/breakdowns.ts";
 export * from "./reports/email.ts";
+export * from "./operations/permissions.ts";

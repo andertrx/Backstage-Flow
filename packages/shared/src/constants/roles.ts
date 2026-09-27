@@ -5,7 +5,7 @@
  * (supabase/migrations/*_auth_profiles.sql). O banco é quem garante a regra;
  * este arquivo serve para a interface e para as Edge Functions.
  */
-export const ROLES = ["admin", "gestor", "operador", "visualizador", "cliente"] as const;
+export const ROLES = ["admin", "gestor", "operador", "visualizador", "equipe", "cliente"] as const;
 
 export type Role = (typeof ROLES)[number];
 
@@ -14,6 +14,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   gestor: "Gestor",
   operador: "Operador",
   visualizador: "Visualizador",
+  equipe: "Equipe",
   cliente: "Cliente",
 };
 
@@ -22,6 +23,7 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   gestor: "Gerencia os clientes autorizados: cadastro, contas, sincronização e alertas.",
   operador: "Acompanha os clientes autorizados e executa tarefas operacionais.",
   visualizador: "Somente leitura dos clientes autorizados.",
+  equipe: "Usa só a Central de Operações (tarefas, Kanban, reuniões). Não vê anúncios, contas, métricas nem relatórios.",
   cliente: "Vê apenas os dados da própria empresa, na visão simplificada.",
 };
 

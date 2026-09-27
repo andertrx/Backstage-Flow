@@ -7,6 +7,8 @@ import { Modal } from "@/components/ui/modal.tsx";
 import type { Profile } from "@/features/auth/types.ts";
 import { validateNewPassword } from "@/features/auth/password.ts";
 import { errorMessage } from "@/lib/errors.ts";
+import { useOpsSectors, useOpsTeam, useSaveMember } from "@/features/operations/api.ts";
+import { type MemberDraft, memberDraftFrom, MemberFields } from "@/features/operations/MemberFields.tsx";
 import { useAdminUsers } from "./api.ts";
 
 interface Props {
@@ -25,6 +27,15 @@ export function UserFormModal({ user, open, onClose }: Props) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Etapa 36: setores e cargo na Central de Operações (mesmo login; tabela própria).
+  const team = useOpsTeam(open);
+  const sectors = useOpsSectors();
+  const saveMember = useSaveMember();
+  const member = user ? team.data?.find((m) => m.user_id === user.id) : undefined;
+  const [ops, setOps] = useState<MemberDraft | null>(null);
+  const opsDraft = ops ?? memberDraftFrom(member);
+  const opsReady = isNew || Boolean(team.data);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -33,12 +44,23 @@ export function UserFormModal({ user, open, onClose }: Props) {
       const problem = validateNewPassword(password);
       if (problem) return setError(problem);
     }
+    const withOps = role !== "cliente" && Boolean(opsDraft.primarySector) && (ops !== null || Boolean(member?.in_ops));
     try {
+      let userId = user?.id;
       if (isNew) {
-        await mutation.mutateAsync({ action: "create", email: email.trim(), fullName: fullName.trim(), role, password });
+        const created = await mutation.mutateAsync({ action: "create", email: email.trim(), fullName: fullName.trim(), role, password });
+        userId = created.data.id;
       } else {
         await mutation.mutateAsync({ action: "update", userId: user.id, fullName: fullName.trim(), role });
         if (password) await mutation.mutateAsync({ action: "set_password", userId: user.id, password });
+      }
+      if (withOps && userId) {
+        try {
+          await saveMember.mutateAsync({ userId, ...opsDraft });
+        } catch (err) {
+          setError(`${isNew ? "Usuário criado" : "Usuário salvo"}, mas os setores não foram salvos: ${errorMessage(err)}`);
+          return;
+        }
       }
       onClose();
     } catch (err) {
@@ -75,11 +97,22 @@ export function UserFormModal({ user, open, onClose }: Props) {
             <Input id={id} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           )}
         </Field>
+        {role !== "cliente" && sectors.data && opsReady && (
+          <details className="rounded-lg ring-1 ring-slate-200" open={Boolean(member?.in_ops) || role === "equipe"} data-testid="user-ops-section">
+            <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-slate-800">
+              Central de Operações: setores e cargo
+              {member?.in_ops && <span className="ml-2 text-xs font-normal text-slate-500">(já participa)</span>}
+            </summary>
+            <div className="border-t border-slate-100 p-3">
+              <MemberFields value={opsDraft} onChange={setOps} sectors={sectors.data} role={role} inOps={Boolean(member?.in_ops)} />
+            </div>
+          </details>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" loading={mutation.isPending}>
+          <Button type="submit" loading={mutation.isPending || saveMember.isPending}>
             {isNew ? "Criar usuário" : "Salvar"}
           </Button>
         </div>

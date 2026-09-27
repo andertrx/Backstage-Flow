@@ -40,6 +40,8 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   ],
   operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view", "tracking.whatsapp"],
   visualizador: ["clients.view", "internal.view", "tracking.view"],
+  // Etapa 36: só a Central de Operações (permissões próprias, por pessoa).
+  equipe: [],
   cliente: [],
 };
 
@@ -71,5 +73,6 @@ export const ROLE_SCOPE: Record<Role, string> = {
   gestor: "Só os clientes liberados para ele",
   operador: "Só os clientes liberados para ele",
   visualizador: "Só os clientes liberados para ele",
+  equipe: "Nenhum pelos módulos de anúncios; na Central, só o necessário para as tarefas",
   cliente: "Só a própria empresa, sem informações internas",
 };
