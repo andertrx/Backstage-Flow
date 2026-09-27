@@ -13,6 +13,9 @@
 
   Sem isso, o botão "Conectar Google Ads" dá erro de redirecionamento no Google.
 
+## GitHub
+- [ ] Deixar o repositório **privado** (em 27/09/2026 o GitHub ainda informava "público"). Teste: abrir github.com/andertrx/Backstage-Flow numa aba anônima → deve aparecer 404.
+
 ## Tracking / Meta
 - [ ] Escolher o cliente piloto
 - [ ] ID do Pixel (conjunto de dados) do piloto
