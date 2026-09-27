@@ -1,0 +1,26 @@
+# Pendências — lembretes para você (Ander)
+
+> Lista do que ficou para depois. Eu (Claude) confiro e lembro esta lista nos relatórios.
+> Quando fizer um item, me avise que eu marco como feito.
+
+## Domínio backstageflow.com.br
+- [x] 1. Vercel: domínio adicionado (27/09/2026)
+- [x] 2. Registro.br: DNS apontado (27/09/2026)
+- [x] 3. Supabase: Site URL e Redirect URLs (27/09/2026)
+- [ ] **4. Google Cloud — só quando for conectar o Google Ads.** No cliente OAuth do CRM (APIs e serviços → Credenciais), adicionar:
+  - URIs de redirecionamento autorizados: `https://www.backstageflow.com.br/configuracoes/integracoes/google/callback` e `https://backstageflow.com.br/configuracoes/integracoes/google/callback`
+  - Origens JavaScript autorizadas: `https://www.backstageflow.com.br` e `https://backstageflow.com.br`
+
+  Sem isso, o botão "Conectar Google Ads" dá erro de redirecionamento no Google.
+
+## Tracking / Meta
+- [ ] Escolher o cliente piloto
+- [ ] ID do Pixel (conjunto de dados) do piloto
+- [ ] Token da API de Conversões (colar direto no CRM, nunca por chat)
+- [ ] Código de teste do Meta (Gerenciador de Eventos → Testar eventos)
+- [ ] Nos anúncios, colocar o ID da campanha no link (ver `docs/etapa-34-tracking/34.4-ATRIBUICAO.md`)
+
+## Segurança do login (Supabase → Authentication)
+- [ ] Desligar cadastro aberto (só administradores criam usuários)
+- [ ] Ligar a proteção contra senhas vazadas
+- [ ] Ligar a verificação em duas etapas (MFA)

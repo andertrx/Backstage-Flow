@@ -1,5 +1,7 @@
 # Domínio próprio: backstageflow.com.br
 
+> **Situação:** passos 1, 2 e 3 feitos. O endereço principal ficou **www.backstageflow.com.br** (quem digita `backstageflow.com.br` é levado para o `www`). Passo 4 pendente — ver [PENDENCIAS.md](PENDENCIAS.md).
+
 > Feito em 27/09/2026. O endereço antigo (`web-ivory-three-49.vercel.app`) **continua funcionando**.
 
 ## O que já foi feito (código e servidor)
@@ -7,7 +9,7 @@
 | Parte | Mudança |
 |---|---|
 | Funções do servidor (Supabase) | Aceitam chamadas vindas de `https://backstageflow.com.br` e `https://www.backstageflow.com.br` (além do endereço antigo). Republicadas: `sync`, `ad-accounts`, `admin-users`, `tracking-destinations`, `tracking-whatsapp`. |
-| Código de instalação do tracking | Passa a usar `https://backstageflow.com.br/t.js`. Sites que já têm o código antigo continuam funcionando. |
+| Código de instalação do tracking | Passa a usar `https://www.backstageflow.com.br/t.js`. Sites que já têm o código antigo continuam funcionando. |
 | Documentação | README e docs do tracking com o novo endereço. |
 
 Não muda: banco de dados, endereço do webhook do WhatsApp (é do Supabase), envio ao Meta.
@@ -33,9 +35,8 @@ Sem isso, o link do e-mail de "esqueci a senha" volta para o endereço antigo.
 
 ### 4) Google Cloud — conexão com o Google Ads (só se for usar)
 Google Cloud Console → **APIs e serviços → Credenciais** → o cliente OAuth do CRM:
-- **URIs de redirecionamento autorizados:** adicionar `https://backstageflow.com.br/configuracoes/integracoes/google/callback`
-- **Origens JavaScript autorizadas:** adicionar `https://backstageflow.com.br`
+- **URIs de redirecionamento autorizados:** adicionar `https://www.backstageflow.com.br/configuracoes/integracoes/google/callback` (e o mesmo sem `www`)
+- **Origens JavaScript autorizadas:** adicionar `https://www.backstageflow.com.br` (e o mesmo sem `www`)
 
 ## Atenção
-- Até o passo 2 terminar, o **novo código de instalação** (com `backstageflow.com.br/t.js`) não funciona. Se precisar instalar o tracking num site antes disso, me avise que eu devolvo o endereço antigo no código de instalação.
 - Os sites que já têm o código antigo não precisam ser alterados.

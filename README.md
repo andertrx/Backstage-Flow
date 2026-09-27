@@ -2,7 +2,9 @@
 
 Dashboard de performance de tráfego pago (Meta Ads + Google Ads) com histórico persistente no Supabase.
 
-Site publicado: https://backstageflow.com.br (endereço antigo, ainda ativo: https://web-ivory-three-49.vercel.app)
+Site publicado: https://www.backstageflow.com.br (endereço antigo, ainda ativo: https://web-ivory-three-49.vercel.app)
+
+**Pendências para você:** [docs/PENDENCIAS.md](docs/PENDENCIAS.md)
 
 O projeto é construído em etapas. A documentação de cada etapa fica em [`docs/`](docs/).
 
