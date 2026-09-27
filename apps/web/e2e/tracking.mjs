@@ -27,7 +27,7 @@ function seedClients(db) {
 
   const links = await page.getByRole("navigation").first().getByRole("link").allInnerTexts();
   const labels = links.map((t) => t.trim().split("\n")[0]);
-  check(labels.indexOf("Tracking") === labels.indexOf("Alertas") + 1, "menu: Tracking logo depois de Alertas");
+  check(labels.indexOf("Tracking (em construção)") === labels.indexOf("Alertas") + 1, "menu: Tracking logo depois de Alertas");
 
   await page.getByRole("link", { name: "Tracking" }).first().click();
   await page.getByRole("heading", { name: "Tracking", level: 1 }).waitFor();

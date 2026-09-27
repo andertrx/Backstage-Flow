@@ -36,7 +36,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Campanhas", path: "/campanhas", icon: Target, group: "Anúncios", permission: "internal.view" },
   { label: "Relatórios", path: "/relatorios", icon: FileBarChart, group: "Análise", permission: "reports.generate" },
   { label: "Alertas", path: "/alertas", icon: Bell, group: "Análise", permission: "internal.view" },
-  { label: "Tracking", path: "/tracking", icon: Radar, group: "Análise", permission: "tracking.view" },
+  { label: "Tracking (em construção)", path: "/tracking", icon: Radar, group: "Análise", permission: "tracking.view" },
   { label: "Sincronização", path: "/sincronizacao", icon: RefreshCw, group: "Sistema", permission: "internal.view" },
   { label: "Logs", path: "/logs", icon: ScrollText, group: "Sistema", permission: "logs.view" },
   { label: "Configurações", path: "/configuracoes", icon: Settings, group: "Sistema", permission: "users.manage" },
