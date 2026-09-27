@@ -1,6 +1,7 @@
 -- =============================================================================
 -- Testes da Etapa 36.2 — Central de Operações: tarefas.
 -- Rodar inteiro no SQL Editor. Transação desfeita no final: nada fica gravado.
+-- As listas filtram pelo cliente do teste (tarefas reais da Central não atrapalham).
 -- =============================================================================
 begin;
 
@@ -62,14 +63,14 @@ end $$;
 
 -- ---------------------------------------------------------------- quem vê
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000362aa04","role":"authenticated"}';
-insert into r362 select 'copy vê tarefa do Design', jsonb_array_length(public.ops_task_list('{}'))::text || '|' || coalesce(public.ops_task_get((select id from k362 where k = 't1'))::text, 'nada');
+insert into r362 select 'copy vê tarefa do Design', jsonb_array_length(public.ops_task_list('{"client_id":"00000000-0000-0000-0000-00000362ac01"}'))::text || '|' || coalesce(public.ops_task_get((select id from k362 where k = 't1'))::text, 'nada');
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000362aa02","role":"authenticated"}';
-insert into r362 select 'designer vê', jsonb_array_length(public.ops_task_list('{}'))::text;
+insert into r362 select 'designer vê', jsonb_array_length(public.ops_task_list('{"client_id":"00000000-0000-0000-0000-00000362ac01"}'))::text;
 insert into r362 select 'designer ainda sem anúncios', (select count(*) from public.clients)::text || '|' ||
   (select count(*) from jsonb_array_elements(public.ops_directory() -> 'clients') c where c ->> 'name' = 'Loja T362')::text;
-insert into r362 select 'filtro atrasadas', jsonb_array_length(public.ops_task_list('{"due":"atrasadas"}'))::text;
+insert into r362 select 'filtro atrasadas', jsonb_array_length(public.ops_task_list('{"client_id":"00000000-0000-0000-0000-00000362ac01","due":"atrasadas"}'))::text;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000362aa05","role":"authenticated"}';
-insert into r362 select 'cliente vê tarefas', jsonb_array_length(public.ops_task_list('{}'))::text || '|' || (select count(*) from public.ops_tasks)::text;
+insert into r362 select 'cliente vê tarefas', jsonb_array_length(public.ops_task_list('{"client_id":"00000000-0000-0000-0000-00000362ac01"}'))::text || '|' || (select count(*) from public.ops_tasks)::text;
 
 -- ---------------------------------------------------------------- versão, status e dependências
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000362aa02","role":"authenticated"}';
@@ -87,7 +88,7 @@ do $$ begin
 exception when invalid_parameter_value then insert into r362 values ('ciclo', 'recusado');
 end $$;
 insert into r362 select 'bloqueios', (select string_agg(x ->> 'number' || ':' || (x ->> 'blockers'), ',' order by (x ->> 'number')::int)
-  from jsonb_array_elements(public.ops_task_list('{}')) x);
+  from jsonb_array_elements(public.ops_task_list('{"client_id":"00000000-0000-0000-0000-00000362ac01"}')) x);
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000362aa03","role":"authenticated"}';
 do $$ begin
   perform public.ops_task_set_status((select id from k362 where k = 't2'), 1, 'finalizado');
@@ -133,8 +134,8 @@ exception when insufficient_privilege then insert into r362 values ('designer ar
 end $$;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000362aa03","role":"authenticated"}';
 select public.ops_task_archive((select id from k362 where k = 't2'), true);
-insert into r362 select 'arquivada some da lista', jsonb_array_length(public.ops_task_list('{}'))::text || '|' ||
-  jsonb_array_length(public.ops_task_list('{"archived":true}'))::text;
+insert into r362 select 'arquivada some da lista', jsonb_array_length(public.ops_task_list('{"client_id":"00000000-0000-0000-0000-00000362ac01"}'))::text || '|' ||
+  jsonb_array_length(public.ops_task_list('{"client_id":"00000000-0000-0000-0000-00000362ac01","archived":true}'))::text;
 do $$ begin
   perform public.ops_task_save((select id from k362 where k = 't2'), 3, jsonb_build_object('title', 'Mudou', 'sector_id', (select id from k362 where k = 'am')));
   insert into r362 values ('editar arquivada', 'aceito');
