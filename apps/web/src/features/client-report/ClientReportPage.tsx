@@ -9,7 +9,7 @@ import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useClient } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
-import { useReportAccounts, useReportBreakdowns, useReportCampaigns, useReportDaily, useReportSettings } from "./api.ts";
+import { logoPublicUrl, useReportAccounts, useReportBreakdowns, useReportCampaigns, useReportDaily, useReportSettings } from "./api.ts";
 import { reportPeriodFromParams } from "./logic.ts";
 import { ReportSettingsModal } from "./ReportSettingsModal.tsx";
 import { periodUpdaters, ReportView } from "./ReportView.tsx";
@@ -51,6 +51,7 @@ export function ClientReportPage() {
         clientName={client.data.name}
         today={todayIn(timezone)}
         settings={settings}
+        logoUrl={logoPublicUrl(settingsRow.data?.logo_path)}
         period={period}
         {...periodUpdaters(update, settings.default_period)}
         accounts={accounts.data ?? []}
@@ -74,7 +75,8 @@ export function ClientReportPage() {
         )}
       />
       {editing && (
-        <ReportSettingsModal clientId={client.data.id} timezone={timezone} initial={settings} onClose={() => setEditing(false)} />
+        <ReportSettingsModal clientId={client.data.id} clientName={client.data.name} timezone={timezone} initial={settings}
+          logoPath={settingsRow.data?.logo_path ?? null} hasRow={Boolean(settingsRow.data)} onClose={() => setEditing(false)} />
       )}
     </>
   );

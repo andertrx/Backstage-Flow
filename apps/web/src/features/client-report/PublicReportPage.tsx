@@ -7,7 +7,7 @@ import { Logo } from "@/components/layout/Logo.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
-import { type PublicQuery, usePublicReport } from "./api.ts";
+import { logoPublicUrl, type PublicQuery, usePublicReport } from "./api.ts";
 import { MAX_REPORT_DAYS, type PeriodChoice } from "./logic.ts";
 import { periodUpdaters, ReportView } from "./ReportView.tsx";
 
@@ -64,6 +64,7 @@ export function PublicReportPage() {
             clientName={data.client.name}
             today={data.today}
             settings={settings}
+            logoUrl={logoPublicUrl(data.settings?.logo_path)}
             period={{ choice: data.period as PeriodChoice, range: { from: data.from, to: data.to }, invalid }}
             {...periodUpdaters(update, settings.default_period as ReportPeriod)}
             accounts={data.accounts}

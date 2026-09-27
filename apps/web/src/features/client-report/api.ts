@@ -1,4 +1,4 @@
-import { type BreakdownRow, type ClientReportSettings, type DateRange, type ReportTotals, toReportTotals } from "@backstage/shared";
+import { type BreakdownRow, type ClientReportSettings, defaultReportSettings, type DateRange, type ReportTotals, toReportTotals } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { EntityStatus } from "@backstage/shared";
 import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
@@ -137,7 +137,7 @@ export function useReportSettings(clientId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase.from("client_report_settings").select("*").eq("client_id", clientId!).maybeSingle();
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o modelo do relatório."));
-      return data as (Partial<ClientReportSettings> & { updated_at?: string }) | null;
+      return data as (Partial<ClientReportSettings> & { updated_at?: string; logo_path?: string | null }) | null;
     },
   });
 }
@@ -163,6 +163,58 @@ export function useSaveReportSettings(clientId: string) {
       };
       const { error } = await supabase.from("client_report_settings").upsert(row, { onConflict: "client_id" });
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos salvar o modelo do relatório."));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["client-report", "settings", clientId] }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Etapa 19.4 — logo do cliente (Storage público: aparece no e-mail e no link)
+// ---------------------------------------------------------------------------
+
+export const LOGO_BUCKET = "client-logos";
+export const LOGO_MAX_BYTES = 1024 * 1024;
+const LOGO_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+
+/** Endereço público da logo (null = sem logo). */
+export function logoPublicUrl(path: string | null | undefined): string | null {
+  return path ? supabase.storage.from(LOGO_BUCKET).getPublicUrl(path).data.publicUrl : null;
+}
+
+/** Confere tipo e tamanho antes de enviar (o Storage confere de novo). */
+export function logoFileProblem(file: { type: string; size: number }): string | null {
+  if (!LOGO_TYPES[file.type]) return "Use uma imagem PNG, JPG ou WebP.";
+  if (file.size > LOGO_MAX_BYTES) return "A imagem pode ter no máximo 1 MB.";
+  return null;
+}
+
+const randomName = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => (b % 36).toString(36)).join("");
+
+/**
+ * Envia (file) ou tira (null) a logo. Nome novo a cada envio (sem cache velho);
+ * o arquivo anterior é apagado depois que o modelo já aponta para o novo.
+ */
+export function useSaveLogo(clientId: string, clientName: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ file, current, hasRow }: { file: File | null; current: string | null; hasRow: boolean }) => {
+      let path: string | null = null;
+      if (file) {
+        const problem = logoFileProblem(file);
+        if (problem) throw new FriendlyError(problem);
+        path = `${clientId}/${randomName()}.${LOGO_TYPES[file.type]}`;
+        const { error } = await supabase.storage.from(LOGO_BUCKET).upload(path, file, { contentType: file.type, upsert: false, cacheControl: "31536000" });
+        if (error) throw new FriendlyError("Não conseguimos enviar a logo. Confira o arquivo (PNG, JPG ou WebP até 1 MB) e tente de novo.");
+      }
+      const { data: auth } = await supabase.auth.getUser();
+      const { error } = hasRow
+        ? await supabase.from("client_report_settings").update({ logo_path: path, updated_by: auth.user?.id ?? null }).eq("client_id", clientId)
+        : await supabase.from("client_report_settings").insert({ client_id: clientId, title: defaultReportSettings(clientName).title, logo_path: path, updated_by: auth.user?.id ?? null });
+      if (error) {
+        if (path) await supabase.storage.from(LOGO_BUCKET).remove([path]);
+        throw new FriendlyError(friendlyDbError(error, "Não conseguimos salvar a logo."));
+      }
+      if (current && current !== path) await supabase.storage.from(LOGO_BUCKET).remove([current]);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["client-report", "settings", clientId] }),
   });
@@ -227,7 +279,7 @@ export function useNewClientLink(clientId: string) {
 
 export interface PublicReport {
   client: { name: string; timezone: string };
-  settings: Partial<ClientReportSettings> | null;
+  settings: (Partial<ClientReportSettings> & { logo_path?: string | null }) | null;
   period: string;
   from: string;
   to: string;

@@ -36,6 +36,8 @@ const ACTION_LABELS: Record<string, string> = {
   "client_portal.link_on": "Ligou o link secreto do dashboard",
   "client_portal.link_off": "Desligou o link secreto do dashboard",
   "client_portal.link_new": "Gerou um novo link secreto do dashboard",
+  "email_settings.update": "Alterou o envio de e-mails (Resend)",
+  "email_settings.remove_key": "Removeu a chave do Resend",
   "ad_account.insert": "Vinculou conta de anúncio",
   "ad_account.update": "Conta de anúncio alterada",
   "connection.insert": "Conectou plataforma",

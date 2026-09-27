@@ -1,16 +1,45 @@
 -- =============================================================================
--- REMOÇÃO do Dashboard do cliente (Etapa 19: 19.1, 19.2 e 19.3).
+-- REMOÇÃO do Dashboard do cliente (Etapa 19: 19.1, 19.2, 19.3 e 19.4).
 --
 -- Apaga o modelo de relatório de cada cliente (título, métricas escolhidas,
 -- análise da agência), o acesso do cliente (login e link secreto; todos os
 -- links param de funcionar), as divisões por idade/gênero/horário… (19.3) e
--- as funções do dashboard. Volta a regra antiga
+-- as funções do dashboard, a logo e o e-mail semanal (19.4: configuração,
+-- histórico de envios, chave do Resend e links guardados no cofre). Volta a regra antiga
 -- de visibilidade do papel "cliente". NÃO mexe nas
 -- métricas, campanhas, contas nem clientes. Só rodar com decisão explícita,
--- no SQL Editor. Depois: apagar a Edge Function "client-report-link" no painel
--- do Supabase e reverter o commit da Etapa 19 no GitHub.
+-- no SQL Editor. Depois: apagar as Edge Functions "client-report-link" e
+-- "client-report-email" no painel do Supabase, esvaziar e apagar o bucket
+-- "client-logos" em Storage (os arquivos só saem pelo painel) e reverter o
+-- commit da Etapa 19 no GitHub.
 -- =============================================================================
 begin;
+
+-- 19.4: e-mail semanal e logo
+select cron.unschedule(jobid) from cron.job where jobname = 'report-emails';
+drop function if exists private.trigger_report_emails();
+drop function if exists public.client_report_email_due(integer);
+drop function if exists public.client_report_email_link_get(uuid);
+drop function if exists public.client_report_email_link_status(uuid);
+drop function if exists private.client_report_email_link_status_impl(uuid);
+drop function if exists public.client_report_email_set_link(uuid, text);
+drop function if exists private.client_report_email_set_link_impl(uuid, text);
+drop table if exists public.client_report_email_log;
+drop table if exists public.client_report_email;
+drop function if exists private.valid_emails(text[]);
+drop function if exists public.email_api_key_get();
+drop function if exists public.email_settings_remove_key();
+drop function if exists private.email_settings_remove_key_impl();
+drop function if exists public.email_settings_save(text, text, text, text);
+drop function if exists private.email_settings_save_impl(text, text, text, text);
+drop table if exists public.email_settings;
+drop function if exists private.valid_email(text);
+delete from vault.secrets where name = 'resend_api_key' or name like 'report\_link:%';
+drop policy if exists "Admin e gestor enviam a logo do cliente" on storage.objects;
+drop policy if exists "Admin e gestor trocam a logo do cliente" on storage.objects;
+drop policy if exists "Admin e gestor apagam a logo do cliente" on storage.objects;
+drop function if exists private.can_edit_client_folder(text);
+alter table if exists public.client_report_settings drop column if exists logo_path;
 
 -- 19.3: divisões. A sincronização continua funcionando sem estas tabelas, mas
 -- registraria um aviso a cada rodada: publique antes a versão anterior da

@@ -2,14 +2,14 @@ import {
   actionResultOptions, addDays, type ClientReportSettings, type MainResultSource, PERIOD_LABELS, REPORT_KPI_KEYS, REPORT_PERIODS,
   REPORT_SECTION_LABELS, REPORT_SECTIONS, type ReportKpiKey, type ReportPeriod, reportKpiLabel, todayIn,
 } from "@backstage/shared";
-import { ArrowDown, ArrowUp } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ImagePlus, Trash2 } from "lucide-react";
+import { type ChangeEvent, type FormEvent, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
-import { useReportAccounts, useSaveReportSettings } from "./api.ts";
+import { logoFileProblem, logoPublicUrl, useReportAccounts, useSaveLogo, useSaveReportSettings } from "./api.ts";
 
 const BASIC: Record<Exclude<MainResultSource, "action">, string> = {
   leads: "Leads",
@@ -17,11 +17,62 @@ const BASIC: Record<Exclude<MainResultSource, "action">, string> = {
   conversions: "Conversões",
 };
 
+/**
+ * Logo do cliente (Etapa 19.4): vale na hora (não depende de "Salvar modelo").
+ * Aparece no dashboard, no PDF, no link secreto e no e-mail semanal.
+ */
+function LogoField({ clientId, clientName, logoPath, hasRow }: { clientId: string; clientName: string; logoPath: string | null; hasRow: boolean }) {
+  const save = useSaveLogo(clientId, clientName);
+  const input = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const url = logoPublicUrl(logoPath);
+
+  async function run(file: File | null) {
+    setError(null);
+    try { await save.mutateAsync({ file, current: logoPath, hasRow }); } catch (err) { setError(errorMessage(err)); }
+  }
+  function onFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const problem = logoFileProblem(file);
+    if (problem) return setError(problem);
+    void run(file);
+  }
+
+  return (
+    <fieldset className="space-y-2" data-testid="logo-field">
+      <legend className="text-sm font-medium text-slate-700">Logo do cliente</legend>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex h-14 w-40 items-center justify-center rounded-lg bg-slate-50 ring-1 ring-slate-200">
+          {url
+            ? <img src={url} alt={`Logo ${clientName}`} className="max-h-12 max-w-36 object-contain" data-testid="logo-preview" />
+            : <span className="text-xs text-slate-400">Sem logo</span>}
+        </div>
+        <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onFile} aria-label="Arquivo da logo" />
+        <Button type="button" variant="secondary" onClick={() => input.current?.click()} loading={save.isPending}>
+          <ImagePlus className="size-4" aria-hidden /> {url ? "Trocar logo" : "Enviar logo"}
+        </Button>
+        {url && (
+          <Button type="button" variant="secondary" onClick={() => run(null)} disabled={save.isPending}>
+            <Trash2 className="size-4" aria-hidden /> Tirar logo
+          </Button>
+        )}
+      </div>
+      <p className="text-xs text-slate-500">PNG, JPG ou WebP, até 1 MB (de preferência com fundo transparente). Aparece no dashboard, no PDF, no link e no e-mail.</p>
+      {error && <Alert tone="error">{error}</Alert>}
+    </fieldset>
+  );
+}
+
 /** Personalização do dashboard do cliente (admin e gestor). */
-export function ReportSettingsModal({ clientId, timezone, initial, onClose }: {
+export function ReportSettingsModal({ clientId, clientName, timezone, initial, logoPath, hasRow, onClose }: {
   clientId: string;
+  clientName: string;
   timezone: string;
   initial: ClientReportSettings;
+  logoPath: string | null;
+  hasRow: boolean;
   onClose: () => void;
 }) {
   const [s, setS] = useState<ClientReportSettings>(initial);
@@ -77,7 +128,8 @@ export function ReportSettingsModal({ clientId, timezone, initial, onClose }: {
 
   return (
     <Modal title="Personalizar o dashboard do cliente" open onClose={onClose} size="lg">
-      <form onSubmit={submit} className="space-y-5" data-testid="report-settings-form">
+      <LogoField clientId={clientId} clientName={clientName} logoPath={logoPath} hasRow={hasRow} />
+      <form onSubmit={submit} className="mt-5 space-y-5 border-t border-slate-100 pt-5" data-testid="report-settings-form">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Título">{(id) => <Input id={id} value={s.title} maxLength={120} onChange={(e) => setS({ ...s, title: e.target.value })} />}</Field>
           <Field label="Subtítulo (opcional)">{(id) => <Input id={id} value={s.subtitle ?? ""} maxLength={160} onChange={(e) => setS({ ...s, subtitle: e.target.value })} />}</Field>

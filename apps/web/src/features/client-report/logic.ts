@@ -1,8 +1,7 @@
 import {
   addDays, type DateRange, daysInRange, isValidRange, type MainResult, mainResultValue, REPORT_PERIODS, type ReportPeriod, resolvePeriod,
-  type SummaryParts,
 } from "@backstage/shared";
-import { formatChange, formatDate, formatKpi } from "@/lib/format.ts";
+import { formatDate } from "@/lib/format.ts";
 import type { ReportDailyRow } from "./api.ts";
 
 export const MAX_REPORT_DAYS = 400;
@@ -61,33 +60,7 @@ export function dailyValues(rows: ReportDailyRow[], days: string[], metric: Dail
   });
 }
 
-const lower = (label: string) => (label === label.toUpperCase() ? label : label.toLowerCase());
-
-/**
- * Frase de resumo, só com fatos do período:
- * "Foram investidos R$ 700,00 e gerados 50 leads, a R$ 14,00 cada. Comparado ao período anterior: 25,0% mais leads e custo por resultado 20,0% menor."
- */
-export function summarySentence(s: SummaryParts, main: MainResult, currency: string): string {
-  if (s.spend == null) return "Sem investimento registrado neste período.";
-  const money = (v: number) => formatKpi(v, "money", currency);
-  const name = lower(main.label);
-  let text = `Foram investidos ${money(s.spend)}`;
-  if (s.result == null) text += ".";
-  else if (s.result === 0) text += `, sem ${name} no período.`;
-  else {
-    text += ` e gerados ${formatKpi(s.result, "decimal", currency)} ${name}`;
-    text += s.costPerResult != null ? `, a ${money(s.costPerResult)} cada.` : ".";
-  }
-  const parts: string[] = [];
-  if (s.resultChange != null && Math.abs(s.resultChange) >= 0.05) {
-    parts.push(`${formatChange(Math.abs(s.resultChange)).replace("+", "")} ${s.resultChange > 0 ? "mais" : "menos"} ${name}`);
-  }
-  if (s.costChange != null && Math.abs(s.costChange) >= 0.05) {
-    parts.push(`custo por resultado ${formatChange(Math.abs(s.costChange)).replace("+", "")} ${s.costChange > 0 ? "maior" : "menor"}`);
-  }
-  if (parts.length) text += ` Comparado ao período anterior: ${parts.join(" e ")}.`;
-  return text;
-}
+export { summarySentence } from "@backstage/shared";
 
 /** Lista "A, B e C". */
 export function joinPt(items: string[]): string {

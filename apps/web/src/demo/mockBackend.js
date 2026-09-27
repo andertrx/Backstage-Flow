@@ -99,6 +99,17 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     /** Divisões (Etapa 19.3): linhas por dia (como metrics_breakdown_daily) e cobertura por conta. */
     breakdowns: [],
     breakdownCoverage: [],
+    /** Logo e e-mail semanal (Etapa 19.4): arquivos enviados, remetente (a chave fica só aqui), config e envios por cliente. */
+    storageObjects: {},
+    emailSettings: { from_name: "Backstage Flow", from_email: "relatorios@backstageflow.com.br", reply_to: null, has_key: false, key_updated_at: null,
+      last_test_at: null, last_test_ok: null, last_test_error: null },
+    emailKey: null,
+    clientEmails: {},
+    clientEmailLog: [],
+    emailLinks: {},
+    /** Resultado do "Resend" simulado: "ok" ou uma mensagem de erro. */
+    emailResult: "ok",
+    emailsSent: [],
   };
 }
 
@@ -241,13 +252,129 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/client_report_settings")) {
       const clientId = eqParam(url, "client_id");
       if (method === "GET") return res(200, db.reportSettings.find((r) => r.client_id === clientId) ?? null);
+      if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "new row violates row-level security policy" });
       if (method === "POST") {
-        if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "new row violates row-level security policy" });
+        // upsert: só as colunas enviadas mudam (a logo continua)
         const row = parse();
+        const old = db.reportSettings.find((r) => r.client_id === row.client_id);
         db.reportSettings = db.reportSettings.filter((r) => r.client_id !== row.client_id);
-        db.reportSettings.push({ ...row, updated_at: new Date().toISOString() });
+        db.reportSettings.push({ ...old, ...row, updated_at: new Date().toISOString() });
         return res(201);
       }
+      if (method === "PATCH") {
+        const row = db.reportSettings.find((r) => r.client_id === clientId);
+        if (row) Object.assign(row, parse(), { updated_at: new Date().toISOString() });
+        return res(204);
+      }
+    }
+    // --- Logo (Storage público client-logos; só admin/gestor enviam e apagam)
+    if (url.includes("/storage/v1/object")) {
+      const path = decodeURIComponent(new URL(url).pathname.replace(/^.*\/storage\/v1\/object\/(public\/)?client-logos\/?/, ""));
+      if (method === "GET") return db.storageObjects[path] ? { status: 200, body: undefined } : res(404, { message: "Object not found" });
+      if (!["admin", "gestor"].includes(role)) return res(403, { statusCode: "403", error: "Unauthorized", message: "new row violates row-level security policy" });
+      if (method === "POST" || method === "PUT") {
+        db.storageObjects[path] = { size: rawBody?.length ?? 0 };
+        return res(200, { Key: `client-logos/${path}` });
+      }
+      if (method === "DELETE") {
+        const prefixes = parse().prefixes ?? [];
+        for (const p of prefixes) delete db.storageObjects[p];
+        return res(200, prefixes.map((name) => ({ name })));
+      }
+    }
+    // --- E-mail semanal (Etapa 19.4)
+    const canEditEmail = ["admin", "gestor"].includes(role);
+    if (url.includes("/rest/v1/email_settings")) return res(200, role === "admin" ? db.emailSettings : null);
+    if (url.includes("/rest/v1/rpc/email_settings_save")) {
+      const p = parse();
+      db.rpcCalls.push({ fn: "email_settings_save", ...p, p_api_key: p.p_api_key ? "***" : null });
+      if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador configura o envio de e-mails." });
+      if (p.p_api_key != null && !/^re_[A-Za-z0-9_]{10,200}$/.test(p.p_api_key)) return res(400, { code: "22023", message: 'A chave do Resend começa com "re_". Confira e cole de novo.' });
+      Object.assign(db.emailSettings, { from_name: p.p_from_name, from_email: p.p_from_email.toLowerCase(), reply_to: p.p_reply_to || null });
+      if (p.p_api_key) {
+        db.emailKey = p.p_api_key;
+        Object.assign(db.emailSettings, { has_key: true, key_updated_at: new Date().toISOString(), last_test_at: null, last_test_ok: null, last_test_error: null });
+      }
+      return res(204);
+    }
+    if (url.includes("/rest/v1/rpc/email_settings_remove_key")) {
+      if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador configura o envio de e-mails." });
+      db.emailKey = null;
+      Object.assign(db.emailSettings, { has_key: false, key_updated_at: new Date().toISOString(), last_test_at: null, last_test_ok: null, last_test_error: null });
+      return res(204);
+    }
+    if (url.includes("/rest/v1/client_report_email_log")) {
+      const clientId = eqParam(url, "client_id");
+      return res(200, db.clientEmailLog.filter((l) => l.client_id === clientId).sort((a, b) => b.id - a.id).slice(0, 10));
+    }
+    if (url.includes("/rest/v1/client_report_email")) {
+      const clientId = eqParam(url, "client_id");
+      if (method === "GET") return res(200, role === "cliente" ? null : db.clientEmails[clientId] ?? null);
+      if (!canEditEmail) return res(403, { code: "42501", message: "new row violates row-level security policy" });
+      const row = parse();
+      if ((row.recipients ?? []).length > 10) return res(400, { code: "23514", message: "violates check constraint" });
+      if (method === "POST") db.clientEmails[row.client_id] = { last_sent_at: null, ...row };
+      else Object.assign(db.clientEmails[clientId], row);
+      return res(method === "POST" ? 201 : 204);
+    }
+    const currentLink = (clientId) => {
+      const t = db.emailLinks[clientId];
+      const portal = db.portals[clientId];
+      return t && portal?.link_enabled && portal.link_token === t && (!portal.link_expires_at || Date.parse(portal.link_expires_at) > Date.now()) ? t : null;
+    };
+    if (url.includes("/rest/v1/rpc/client_report_email_link_status")) {
+      const p = parse();
+      return res(200, !db.emailLinks[p.p_client_id] ? "sem_link" : currentLink(p.p_client_id) ? "ok" : "desatualizado");
+    }
+    if (url.includes("/rest/v1/rpc/client_report_email_set_link")) {
+      const p = parse();
+      if (!canEditEmail) return res(403, { code: "42501", message: "Sem permissão para mudar o e-mail deste cliente." });
+      const token = (p.p_link ?? "").match(/\/r\/([A-Za-z0-9_-]{43})(?:[/?#].*)?$/)?.[1];
+      if (!token) return res(400, { code: "22023", message: "Cole o link completo (…/r/código)." });
+      const portal = db.portals[p.p_client_id];
+      if (!portal?.link_enabled || portal.link_token !== token) {
+        return res(400, { code: "22023", message: 'Este não é o link atual do cliente (ou o link está desligado). Gere/copie o link no card "Acesso do cliente".' });
+      }
+      db.emailLinks[p.p_client_id] = token;
+      return res(204);
+    }
+    if (url.includes("/functions/v1/client-report-email")) {
+      const b = parse();
+      db.rpcCalls.push({ fn: "client-report-email", ...b });
+      const fail = (status, code, message) => res(status, { error: { code, message } });
+      if (b.action === "test_settings" ? role !== "admin" : !canEditEmail) return fail(403, "FORBIDDEN", "Você não tem permissão para esta ação.");
+      if (!db.emailSettings.has_key) return fail(400, "EMAIL_NOT_CONFIGURED", "O envio de e-mails ainda não foi configurado (falta a chave do Resend em Configurações → Integrações).");
+      const resend = (to, subject) => {
+        if (db.emailResult !== "ok") return db.emailResult;
+        db.emailsSent.push({ to, subject });
+        return null;
+      };
+      if (b.action === "test_settings") {
+        const err = resend(email, "Teste de envio · Backstage Flow");
+        Object.assign(db.emailSettings, { last_test_at: new Date().toISOString(), last_test_ok: !err, last_test_error: err });
+        return err ? fail(400, "EMAIL_SEND_FAILED", err) : res(200, { data: { sentTo: email } });
+      }
+      const client = db.clients.find((c) => c.id === b.clientId);
+      if (!client) return fail(404, "NOT_FOUND", "Cliente não encontrado.");
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: client.timezone }).format(new Date());
+      const shift = (n) => new Date(Date.parse(`${today}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+      const week = { from: shift(-7), to: shift(-1) };
+      const trigger = b.action === "test" ? "teste" : "manual";
+      const log = (status, detail, n = 0) => {
+        db.clientEmailLog.push({ id: db.clientEmailLog.length + 1, client_id: client.id, created_at: new Date().toISOString(), trigger, status,
+          recipients: n, period_from: week.from, period_to: week.to, detail });
+        return { status, detail, sent: n };
+      };
+      const cfg = db.clientEmails[client.id];
+      const to = b.action === "test" ? [email] : (cfg?.recipients ?? []);
+      if (!to.length) return res(200, { data: log("pulado", "Nenhum destinatário cadastrado.") });
+      const hasData = reportRpc("client_report_accounts", { p_client_id: client.id, p_from: week.from, p_to: week.to }).some((a) => a.cur);
+      if (!hasData) return res(200, { data: log("pulado", "Sem dados de anúncios nesta semana: nada foi enviado.") });
+      const subject = `${b.action === "test" ? "[Teste] " : ""}${client.name}: resultados da semana`;
+      const errors = to.map((t) => resend(t, subject)).filter(Boolean);
+      const sent = to.length - errors.length;
+      const r = log(sent ? "enviado" : "erro", errors.length ? `${sent} de ${to.length} enviados. ${errors[0]}` : `${sent} enviado(s).`, sent);
+      return sent ? res(200, { data: r }) : fail(400, "EMAIL_SEND_FAILED", r.detail);
     }
     // Papel "cliente" só vê a empresa com o login ligado (Etapa 19.2).
     const clientVisible = (clientId) => role !== "cliente" ||

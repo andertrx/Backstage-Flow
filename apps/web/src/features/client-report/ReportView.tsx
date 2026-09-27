@@ -31,6 +31,8 @@ export interface ReportViewProps {
   /** "Hoje" no fuso do cliente (as datas livres vão até ontem). */
   today: string;
   settings: ClientReportSettings;
+  /** Logo do cliente (Etapa 19.4); null = sem logo. */
+  logoUrl?: string | null;
   period: ReportPeriodState;
   onPeriod: (p: ReportPeriod) => void;
   onCustom: (from: string, to: string) => void;
@@ -90,6 +92,10 @@ export function ReportView(p: ReportViewProps) {
       </div>
 
       <header className="space-y-1">
+        {p.logoUrl && (
+          <img src={p.logoUrl} alt={`Logo ${p.clientName}`} data-testid="report-logo"
+            className="mb-3 h-12 w-auto max-w-[220px] object-contain object-left" />
+        )}
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900" data-testid="report-title">{settings.title}</h1>
         {settings.subtitle && <p className="text-slate-600">{settings.subtitle}</p>}
         <p className="text-sm text-slate-500" data-testid="report-period">
