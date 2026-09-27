@@ -335,6 +335,29 @@ export function seedDemo(): MockDb {
   db.entityChanges = [
     { id: 1, entity_level: "campaign", entity_id: did("d", 1), field: "budget_micros", old_value: 100 * M, new_value: 120 * M, source: "sync", changed_at: null, detected_at: ago(60 * 30) },
   ];
+  // Tracking (Etapa 34): um site fictício com algumas chegadas e eventos.
+  const trackingContainer = did("f", 1);
+  db.trackingContainers = [{
+    id: trackingContainer, client_id: did("a", 1), name: `Site Academia ${DEMO_SUFFIX}`, public_key: "bf_de0000000000000000000d3e",
+    allowed_domains: ["academia-demo.example"], status: "ativo", test_mode: true, consent_mode: "nao_exigir", retention_days: 180, created_at: ago(60 * 48),
+  }];
+  const touches: [string, boolean | null, string, string, string | null, number][] = [
+    ["meta", true, "confirmada", "IDs do anúncio do Meta na URL.", "Matrículas - Leads", 12],
+    ["google", true, "confirmada", "Clique em anúncio do Google (identificador de clique do Google Ads).", null, 45],
+    ["busca_organica", false, "provavel", "Veio de um buscador (www.google.com).", null, 90],
+    ["meta", null, "provavel", "fbclid presente (pode ser anúncio ou link orgânico do Facebook/Instagram).", null, 150],
+    ["direto", null, "desconhecida", "Sem parâmetros nem site de origem (acesso direto ou origem perdida).", null, 240],
+  ];
+  db.trackingTouchpoints = touches.map(([channel, paid, evidence, reason, campaign, minutes], i) => ({
+    id: i + 1, container_id: trackingContainer, occurred_at: ago(minutes), channel, paid, evidence, reason,
+    utm_source: channel === "meta" && campaign ? "facebook" : null, utm_medium: campaign ? "paid_social" : null, utm_campaign: campaign,
+    fbclid: channel === "meta" ? "IwDemo" : null, gclid: channel === "google" ? "GDemo" : null, ad_campaign_id: campaign ? "120000000000001" : null, landing_url: null,
+  }));
+  db.trackingEvents = db.trackingTouchpoints.flatMap((t, i) => [
+    { event_id: `demo.${i}.1`, container_id: trackingContainer, event_name: "PageView", occurred_at: t.occurred_at, page_path: "/", test: true, touchpoint_id: t.id, session_id: `s${i}`, visitor_id: `v${i}` },
+    { event_id: `demo.${i}.2`, container_id: trackingContainer, event_name: i === 0 ? "Lead" : "PageView", occurred_at: ago(Number(touches[i][5]) - 2), page_path: i === 0 ? "/obrigado" : "/planos", test: true, touchpoint_id: null, session_id: `s${i}`, visitor_id: `v${i}` },
+  ]);
+
   db.lastSyncedAt = ago(35);
   return db;
 }

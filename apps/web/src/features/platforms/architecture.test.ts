@@ -59,7 +59,7 @@ describe("arquitetura preparada para novas plataformas", () => {
   it("a ordem do menu não mudou", () => {
     expect(NAV_ITEMS.map((n) => n.label)).toEqual([
       "Dashboard", "Clientes", "Contas", "Meta Ads", "Google Ads", "Campanhas",
-      "Relatórios", "Alertas", "Sincronização", "Logs", "Configurações",
+      "Relatórios", "Alertas", "Tracking", "Sincronização", "Logs", "Configurações",
     ]);
   });
 

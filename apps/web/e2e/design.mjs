@@ -5,10 +5,10 @@
  */
 import { BASE, check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
 
-const MENU = ["Dashboard", "Clientes", "Contas", "Meta Ads", "Google Ads", "Campanhas", "Relatórios", "Alertas", "Sincronização", "Logs", "Configurações"];
+const MENU = ["Dashboard", "Clientes", "Contas", "Meta Ads", "Google Ads", "Campanhas", "Relatórios", "Alertas", "Tracking", "Sincronização", "Logs", "Configurações"];
 const PAGES = [
   ["/", "Dashboard"], ["/clientes", "Clientes"], ["/contas", "Contas"], ["/meta-ads", "Meta Ads"], ["/google-ads", "Google Ads"],
-  ["/campanhas", "Campanhas"], ["/relatorios", "Relatórios"], ["/alertas", "Alertas"], ["/sincronizacao", "Sincronização"],
+  ["/campanhas", "Campanhas"], ["/relatorios", "Relatórios"], ["/alertas", "Alertas"], ["/tracking", "Tracking"], ["/sincronizacao", "Sincronização"],
   ["/logs", "Logs"], ["/configuracoes/usuarios", "Configurações"],
 ];
 const sidebar = (page) => page.getByTestId("sidebar");

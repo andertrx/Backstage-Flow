@@ -25,6 +25,9 @@ export interface MockDb {
   audit: Row[];
   coverage: Record<string, Row>;
   errorLogs: Row[];
+  trackingContainers: Row[];
+  trackingTouchpoints: Row[];
+  trackingEvents: Row[];
   [key: string]: unknown;
 }
 

@@ -46,6 +46,7 @@ const ROUTES = [
   ["/campanhas", "Campanhas", ["admin", "gestor", "operador", "visualizador"]],
   ["/relatorios", "Relatórios", ["admin", "gestor", "operador"]],
   ["/alertas", "Alertas", ["admin", "gestor", "operador", "visualizador"]],
+  ["/tracking", "Tracking", ["admin", "gestor", "operador", "visualizador"]],
   ["/sincronizacao", "Sincronização", ["admin", "gestor", "operador", "visualizador"]],
   ["/logs", "Logs", ["admin", "gestor"]],
   ["/configuracoes/usuarios", "Configurações", ["admin"]],

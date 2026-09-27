@@ -17,6 +17,8 @@ export const PERMISSIONS = [
   "logs.view",
   "settings.manage",
   "internal.view",
+  "tracking.view",
+  "tracking.manage",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -31,9 +33,11 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "reports.generate",
     "logs.view",
     "internal.view",
+    "tracking.view",
+    "tracking.manage",
   ],
-  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view"],
-  visualizador: ["clients.view", "internal.view"],
+  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view"],
+  visualizador: ["clients.view", "internal.view", "tracking.view"],
   cliente: [],
 };
 
@@ -54,6 +58,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "logs.view": "Ver os logs (o gestor vê só as sincronizações)",
   "users.manage": "Criar usuários e mudar papéis e acessos",
   "settings.manage": "Abrir as Configurações",
+  "tracking.view": "Ver o Tracking (visitas, origens e eventos dos sites dos clientes)",
+  "tracking.manage": "Configurar o Tracking (containers, domínios autorizados e código de instalação)",
 };
 
 /** Quais clientes cada papel enxerga (a regra que o banco aplica em toda consulta). */

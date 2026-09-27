@@ -16,6 +16,7 @@ const ClientsPage = lazy(() => import("@/features/clients/ClientsPage.tsx").then
 const ExecutivePage = lazy(() => import("@/features/executive/ExecutivePage.tsx").then((m) => ({ default: m.ExecutivePage })));
 const ComparisonPage = lazy(() => import("@/features/comparison/ComparisonPage.tsx").then((m) => ({ default: m.ComparisonPage })));
 const AlertsPage = lazy(() => import("@/features/alerts/AlertsPage.tsx").then((m) => ({ default: m.AlertsPage })));
+const TrackingPage = lazy(() => import("@/features/tracking/TrackingPage.tsx").then((m) => ({ default: m.TrackingPage })));
 const SyncPage = lazy(() => import("@/features/sync/SyncPage.tsx").then((m) => ({ default: m.SyncPage })));
 const LogsPage = lazy(() => import("@/features/logs/LogsPage.tsx").then((m) => ({ default: m.LogsPage })));
 const ReportsPage = lazy(() => import("@/features/reports/ReportsPage.tsx").then((m) => ({ default: m.ReportsPage })));
@@ -101,6 +102,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="internal.view">
             <AlertsPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "tracking",
+        element: (
+          <RequirePermission permission="tracking.view">
+            <TrackingPage />
           </RequirePermission>
         ),
       },

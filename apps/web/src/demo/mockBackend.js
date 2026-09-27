@@ -69,6 +69,10 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     /** Erros técnicos (como public.error_logs) e respostas forçadas por função (Etapa 25). */
     errorLogs: [],
     rpcOverride: {},
+    /** Tracking (Etapa 34): containers, chegadas com origem e eventos. */
+    trackingContainers: [],
+    trackingTouchpoints: [],
+    trackingEvents: [],
   };
 }
 
@@ -237,6 +241,55 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
             campaigns: a.campaign_id ? { name: db.campaigns.find((c) => c.id === a.campaign_id)?.name ?? "" } : null };
         });
       return res(200, rows);
+    }
+
+    // --- Tracking (Etapa 34)
+    if (url.includes("/rest/v1/tracking_containers")) {
+      const withClient = (c) => ({ ...c, clients: { name: db.clients.find((x) => x.id === c.client_id)?.name ?? "" } });
+      if (method === "GET") return res(200, db.trackingContainers.map(withClient));
+      if (method === "POST") {
+        const row = parse();
+        if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "new row violates row-level security policy" });
+        const id = crypto.randomUUID();
+        const key = "bf_" + Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
+        const created = { id, public_key: key, created_at: new Date().toISOString(), ...row };
+        db.trackingContainers.push(created);
+        db.rpcCalls.push({ fn: "tracking_containers.insert", ...row });
+        return res(201, { id });
+      }
+      if (method === "PATCH") {
+        const c = db.trackingContainers.find((x) => x.id === eqParam(url, "id"));
+        Object.assign(c, parse());
+        db.rpcCalls.push({ fn: "tracking_containers.update", id: c.id });
+        return res(204);
+      }
+    }
+    if (url.includes("/rest/v1/rpc/tracking_overview")) {
+      const p = parse();
+      const inRange = (t) => t >= p.p_from && t < p.p_to;
+      return res(200, db.trackingContainers.map((c) => {
+        const ev = db.trackingEvents.filter((e) => e.container_id === c.id);
+        const sessions = new Map();
+        for (const e of ev) if (!sessions.has(e.session_id)) sessions.set(e.session_id, e);
+        const started = [...sessions.values()].filter((e) => inRange(e.occurred_at));
+        const touchOf = (e) => db.trackingTouchpoints.find((t) => t.id === e.touchpoint_id);
+        return {
+          container_id: c.id,
+          sessions: started.length,
+          visitors: new Set(started.map((e) => e.visitor_id)).size,
+          pageviews: ev.filter((e) => e.event_name === "PageView" && inRange(e.occurred_at)).length,
+          events: ev.filter((e) => inRange(e.occurred_at)).length,
+          paid_sessions: started.filter((e) => touchOf(e)?.paid === true).length,
+          unknown_origin_sessions: started.filter((e) => !touchOf(e) || touchOf(e).evidence === "desconhecida").length,
+          last_event_at: ev.length ? ev.map((e) => e.occurred_at).sort().at(-1) : null,
+        };
+      }));
+    }
+    if (url.includes("/rest/v1/tracking_touchpoints")) {
+      return res(200, [...db.trackingTouchpoints].sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)).slice(0, 50));
+    }
+    if (url.includes("/rest/v1/tracking_events")) {
+      return res(200, [...db.trackingEvents].sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)).slice(0, 50));
     }
 
     // --- Estrutura por plataforma (mesma regra de public.platform_structure)

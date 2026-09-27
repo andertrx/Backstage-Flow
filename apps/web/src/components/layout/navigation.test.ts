@@ -26,10 +26,10 @@ describe("menu lateral", () => {
 });
 
 describe("grupos do menu", () => {
-  it("a ordem do menu é exatamente a da Etapa 21", () => {
+  it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34)", () => {
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
       "Dashboard", "Clientes", "Contas", "Meta Ads", "Google Ads", "Campanhas",
-      "Relatórios", "Alertas", "Sincronização", "Logs", "Configurações",
+      "Relatórios", "Alertas", "Tracking", "Sincronização", "Logs", "Configurações",
     ]);
   });
 
