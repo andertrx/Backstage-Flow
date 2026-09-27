@@ -2,9 +2,9 @@
 -- REMOÇÃO COMPLETA do módulo de Tracking (Etapa 34).
 --
 -- ATENÇÃO: apaga TODOS os dados de tracking (containers, visitantes, sessões,
--- origens, eventos, leads, compras, fila do Meta e tokens do Meta). Não mexe em nada do CRM (clientes, contas, campanhas,
+-- origens, eventos, leads, compras, cliques no WhatsApp, fila do Meta e tokens do Meta). Não mexe em nada do CRM (clientes, contas, campanhas,
 -- métricas, alertas). Só rodar com decisão explícita, no SQL Editor.
--- Depois: apagar as Edge Functions "track", "capi-sender" e "tracking-destinations" no painel do Supabase e tirar o
+-- Depois: apagar as Edge Functions "track", "capi-sender", "tracking-destinations" e "tracking-whatsapp" no painel do Supabase e tirar o
 -- item "Tracking" do menu (reverter o commit da Etapa 34).
 -- =============================================================================
 begin;
@@ -14,6 +14,11 @@ select cron.unschedule('tracking-capi') where exists (select 1 from cron.job whe
 
 -- Tokens do Meta guardados no cofre (Vault)
 delete from vault.secrets where name like 'capi:%';
+
+drop function if exists public.tracking_whatsapp_lookup(text);
+drop function if exists public.tracking_whatsapp_mark(text, text, uuid, bigint);
+drop function if exists public.tracking_whatsapp_register(jsonb);
+drop table if exists public.tracking_whatsapp_clicks;
 
 drop function if exists public.tracking_capi_overview();
 drop function if exists public.tracking_capi_log_add(jsonb);

@@ -30,6 +30,8 @@ export interface QueueRow {
   ph_hash: string | null;
   fn_hash: string | null;
   ln_hash: string | null;
+  /** "website" (padrão) ou "chat" (conversão fechada no WhatsApp). */
+  action_source?: string | null;
 }
 
 export async function sha256Hex(text: string): Promise<string> {
@@ -69,10 +71,11 @@ export async function buildMetaEvent(row: QueueRow) {
     event_name: row.event_name,
     event_time: Math.floor(Date.parse(row.occurred_at) / 1000),
     event_id: row.event_id,
-    action_source: "website",
+    action_source: row.action_source === "chat" ? "chat" : "website",
     user_data,
   };
-  if (row.page_url) event.event_source_url = row.page_url;
+  // Endereço da página só faz sentido (e só é exigido) em evento do site.
+  if (row.page_url && event.action_source === "website") event.event_source_url = row.page_url;
   const cd = customData(row.custom_data);
   if (cd) event.custom_data = cd;
   return event;

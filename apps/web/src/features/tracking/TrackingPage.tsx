@@ -27,6 +27,7 @@ import {
   useCapiOverview,
   useConversionsSummary,
   useDestinations,
+  useWhatsAppClicks,
   useRecentEvents,
   useRecentLeads,
   useRecentTouchpoints,
@@ -37,6 +38,7 @@ import { ContainerFormModal, InstallModal } from "./ContainerModals.tsx";
 import { LeadsSection } from "./LeadsSection.tsx";
 import { capiStatus, PERIOD_LABELS, type PeriodPreset, periodRange, summarizeConversions } from "./logic.ts";
 import { MetaCapiModal } from "./MetaCapiModal.tsx";
+import { WhatsAppSection } from "./WhatsAppSection.tsx";
 
 const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
   confirmada: "success",
@@ -73,6 +75,8 @@ export function TrackingPage() {
   const destOf = (containerId: string) => (destinations.data ?? []).find((d) => d.container_id === containerId);
   const capiOf = (dest: Destination | undefined) => (dest ? (capiOverview.data ?? []).find((o) => o.destination_id === dest.id) : undefined);
   const [metaFor, setMetaFor] = useState<TrackingContainer | null>(null);
+  const waClicks = useWhatsAppClicks(hasContainers);
+  const canMarkWhatsApp = can(profile?.role, "tracking.whatsapp");
 
   const [editing, setEditing] = useState<TrackingContainer | "new" | null>(null);
   const [installing, setInstalling] = useState<TrackingContainer | null>(null);
@@ -179,6 +183,12 @@ export function TrackingPage() {
               ))}
             </ul>
           </section>
+
+          <WhatsAppSection
+            clicks={(waClicks.data ?? []).filter((c) => visibleIds.has(c.container_id))}
+            siteName={(id) => byId.get(id)?.name ?? "—"}
+            canMark={canMarkWhatsApp}
+          />
 
           <LeadsSection
             leads={(leads.data ?? []).filter((l) => visibleIds.has(l.container_id))}

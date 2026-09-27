@@ -154,6 +154,50 @@ function seedClients(db) {
   await journey.screenshot({ path: `${SHOTS}/tracking-jornada.png` });
   await journey.getByRole("button", { name: "Fechar", exact: true }).click();
 
+  // 34.5-W: WhatsApp (app comum)
+  db.whatsappClicks.push({ id: 1, container_id: cid, code: "K7Q2M9", clicked_at: ago(15), status: "clicado", sales: 0, test: true,
+    touch: { channel: "meta", evidence: "confirmada", paid: true, utm_campaign: "Black Friday", ad_campaign_id: "120", reason: "IDs do anúncio do Meta na URL." } });
+  await page.reload();
+  await page.getByTestId("wa-click-row").first().waitFor();
+  check((await page.getByTestId("wa-click-row").first().innerText()).includes("K7Q2M9"), "lista de cliques no WhatsApp com o código");
+  const wa = page.getByRole("region", { name: "WhatsApp" });
+  await wa.getByLabel("Código da conversa").fill("abc");
+  await wa.getByRole("button", { name: "Buscar" }).click();
+  await wa.getByText("Código inválido").waitFor();
+  check(true, "código inválido: explica o formato");
+  await wa.getByLabel("Código da conversa").fill("ref. k7q-2m9");
+  await wa.getByRole("button", { name: "Buscar" }).click();
+  await wa.getByTestId("wa-lookup").waitFor();
+  check((await wa.getByTestId("wa-origin").innerText()).includes("Meta Ads · Confirmada · Black Friday"), "busca pelo código (do jeito que veio na mensagem) mostra a origem");
+  await wa.getByLabel("Telefone do cliente (opcional)").fill("(45) 99999-8888");
+  await wa.getByLabel("Nome (opcional)").fill("Ana Souza");
+  await wa.getByRole("button", { name: "Marcar como Lead" }).click();
+  await wa.getByText("Lead registrado.").waitFor();
+  const leadCall = db.functionCalls.filter((c) => c.fn === "tracking-whatsapp").at(-1);
+  check(leadCall.code === "K7Q2M9" && leadCall.kind === "lead" && leadCall.ud.ph === sha("5545999998888") && leadCall.ud.fn === sha("ana") && leadCall.ud.ln === sha("souza"),
+    "Lead marcado com o contato cifrado na tela (padrão do Meta)");
+  check(!/99999|Ana|Souza/i.test(JSON.stringify(leadCall)), "telefone e nome legíveis não saem da tela");
+  await wa.getByRole("button", { name: "Marcar como Venda" }).click();
+  await wa.getByText("Informe o valor da venda").waitFor();
+  await wa.getByLabel("Valor da venda").fill("350,00");
+  await wa.getByLabel("Nº do pedido (recomendado)").fill("PED-1");
+  await wa.getByRole("button", { name: "Marcar como Venda" }).click();
+  await wa.getByText("Venda registrada.").waitFor();
+  const saleCall = db.functionCalls.filter((c) => c.fn === "tracking-whatsapp").at(-1);
+  check(saleCall.kind === "venda" && saleCall.value === 350 && saleCall.currency === "BRL" && saleCall.orderId === "PED-1", "venda com valor, moeda e nº do pedido");
+  await wa.getByRole("button", { name: "Marcar como Venda" }).click();
+  await wa.getByText("Este nº de pedido já foi registrado").waitFor();
+  check(true, "mesmo nº de pedido não conta duas vezes");
+  await page.getByTestId("wa-click-row").first().getByText("Venda").waitFor();
+  check(true, "lista mostra a conversa como Venda");
+  await wa.screenshot({ path: `${SHOTS}/tracking-whatsapp.png` });
+
+  await page.getByRole("button", { name: "Código de instalação: Loja Excalibur" }).click();
+  const install3 = page.getByRole("dialog", { name: "Instalar no site — Loja Excalibur" });
+  await install3.getByLabel("Código de rastreio no WhatsApp").check();
+  check((await install3.getByTestId("copy-block").allInnerTexts())[0].includes('data-wa-code="1"'), "opção do código no WhatsApp entra no código de instalação");
+  await install3.getByRole("button", { name: "Fechar", exact: true }).click();
+
   // 34.3: Meta CAPI
   await page.getByRole("button", { name: "Meta API de Conversões: Loja Excalibur" }).click();
   const meta = page.getByRole("dialog", { name: /Meta — API de Conversões/ });
@@ -224,6 +268,15 @@ function seedClients(db) {
   const metaV = page.getByRole("dialog", { name: /Meta — API de Conversões/ });
   await metaV.getByText("Só administradores e gestores configuram").waitFor();
   check(await metaV.getByLabel(/Token da API/).count() === 0, "visualizador vê a situação do Meta, sem campo de token");
+  await metaV.getByRole("button", { name: "Fechar", exact: true }).last().click();
+  db.whatsappClicks.push({ id: 9, container_id: "t1", code: "V9SUAL", clicked_at: ago(5), status: "clicado", sales: 0, test: false, touch: null });
+  await page.reload();
+  const waV = page.getByRole("region", { name: "WhatsApp" });
+  await waV.getByLabel("Código da conversa").fill("V9SUAL");
+  await waV.getByRole("button", { name: "Buscar" }).click();
+  await waV.getByTestId("wa-lookup").waitFor();
+  check(await waV.getByRole("button", { name: "Marcar como Lead" }).count() === 0 && (await waV.getByTestId("wa-origin").innerText()).includes("desconhecida"),
+    "visualizador consulta o código (origem desconhecida, sem inventar) mas não marca");
   await browser.close();
 }
 {
@@ -438,4 +491,42 @@ const waitSent = async (page, sent, n) => {
   await browser.close();
 }
 
-console.log("\nEtapa 34 (tracking 34.1 a 34.3): todos os testes passaram.");
+{
+  // 34.5-W: código de rastreio na mensagem do WhatsApp
+  const WA = '<a id="wa" href="https://wa.me/5545999998888?text=Ol%C3%A1!%20Quero%20saber%20mais" onclick="window.__href=this.href; event.preventDefault()">Fale no WhatsApp</a>';
+  const { browser, page, errors } = await launch();
+  const sent = [];
+  await site(page, sent, html("", ' data-wa-code="1"', WA));
+  await page.goto(`${SITE}/?utm_source=facebook&bf_c=120`);
+  await waitSent(page, sent, 2);
+  sent.length = 0;
+  await page.getByRole("link", { name: "Fale no WhatsApp" }).click();
+  await waitSent(page, sent, 1);
+  const contact = sent.find((b) => b.n === "Contact");
+  const href = await page.evaluate(() => window.__href);
+  const text = new URL(href).searchParams.get("text");
+  check(/^[2-9A-HJ-NP-Z]{6}$/.test(contact.cd.ref) && text === `Olá! Quero saber mais (ref. ${contact.cd.ref})`, `mensagem do WhatsApp ganha o código (${text})`);
+  check(href.includes("%20(ref.%20") && !href.includes("+"), "espaços como %20 (a mensagem aparece certinha no WhatsApp)");
+  await page.getByRole("link", { name: "Fale no WhatsApp" }).click();
+  await waitSent(page, sent, 2);
+  const text2 = new URL(await page.evaluate(() => window.__href)).searchParams.get("text");
+  check((text2.match(/\(ref\./g) ?? []).length === 1 && sent[1].cd.ref !== contact.cd.ref, "clicar de novo troca o código (não acumula dois)");
+  check(errors.length === 0, "sem erros com o código no WhatsApp");
+  await browser.close();
+}
+{
+  // Sem a opção: link e mensagem ficam como estão
+  const WA = '<a href="https://wa.me/5545999998888?text=Oi" onclick="window.__href=this.href; event.preventDefault()">Fale no WhatsApp</a>';
+  const { browser, page } = await launch();
+  const sent = [];
+  await site(page, sent, html("", "", WA));
+  await page.goto(`${SITE}/`);
+  await waitSent(page, sent, 2);
+  sent.length = 0;
+  await page.getByRole("link", { name: "Fale no WhatsApp" }).click();
+  await waitSent(page, sent, 1);
+  check((await page.evaluate(() => window.__href)) === "https://wa.me/5545999998888?text=Oi" && sent[0].n === "Contact" && !("ref" in sent[0].cd), "sem a opção, a mensagem do cliente não muda");
+  await browser.close();
+}
+
+console.log("\nEtapa 34 (tracking 34.1 a 34.5-W): todos os testes passaram.");

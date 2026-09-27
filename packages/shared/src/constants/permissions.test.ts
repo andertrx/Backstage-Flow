@@ -30,6 +30,10 @@ describe("permissões", () => {
     expect(can("visualizador", "sync.run")).toBe(false);
   });
 
+  it("WhatsApp: quem atende marca Lead/Venda; visualizador só olha", () => {
+    expect(ROLES.filter((role) => can(role, "tracking.whatsapp"))).toEqual(["admin", "gestor", "operador"]);
+  });
+
   it("sem papel, sem permissão", () => {
     expect(can(null, "clients.view")).toBe(false);
   });

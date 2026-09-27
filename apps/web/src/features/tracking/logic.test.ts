@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capiStatus, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions } from "./logic.ts";
+import { capiStatus, normalizeWaCode, parseMoneyInput, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions } from "./logic.ts";
 
 describe("domínios autorizados", () => {
   it("aceita um por linha, limpa o endereço e tira repetidos", () => {
@@ -75,5 +75,24 @@ describe("Meta CAPI", () => {
   it("Pixel no navegador entra no código só com ID válido", () => {
     expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false, pixelId: "123456789" }, "https://x/t.js")).toContain('data-pixel="123456789"');
     expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false, pixelId: "abc" }, "https://x/t.js")).not.toContain("data-pixel");
+  });
+});
+
+describe("WhatsApp", () => {
+  it("código aceito do jeito que a equipe digitar", () => {
+    expect(normalizeWaCode("ref. k7q-2m9")).toBe("K7Q2M9");
+    expect(normalizeWaCode("REFA23")).toBe("REFA23");
+    expect(normalizeWaCode("K7Q2M1")).toBeNull();
+  });
+  it("valor em reais ou dólares, com vírgula ou ponto", () => {
+    expect(parseMoneyInput("1.234,56")).toBe(1234.56);
+    expect(parseMoneyInput("R$ 350,5")).toBe(350.5);
+    expect(parseMoneyInput("1234.56")).toBe(1234.56);
+    expect(parseMoneyInput("abc")).toBeNull();
+    expect(parseMoneyInput("-5")).toBeNull();
+  });
+  it("código na mensagem do WhatsApp entra no código de instalação só quando pedido", () => {
+    expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false, waCode: true }, "https://x/t.js")).toContain('data-wa-code="1"');
+    expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false }, "https://x/t.js")).not.toContain("data-wa-code");
   });
 });

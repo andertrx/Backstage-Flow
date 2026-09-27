@@ -19,6 +19,7 @@ export const PERMISSIONS = [
   "internal.view",
   "tracking.view",
   "tracking.manage",
+  "tracking.whatsapp",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -35,8 +36,9 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "internal.view",
     "tracking.view",
     "tracking.manage",
+    "tracking.whatsapp",
   ],
-  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view"],
+  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view", "tracking.whatsapp"],
   visualizador: ["clients.view", "internal.view", "tracking.view"],
   cliente: [],
 };
@@ -60,6 +62,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "settings.manage": "Abrir as Configurações",
   "tracking.view": "Ver o Tracking (visitas, origens e eventos dos sites dos clientes)",
   "tracking.manage": "Configurar o Tracking (containers, domínios autorizados e código de instalação)",
+  "tracking.whatsapp": "Marcar conversas do WhatsApp como Lead ou Venda (pelo código de rastreio)",
 };
 
 /** Quais clientes cada papel enxerga (a regra que o banco aplica em toda consulta). */

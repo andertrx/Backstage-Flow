@@ -146,12 +146,13 @@ export const IDENTIFY_EXAMPLE =
 export function installSnippetWithOptions(
   publicKey: string,
   consentMode: ConsentMode,
-  opts: { forms: boolean; pixelId?: string | null },
+  opts: { forms: boolean; pixelId?: string | null; waCode?: boolean },
   scriptUrl = TRACKING_SCRIPT_URL,
 ): string {
   let extra = "";
   if (opts.forms) extra += ' data-forms="lead"';
   if (opts.pixelId && /^\d{5,20}$/.test(opts.pixelId)) extra += ` data-pixel="${opts.pixelId}"`;
+  if (opts.waCode) extra += ' data-wa-code="1"';
   return installSnippet(publicKey, consentMode, scriptUrl).replace("></script>", `${extra}></script>`);
 }
 
@@ -183,4 +184,26 @@ export function capiStatus(
     return { tone: "warning", label: "Ligado, sem envio ainda", detail: overview && overview.pending > 0 ? "Há eventos na fila; o envio roda a cada minuto." : "Aguardando o primeiro evento do site." };
   }
   return { tone: "success", label: "Funcionando", detail: "Eventos chegando ao Meta pela API de Conversões." };
+}
+
+// -----------------------------------------------------------------------------
+// WhatsApp (34.5-W)
+// -----------------------------------------------------------------------------
+
+export const WA_STATUS_LABELS = { clicado: "Só clicou", lead: "Lead", venda: "Venda" } as const;
+
+/** "ref. k7q-2m9" → "K7Q2M9" (mesma regra do servidor). Inválido → null. */
+export function normalizeWaCode(input: string): string | null {
+  let c = input.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (c.length === 9 && c.startsWith("REF")) c = c.slice(3);
+  return /^[2-9A-HJ-NP-Z]{6}$/.test(c) ? c : null;
+}
+
+/** Valor digitado ("1.234,56" ou "1234.56") → número. Inválido → null. */
+export function parseMoneyInput(text: string): number | null {
+  const t = text.trim().replace(/\s|R\$|US\$/g, "");
+  if (!t) return null;
+  const normalized = /,\d{1,2}$/.test(t) ? t.replace(/\./g, "").replace(",", ".") : t.replace(/,/g, "");
+  const n = Number(normalized);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
 }

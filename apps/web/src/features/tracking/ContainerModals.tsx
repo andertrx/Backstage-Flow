@@ -149,7 +149,8 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
 export function InstallModal({ container, pixelId = null, onClose }: { container: TrackingContainer; pixelId?: string | null; onClose: () => void }) {
   const [forms, setForms] = useState(false);
   const [pixel, setPixel] = useState(false);
-  const snippet = installSnippetWithOptions(container.public_key, container.consent_mode, { forms, pixelId: pixel ? pixelId : null });
+  const [waCode, setWaCode] = useState(false);
+  const snippet = installSnippetWithOptions(container.public_key, container.consent_mode, { forms, pixelId: pixel ? pixelId : null, waCode });
   return (
     <Modal title={`Instalar no site — ${container.name}`} open onClose={onClose} size="lg">
       <div className="space-y-5 text-sm text-slate-700">
@@ -159,6 +160,16 @@ export function InstallModal({ container, pixelId = null, onClose }: { container
             <span className="font-medium text-slate-800">Capturar formulários como Lead automaticamente</span>
             <span className="block text-xs text-slate-500">
               Todo formulário enviado com e-mail ou telefone vira Lead. E-mail, telefone e nome são cifrados no navegador (só o código vai).
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3">
+          <input type="checkbox" className="mt-0.5" checked={waCode} onChange={(e) => setWaCode(e.target.checked)} />
+          <span>
+            <span className="font-medium text-slate-800">Código de rastreio no WhatsApp</span>
+            <span className="block text-xs text-slate-500">
+              A mensagem do botão do WhatsApp ganha no final “(ref. K7Q2M9)”. Quando ela chegar, a equipe digita o código na tela Tracking e
+              marca Lead/Venda com a origem certa (funciona com o WhatsApp comum).
             </span>
           </span>
         </label>
@@ -186,7 +197,7 @@ export function InstallModal({ container, pixelId = null, onClose }: { container
         </p>
         <CopyBlock label="2. Parâmetros de URL dos anúncios do Meta (campo “Parâmetros de URL” do anúncio)" text={META_URL_PARAMS} />
         <CopyBlock label="3. Modelo de rastreamento do Google Ads (conta → Configurações → URL)" text={GOOGLE_TRACKING_TEMPLATE} />
-        <p className="text-slate-600">Cliques em links do WhatsApp (wa.me) já são registrados sozinhos como “Contato”.</p>
+        <p className="text-slate-600">Cliques em links do WhatsApp (wa.me) já são registrados sozinhos como “Contato”, com ou sem o código de rastreio.</p>
         <CopyBlock label="Opcional: registrar um evento (ex.: formulário enviado)" text={EVENT_EXAMPLE} />
         <CopyBlock label="Opcional: Lead com dados de contato (cifrados no navegador)" text={IDENTIFY_EXAMPLE} />
         <CopyBlock label="Compra (na página de obrigado do pedido)" text={PURCHASE_EXAMPLE} />

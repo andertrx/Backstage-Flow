@@ -99,3 +99,10 @@ Deno.test("fila vazia: não chama o Meta", async () => {
   assertEquals(await runSender(db, () => Promise.reject(new Error("x"))), { claimed: 0, sent: 0, failed: 0 });
   assertEquals(calls.map((c) => c.fn), ["tracking_capi_claim"]);
 });
+
+Deno.test("conversão fechada no WhatsApp vai como 'chat' (sem endereço de página)", async () => {
+  const e = await buildMetaEvent(row({ action_source: "chat", event_name: "Lead" })) as Record<string, any>;
+  assertEquals(e.action_source, "chat");
+  assert(!("event_source_url" in e));
+  assertEquals(e.user_data.fbc, "fb.1.1790000000000.IwAR");
+});

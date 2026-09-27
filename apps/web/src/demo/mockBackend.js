@@ -82,6 +82,8 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     trackingCapiLog: [],
     capiTokens: {},
     capiTestResult: { ok: true, eventsReceived: 1, message: null },
+    /** WhatsApp (34.5-W): cliques com código de rastreio. */
+    whatsappClicks: [],
   };
 }
 
@@ -325,6 +327,19 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/tracking_capi_log")) {
       const dest = eqParam(url, "destination_id");
       return res(200, db.trackingCapiLog.filter((l) => l.destination_id === dest).sort((a, b) => b.requested_at.localeCompare(a.requested_at)).slice(0, 10));
+    }
+    if (url.includes("/rest/v1/tracking_whatsapp_clicks")) {
+      return res(200, [...db.whatsappClicks].sort((a, b) => b.clicked_at.localeCompare(a.clicked_at)).map((c) => ({ ...c, touch: c.touch ?? null })));
+    }
+    if (url.includes("/rest/v1/rpc/tracking_whatsapp_lookup")) {
+      let code = String(parse().p_code ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (code.length === 9 && code.startsWith("REF")) code = code.slice(3);
+      const c = db.whatsappClicks.find((x) => x.code === code);
+      if (!c) return res(200, []);
+      const k = db.trackingContainers.find((x) => x.id === c.container_id);
+      return res(200, [{ id: c.id, code: c.code, container_id: c.container_id, client_id: k?.client_id, container_name: k?.name ?? "", clicked_at: c.clicked_at,
+        page_url: c.page_url ?? null, status: c.status, sales: c.sales, lead_marked_at: null, test: c.test,
+        channel: c.touch?.channel ?? null, paid: c.touch?.paid ?? null, evidence: c.touch?.evidence ?? null, reason: c.touch?.reason ?? null, campaign: c.touch?.utm_campaign ?? null }]);
     }
     if (url.includes("/rest/v1/tracking_leads")) {
       return res(200, [...db.trackingLeads].sort((a, b) => b.last_converted_at.localeCompare(a.last_converted_at)).slice(0, 50));
@@ -818,6 +833,27 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         db.trackingCapiLog.push({ id: db.trackingCapiLog.length + 1, destination_id: dest.id, requested_at: new Date().toISOString(), kind: "teste", events_count: 1, test: true, http_status: r.ok ? 200 : 400, events_received: r.ok ? 1 : null, error_message: r.ok ? null : r.message });
         return res(200, { data: { ok: r.ok, eventsReceived: r.ok ? 1 : null, message: r.message, fbtraceId: "demo" } });
       }
+    }
+
+    // --- Edge Function tracking-whatsapp (marcar Lead/Venda)
+    if (url.includes("/functions/v1/tracking-whatsapp")) {
+      const body = parse();
+      db.functionCalls.push({ fn: "tracking-whatsapp", ...body });
+      if (!["admin", "gestor", "operador"].includes(role)) return res(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para esta ação." } });
+      const c = db.whatsappClicks.find((x) => x.code === body.code);
+      if (!c) return res(404, { error: { code: "NOT_FOUND", message: "Código não encontrado." } });
+      if (body.kind === "lead") {
+        if (c.status !== "clicado") return res(200, { data: { status: "ja_marcado" } });
+        c.status = "lead";
+      } else {
+        if (body.orderId && (c.orders ?? []).includes(body.orderId)) {
+          return res(409, { error: { code: "INVALID_STATE", message: "Este nº de pedido já foi registrado para este site." } });
+        }
+        c.orders = [...(c.orders ?? []), body.orderId].filter(Boolean);
+        c.status = "venda";
+        c.sales = (c.sales ?? 0) + 1;
+      }
+      return res(200, { data: { status: "ok", leadId: 1 } });
     }
 
     // --- Edge Function admin-users

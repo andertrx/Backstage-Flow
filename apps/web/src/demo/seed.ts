@@ -389,6 +389,14 @@ export function seedDemo(): MockDb {
     { id: 2, destination_id: demoDest, requested_at: ago(10), kind: "envio", events_count: 1, test: true, http_status: 200, events_received: 1, error_message: null },
   ];
 
+  // WhatsApp fictício: dois cliques com código (um já virou venda).
+  db.whatsappClicks = [
+    { id: 1, container_id: trackingContainer, code: "D3M0K7", clicked_at: ago(30), status: "venda", sales: 1, test: true,
+      touch: { channel: "meta", evidence: "confirmada", paid: true, utm_campaign: "Aula experimental - WhatsApp", ad_campaign_id: null, reason: "IDs do anúncio do Meta na URL." } },
+    { id: 2, container_id: trackingContainer, code: "D3M0Q9", clicked_at: ago(12), status: "clicado", sales: 0, test: true,
+      touch: { channel: "busca_organica", evidence: "provavel", paid: false, utm_campaign: null, ad_campaign_id: null, reason: "Veio de um buscador (www.google.com)." } },
+  ];
+
   db.lastSyncedAt = ago(35);
   return db;
 }

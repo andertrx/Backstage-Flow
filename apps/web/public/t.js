@@ -262,13 +262,44 @@
     }
 
     // ---- Clique para o WhatsApp = Contact (desligar com data-whatsapp="off").
+    // Com data-wa-code="1": poe um codigo curto na mensagem ("ref. K7Q2M9"). Quando a
+    // mensagem chega no WhatsApp (app comum), a equipe digita o codigo no CRM e marca
+    // Lead/Venda com a origem certa. Letras/numeros sem 0, O, 1, I (evita confusao).
+    var WA_LINK = /^(https?:\/\/)?(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)(\/|$|\?)|^whatsapp:/i;
+    var WA_CODE = el.getAttribute("data-wa-code") === "1";
+    var waCode = function () {
+      var a = new Uint8Array(6), c = "23456789ABCDEFGHJKMNPQRSTUVWXYZ", out = "";
+      (w.crypto || w.msCrypto).getRandomValues(a);
+      for (var i = 0; i < 6; i++) out += c.charAt(a[i] % c.length);
+      return out;
+    };
+    var addCode = function (href, code) {
+      try {
+        var u = new URL(href, location.href), text = u.searchParams.get("text") || "";
+        text = text.replace(/\s*\(ref\. [2-9A-HJ-NP-Z]{6}\)\s*$/, "");
+        u.searchParams.set("text", (text ? text + " " : "") + "(ref. " + code + ")");
+        // Espaco como %20 (e nao "+"): o WhatsApp mostra a mensagem certinha.
+        var parts = [];
+        u.searchParams.forEach(function (v, k) { parts.push(encodeURIComponent(k) + "=" + encodeURIComponent(v)); });
+        u.search = "?" + parts.join("&");
+        return u.toString();
+      } catch (e) {
+        return href;
+      }
+    };
     if (el.getAttribute("data-whatsapp") !== "off") {
       d.addEventListener("click", function (ev) {
         try {
           var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
-          if (a && /^(https?:\/\/)?(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)(\/|$|\?)|^whatsapp:/i.test(a.getAttribute("href") || "")) {
-            send("Contact", { canal: "whatsapp" });
+          var href = a ? a.getAttribute("href") || "" : "";
+          if (!a || !WA_LINK.test(href)) return;
+          var data = { canal: "whatsapp" };
+          if (WA_CODE && consent) {
+            var code = waCode();
+            a.setAttribute("href", addCode(href, code));
+            data.ref = code;
           }
+          send("Contact", data);
         } catch (e) { /* nunca quebra o site */ }
       }, true);
     }

@@ -81,6 +81,11 @@ Deno.serve(async (req) => {
     const payload = buildIngest(beacon, container, { nowMs: Date.now(), userAgent: req.headers.get("user-agent"), ip: ip || null });
     const { error } = await db.rpc("tracking_ingest", { p: payload });
     if (error) throw error;
+    // WhatsApp (34.5-W): clique com código de rastreio na mensagem → guarda o código.
+    if (beacon.n === "Contact" && typeof payload.event.custom_data.ref === "string") {
+      const { error: waError } = await db.rpc("tracking_whatsapp_register", { p: payload });
+      if (waError) throw waError;
+    }
     return reply(204, allowOrigin);
   } catch (err) {
     if (err instanceof TrackError) {
