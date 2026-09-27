@@ -125,7 +125,7 @@ import { check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
   const { browser, page } = await launch();
   await mockSupabase(page, { role: "cliente" });
   await login(page, "/clientes");
-  await page.getByText("Olá, Ander!").waitFor();
+  await page.getByTestId("client-home-off").waitFor();
   check(!page.url().includes("/clientes"), "papel cliente não acessa a área interna de Clientes");
   await browser.close();
 }

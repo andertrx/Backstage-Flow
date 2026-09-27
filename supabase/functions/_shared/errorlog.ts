@@ -29,6 +29,7 @@ export { redactSecrets };
 export const EXPECTED_CODES: ReadonlySet<string> = new Set([
   "INVALID_INPUT", "UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "ALREADY_LINKED", "ALREADY_UNLINKED",
   "EMAIL_IN_USE", "LAST_ADMIN", "SELF_LOCKOUT", "INVALID_STATE", "NO_CONNECTION", "METHOD_NOT_ALLOWED",
+  "LINK_INVALID", "INVALID_PERIOD", "LINK_RATE_LIMITED",
 ]);
 
 /** Qualquer erro (Error, AppError, objeto do banco) → texto legível e já sem segredos. */

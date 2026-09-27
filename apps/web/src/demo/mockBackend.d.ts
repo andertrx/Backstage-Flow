@@ -41,6 +41,8 @@ export interface MockDb {
   trackingAttribution: { last: Row[]; first: Row[] };
   trackingQuality: Row[];
   reportSettings: Row[];
+  portals: Record<string, Row>;
+  portalTokens: Record<string, string>;
   [key: string]: unknown;
 }
 

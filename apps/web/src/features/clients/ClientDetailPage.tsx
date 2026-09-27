@@ -11,6 +11,7 @@ import { errorMessage } from "@/lib/errors.ts";
 import { useClient } from "./api.ts";
 import { PlatformAccountsCard } from "@/features/ad-accounts/PlatformAccountsCard.tsx";
 import { platformLook } from "@/features/platforms/look.ts";
+import { ClientPortalCard } from "@/features/client-report/ClientPortalCard.tsx";
 import { ClientAccessCard } from "./ClientAccessCard.tsx";
 import { ClientFormModal } from "./ClientFormModal.tsx";
 import { ClientStatusBadge } from "./StatusBadge.tsx";
@@ -97,6 +98,8 @@ export function ClientDetailPage() {
           <PlatformAccountsCard key={p.id} clientId={client.id} platform={p.id} icon={platformLook(p.id).icon} />
         ))}
       </div>
+
+      {can(profile?.role, "clients.edit") && <ClientPortalCard clientId={client.id} />}
 
       {can(profile?.role, "users.manage") && <ClientAccessCard clientId={client.id} />}
 

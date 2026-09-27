@@ -1,4 +1,5 @@
-import { lazy } from "react";
+import { lazy, Suspense } from "react";
+import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { createBrowserRouter, Navigate } from "react-router";
 import { AppLayout } from "@/components/layout/AppLayout.tsx";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage.tsx";
@@ -7,12 +8,14 @@ import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
 import { PLATFORM_VIEW_LIST } from "@/features/platforms/logic.ts";
 import { SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
+import { ClientHomeOr, RequireReportAccess } from "@/features/client-report/ClientHome.tsx";
 import { RouteError } from "./RouteError.tsx";
 
 /** Cada página só é baixada quando for aberta (o site abre mais rápido). */
 const AccountPage = lazy(() => import("@/features/account/AccountPage.tsx").then((m) => ({ default: m.AccountPage })));
 const ClientDetailPage = lazy(() => import("@/features/clients/ClientDetailPage.tsx").then((m) => ({ default: m.ClientDetailPage })));
 const ClientReportPage = lazy(() => import("@/features/client-report/ClientReportPage.tsx").then((m) => ({ default: m.ClientReportPage })));
+const PublicReportPage = lazy(() => import("@/features/client-report/PublicReportPage.tsx").then((m) => ({ default: m.PublicReportPage })));
 const ClientsPage = lazy(() => import("@/features/clients/ClientsPage.tsx").then((m) => ({ default: m.ClientsPage })));
 const ExecutivePage = lazy(() => import("@/features/executive/ExecutivePage.tsx").then((m) => ({ default: m.ExecutivePage })));
 const ComparisonPage = lazy(() => import("@/features/comparison/ComparisonPage.tsx").then((m) => ({ default: m.ComparisonPage })));
@@ -36,6 +39,16 @@ export const router = createBrowserRouter([
   { path: "/login", errorElement: <RouteError />, element: <RedirectIfAuthenticated><LoginPage /></RedirectIfAuthenticated> },
   { path: "/recuperar-senha", errorElement: <RouteError />, element: <RedirectIfAuthenticated><ForgotPasswordPage /></RedirectIfAuthenticated> },
   { path: "/redefinir-senha", errorElement: <RouteError />, element: <ResetPasswordPage /> },
+  // Etapa 19.2: dashboard pelo link secreto (sem login).
+  {
+    path: "/r/:token",
+    errorElement: <RouteError />,
+    element: (
+      <Suspense fallback={<FullPageSpinner label="Abrindo o relatório..." />}>
+        <PublicReportPage />
+      </Suspense>
+    ),
+  },
   {
     path: "/",
     errorElement: <RouteError />,
@@ -45,9 +58,9 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <DashboardPage /> },
-      { path: "comparar", element: <ComparisonPage /> },
-      { path: "executivo", element: <ExecutivePage /> },
+      { index: true, element: <ClientHomeOr><DashboardPage /></ClientHomeOr> },
+      { path: "comparar", element: <RequirePermission permission="internal.view"><ComparisonPage /></RequirePermission> },
+      { path: "executivo", element: <RequirePermission permission="internal.view"><ExecutivePage /></RequirePermission> },
       {
         path: "historico",
         element: (
@@ -76,9 +89,9 @@ export const router = createBrowserRouter([
       {
         path: "clientes/:id/dashboard",
         element: (
-          <RequirePermission permission="clients.view">
+          <RequireReportAccess>
             <ClientReportPage />
-          </RequirePermission>
+          </RequireReportAccess>
         ),
       },
       {

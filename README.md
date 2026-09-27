@@ -27,7 +27,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 16 — Sincronização](docs/etapa-16-sincronizacao/README.md) ✅ concluída
 - [Etapa 17 — Logs](docs/etapa-17-logs/README.md) ✅ concluída
 - [Etapa 18 — Relatórios](docs/etapa-18-relatorios/README.md) ✅ concluída
-- [Etapa 19.1 — Dashboard do cliente (modelo por cliente + PDF)](docs/etapa-19-dashboard-cliente/19.1-DASHBOARD.md) ✅ concluída (19.2 a 19.4 em seguida)
+- [Etapa 19.1 — Dashboard do cliente (modelo por cliente + PDF)](docs/etapa-19-dashboard-cliente/19.1-DASHBOARD.md) ✅ concluída
+- [Etapa 19.2 — Acesso do cliente (login e link secreto)](docs/etapa-19-dashboard-cliente/19.2-ACESSO-DO-CLIENTE.md) ✅ concluída (19.3 e 19.4 em seguida)
 - [Etapa 20 — Permissões](docs/etapa-20-permissoes/README.md) ✅ concluída
 - [Etapa 21 — Design](docs/etapa-21-design/README.md) ✅ concluída
 - [Etapa 22 — Busca global](docs/etapa-22-busca-global/README.md) ✅ concluída

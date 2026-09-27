@@ -115,7 +115,7 @@ const freshness = (page) => page.getByTestId("data-freshness");
   const db = await mockSupabase(page, { role: "cliente" });
   seed(db);
   await login(page, "/");
-  await page.getByRole("heading", { name: /^Olá/ }).waitFor();
+  await page.getByTestId("client-home-off").waitFor();
   await page.waitForTimeout(800);
   check(await freshness(page).count() === 0 && db.syncCalls.length === 0 && !db.rpcCalls.some((c) => c.fn === "sync_overview"),
     "cliente: sem aviso técnico e sem nenhuma chamada de sincronização");

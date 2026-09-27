@@ -93,6 +93,9 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     trackingQuality: [],
     /** Dashboard do cliente (Etapa 19): modelo por cliente (como public.client_report_settings). */
     reportSettings: [],
+    /** Acesso do cliente (Etapa 19.2): por cliente, e código do link → cliente (só no servidor). */
+    portals: {},
+    portalTokens: {},
   };
 }
 
@@ -130,6 +133,60 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
 
   }
 
+
+  /** Números do dashboard do cliente (mesmas regras das funções client_report_*). */
+  function reportRpc(fn, p) {
+      db.rpcCalls.push({ fn, ...p });
+      const accts = db.adAccounts.filter((a) => a.client_id === p.p_client_id && !a.unlinked_at);
+      const sumActions = (list) => {
+        const out = {};
+        for (const m of list) for (const a of m.raw_actions?.actions ?? []) out[a.action_type] = (out[a.action_type] ?? 0) + Number(a.value);
+        return out;
+      };
+      const sum = (list, k) => (list.every((r) => r[k] == null) ? null : list.reduce((t, r) => t + (r[k] ?? 0), 0));
+      const KEYS = ["spend_micros", "impressions", "clicks", "link_clicks", "leads", "messages", "conversions", "conversion_value_micros", "video_views"];
+      const inRange = (m, from, to) => m.date >= from && m.date <= to;
+      if (fn === "client_report_accounts") {
+        const days = Math.round((Date.parse(p.p_to) - Date.parse(p.p_from)) / 86_400_000) + 1;
+        const shift = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+        const pf = shift(p.p_from, -days), pt = shift(p.p_from, -1);
+        const reach = (a, from, to) => (db.reachRows ?? []).find((r) => r.ad_account_id === a.id && r.level === "account" &&
+          r.entity_external_id === a.external_id && r.period_start === from && r.period_end === to);
+        const totals = (a, from, to) => {
+          const list = db.metrics.filter((m) => m.ad_account_id === a.id && m.level === "account" && inRange(m, from, to));
+          if (!list.length) return null;
+          const r = reach(a, from, to);
+          const withActions = list.filter((m) => m.raw_actions);
+          return { ...Object.fromEntries(KEYS.map((k) => [k, sum(list, k)])), days: list.length, reach: r?.reach ?? null, frequency: r?.frequency ?? null,
+            actions: withActions.length ? sumActions(withActions) : {} };
+        };
+        const out = accts.map((a) => ({
+          ad_account_id: a.id, platform_id: a.platform_id, name: a.name, external_id: a.external_id, currency: a.currency,
+          cur: totals(a, p.p_from, p.p_to), prev: totals(a, pf, pt), prev_from: pf, prev_to: pt, last_synced_at: db.lastSyncedAt ?? "2026-09-23T22:10:00Z",
+        })).sort((x, y) => (y.cur?.spend_micros ?? 0) - (x.cur?.spend_micros ?? 0));
+        return out;
+      }
+      if (fn === "client_report_daily") {
+        const ids = new Set(accts.map((a) => a.id));
+        return (db.metrics.filter((m) => ids.has(m.ad_account_id) && m.level === "account" && inRange(m, p.p_from, p.p_to))
+          .map((m) => ({ ad_account_id: m.ad_account_id, date: m.date, ...Object.fromEntries(KEYS.slice(0, 8).map((k) => [k, m[k] ?? null])),
+            actions: m.raw_actions ? sumActions([m]) : null }))
+          .sort((x, y) => x.ad_account_id.localeCompare(y.ad_account_id) || x.date.localeCompare(y.date)));
+      }
+      if (fn === "client_report_campaigns") {
+        const ids = new Set(accts.map((a) => a.id));
+        const rows = db.metrics.filter((m) => ids.has(m.ad_account_id) && m.level === "campaign" && inRange(m, p.p_from, p.p_to));
+        const out = [...Map.groupBy(rows, (m) => m.campaign_id)].map(([cid, list]) => {
+          const c = db.campaigns.find((x) => x.id === cid);
+          const withActions = list.filter((m) => m.raw_actions);
+          return { campaign_id: cid, ad_account_id: c.ad_account_id, name: c.name, status: c.status, objective: c.objective,
+            ...Object.fromEntries(KEYS.slice(0, 8).map((k) => [k, sum(list, k)])), actions: withActions.length ? sumActions(withActions) : null };
+        }).filter((r) => r.spend_micros > 0 || r.leads > 0 || r.messages > 0 || r.conversions > 0)
+          .sort((x, y) => (y.spend_micros ?? 0) - (x.spend_micros ?? 0)).slice(0, 200);
+        return out;
+      }
+      return [];
+  }
 
   return async function handle({ url, method, body: rawBody }) {
     const parse = () => (rawBody ? JSON.parse(rawBody) : {});
@@ -172,66 +229,85 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         return res(201);
       }
     }
+    // Papel "cliente" só vê a empresa com o login ligado (Etapa 19.2).
+    const clientVisible = (clientId) => role !== "cliente" ||
+      (db.access.some((a) => a.user_id === userId && a.client_id === clientId) && Boolean(db.portals[clientId]?.login_enabled));
+    // Link secreto (Edge Function client-report-link → public.client_report_public)
+    if (url.includes("/functions/v1/client-report-link")) {
+      const b = parse();
+      const p = { p_token: b.token, p_period: b.period ?? null, p_from: b.from ?? null, p_to: b.to ?? null };
+      db.rpcCalls.push({ fn: "client_report_public", ...p, p_token: p.p_token ? "***" : null });
+      const clientId = db.portalTokens[p.p_token];
+      const portal = clientId && db.portals[clientId];
+      if (!portal || !portal.link_enabled || (portal.link_expires_at && Date.parse(portal.link_expires_at) <= Date.now())) {
+        return res(404, { error: { code: "LINK_INVALID", message: "Este link não existe mais ou foi desativado. Peça um novo link para a agência." } });
+      }
+      const client = db.clients.find((c) => c.id === clientId);
+      const settings = db.reportSettings.find((r) => r.client_id === clientId) ?? null;
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: client.timezone }).format(new Date());
+      const shift = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+      let period, from, to;
+      if (p.p_from || p.p_to) {
+        if (!p.p_from || !p.p_to || p.p_to < p.p_from || p.p_to > today) {
+          return res(400, { error: { code: "INVALID_PERIOD", message: "Período inválido (até 400 dias, sem datas futuras)." } });
+        }
+        period = "custom"; from = p.p_from; to = p.p_to;
+      } else {
+        period = p.p_period ?? settings?.default_period ?? "last_7_days";
+        const month = `${today.slice(0, 7)}-01`;
+        const prevMonth = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 2, 1)).toISOString().slice(0, 10);
+        [from, to] = { last_7_days: [shift(today, -7), shift(today, -1)], last_14_days: [shift(today, -14), shift(today, -1)],
+          last_30_days: [shift(today, -30), shift(today, -1)], this_month: [month, today], last_month: [prevMonth, shift(month, -1)] }[period];
+      }
+      portal.link_uses += 1;
+      portal.link_last_used_at = new Date().toISOString();
+      const q = { p_client_id: clientId, p_from: from, p_to: to };
+      const { client_id: _c, updated_by: _u, ...cleanSettings } = settings ?? {};
+      return res(200, {
+        client: { name: client.name, timezone: client.timezone }, settings: settings ? cleanSettings : null,
+        period, from, to, today,
+        accounts: reportRpc("client_report_accounts", q), daily: reportRpc("client_report_daily", q), campaigns: reportRpc("client_report_campaigns", q),
+      });
+    }
     if (url.includes("/rest/v1/rpc/client_report_")) {
       const p = parse();
-      const fn = url.match(/rpc\/(client_report_\w+)/)[1];
-      db.rpcCalls.push({ fn, ...p });
-      const accts = db.adAccounts.filter((a) => a.client_id === p.p_client_id && !a.unlinked_at);
-      const sumActions = (list) => {
-        const out = {};
-        for (const m of list) for (const a of m.raw_actions?.actions ?? []) out[a.action_type] = (out[a.action_type] ?? 0) + Number(a.value);
-        return out;
-      };
-      const sum = (list, k) => (list.every((r) => r[k] == null) ? null : list.reduce((t, r) => t + (r[k] ?? 0), 0));
-      const KEYS = ["spend_micros", "impressions", "clicks", "link_clicks", "leads", "messages", "conversions", "conversion_value_micros", "video_views"];
-      const inRange = (m, from, to) => m.date >= from && m.date <= to;
-      if (fn === "client_report_accounts") {
-        const days = Math.round((Date.parse(p.p_to) - Date.parse(p.p_from)) / 86_400_000) + 1;
-        const shift = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
-        const pf = shift(p.p_from, -days), pt = shift(p.p_from, -1);
-        const reach = (a, from, to) => (db.reachRows ?? []).find((r) => r.ad_account_id === a.id && r.level === "account" &&
-          r.entity_external_id === a.external_id && r.period_start === from && r.period_end === to);
-        const totals = (a, from, to) => {
-          const list = db.metrics.filter((m) => m.ad_account_id === a.id && m.level === "account" && inRange(m, from, to));
-          if (!list.length) return null;
-          const r = reach(a, from, to);
-          const withActions = list.filter((m) => m.raw_actions);
-          return { ...Object.fromEntries(KEYS.map((k) => [k, sum(list, k)])), days: list.length, reach: r?.reach ?? null, frequency: r?.frequency ?? null,
-            actions: withActions.length ? sumActions(withActions) : {} };
-        };
-        const out = accts.map((a) => ({
-          ad_account_id: a.id, platform_id: a.platform_id, name: a.name, external_id: a.external_id, currency: a.currency,
-          cur: totals(a, p.p_from, p.p_to), prev: totals(a, pf, pt), prev_from: pf, prev_to: pt, last_synced_at: db.lastSyncedAt ?? "2026-09-23T22:10:00Z",
-        })).sort((x, y) => (y.cur?.spend_micros ?? 0) - (x.cur?.spend_micros ?? 0));
-        return res(200, out);
+      if (!clientVisible(p.p_client_id)) return res(200, []);
+      return res(200, reportRpc(url.match(/rpc\/(client_report_\w+)/)[1], p));
+    }
+    if (url.includes("/rest/v1/client_portal")) {
+      const clientId = eqParam(url, "client_id");
+      if (role === "cliente") return res(200, null);
+      const { link_token: _t, ...row } = db.portals[clientId] ?? {};
+      return res(200, db.portals[clientId] ? row : null);
+    }
+    if (url.includes("/rest/v1/rpc/client_portal_set") || url.includes("/rest/v1/rpc/client_portal_new_link")) {
+      const p = parse();
+      if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Sem permissão para mudar o acesso deste cliente." });
+      const portal = db.portals[p.p_client_id] ??= { client_id: p.p_client_id, login_enabled: false, link_enabled: false,
+        link_created_at: null, link_expires_at: null, link_last_used_at: null, link_uses: 0 };
+      if (url.includes("client_portal_set")) {
+        db.rpcCalls.push({ fn: "client_portal_set", ...p });
+        if (p.p_link_enabled && !portal.link_token) return res(400, { code: "22023", message: "Gere o link antes de ligá-lo." });
+        if (p.p_login_enabled != null) portal.login_enabled = p.p_login_enabled;
+        if (p.p_link_enabled != null) portal.link_enabled = p.p_link_enabled;
+        return res(204);
       }
-      if (fn === "client_report_daily") {
-        const ids = new Set(accts.map((a) => a.id));
-        return res(200, db.metrics.filter((m) => ids.has(m.ad_account_id) && m.level === "account" && inRange(m, p.p_from, p.p_to))
-          .map((m) => ({ ad_account_id: m.ad_account_id, date: m.date, ...Object.fromEntries(KEYS.slice(0, 8).map((k) => [k, m[k] ?? null])),
-            actions: m.raw_actions ? sumActions([m]) : null }))
-          .sort((x, y) => x.ad_account_id.localeCompare(y.ad_account_id) || x.date.localeCompare(y.date)));
-      }
-      if (fn === "client_report_campaigns") {
-        const ids = new Set(accts.map((a) => a.id));
-        const rows = db.metrics.filter((m) => ids.has(m.ad_account_id) && m.level === "campaign" && inRange(m, p.p_from, p.p_to));
-        const out = [...Map.groupBy(rows, (m) => m.campaign_id)].map(([cid, list]) => {
-          const c = db.campaigns.find((x) => x.id === cid);
-          const withActions = list.filter((m) => m.raw_actions);
-          return { campaign_id: cid, ad_account_id: c.ad_account_id, name: c.name, status: c.status, objective: c.objective,
-            ...Object.fromEntries(KEYS.slice(0, 8).map((k) => [k, sum(list, k)])), actions: withActions.length ? sumActions(withActions) : null };
-        }).filter((r) => r.spend_micros > 0 || r.leads > 0 || r.messages > 0 || r.conversions > 0)
-          .sort((x, y) => (y.spend_micros ?? 0) - (x.spend_micros ?? 0)).slice(0, 200);
-        return res(200, out);
-      }
+      db.rpcCalls.push({ fn: "client_portal_new_link", ...p });
+      const bytes = crypto.getRandomValues(new Uint8Array(32));
+      const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      if (portal.link_token) delete db.portalTokens[portal.link_token];
+      db.portalTokens[token] = p.p_client_id;
+      Object.assign(portal, { link_token: token, link_enabled: true, link_created_at: new Date().toISOString(), link_uses: 0, link_last_used_at: null,
+        link_expires_at: p.p_valid_days ? new Date(Date.now() + p.p_valid_days * 86_400_000).toISOString() : null });
+      return res(200, token);
     }
 
     // --- Clientes
     if (url.includes("/rest/v1/clients")) {
       const id = eqParam(url, "id");
       if (method === "GET") {
-        if (id) return res(200, db.clients.find((c) => c.id === id) ?? null);
-        return res(200, [...db.clients].sort((a, b) => a.name.localeCompare(b.name)));
+        if (id) return res(200, clientVisible(id) ? db.clients.find((c) => c.id === id) ?? null : null);
+        return res(200, db.clients.filter((c) => clientVisible(c.id)).sort((a, b) => a.name.localeCompare(b.name)));
       }
       if (method === "POST") {
         const row = parse();

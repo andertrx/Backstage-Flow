@@ -1,7 +1,7 @@
 import { type ClientReportSettings, type DateRange, type ReportTotals, toReportTotals } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { EntityStatus } from "@backstage/shared";
-import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 
 export interface ReportAccount {
@@ -40,7 +40,7 @@ export interface ReportCampaignRow extends Omit<ReportDailyRow, "date"> {
 
 const num = (v: unknown) => (v == null ? null : Number(v));
 const NUMERIC = ["spend_micros", "impressions", "clicks", "link_clicks", "leads", "messages", "conversions", "conversion_value_micros"] as const;
-const numericRow = <T,>(row: Record<string, unknown>): T => {
+export const numericRow = <T,>(row: Record<string, unknown>): T => {
   const out: Record<string, unknown> = { ...row };
   for (const k of NUMERIC) out[k] = num(row[k]);
   out.actions = row.actions && typeof row.actions === "object"
@@ -48,6 +48,12 @@ const numericRow = <T,>(row: Record<string, unknown>): T => {
     : null;
   return out as T;
 };
+
+export const toReportAccount = (r: Record<string, unknown>) => ({
+  ...r,
+  cur: toReportTotals(r.cur as Record<string, unknown> | null),
+  prev: toReportTotals(r.prev as Record<string, unknown> | null),
+}) as ReportAccount;
 
 const args = (clientId: string, range: DateRange) => ({ p_client_id: clientId, p_from: range.from, p_to: range.to });
 
@@ -60,11 +66,7 @@ export function useReportAccounts(clientId: string | undefined, range: DateRange
     queryFn: async () => {
       const { data, error } = await supabase.rpc("client_report_accounts", args(clientId!, range));
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os números do cliente."));
-      return (data as Record<string, unknown>[]).map((r) => ({
-        ...r,
-        cur: toReportTotals(r.cur as Record<string, unknown> | null),
-        prev: toReportTotals(r.prev as Record<string, unknown> | null),
-      })) as ReportAccount[];
+      return (data as Record<string, unknown>[]).map(toReportAccount);
     },
   });
 }
@@ -131,5 +133,100 @@ export function useSaveReportSettings(clientId: string) {
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos salvar o modelo do relatório."));
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["client-report", "settings", clientId] }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Etapa 19.2 — acesso do cliente (login e link secreto)
+// ---------------------------------------------------------------------------
+
+export interface ClientPortal {
+  client_id: string;
+  login_enabled: boolean;
+  link_enabled: boolean;
+  link_created_at: string | null;
+  link_expires_at: string | null;
+  link_last_used_at: string | null;
+  link_uses: number;
+}
+
+const PORTAL_COLUMNS = "client_id,login_enabled,link_enabled,link_created_at,link_expires_at,link_last_used_at,link_uses";
+
+/** Como está o acesso do cliente (sem linha = tudo desligado). */
+export function useClientPortal(clientId: string) {
+  return useQuery({
+    queryKey: ["client-portal", clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("client_portal").select(PORTAL_COLUMNS).eq("client_id", clientId).maybeSingle();
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o acesso do cliente."));
+      return (data as ClientPortal | null) ?? {
+        client_id: clientId, login_enabled: false, link_enabled: false, link_created_at: null, link_expires_at: null, link_last_used_at: null, link_uses: 0,
+      };
+    },
+  });
+}
+
+/** Liga/desliga o login ou o link (null = não mexe). */
+export function useSetClientPortal(clientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { login?: boolean; link?: boolean }) => {
+      const { error } = await supabase.rpc("client_portal_set", {
+        p_client_id: clientId, p_login_enabled: v.login ?? null, p_link_enabled: v.link ?? null,
+      });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos mudar o acesso do cliente."));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["client-portal", clientId] }),
+  });
+}
+
+/** Gera um código novo (o antigo para na hora). Devolve o código uma única vez. */
+export function useNewClientLink(clientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (validDays: number | null) => {
+      const { data, error } = await supabase.rpc("client_portal_new_link", { p_client_id: clientId, p_valid_days: validDays });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos gerar o link."));
+      return data as string;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["client-portal", clientId] }),
+  });
+}
+
+export interface PublicReport {
+  client: { name: string; timezone: string };
+  settings: Partial<ClientReportSettings> | null;
+  period: string;
+  from: string;
+  to: string;
+  today: string;
+  accounts: ReportAccount[];
+  daily: ReportDailyRow[];
+  campaigns: ReportCampaignRow[];
+}
+
+export type PublicQuery = { period?: string; from?: string; to?: string };
+
+/** Dashboard pelo link secreto (sem login), pela Edge Function client-report-link. */
+export function usePublicReport(token: string | undefined, q: PublicQuery) {
+  return useQuery({
+    queryKey: ["public-report", token, q],
+    enabled: Boolean(token),
+    placeholderData: (prev) => prev,
+    retry: false,
+    queryFn: async () => {
+      // Pelo servidor (Edge Function): o navegador não chama o banco direto.
+      const { data, error } = await supabase.functions.invoke("client-report-link", {
+        body: { token, ...(q.period ? { period: q.period } : {}), ...(q.from ? { from: q.from, to: q.to } : {}) },
+      });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      const d = data as Record<string, unknown>;
+      return {
+        ...d,
+        accounts: ((d.accounts as Record<string, unknown>[]) ?? []).map(toReportAccount),
+        daily: ((d.daily as Record<string, unknown>[]) ?? []).map((r) => numericRow<ReportDailyRow>(r)),
+        campaigns: ((d.campaigns as Record<string, unknown>[]) ?? []).map((r) => numericRow<ReportCampaignRow>(r)),
+      } as PublicReport;
+    },
   });
 }
