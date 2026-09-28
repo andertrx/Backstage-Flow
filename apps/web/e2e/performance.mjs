@@ -30,7 +30,8 @@ await page.getByRole("heading", { name: /Olá/ }).waitFor();
 // 1) Dashboard aberto do zero: cada informação é buscada uma única vez
 const first = await step(async () => { await page.reload(); await page.getByRole("heading", { name: /Olá/ }).waitFor(); });
 check(first.repeated.length === 0, `Dashboard: nenhuma chamada repetida (${first.repeated.join(" | ")})`);
-check(first.total <= 10, `Dashboard: poucas chamadas ao abrir (${first.total})`);
+// Etapa 36.6: +1 chamada para o sino da Central (contagem de não lidas), só para quem está na Central.
+check(first.total <= 11, `Dashboard: poucas chamadas ao abrir (${first.total})`);
 check(rpc("dashboard_summary") === 2, "resumo: período atual + período de comparação (2 chamadas)");
 
 // 2) Trocar o período: só o que depende do período (resumo x2 + gráfico)

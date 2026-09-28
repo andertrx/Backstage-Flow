@@ -141,8 +141,9 @@ async function addItem(drawer, kind, text, { owner, sector, due } = {}) {
 
   // Configurações: tipos de reunião
   await page.goto(page.url().split("/clientes")[0] + "/operacoes/configuracoes");
-  await page.getByTestId("ops-meeting-categories").waitFor();
-  check(await page.getByTestId("ops-meeting-category-row").count() === 6, "6 tipos de reunião iniciais");
+  await page.getByTestId("ops-meeting-category-row").first().waitFor();
+  const catCount = await page.getByTestId("ops-meeting-category-row").count();
+  check(catCount === 6, `6 tipos de reunião iniciais (${catCount})`);
   check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
   await browser.close();
 }
