@@ -58,6 +58,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [36.2 — Tarefas: Kanban, lista, Minhas tarefas, comentários, anexos e status](docs/etapa-36-central-operacoes/36.2-TAREFAS.md) ✅ concluída
   - [36.3 — Kanban operacional: onboarding, Account Manager, filas por setor e demandas](docs/etapa-36-central-operacoes/36.3-KANBAN-OPERACIONAL.md) ✅ concluída
   - [36.4 — Kanban comercial: leads, motivos de perda e conversão em cliente sem duplicar](docs/etapa-36-central-operacoes/36.4-KANBAN-COMERCIAL.md) ✅ concluída
+  - [36.5 — Dailies e reuniões: agenda, ata, presença e pendência → tarefa](docs/etapa-36-central-operacoes/36.5-DAILIES-E-REUNIOES.md) ✅ concluída
 
 ## Estrutura
 

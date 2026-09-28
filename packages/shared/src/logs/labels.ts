@@ -23,6 +23,7 @@ export const AUDIT_CATEGORIES = [
   { value: "ops_activity_type", label: "Central de Operações: tipos de atividade" },
   { value: "ops_lead_stage", label: "Central de Operações: colunas comerciais" },
   { value: "ops_loss_reason", label: "Central de Operações: motivos de perda" },
+  { value: "ops_meeting_category", label: "Central de Operações: tipos de reunião" },
 ] as const;
 
 export type AuditCategory = (typeof AUDIT_CATEGORIES)[number]["value"];
@@ -70,6 +71,8 @@ const ACTION_LABELS: Record<string, string> = {
   "ops.lead_stage.active": "Central de Operações: ativou/desativou coluna comercial",
   "ops.loss_reason.create": "Central de Operações: criou motivo de perda",
   "ops.loss_reason.update": "Central de Operações: alterou motivo de perda",
+  "ops.meeting_category.create": "Central de Operações: criou tipo de reunião",
+  "ops.meeting_category.update": "Central de Operações: alterou tipo de reunião",
   "ad_account.insert": "Vinculou conta de anúncio",
   "ad_account.update": "Conta de anúncio alterada",
   "connection.insert": "Conectou plataforma",

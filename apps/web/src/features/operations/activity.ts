@@ -1,4 +1,4 @@
-/** Nomes das ações do histórico da Central (tarefas e clientes), em português. */
+/** Nomes das ações do histórico da Central (tarefas, clientes e reuniões), em português. */
 export const ACTION_LABELS: Record<string, string> = {
   "tarefa.criada": "Criou a tarefa",
   "tarefa.editada": "Editou",
@@ -19,7 +19,23 @@ export const ACTION_LABELS: Record<string, string> = {
   "cliente.atividade_retirada": "Retirou uma atividade registrada",
   "demanda.liberada": "Liberou uma demanda",
   "cliente.convertido": "Veio do Comercial (lead convertido)",
+  "tarefa.da_reuniao": "Veio de uma reunião",
+  "reuniao.criada": "Agendou a reunião",
+  "reuniao.editada": "Alterou a reunião",
+  "reuniao.realizada": "Registrou a reunião (ata e presença)",
+  "reuniao.ata_editada": "Alterou a ata",
+  "reuniao.cancelada": "Cancelou a reunião",
+  "reuniao.item": "Registrou na reunião",
+  "reuniao.item_retirado": "Retirou um item da reunião",
+  "reuniao.tarefa_criada": "Transformou em tarefa",
 };
+
+const MEETING_FIELDS: Record<string, string> = {
+  titulo: "título", tipo: "tipo", inicio: "data e hora", duracao: "duração", setor: "setor", cliente: "cliente", local: "local",
+  pauta: "pauta", organizador: "organizador", participantes: "participantes",
+};
+const ITEM_KINDS: Record<string, string> = { objetivo: "Objetivo", pendencia: "Pendência", decisao: "Decisão", bloqueio: "Bloqueio" };
+const meetingRef = (a: Record<string, unknown>) => (a.reuniao ? `#${String(a.reuniao)} ${String(a.titulo_reuniao ?? "")}`.trim() : "");
 
 const FIELD_LABELS: Record<string, string> = {
   titulo: "título", descricao: "descrição", cliente: "cliente", setor: "setor", status: "status", prioridade: "prioridade",
@@ -52,6 +68,14 @@ export function activityText(a: { action: string; before: Record<string, unknown
     case "cliente.am": return `${before.am ? person(String(before.am)) : "ninguém"} → ${after.am ? person(String(after.am)) : "ninguém"}`;
     case "cliente.atividade_retirada": return String(before.titulo ?? "");
     case "cliente.convertido": return `Lead #${String(after.lead)} ${String(after.empresa ?? "")}${after.novo ? " · cliente criado" : " · vinculado"}`;
+    case "tarefa.da_reuniao": return `Reunião ${meetingRef(after)}`;
+    case "reuniao.criada": case "reuniao.ata_editada": return meetingRef(after);
+    case "reuniao.editada": return `${meetingRef(after)} · mudou: ${Object.keys(after).filter((k) => MEETING_FIELDS[k]).map((k) => MEETING_FIELDS[k]).join(", ")}`;
+    case "reuniao.realizada": return `${meetingRef(after)}${Array.isArray(after.presentes) ? ` · presentes: ${(after.presentes as string[]).join(", ") || "ninguém marcado"}` : ""}`;
+    case "reuniao.cancelada": return `${meetingRef(after)} · motivo: ${String(after.motivo ?? "")}`;
+    case "reuniao.item": return `${ITEM_KINDS[String(after.tipo)] ?? ""}: ${String(after.texto ?? "")}`;
+    case "reuniao.item_retirado": return `${ITEM_KINDS[String(before.tipo)] ?? ""}: ${String(before.texto ?? "")}`;
+    case "reuniao.tarefa_criada": return `Tarefa #${String(after.tarefa)}: ${String(after.texto ?? "")}`;
     case "demanda.liberada": return `#${String(after.demanda)} ${String(after.titulo ?? "")} (${String(after.tarefas ?? 0)} tarefa(s))`;
     default: return "";
   }

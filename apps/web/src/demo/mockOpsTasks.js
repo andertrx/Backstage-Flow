@@ -1,5 +1,5 @@
 /**
- * Tarefas da Central (Etapas 36.2 e 36.3) no servidor simulado: mesmas regras
+ * Tarefas da Central (Etapas 36.2 a 36.5) no servidor simulado: mesmas regras
  * das funções ops_* do banco (quem vê, permissões, versão, dependências,
  * etapas do cliente com regras de avanço, filas por setor, demandas).
  * Devolve a resposta, ou null quando o endereço não é de tarefas.
@@ -66,6 +66,13 @@ export function seedOpsTasks() {
     opsLeads: [],
     opsLeadSeq: 0,
     opsLeadEvents: [],
+    // 36.5
+    opsMeetingCategories: [["daily", "Daily", "#2563EB"], ["setor", "Reunião de setor", "#7C3AED"], ["cliente", "Reunião com cliente", "#10B981"],
+      ["planejamento", "Planejamento", "#F59E0B"], ["alinhamento", "Alinhamento interno", "#06B6D4"], ["outra", "Outra", "#64748B"]]
+      .map(([id, name, color], i) => ({ id, name, color, position: i + 1, active: true })),
+    opsMeetings: [],
+    opsMeetingSeq: 0,
+    opsMeetingItems: [],
   };
 }
 
@@ -205,8 +212,9 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   if (url.includes("/rest/v1/ops_activity_types")) return res(200, sorted(db.opsActivityTypes));
   if (url.includes("/rest/v1/ops_lead_stages")) return res(200, can("ops.commercial") ? sorted(db.opsLeadStages) : []);
   if (url.includes("/rest/v1/ops_loss_reasons")) return res(200, can("ops.commercial") ? sorted(db.opsLossReasons) : []);
+  if (url.includes("/rest/v1/ops_meeting_categories")) return res(200, sorted(db.opsMeetingCategories));
   const prefixes = ["ops_task", "ops_comment", "ops_attachment", "ops_directory", "ops_team_counts", "ops_status", "ops_client", "ops_demand",
-    "ops_queue", "ops_activity_type", "ops_lead", "ops_loss_reason"];
+    "ops_queue", "ops_activity_type", "ops_lead", "ops_loss_reason", "ops_meeting"];
   if (!prefixes.some((x) => url.includes(`/rest/v1/rpc/${x}`))) return null;
   const p = parse();
   db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
@@ -776,6 +784,186 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     });
   }
 
+  // --- 36.5: Dailies e reuniões (mesmas regras de ops_meeting_* no banco)
+  const meetingVisible = (m) => opsPerms.includes("ops.access") && (can("ops.meetings.manage") || m.organizer_id === userId
+    || m.people.some((x) => x.user_id === userId)
+    || (m.sector_id && (db.opsMembers[userId]?.primary === m.sector_id || (db.opsMembers[userId]?.secondary ?? []).includes(m.sector_id)))
+    || (m.client_id && clientVisible(m.client_id)));
+  const meetingCanEdit = (m) => opsPerms.includes("ops.access") && (can("ops.meetings.manage") || m.organizer_id === userId);
+  const meetingCanAdd = (m) => meetingCanEdit(m) || (opsPerms.includes("ops.access") && m.people.some((x) => x.user_id === userId));
+  const findMeeting = (id) => { const m = db.opsMeetings.find((x) => x.id === id); return m && meetingVisible(m) ? m : null; };
+  const meetingConflict = () => res(409, { code: "40001", message: "Alguém alterou esta reunião antes de você. Recarregue para ver a versão atual." });
+  const logMeeting = (m, action, before, after) =>
+    db.opsActivity.push({ id: db.opsActivity.length + 1, task_id: null, meeting_id: m.id, client_id: m.client_id ?? null, action, actor_id: userId, origin: "manual",
+      before, after: { ...(after ?? {}), reuniao: m.number, titulo_reuniao: m.title }, created_at: new Date().toISOString() });
+  const catOf = (id) => db.opsMeetingCategories.find((c) => c.id === id);
+  const sectorName = (id) => db.opsSectors.find((s) => s.id === id)?.name ?? null;
+  const spDay = (iso) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(iso));
+  const meetingRow = (m) => {
+    const c = catOf(m.category_id);
+    const items = db.opsMeetingItems.filter((i) => i.meeting_id === m.id);
+    return { id: m.id, number: m.number, title: m.title, category_id: m.category_id, category_name: c?.name, color: c?.color, status: m.status,
+      starts_at: m.starts_at, duration_min: m.duration_min, sector_id: m.sector_id, sector_name: sectorName(m.sector_id), client_id: m.client_id,
+      client_name: db.clients.find((x) => x.id === m.client_id)?.name ?? null, location: m.location, organizer_id: m.organizer_id, organizer_name: name(m.organizer_id),
+      people_count: m.people.length, attended_count: m.people.filter((x) => x.attended).length,
+      open_items: items.filter((i) => !i.removed_at && ["pendencia", "bloqueio"].includes(i.kind) && !i.task_id).length,
+      tasks_count: items.filter((i) => i.task_id).length,
+      i_participate: m.organizer_id === userId || m.people.some((x) => x.user_id === userId) };
+  };
+  if (rpc("ops_meeting_list")) {
+    if (!opsPerms.includes("ops.access")) return res(200, null);
+    const f = p.f ?? {};
+    const q = (f.q ?? "").toLowerCase();
+    const out = db.opsMeetings.filter(meetingVisible).filter((m) => (!f.from || spDay(m.starts_at) >= f.from) && (!f.to || spDay(m.starts_at) <= f.to)
+      && (!f.category_id || m.category_id === f.category_id) && (!f.sector_id || m.sector_id === f.sector_id) && (!f.client_id || m.client_id === f.client_id)
+      && (!f.status || m.status === f.status)
+      && (!f.person_id || m.organizer_id === f.person_id || m.people.some((x) => x.user_id === f.person_id))
+      && (!f.mine || m.organizer_id === userId || m.people.some((x) => x.user_id === userId))
+      && (!q || m.title.toLowerCase().includes(q) || (m.agenda ?? "").toLowerCase().includes(q) || (m.notes ?? "").toLowerCase().includes(q) || String(m.number) === q.replace("#", "")))
+      .sort((a, b) => (f.order === "asc" ? 1 : -1) * a.starts_at.localeCompare(b.starts_at)).slice(0, 300).map(meetingRow);
+    return res(200, { meetings: out, can: { create: can("ops.meetings.manage") } });
+  }
+  if (rpc("ops_meeting_get")) {
+    const m = findMeeting(p.p_id);
+    if (!m) return res(200, null);
+    return res(200, {
+      meeting: { ...meetingRow(m), agenda: m.agenda, notes: m.notes, cancel_reason: m.cancel_reason, held_at: m.held_at, created_at: m.created_at, version: m.version },
+      people: m.people.map((x) => ({ user_id: x.user_id, name: name(x.user_id), attended: x.attended })).sort((a, b) => a.name.localeCompare(b.name)),
+      items: db.opsMeetingItems.filter((i) => i.meeting_id === m.id && !i.removed_at).map((i) => {
+        const t = i.task_id ? db.opsTasks.find((x) => x.id === i.task_id) : null;
+        const tv = Boolean(t && visible(t));
+        return { ...i, owner_name: name(i.owner_id), sector_name: sectorName(i.sector_id), author: name(i.created_by), task_number: t?.number ?? null,
+          task_visible: tv, task_title: tv ? t.title : null, task_status: tv ? statusOf(t.status_id).name : null, task_done: t ? closed(t) : null };
+      }),
+      events: db.opsActivity.filter((a) => a.meeting_id === m.id).slice().reverse().map((a) => ({ ...a, actor: name(a.actor_id) })),
+      can: { edit: meetingCanEdit(m), add: meetingCanAdd(m), task: can("ops.tasks.create"), assign: can("ops.tasks.assign") },
+    });
+  }
+  if (rpc("ops_meeting_save")) {
+    const input = p.p ?? {};
+    let m = null;
+    if (!p.p_id) {
+      if (!can("ops.meetings.manage")) return deny();
+    } else {
+      m = findMeeting(p.p_id);
+      if (!m) return bad("Reunião não encontrada.");
+      if (!meetingCanEdit(m)) return deny('Só quem organiza (ou tem "Criar reuniões e Dailies") altera a reunião.');
+      if (m.status === "cancelada") return bad("Reunião cancelada não pode ser alterada.");
+      if (m.version !== p.p_version) return meetingConflict();
+    }
+    if ((input.title ?? "").trim().length < 3) return bad("Dê um título à reunião (mínimo 3 letras).");
+    const cat = catOf(input.category_id);
+    if (!cat || (!cat.active && cat.id !== m?.category_id)) return bad("Escolha o tipo da reunião.");
+    if (!input.starts_at) return bad("Informe a data e a hora.");
+    if (input.sector_id && !db.opsSectors.some((s) => s.id === input.sector_id && (s.status === "ativo" || s.id === m?.sector_id))) return bad("Escolha um setor ativo.");
+    const ids = [...new Set((input.people ?? []).filter(Boolean))];
+    if (ids.some((id) => !memberOk(id))) return bad("Todos os participantes precisam estar ativos na Central.");
+    const fields = { title: input.title.trim(), category_id: input.category_id, starts_at: new Date(input.starts_at).toISOString(),
+      duration_min: Number(input.duration_min) || 30, sector_id: input.sector_id || null, client_id: input.client_id || null,
+      location: input.location?.trim() || null, agenda: input.agenda?.trim() || null };
+    const now = new Date().toISOString();
+    if (!m) {
+      m = { id: crypto.randomUUID(), number: ++db.opsMeetingSeq, ...fields, status: "agendada", notes: null, cancel_reason: null, held_at: null,
+        organizer_id: userId, created_at: now, version: 1, people: ids.map((user_id) => ({ user_id, attended: null })) };
+      db.opsMeetings.push(m);
+      logMeeting(m, "reuniao.criada", null, { titulo: m.title });
+    } else {
+      const names = { title: "titulo", category_id: "tipo", starts_at: "inicio", duration_min: "duracao", sector_id: "setor", client_id: "cliente",
+        location: "local", agenda: "pauta" };
+      const changed = Object.keys(fields).filter((k) => fields[k] !== m[k]);
+      const peopleChanged = JSON.stringify(ids.slice().sort()) !== JSON.stringify(m.people.map((x) => x.user_id).sort());
+      Object.assign(m, fields, { version: m.version + 1, people: ids.map((user_id) => m.people.find((x) => x.user_id === user_id) ?? { user_id, attended: null }) });
+      if (changed.length || peopleChanged) {
+        logMeeting(m, "reuniao.editada", {}, { ...Object.fromEntries(changed.map((k) => [names[k], fields[k]])), ...(peopleChanged ? { participantes: ids.map(name) } : {}) });
+      }
+    }
+    return res(200, m.id);
+  }
+  if (rpc("ops_meeting_record")) {
+    const m = findMeeting(p.p_id);
+    if (!m) return bad("Reunião não encontrada.");
+    if (!meetingCanEdit(m)) return deny('Só quem organiza (ou tem "Criar reuniões e Dailies") registra a reunião.');
+    if (m.status === "cancelada") return bad("Reunião cancelada não pode ser registrada.");
+    if (m.version !== p.p_version) return meetingConflict();
+    const att = p.p_attended ?? [];
+    if (att.some((id) => !m.people.some((x) => x.user_id === id))) return bad("Presença só de quem está na lista de participantes.");
+    const was = m.status;
+    Object.assign(m, { status: "realizada", held_at: m.held_at ?? new Date().toISOString(), notes: p.p_notes?.trim() || null, version: m.version + 1 });
+    for (const x of m.people) x.attended = att.includes(x.user_id);
+    logMeeting(m, was === "realizada" ? "reuniao.ata_editada" : "reuniao.realizada", null,
+      { ata: m.notes, presentes: m.people.filter((x) => x.attended).map((x) => name(x.user_id)).sort() });
+    return res(204);
+  }
+  if (rpc("ops_meeting_cancel")) {
+    const m = findMeeting(p.p_id);
+    if (!m) return bad("Reunião não encontrada.");
+    if (!meetingCanEdit(m)) return deny('Só quem organiza (ou tem "Criar reuniões e Dailies") cancela a reunião.');
+    if (m.status !== "agendada") return bad("Só reunião agendada pode ser cancelada.");
+    if (m.version !== p.p_version) return meetingConflict();
+    if ((p.p_reason ?? "").trim().length < 3) return bad("Informe o motivo do cancelamento.");
+    Object.assign(m, { status: "cancelada", cancel_reason: p.p_reason.trim(), version: m.version + 1 });
+    logMeeting(m, "reuniao.cancelada", null, { motivo: m.cancel_reason });
+    return res(204);
+  }
+  if (rpc("ops_meeting_item_add")) {
+    const m = findMeeting(p.p_meeting);
+    const input = p.p ?? {};
+    if (!m) return bad("Reunião não encontrada.");
+    if (!meetingCanAdd(m)) return deny("Só participantes e quem organiza registram itens na reunião.");
+    if (m.status === "cancelada") return bad("Reunião cancelada não recebe itens.");
+    if (!["objetivo", "pendencia", "decisao", "bloqueio"].includes(input.kind)) return bad("Escolha o tipo do item.");
+    if ((input.body ?? "").trim().length < 2) return bad("Escreva o item.");
+    if (input.owner_id && !memberOk(input.owner_id)) return bad("O responsável precisa estar ativo na Central.");
+    const item = { id: crypto.randomUUID(), meeting_id: m.id, kind: input.kind, body: input.body.trim(), owner_id: input.owner_id || null,
+      sector_id: input.sector_id || null, due_date: ["pendencia", "bloqueio"].includes(input.kind) ? input.due_date || null : null, task_id: null,
+      created_by: userId, created_at: new Date().toISOString(), removed_at: null };
+    db.opsMeetingItems.push(item);
+    logMeeting(m, "reuniao.item", null, { tipo: item.kind, texto: item.body });
+    return res(200, item.id);
+  }
+  if (rpc("ops_meeting_item_remove")) {
+    const i = db.opsMeetingItems.find((x) => x.id === p.p_id);
+    const m = i && findMeeting(i.meeting_id);
+    if (!m) return bad("Item não encontrado.");
+    if (i.created_by !== userId && !meetingCanEdit(m)) return deny("Só quem registrou (ou quem organiza) retira o item.");
+    if (i.task_id) return bad("Este item já virou tarefa. Arquive a tarefa se ela não for mais necessária.");
+    if (!i.removed_at) { i.removed_at = new Date().toISOString(); logMeeting(m, "reuniao.item_retirado", { tipo: i.kind, texto: i.body }, null); }
+    return res(204);
+  }
+  if (rpc("ops_meeting_item_to_task")) {
+    const i = db.opsMeetingItems.find((x) => x.id === p.p_item);
+    const m = i && !i.removed_at && findMeeting(i.meeting_id);
+    if (!m) return bad("Item não encontrado.");
+    if (i.task_id) return res(200, i.task_id);
+    if (!["pendencia", "bloqueio"].includes(i.kind)) return bad("Só pendências e bloqueios viram tarefa.");
+    if (m.status === "cancelada") return bad("Reunião cancelada: não gera tarefas.");
+    const sector = i.sector_id ?? m.sector_id;
+    if (!sector) return bad("Informe o setor da pendência (ou da reunião) para criar a tarefa.");
+    if (!can("ops.tasks.create")) return deny();
+    if (i.owner_id && i.owner_id !== userId && !can("ops.tasks.assign")) return deny("Você não tem permissão para atribuir outras pessoas.");
+    const now = new Date().toISOString();
+    const t = { id: crypto.randomUUID(), number: ++db.opsTaskSeq, title: (i.kind === "bloqueio" ? `Resolver bloqueio: ${i.body}` : i.body).slice(0, 200),
+      description: `Criada a partir da reunião #${m.number} "${m.title}" de ${spDay(m.starts_at).split("-").reverse().join("/")}.`,
+      client_id: m.client_id, sector_id: sector, priority: i.kind === "bloqueio" ? "alta" : "media", start_date: null, due_date: i.due_date, effort_hours: null,
+      visibility: "setor", tags: [], client_stage_id: null, mandatory: false, status_id: "nao_iniciado",
+      people: i.owner_id ? [{ user_id: i.owner_id, role: "principal" }] : [], version: 1, created_by: userId, created_at: now, updated_at: now,
+      completed_at: null, archived_at: null, demand_id: null, queue_column_id: null };
+    db.opsTasks.push(t);
+    log(t, "tarefa.criada", null, { titulo: t.title });
+    log(t, "tarefa.da_reuniao", null, { reuniao: m.number, titulo_reuniao: m.title });
+    i.task_id = t.id;
+    logMeeting(m, "reuniao.tarefa_criada", null, { tarefa: t.number, texto: i.body });
+    return res(200, t.id);
+  }
+  if (rpc("ops_meeting_category_save")) {
+    if (role !== "admin") return deny("Só o administrador pode mudar a configuração da Central de Operações.");
+    if ((p.p_name ?? "").trim().length < 2) return bad("Dê um nome ao tipo.");
+    if (db.opsMeetingCategories.some((x) => x.id !== p.p_id && x.name.toLowerCase() === p.p_name.trim().toLowerCase())) return bad("Já existe um tipo com esse nome.");
+    if (p.p_id) { Object.assign(db.opsMeetingCategories.find((x) => x.id === p.p_id), { name: p.p_name.trim(), color: p.p_color, active: p.p_active ?? true }); return res(200, p.p_id); }
+    const id = crypto.randomUUID();
+    db.opsMeetingCategories.push({ id, name: p.p_name.trim(), color: p.p_color, position: db.opsMeetingCategories.length + 1, active: true });
+    return res(200, id);
+  }
   // --- Status (só admin)
   if (role !== "admin") return deny("Só o administrador pode mudar a configuração da Central de Operações.");
   if (rpc("ops_status_save")) {

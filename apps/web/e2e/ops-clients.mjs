@@ -46,7 +46,7 @@ const waitFor = async (page, fn, what) => {
   await login(page, "/operacoes/clientes");
   await page.getByTestId("ops-clients-empty").waitFor();
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Minhas tarefas", "Tarefas", "Comercial", "Clientes", "Filas", "Equipe", "Configurações"]), `abas da Central (${tabs.join(", ")})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Minhas tarefas", "Tarefas", "Comercial", "Clientes", "Filas", "Reuniões", "Equipe", "Configurações"]), `abas da Central (${tabs.join(", ")})`);
 
   // Colocar no fluxo
   await page.getByRole("button", { name: "Colocar cliente no fluxo" }).click();
@@ -156,7 +156,7 @@ const waitFor = async (page, fn, what) => {
   await page.goto(`${BASE}/clientes/${AURORA}`);
   await page.getByRole("heading", { name: "Dados cadastrais" }).waitFor();
   const clientTabs = await page.getByRole("navigation", { name: "Abas do cliente" }).getByRole("button").allInnerTexts();
-  check(JSON.stringify(clientTabs) === JSON.stringify(["Dados gerais", "Tarefas", "Histórico Operacional"]), `abas na ficha do cliente (${clientTabs.join(", ")})`);
+  check(JSON.stringify(clientTabs) === JSON.stringify(["Dados gerais", "Tarefas", "Histórico Operacional", "Reuniões"]), `abas na ficha do cliente (${clientTabs.join(", ")})`);
   await page.getByRole("button", { name: "Histórico Operacional" }).click();
   await page.getByTestId("client-ops-tab").getByText(/Avanço automático/).first().waitFor();
   check(page.url().includes("aba=historico"), "aba fica no endereço");

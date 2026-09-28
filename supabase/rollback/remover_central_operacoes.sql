@@ -1,7 +1,7 @@
 -- =============================================================================
--- REMOÇÃO da Central de Operações (Etapa 36: 36.1, 36.2, 36.3 e 36.4).
+-- REMOÇÃO da Central de Operações (Etapa 36: 36.1 a 36.5).
 --
--- Apaga o Kanban comercial (leads e o histórico deles), o fluxo dos clientes (etapas, Account Manager, demandas, filas e
+-- Apaga as reuniões (Dailies, atas e itens), o Kanban comercial (leads e o histórico deles), o fluxo dos clientes (etapas, Account Manager, demandas, filas e
 -- atividades registradas), tarefas (com comentários, anexos registrados e histórico), status,
 -- setores, equipe da Central e permissões da Central, e volta as regras
 -- de clientes dos módulos de anúncios como eram antes (sem o papel "equipe").
@@ -30,6 +30,37 @@ do $$ begin
     raise exception 'O bucket ops-files ainda existe. Baixe o que quiser guardar e apague o bucket pelo painel (Storage) antes de remover.';
   end if;
 end $$;
+
+-- 36.5: Dailies e reuniões (agenda, ata, presença e itens). As tarefas geradas
+-- por reuniões são tarefas normais e saem junto com as tarefas, mais abaixo.
+drop function if exists public.ops_meeting_cancel(p_id uuid, p_version integer, p_reason text);
+drop function if exists public.ops_meeting_category_save(p_id text, p_name text, p_color text, p_active boolean);
+drop function if exists public.ops_meeting_get(p_id uuid);
+drop function if exists public.ops_meeting_item_add(p_meeting uuid, p jsonb);
+drop function if exists public.ops_meeting_item_remove(p_id uuid);
+drop function if exists public.ops_meeting_item_to_task(p_item uuid);
+drop function if exists public.ops_meeting_list(f jsonb);
+drop function if exists public.ops_meeting_record(p_id uuid, p_version integer, p_notes text, p_attended uuid[]);
+drop function if exists public.ops_meeting_save(p_id uuid, p_version integer, p jsonb);
+drop function if exists private.ops_meeting_cancel_impl(p_id uuid, p_version integer, p_reason text);
+drop function if exists private.ops_meeting_category_save_impl(p_id text, p_name text, p_color text, p_active boolean);
+drop function if exists private.ops_meeting_get_impl(p_id uuid);
+drop function if exists private.ops_meeting_item_add_impl(p_meeting uuid, p jsonb);
+drop function if exists private.ops_meeting_item_remove_impl(p_id uuid);
+drop function if exists private.ops_meeting_item_to_task_impl(p_item uuid);
+drop function if exists private.ops_meeting_list_impl(f jsonb);
+drop function if exists private.ops_meeting_record_impl(p_id uuid, p_version integer, p_notes text, p_attended uuid[]);
+drop function if exists private.ops_meeting_save_impl(p_id uuid, p_version integer, p jsonb);
+drop function if exists private.ops_meeting_log(p_meeting uuid, p_action text, p_before jsonb, p_after jsonb, p_origin text);
+drop function if exists private.ops_meeting_snapshot(p_meeting uuid);
+alter table public.ops_activity drop column if exists meeting_id;
+drop table if exists public.ops_meeting_items;
+drop table if exists public.ops_meeting_people;
+drop table if exists public.ops_meetings;
+drop table if exists public.ops_meeting_categories;
+drop function if exists private.ops_meeting_can_add(p_meeting uuid);
+drop function if exists private.ops_meeting_can_edit(p_meeting uuid);
+drop function if exists private.ops_meeting_visible(p_meeting uuid);
 
 -- 36.4: Kanban comercial (leads, histórico dos leads, colunas e motivos de perda).
 -- Os clientes criados pela conversão continuam existindo (são clientes normais).

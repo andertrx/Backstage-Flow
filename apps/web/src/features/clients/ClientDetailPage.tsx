@@ -1,5 +1,5 @@
 import { can, formatCnpj, formatPhone, opsCan, PLATFORMS } from "@backstage/shared";
-import { ArrowLeft, ClipboardList, History, Info as InfoIcon, LayoutDashboard, Pencil } from "lucide-react";
+import { ArrowLeft, CalendarDays, ClipboardList, History, Info as InfoIcon, LayoutDashboard, Pencil } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useParams } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -19,10 +19,11 @@ import { ClientStatusBadge } from "./StatusBadge.tsx";
 import { timezoneLabel } from "./timezones.ts";
 import { useMyOpsPermissions } from "@/features/operations/api.ts";
 import { ClientOpsTab } from "@/features/operations/ClientOps.tsx";
+import { ClientMeetingsList } from "@/features/operations/MeetingsPage.tsx";
 import { cn } from "@/lib/cn.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 
-type ClientTab = "dados" | "tarefas" | "historico";
+type ClientTab = "dados" | "tarefas" | "historico" | "reunioes";
 
 function Info({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -43,7 +44,7 @@ export function ClientDetailPage() {
   const showOps = opsCan(opsPerms.data, "ops.clients.view") || opsCan(opsPerms.data, "ops.am");
   const [params, update] = useSearchParamsUpdater();
   const asked = params.get("aba") as ClientTab | null;
-  const tab: ClientTab = showOps && (asked === "tarefas" || asked === "historico") ? asked : "dados";
+  const tab: ClientTab = showOps && (asked === "tarefas" || asked === "historico" || asked === "reunioes") ? asked : "dados";
   const setTab = (t: ClientTab) => update((p) => { if (t === "dados") p.delete("aba"); else p.set("aba", t); return p; });
 
   if (isLoading) return <FullPageSpinner />;
@@ -91,7 +92,7 @@ export function ClientDetailPage() {
 
       {showOps && (
         <nav className="flex flex-wrap gap-2" aria-label="Abas do cliente">
-          {([["dados", "Dados gerais", InfoIcon], ["tarefas", "Tarefas", ClipboardList], ["historico", "Histórico Operacional", History]] as const).map(([id, label, Icon]) => (
+          {([["dados", "Dados gerais", InfoIcon], ["tarefas", "Tarefas", ClipboardList], ["historico", "Histórico Operacional", History], ["reunioes", "Reuniões", CalendarDays]] as const).map(([id, label, Icon]) => (
             <button key={id} type="button" onClick={() => setTab(id)} aria-pressed={tab === id}
               className={cn("inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all",
                 tab === id ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
@@ -102,7 +103,8 @@ export function ClientDetailPage() {
         </nav>
       )}
 
-      {tab !== "dados" && <ClientOpsTab clientId={client.id} tab={tab} />}
+      {(tab === "tarefas" || tab === "historico") && <ClientOpsTab clientId={client.id} tab={tab} />}
+      {tab === "reunioes" && <ClientMeetingsList clientId={client.id} />}
 
       {tab === "dados" && (<>
       <Card className="p-6">

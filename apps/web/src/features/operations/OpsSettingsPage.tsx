@@ -2,12 +2,13 @@ import { RequireOps } from "./OpsLayout.tsx";
 import { SectorsSettingsPage } from "./SectorsSettingsPage.tsx";
 import { StatusSettings } from "./StatusSettings.tsx";
 import { LeadStagesSettings, LossReasonsSettings } from "./CommercialSettings.tsx";
+import { MeetingCategoriesSettings } from "./MeetingSettings.tsx";
 import { ActivityTypesSettings, ClientStagesSettings, QueueSettings } from "./FlowSettings.tsx";
 
 /**
  * Configurações da Central (só admin). 36.1: setores; 36.2: status das tarefas;
  * 36.3: etapas do onboarding (com regras de avanço), filas por setor e tipos de atividade.
- * 36.4: colunas comerciais (com regras de transição) e motivos de perda.
+ * 36.4: colunas comerciais (com regras de transição) e motivos de perda. 36.5: tipos de reunião.
  */
 export function OpsSettingsPage() {
   return (
@@ -20,6 +21,7 @@ export function OpsSettingsPage() {
         <ActivityTypesSettings />
         <LeadStagesSettings />
         <LossReasonsSettings />
+        <MeetingCategoriesSettings />
       </div>
     </RequireOps>
   );
