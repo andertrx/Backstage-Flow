@@ -28,7 +28,15 @@ export const ACTION_LABELS: Record<string, string> = {
   "reuniao.item": "Registrou na reunião",
   "reuniao.item_retirado": "Retirou um item da reunião",
   "reuniao.tarefa_criada": "Transformou em tarefa",
+  "tarefa.repeticao": "Passou a repetir a tarefa",
+  "tarefa.repeticao_parada": "Parou a repetição",
+  "reuniao.repeticao": "Passou a repetir a reunião",
+  "reuniao.repeticao_parada": "Parou a repetição",
 };
+
+const FREQUENCIES: Record<string, string> = { diaria: "todo dia", dias_uteis: "dias úteis", semanal: "toda semana", mensal: "todo mês" };
+const repeatText = (a: Record<string, unknown>) =>
+  `${FREQUENCIES[String(a.frequencia)] ?? ""}${a.inicio ? ` a partir de ${String(a.inicio).split("-").reverse().join("/")}` : ""}${a.fim ? ` até ${String(a.fim).split("-").reverse().join("/")}` : ""}`;
 
 const MEETING_FIELDS: Record<string, string> = {
   titulo: "título", tipo: "tipo", inicio: "data e hora", duracao: "duração", setor: "setor", cliente: "cliente", local: "local",
@@ -69,7 +77,10 @@ export function activityText(a: { action: string; before: Record<string, unknown
     case "cliente.atividade_retirada": return String(before.titulo ?? "");
     case "cliente.convertido": return `Lead #${String(after.lead)} ${String(after.empresa ?? "")}${after.novo ? " · cliente criado" : " · vinculado"}`;
     case "tarefa.da_reuniao": return `Reunião ${meetingRef(after)}`;
-    case "reuniao.criada": case "reuniao.ata_editada": return meetingRef(after);
+    case "tarefa.criada": return after.repeticao ? `Repetição automática da tarefa #${String(after.repeticao)}` : "";
+    case "tarefa.repeticao": case "reuniao.repeticao": return repeatText(after);
+    case "reuniao.criada": return `${meetingRef(after)}${after.repeticao ? ` · repetição automática da reunião #${String(after.repeticao)}` : ""}`;
+    case "reuniao.ata_editada": return meetingRef(after);
     case "reuniao.editada": return `${meetingRef(after)} · mudou: ${Object.keys(after).filter((k) => MEETING_FIELDS[k]).map((k) => MEETING_FIELDS[k]).join(", ")}`;
     case "reuniao.realizada": return `${meetingRef(after)}${Array.isArray(after.presentes) ? ` · presentes: ${(after.presentes as string[]).join(", ") || "ninguém marcado"}` : ""}`;
     case "reuniao.cancelada": return `${meetingRef(after)} · motivo: ${String(after.motivo ?? "")}`;

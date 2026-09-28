@@ -1,4 +1,4 @@
-import { can, ROLE_LABELS } from "@backstage/shared";
+import { can, opsCan, ROLE_LABELS } from "@backstage/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronsLeft, ChevronsRight, LogOut, Menu, X } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
@@ -8,6 +8,7 @@ import { DemoBanner } from "@/components/feedback/DemoBanner.tsx";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { useUnseenAlertsCount } from "@/features/alerts/api.ts";
 import { useMyOpsPermissions } from "@/features/operations/api.ts";
+import { NotificationBell } from "@/features/operations/NotificationBell.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { GlobalSearch } from "@/features/search/GlobalSearch.tsx";
 import { cn } from "@/lib/cn.ts";
@@ -98,6 +99,7 @@ function initials(name: string) {
 
 export function AppLayout() {
   const { profile, signOut } = useAuth();
+  const { data: opsPermissions } = useMyOpsPermissions();
   const { pathname } = useLocation();
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -175,6 +177,7 @@ export function AppLayout() {
           </button>
           <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-500" data-testid="header-section">{section}</p>
           {can(profile?.role, "internal.view") && <GlobalSearch />}
+          {opsCan(opsPermissions, "ops.access") && <NotificationBell />}
           <Link to="/minha-conta" className="flex items-center gap-2.5 rounded-lg px-2 py-1 hover:bg-slate-100" title="Minha conta">
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700" aria-hidden>
               {initials(displayName)}

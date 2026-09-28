@@ -28,3 +28,4 @@ export * from "./operations/tasks.ts";
 export * from "./operations/clients.ts";
 export * from "./operations/commercial.ts";
 export * from "./operations/meetings.ts";
+export * from "./operations/notifications.ts";

@@ -9,6 +9,7 @@ import { errorMessage } from "@/lib/errors.ts";
 import { formatDate, formatDateTime } from "@/lib/format.ts";
 import type { OpsSector } from "./api.ts";
 import { ACTION_LABELS, activityText } from "./activity.ts";
+import { RecurrencePanel } from "./Recurrence.tsx";
 import { Avatar, DueLabel, PriorityBadge, StatusPill } from "./TaskBits.tsx";
 import { PeopleFields, peopleInputFrom, TaskFormModal } from "./TaskFormModal.tsx";
 import {
@@ -346,6 +347,7 @@ export function TaskDetail({ id, sectors, statuses, directory, me, onClose }: {
                 )}
               </dl>
               {t.description && <p className="whitespace-pre-wrap break-words rounded-xl bg-slate-50 p-3 text-sm text-slate-700">{t.description}</p>}
+              <RecurrencePanel kind="tarefa" id={t.id} blocked={Boolean(t.archived_at)} permission="ops.tasks.create" />
 
               {d.demand && (
                 <Section title={`Demanda #${d.demand.number}: ${d.demand.title}`}>

@@ -17,6 +17,7 @@ import {
   type OpsMeetingCategory, type OpsMeetingDetail, type OpsMeetingInput, type OpsMeetingItem, useAddMeetingItem, useCancelMeeting, useItemToTask,
   useMeeting, useMeetingCategories, useRecordMeeting, useRemoveMeetingItem, useSaveMeeting,
 } from "./meetingsApi.ts";
+import { RecurrencePanel } from "./Recurrence.tsx";
 import type { TasksContext } from "./tasksContext.tsx";
 
 const STATUS_STYLE: Record<OpsMeetingStatus, string> = {
@@ -390,6 +391,7 @@ export function MeetingDrawer({ id, ctx, onClose }: { id: string; ctx: TasksCont
                   </ul>
                 )}
               </section>
+              <RecurrencePanel kind="reuniao" id={m.id} blocked={m.status === "cancelada"} permission="ops.meetings.manage" />
               {m.agenda && (
                 <section className="space-y-1">
                   <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Pauta</h3>
