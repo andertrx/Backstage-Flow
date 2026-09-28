@@ -46,7 +46,7 @@ const waitFor = async (page, fn, what) => {
   await login(page, "/operacoes/clientes");
   await page.getByTestId("ops-clients-empty").waitFor();
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Minhas tarefas", "Tarefas", "Comercial", "Clientes", "Filas", "Reuniões", "Equipe", "Configurações"]), `abas da Central (${tabs.join(", ")})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Clientes", "Filas", "Reuniões", "Equipe", "Configurações"]), `abas da Central (${tabs.join(", ")})`);
 
   // Colocar no fluxo
   await page.getByRole("button", { name: "Colocar cliente no fluxo" }).click();

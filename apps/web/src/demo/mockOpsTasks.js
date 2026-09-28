@@ -77,6 +77,8 @@ export function seedOpsTasks() {
     opsNotifications: [],
     opsNotificationPrefs: {},
     opsRecurrences: [],
+    // 36.7
+    opsSavedViews: [],
   };
 }
 
@@ -232,8 +234,13 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   if (url.includes("/rest/v1/ops_loss_reasons")) return res(200, can("ops.commercial") ? sorted(db.opsLossReasons) : []);
   if (url.includes("/rest/v1/ops_meeting_categories")) return res(200, sorted(db.opsMeetingCategories));
   if (url.includes("/rest/v1/ops_notification_prefs")) return res(200, db.opsNotificationPrefs[userId] ? { muted: db.opsNotificationPrefs[userId] } : null);
+  if (url.includes("/rest/v1/ops_saved_views")) {
+    const page = new URL(url, "http://x").searchParams.get("page")?.replace(/^eq\./, "");
+    return res(200, db.opsSavedViews.filter((v) => v.user_id === userId && (!page || v.page === page)).sort((a, b) => a.name.localeCompare(b.name)));
+  }
   const prefixes = ["ops_task", "ops_comment", "ops_attachment", "ops_directory", "ops_team_counts", "ops_status", "ops_client", "ops_demand",
-    "ops_queue", "ops_activity_type", "ops_lead", "ops_loss_reason", "ops_meeting", "ops_notification", "ops_recurrence"];
+    "ops_queue", "ops_activity_type", "ops_lead", "ops_loss_reason", "ops_meeting", "ops_notification", "ops_recurrence",
+    "ops_saved_view", "ops_my_summary", "ops_dashboard", "ops_search"];
   if (!prefixes.some((x) => url.includes(`/rest/v1/rpc/${x}`))) return null;
   const p = parse();
   db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
@@ -248,6 +255,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
           || (t.client_name ?? "").toLowerCase().includes(q))
       && (!f.client_id || t.client_id === f.client_id) && (!f.sector_id || t.sector_id === f.sector_id) && (!f.demand_id || t.demand_id === f.demand_id)
       && (!f.status_ids?.length || f.status_ids.includes(t.status_id)) && (!f.priorities?.length || f.priorities.includes(t.priority))
+      && (!f.categories?.length || f.categories.includes(t.category))
       && (!f.person_id || (f.person_id === "nenhum" ? !t.people.some((x) => x.role === "principal") : t.people.some((x) => x.user_id === f.person_id)))
       && (!f.mine || t.people.some((x) => x.user_id === userId))
       && (f.due === "atrasadas" ? t.overdue : f.due === "hoje" ? t.due_date === t0 : f.due === "semana" ? t.due_date && t.due_date >= t0 && t.due_date <= addDays(t0, 7)
@@ -995,6 +1003,123 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     const id = crypto.randomUUID();
     db.opsMeetingCategories.push({ id, name: p.p_name.trim(), color: p.p_color, position: db.opsMeetingCategories.length + 1, active: true });
     return res(200, id);
+  }
+
+  // --- 36.7: painel, visões salvas, busca e resumo pessoal (mesmas regras de ops_dashboard/ops_search/ops_saved_view*/ops_my_summary)
+  const PAGES = ["tarefas", "comercial", "reunioes", "painel"];
+  if (rpc("ops_saved_view_save")) {
+    if (!opsPerms.includes("ops.access")) return deny();
+    const nm = (p.p_name ?? "").trim();
+    if (!PAGES.includes(p.p_page)) return bad("Tela inválida.");
+    if (nm.length < 1 || nm.length > 60) return bad("Dê um nome à visão (até 60 letras).");
+    const filters = p.p_filters ?? {};
+    if (typeof filters !== "object" || Array.isArray(filters)) return bad("Filtros inválidos.");
+    const mineViews = db.opsSavedViews.filter((v) => v.user_id === userId && v.page === p.p_page);
+    const same = mineViews.find((v) => v.name === nm);
+    if (same) { Object.assign(same, { filters, updated_at: new Date().toISOString() }); return res(200, same.id); }
+    if (mineViews.length >= 30) return bad("No máximo 30 visões por tela.");
+    const id = crypto.randomUUID();
+    db.opsSavedViews.push({ id, user_id: userId, page: p.p_page, name: nm, filters, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+    return res(200, id);
+  }
+  if (rpc("ops_saved_view_delete")) {
+    if (!opsPerms.includes("ops.access")) return deny();
+    const i = db.opsSavedViews.findIndex((v) => v.id === p.p_id && v.user_id === userId);
+    if (i < 0) return bad("Visão não encontrada.");
+    db.opsSavedViews.splice(i, 1);
+    return res(204);
+  }
+  const spDate = (iso) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(iso));
+  const lastMove = (t) => [t.updated_at, ...db.opsActivity.filter((a) => a.task_id === t.id).map((a) => a.created_at)].filter(Boolean).sort().at(-1);
+  const dayDiff = (a, b) => Math.round((new Date(`${a}T12:00:00Z`) - new Date(`${b}T12:00:00Z`)) / 86400000);
+  if (rpc("ops_my_summary")) {
+    if (!opsPerms.includes("ops.access")) return res(200, null);
+    const t0 = today();
+    const mineT = db.opsTasks.filter((t) => !t.archived_at && !closed(t) && t.people.some((x) => x.user_id === userId && ["principal", "adicional"].includes(x.role)));
+    return res(200, {
+      unread: db.opsNotifications.filter((n) => n.user_id === userId && !n.read_at).length,
+      abertas: mineT.length,
+      atrasadas: mineT.filter((t) => t.due_date && t.due_date < t0).length,
+      hoje: mineT.filter((t) => t.due_date === t0).length,
+      reunioes_hoje: db.opsMeetings.filter((m) => m.status === "agendada" && spDate(m.starts_at) === t0
+        && (m.organizer_id === userId || m.people.some((x) => x.user_id === userId))).length,
+    });
+  }
+  if (rpc("ops_dashboard")) {
+    if (!can("ops.dashboard.view")) return res(200, null);
+    const f = p.f ?? {};
+    const t0 = today();
+    const from = f.from || addDays(t0, -29);
+    const to = f.to || t0;
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const d = db.opsTasks.filter((t) => !t.archived_at && visible(t)
+      && (!f.sector_id || t.sector_id === f.sector_id) && (!f.client_id || t.client_id === f.client_id)
+      && (!f.person_id || t.people.some((x) => x.user_id === f.person_id)))
+      .map((t) => ({ ...t, category: statusOf(t.status_id).category, blockers: blockers(t), last_move: lastMove(t),
+        principal: t.people.find((x) => x.role === "principal")?.user_id ?? null }));
+    const open = d.filter((t) => !["concluido", "cancelado"].includes(t.category));
+    const doneIn = d.filter((t) => t.category === "concluido" && t.completed_at && spDate(t.completed_at) >= from && spDate(t.completed_at) <= to);
+    const isBlocked = (t) => t.category === "bloqueado" || t.blockers > 0;
+    const late = (t) => t.due_date && t.due_date < t0;
+    const stalled = open.filter((t) => t.last_move < weekAgo).sort((a, b) => a.last_move.localeCompare(b.last_move));
+    const avg = doneIn.length ? Math.round((doneIn.reduce((s, t) => s + (new Date(t.completed_at) - new Date(t.created_at)) / 86400000, 0) / doneIn.length) * 10) / 10 : null;
+    const bySector = [...new Set(d.map((t) => t.sector_id))].map((sid) => {
+      const se = db.opsSectors.find((x) => x.id === sid);
+      const inS = d.filter((t) => t.sector_id === sid);
+      const o = inS.filter((t) => !["concluido", "cancelado"].includes(t.category));
+      return se && { sector_id: sid, name: se.name, color: se.color, abertas: o.length, atrasadas: o.filter(late).length, bloqueadas: o.filter(isBlocked).length,
+        concluidas: doneIn.filter((t) => t.sector_id === sid).length };
+    }).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+    const byStatus = db.opsStatuses.slice().sort((a, b) => a.position - b.position).map((st) => ({ status_id: st.id, name: st.name, color: st.color,
+      n: open.filter((t) => t.status_id === st.id).length })).filter((x) => x.n > 0);
+    const byPerson = [...new Set(open.map((t) => t.principal).filter(Boolean))].map((uid) => ({ user_id: uid, name: name(uid),
+      abertas: open.filter((t) => t.principal === uid).length, atrasadas: open.filter((t) => t.principal === uid && late(t)).length }))
+      .filter((x) => x.name).sort((a, b) => b.atrasadas - a.atrasadas || b.abertas - a.abertas || a.name.localeCompare(b.name)).slice(0, 15);
+    const lastStage = Math.max(...db.opsClientStages.filter((x) => x.active).map((x) => x.position));
+    const seesClients = can("ops.clients.view") || can("ops.am") || Object.values(db.opsClientOps).some((o) => o.am_user_id === userId);
+    const leadsOk = can("ops.commercial");
+    return res(200, {
+      today: t0, from, to,
+      cards: { abertas: open.length, andamento: open.filter((t) => t.category === "andamento").length, atrasadas: open.filter(late).length,
+        vencem_hoje: open.filter((t) => t.due_date === t0).length, vencem_7d: open.filter((t) => t.due_date && t.due_date > t0 && t.due_date <= addDays(t0, 7)).length,
+        bloqueadas: open.filter(isBlocked).length, aguardando_cliente: d.filter((t) => t.category === "aguardando_cliente").length,
+        sem_responsavel: open.filter((t) => !t.principal).length, paradas: stalled.length, concluidas: doneIn.length, media_dias: avg },
+      by_sector: bySector, by_status: byStatus, by_person: byPerson,
+      stalled: stalled.slice(0, 10).map((t) => ({ id: t.id, number: t.number, title: t.title, dias: dayDiff(t0, spDate(t.last_move)) })),
+      blocked: open.filter(isBlocked).sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999")).slice(0, 10)
+        .map((t) => ({ id: t.id, number: t.number, title: t.title, dependencias: t.blockers })),
+      clients_waiting: seesClients ? Object.entries(db.opsClientOps).map(([cid, o]) => ({ ...o, client_id: cid })).filter((o) => clientVisible(o.client_id) && o.stage_since
+          && o.stage_since < new Date(Date.now() - 14 * 86400000).toISOString() && (stageOf(o.stage_id)?.position ?? lastStage) < lastStage
+          && (!f.client_id || o.client_id === f.client_id))
+        .sort((a, b) => a.stage_since.localeCompare(b.stage_since)).slice(0, 10)
+        .map((o) => ({ client_id: o.client_id, name: db.clients.find((c) => c.id === o.client_id)?.name ?? "", stage: stageOf(o.stage_id)?.name ?? "",
+          dias: dayDiff(t0, spDate(o.stage_since)) })) : null,
+      meeting_pending: db.opsMeetingItems.filter((i) => !i.removed_at && !i.task_id && ["pendencia", "bloqueio"].includes(i.kind)
+        && (() => { const m = db.opsMeetings.find((x) => x.id === i.meeting_id); return m && m.status !== "cancelada" && meetingVisible(m); })()).length,
+      meetings_today: db.opsMeetings.filter((m) => m.status === "agendada" && spDate(m.starts_at) === t0 && meetingVisible(m)).length,
+      leads_overdue: leadsOk ? db.opsLeads.filter((l) => !l.archived_at && overdueLead(l)).length : null,
+    });
+  }
+  if (rpc("ops_search")) {
+    const norm = (x) => (x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    const raw = (p.p_q ?? "").trim();
+    const n = norm(raw);
+    const num = raw.replace(/^#+/, "");
+    if (!opsPerms.includes("ops.access") || n.length < 2) return res(200, []);
+    const out = [
+      ...db.opsTasks.filter((t) => !t.archived_at && (norm(t.title).includes(n) || String(t.number) === num) && visible(t)).sort((a, b) => b.number - a.number).slice(0, 8)
+        .map((t) => { const c = db.clients.find((x) => x.id === t.client_id); return { kind: "tarefa", id: t.id, title: `#${t.number} ${t.title}`,
+          detail: statusOf(t.status_id).name + (c ? ` · ${c.name}` : ""), link: `/operacoes/tarefas?tarefa=${t.id}` }; }),
+      ...db.opsMeetings.filter((m) => (norm(m.title).includes(n) || String(m.number) === num) && meetingVisible(m)).sort((a, b) => b.starts_at.localeCompare(a.starts_at)).slice(0, 5)
+        .map((m) => ({ kind: "reuniao", id: m.id, title: `#${m.number} ${m.title}`, detail: spTime(m.starts_at), link: `/operacoes/reunioes?reuniao=${m.id}` })),
+      ...Object.entries(db.opsClientOps).map(([cid, o]) => ({ o: { ...o, client_id: cid }, c: db.clients.find((x) => x.id === cid) }))
+        .filter(({ o, c }) => c && norm(c.name).includes(n) && clientVisible(o.client_id)).sort((a, b) => a.c.name.localeCompare(b.c.name)).slice(0, 5)
+        .map(({ o, c }) => ({ kind: "cliente", id: c.id, title: c.name, detail: stageOf(o.stage_id)?.name ?? null, link: `/operacoes/clientes?cliente=${c.id}` })),
+      ...(can("ops.commercial") ? db.opsLeads.filter((l) => !l.archived_at && (norm(l.company_name).includes(n) || String(l.number) === num))
+        .sort((a, b) => b.number - a.number).slice(0, 5)
+        .map((l) => ({ kind: "lead", id: l.id, title: `#${l.number} ${l.company_name}`, detail: leadStage(l.stage_id)?.name ?? null, link: `/operacoes/comercial?lead=${l.id}` })) : []),
+    ];
+    return res(200, out);
   }
 
   // --- 36.6: notificações (sino) e repetição (mesmas regras de ops_notification*/ops_recurrence* no banco)

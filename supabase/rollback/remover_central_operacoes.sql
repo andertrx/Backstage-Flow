@@ -1,7 +1,7 @@
 -- =============================================================================
--- REMOÇÃO da Central de Operações (Etapa 36: 36.1 a 36.6).
+-- REMOÇÃO da Central de Operações (Etapa 36: 36.1 a 36.7).
 --
--- Desliga os avisos diários e as repetições (pg_cron), apaga as notificações, as reuniões (Dailies, atas e itens), o Kanban comercial (leads e o histórico deles), o fluxo dos clientes (etapas, Account Manager, demandas, filas e
+-- Apaga o painel, a busca da Central e as visões salvas; desliga os avisos diários e as repetições (pg_cron), apaga as notificações, as reuniões (Dailies, atas e itens), o Kanban comercial (leads e o histórico deles), o fluxo dos clientes (etapas, Account Manager, demandas, filas e
 -- atividades registradas), tarefas (com comentários, anexos registrados e histórico), status,
 -- setores, equipe da Central e permissões da Central, e volta as regras
 -- de clientes dos módulos de anúncios como eram antes (sem o papel "equipe").
@@ -30,6 +30,19 @@ do $$ begin
     raise exception 'O bucket ops-files ainda existe. Baixe o que quiser guardar e apague o bucket pelo painel (Storage) antes de remover.';
   end if;
 end $$;
+
+-- 36.7: painel operacional, visões salvas, busca da Central e resumo pessoal.
+drop function if exists public.ops_dashboard(f jsonb);
+drop function if exists public.ops_search(p_q text);
+drop function if exists public.ops_my_summary();
+drop function if exists public.ops_saved_view_save(p_page text, p_name text, p_filters jsonb);
+drop function if exists public.ops_saved_view_delete(p_id uuid);
+drop function if exists private.ops_dashboard_impl(f jsonb);
+drop function if exists private.ops_search_impl(p_q text);
+drop function if exists private.ops_my_summary_impl();
+drop function if exists private.ops_saved_view_save_impl(p_page text, p_name text, p_filters jsonb);
+drop function if exists private.ops_saved_view_delete_impl(p_id uuid);
+drop table if exists public.ops_saved_views;
 
 -- 36.6: notificações (sino), avisos diários e repetição. As tarefas e reuniões
 -- já criadas por repetição continuam (são tarefas e reuniões normais) até as partes delas.

@@ -18,6 +18,7 @@ import { BalanceCard, KpiCard } from "./KpiCard.tsx";
 import { missingReason, pickCurrency } from "./summary.ts";
 import { useDashboardFilters } from "./useDashboardFilters.ts";
 import { DataFreshness } from "@/features/sync/DataFreshness.tsx";
+import { OpsShortcut } from "@/features/operations/OpsShortcut.tsx";
 
 const EMPTY: MetricTotals = { spend_micros: null, impressions: null, clicks: null, leads: null, messages: null, conversions: null, conversion_value_micros: null };
 
@@ -76,6 +77,8 @@ export function DashboardPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Olá{firstName && `, ${firstName}`}!</h1>
         <p className="mt-1 text-sm text-slate-500">Resumo geral de desempenho das contas de anúncio.</p>
       </div>
+      {/* Etapa 36.7: atalho da Central (só para quem está nela; mesma consulta do sino). */}
+      <OpsShortcut />
 
       <FiltersBar filters={filters} period={period} clients={clients} onChange={setFilters} onClear={clear} />
       <DataFreshness clientId={filters.clientId} platform={filters.platform} accountId={filters.accountId} />

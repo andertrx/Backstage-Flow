@@ -40,7 +40,7 @@ async function dragTo(page, card, column) {
   db.clients.push({ id: "c1000000-0000-4000-8000-000000000001", name: "Loja Aurora", status: "ativo", is_demo: false });
   db.opsMembers[MARIA] = { primary: sectorId(db, "Design"), secondary: [], job_title: "Designer", active: true, joins_meetings: true,
     permissions: ["ops.access", "ops.kanban.view", "ops.tasks.create", "ops.tasks.edit", "ops.cards.move"] };
-  await login(page, "/operacoes");
+  await login(page, "/operacoes/minhas-tarefas");
   await page.waitForURL("**/operacoes/minhas-tarefas");
   await page.getByTestId("ops-my-empty").waitFor();
   check(true, "Minhas tarefas vazia explica o que aparece ali");

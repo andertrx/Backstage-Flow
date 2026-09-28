@@ -43,17 +43,35 @@ export interface OpsRecurrence {
 const KEY = ["ops"] as const;
 const NOTIF_KEY = [...KEY, "notifications"] as const;
 
-export function useUnreadNotifications(enabled: boolean) {
+/** Resumo pessoal (36.7): não lidas + minhas tarefas e reuniões de hoje, numa consulta só. */
+export interface OpsMySummary {
+  unread: number;
+  abertas: number;
+  atrasadas: number;
+  hoje: number;
+  reunioes_hoje: number;
+}
+
+/**
+ * Uma consulta só para o sino e o atalho do dashboard geral (mesma chave: o
+ * navegador faz uma chamada). Atualiza sozinho a cada minuto.
+ */
+export function useMySummary(enabled: boolean) {
   return useQuery({
-    queryKey: [...NOTIF_KEY, "unread"],
+    queryKey: [...NOTIF_KEY, "summary"],
     enabled,
     refetchInterval: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("ops_notifications_unread");
-      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos contar as notificações."));
-      return (data as number | null) ?? 0;
+      const { data, error } = await supabase.rpc("ops_my_summary");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o seu resumo."));
+      return (data as OpsMySummary | null) ?? null;
     },
   });
+}
+
+export function useUnreadNotifications(enabled: boolean) {
+  const summary = useMySummary(enabled);
+  return { ...summary, data: summary.data?.unread ?? 0 };
 }
 
 export function useNotifications(f: { unread?: boolean; kind?: string; limit?: number }, enabled = true) {

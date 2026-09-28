@@ -1,5 +1,5 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { Building2, CalendarDays, ClipboardList, Handshake, Layers, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
+import { Building2, CalendarDays, ClipboardList, Gauge, Handshake, Layers, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, NavLink, Outlet } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -8,13 +8,16 @@ import { Card } from "@/components/ui/card.tsx";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { useMyOpsPermissions } from "./api.ts";
+import { OpsSearch } from "./OpsSearch.tsx";
 
 /**
- * Abas da Central. Cada aba entra quando a sua fase fica pronta (nada de botão
- * que não funciona): o Dashboard chega na fase 36.7.
+ * Abas da Central. Cada aba entrou quando a sua fase ficou pronta (nada de
+ * botão que não funciona). O Painel (36.7) vem primeiro: é onde a Central abre
+ * para quem tem "Ver o painel"; os demais abrem em Minhas tarefas.
  * "anyOf": basta uma das permissões (Clientes: ficha operacional OU ser Account Manager).
  */
 export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission: OpsPermission; anyOf?: OpsPermission[] }[] = [
+  { to: "/operacoes/painel", label: "Painel", icon: Gauge, permission: "ops.dashboard.view" },
   { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
   { to: "/operacoes/tarefas", label: "Tarefas", icon: ClipboardList, permission: "ops.access" },
   { to: "/operacoes/comercial", label: "Comercial", icon: Handshake, permission: "ops.commercial" },
@@ -58,9 +61,12 @@ export function OpsLayout() {
   return (
     <RequireOps permission="ops.access">
       <div className="space-y-6" data-testid="ops-layout">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Central de Operações</h1>
-          <p className="mt-1 text-sm text-slate-500">Setores, equipe, tarefas e reuniões do dia a dia. Separada da gestão de anúncios.</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Central de Operações</h1>
+            <p className="mt-1 text-sm text-slate-500">Setores, equipe, tarefas e reuniões do dia a dia. Separada da gestão de anúncios.</p>
+          </div>
+          <OpsSearch />
         </div>
         {/* Abas em "pílula", no padrão da referência visual (tema claro). */}
         <nav className="flex flex-wrap gap-2" aria-label="Central de Operações">

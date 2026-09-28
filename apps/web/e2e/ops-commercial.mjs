@@ -47,7 +47,7 @@ async function newLead(page, fields) {
   await login(page, "/operacoes/comercial");
   await page.getByTestId("ops-commercial-empty").waitFor();
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Minhas tarefas", "Tarefas", "Comercial", "Clientes", "Filas", "Reuniões", "Equipe", "Configurações"]), `abas (${tabs.join(", ")})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Clientes", "Filas", "Reuniões", "Equipe", "Configurações"]), `abas (${tabs.join(", ")})`);
 
   // Cadastro com valores em moedas diferentes
   await newLead(page, { "Nome da empresa": "Padaria Sol", "Nome do contato": "Ana", Telefone: "(45) 99999-8888", "E-mail": "ana@sol.com",

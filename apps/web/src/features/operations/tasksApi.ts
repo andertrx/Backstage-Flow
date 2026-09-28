@@ -63,6 +63,8 @@ export interface OpsTaskFilters {
   demand_id?: string;
   status_ids?: string[];
   priorities?: string[];
+  /** Categorias de status (ex.: só as em aberto, vindas de um atalho do Painel). */
+  categories?: string[];
   person_id?: string;
   mine?: boolean;
   due?: "" | "atrasadas" | "hoje" | "semana" | "sem_prazo";

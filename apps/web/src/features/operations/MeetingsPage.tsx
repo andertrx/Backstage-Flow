@@ -12,6 +12,7 @@ import { formatDate } from "@/lib/format.ts";
 import { useDebouncedValue } from "@/lib/useDebouncedValue.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
+import { SavedViews } from "./SavedViews.tsx";
 import { MeetingDrawer, MeetingFormModal, MeetingStatusBadge, meetingWhen } from "./Meetings.tsx";
 import { type OpsMeetingFilters, type OpsMeetingRow, useMeetingCategories, useMeetingList } from "./meetingsApi.ts";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
@@ -59,6 +60,7 @@ export function MeetingRowCard({ m, onOpen, showDate }: { m: OpsMeetingRow; onOp
 }
 
 type View = "agenda" | "historico";
+const MEETING_VIEW_KEYS = ["from", "to", "category_id", "sector_id", "client_id", "person_id", "status", "mine"] as const;
 
 /** Dailies e reuniões: agenda (de hoje em diante) e histórico com filtros. */
 export function MeetingsPage() {
@@ -132,6 +134,14 @@ export function MeetingsPage() {
             {OPS_MEETING_STATUSES.map((s) => <option key={s} value={s}>{OPS_MEETING_STATUS_LABELS[s]}</option>)}
           </Select>
         </div>
+      )}
+      {view === "historico" && (
+        <SavedViews page="reunioes" keys={MEETING_VIEW_KEYS} current={{ from, to, category_id: category, sector_id: sector, client_id: client, person_id: person, status, mine }}
+          onApply={(v) => {
+            const str = (k: string) => (typeof v[k] === "string" ? (v[k] as string) : "");
+            setFrom(str("from")); setTo(str("to")); setCategory(str("category_id")); setSector(str("sector_id"));
+            setClient(str("client_id")); setPerson(str("person_id")); setStatus(str("status")); setMine(v.mine === true);
+          }} />
       )}
 
       {list.error ? <Alert tone="error">{errorMessage(list.error)}</Alert> : null}

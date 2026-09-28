@@ -53,13 +53,14 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [34.5-W — WhatsApp (aplicativo comum): código de rastreio e marcação de Lead/Venda](docs/etapa-34-tracking/34.5-W-WHATSAPP.md)
   - [34.5-W2 — WhatsApp pela API oficial: conversas automáticas, anúncios de WhatsApp e envio business_messaging](docs/etapa-34-tracking/34.5-W2-WHATSAPP-API.md)
 - [Etapa 35 — Meta Ads Campaign Builder (auditoria e plano)](docs/etapa-35-campaign-builder/35.0-AUDITORIA.md) *(em espera: prompt enviado por engano; auditoria guardada para depois)*
-- [Etapa 36 — Central de Operações (auditoria e plano)](docs/etapa-36-central-operacoes/36.0-AUDITORIA.md) *(em andamento)*
+- [Etapa 36 — Central de Operações](docs/etapa-36-central-operacoes/36.16-RELATORIO-FINAL.md) ✅ concluída ([auditoria e plano](docs/etapa-36-central-operacoes/36.0-AUDITORIA.md))
   - [36.1 — Setores, equipe e permissões](docs/etapa-36-central-operacoes/36.1-SETORES-EQUIPE.md) ✅ concluída
   - [36.2 — Tarefas: Kanban, lista, Minhas tarefas, comentários, anexos e status](docs/etapa-36-central-operacoes/36.2-TAREFAS.md) ✅ concluída
   - [36.3 — Kanban operacional: onboarding, Account Manager, filas por setor e demandas](docs/etapa-36-central-operacoes/36.3-KANBAN-OPERACIONAL.md) ✅ concluída
   - [36.4 — Kanban comercial: leads, motivos de perda e conversão em cliente sem duplicar](docs/etapa-36-central-operacoes/36.4-KANBAN-COMERCIAL.md) ✅ concluída
   - [36.5 — Dailies e reuniões: agenda, ata, presença e pendência → tarefa](docs/etapa-36-central-operacoes/36.5-DAILIES-E-REUNIOES.md) ✅ concluída
   - [36.6 — Notificações (sino), avisos de prazo e repetição de tarefas e reuniões](docs/etapa-36-central-operacoes/36.6-NOTIFICACOES-E-REPETICAO.md) ✅ concluída
+  - [36.7 — Painel operacional, visões salvas, busca da Central e atalho no dashboard geral](docs/etapa-36-central-operacoes/36.7-PAINEL-E-FINAL.md) ✅ concluída
 
 ## Estrutura
 

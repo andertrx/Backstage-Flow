@@ -20,11 +20,16 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   check((await nav.innerText()).includes("OPERAÇÕES") || (await nav.innerText()).includes("Operações"), "grupo Operações no menu");
 
   await nav.getByRole("link", { name: "Central de Operações" }).click();
+  // 36.7: quem pode ver o painel abre a Central nele.
+  await page.waitForURL("**/operacoes/painel");
+  await page.getByTestId("ops-dashboard").waitFor();
+  check(true, "a Central abre no Painel para o admin");
+  await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link", { name: "Minhas tarefas" }).click();
   await page.waitForURL("**/operacoes/minhas-tarefas");
   await page.getByTestId("ops-my-tasks").waitFor();
   check(await page.getByRole("heading", { name: "Central de Operações", level: 1 }).count() === 1, "abre a Central em Minhas tarefas");
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Minhas tarefas", "Tarefas", "Comercial", "Clientes", "Filas", "Reuniões", "Equipe", "Configurações"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Clientes", "Filas", "Reuniões", "Equipe", "Configurações"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
   await page.getByRole("link", { name: "Equipe" }).last().click();
   await page.getByTestId("ops-team").waitFor();
   const teamText = await page.getByTestId("ops-team").innerText();

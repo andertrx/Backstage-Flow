@@ -11,6 +11,7 @@ import { formatDate, formatMoney } from "@/lib/format.ts";
 import { useDebouncedValue } from "@/lib/useDebouncedValue.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
+import { SavedViews } from "./SavedViews.tsx";
 import { type OpsLeadCard, useLeadBoard, useLeadStages, useLossReasons, useMoveLead } from "./commercialApi.ts";
 import { DndBoard } from "./KanbanBoard.tsx";
 import { LeadDrawer, LeadFormModal, LossModal } from "./Leads.tsx";
@@ -86,6 +87,14 @@ export function CommercialPage() {
     return { id: s.id, name: s.name, color: s.color, hint: [total, rules].filter(Boolean).join(" · ") || undefined };
   });
   const openTotal = totalsText(leads.filter((l) => stageList.find((s) => s.id === l.stage_id)?.category === "aberto"));
+  const viewFilters = { owner_id: owner, origin, priority, overdue, archived };
+  const applyView = (v: Record<string, unknown>) => {
+    setOwner(typeof v.owner_id === "string" ? v.owner_id : "");
+    setOrigin(typeof v.origin === "string" ? v.origin : "");
+    setPriority(typeof v.priority === "string" ? v.priority : "");
+    setOverdue(v.overdue === true);
+    setArchived(v.archived === true);
+  };
   const active = Boolean(f.q || f.owner_id || f.origin || f.priority || f.overdue || f.archived);
 
   async function confirmLoss(reason: string, note: string) {
@@ -129,6 +138,7 @@ export function CommercialPage() {
         <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Só arquivados</label>
         {openTotal && <span className="ml-auto text-sm text-slate-600" data-testid="ops-commercial-total">Em negociação: <b>{openTotal}</b></span>}
       </div>
+      <SavedViews page="comercial" keys={["owner_id", "origin", "priority", "overdue", "archived"]} current={viewFilters} onApply={applyView} />
 
       {lossError && <Alert tone="error">{lossError}</Alert>}
       {board.error || stages.error ? <Alert tone="error">{errorMessage(board.error ?? stages.error)}</Alert> : null}

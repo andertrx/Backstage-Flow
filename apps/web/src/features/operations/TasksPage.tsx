@@ -1,6 +1,7 @@
-import { OPS_PRIORITIES, OPS_PRIORITY_LABELS, opsToday } from "@backstage/shared";
+import { OPS_PRIORITIES, OPS_PRIORITY_LABELS, OPS_STATUS_CATEGORIES, opsCleanViewFilters, opsToday } from "@backstage/shared";
 import { ClipboardList, Columns3, List, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
@@ -11,6 +12,7 @@ import { useDebouncedValue } from "@/lib/useDebouncedValue.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { KanbanBoard } from "./KanbanBoard.tsx";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
+import { SavedViews } from "./SavedViews.tsx";
 import { DueLabel, PeopleStack, PriorityBadge, StatusPill } from "./TaskBits.tsx";
 import { TaskFormModal } from "./TaskFormModal.tsx";
 import { type OpsTaskFilters, type OpsTaskRow, useOpsTasks } from "./tasksApi.ts";
@@ -68,6 +70,25 @@ export function TaskTable({ tasks, ctx, today, onOpen }: { tasks: OpsTaskRow[]; 
   );
 }
 
+/** Filtros da Central de Tarefas que podem vir de um atalho ou de uma visão salva. */
+export const TASK_VIEW_KEYS = ["client_id", "sector_id", "status_ids", "priorities", "person_id", "due", "abertas", "archived"] as const;
+const OPEN_CATEGORIES = OPS_STATUS_CATEGORIES.filter((c) => c !== "concluido" && c !== "cancelado");
+const DUE_VALUES = ["atrasadas", "hoje", "semana", "sem_prazo"];
+
+function tasksFiltersFrom(src: Record<string, unknown>): Omit<OpsTaskFilters, "q"> {
+  const clean = opsCleanViewFilters(src, TASK_VIEW_KEYS);
+  const out: Omit<OpsTaskFilters, "q"> = {};
+  for (const k of ["client_id", "sector_id", "person_id"] as const) if (typeof clean[k] === "string") out[k] = clean[k];
+  for (const k of ["status_ids", "priorities"] as const) {
+    const v = clean[k];
+    if (typeof v === "string") out[k] = [v]; else if (Array.isArray(v)) out[k] = v;
+  }
+  if (typeof clean.due === "string" && DUE_VALUES.includes(clean.due)) out.due = clean.due as OpsTaskFilters["due"];
+  if (clean.abertas === true || clean.abertas === "1") out.categories = [...OPEN_CATEGORIES];
+  if (clean.archived === true || clean.archived === "true") out.archived = true;
+  return out;
+}
+
 /** Central de Tarefas (36.2): todas as tarefas que a pessoa pode ver, em lista ou Kanban. */
 export function TasksPage() {
   const ctx = useTasksContext();
@@ -76,7 +97,9 @@ export function TasksPage() {
   const [savedView, setView] = usePersistentState<TaskView>("ops.tasks.view", "kanban");
   const view: TaskView = canKanban ? savedView : "lista";
   const [q, setQ] = useState("");
-  const [filters, setFilters] = useState<Omit<OpsTaskFilters, "q">>({});
+  const [params] = useSearchParams();
+  // Atalhos do Painel chegam com filtros no endereço (?due=atrasadas&sector_id=…).
+  const [filters, setFilters] = useState<Omit<OpsTaskFilters, "q">>(() => tasksFiltersFrom(Object.fromEntries(params)));
   const [creating, setCreating] = useState(false);
   const debounced = useDebouncedValue(q.trim(), 300);
   const f = useMemo(() => ({ ...filters, q: debounced || undefined, archived: view === "kanban" ? false : filters.archived }), [filters, debounced, view]);
@@ -131,6 +154,13 @@ export function TasksPage() {
           <option value="semana">Próximos 7 dias</option>
           <option value="sem_prazo">Sem prazo</option>
         </Select>
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={Boolean(filters.categories)} onChange={(e) => setFilters((p) => {
+            const next = { ...p };
+            if (e.target.checked) next.categories = [...OPEN_CATEGORIES]; else delete next.categories;
+            return next;
+          })} /> Só em aberto
+        </label>
         {view === "lista" && (
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={Boolean(filters.archived)} onChange={(e) => set("archived", e.target.checked)} /> Só arquivadas
@@ -138,6 +168,7 @@ export function TasksPage() {
         )}
         {active && <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => { setFilters({}); setQ(""); }}>Limpar filtros</Button>}
       </div>
+      <SavedViews page="tarefas" keys={TASK_VIEW_KEYS} current={{ ...filters, abertas: Boolean(filters.categories) }} onApply={(v) => setFilters(tasksFiltersFrom(v))} />
 
       {ctx.error || tasks.error ? <Alert tone="error">{errorMessage(ctx.error ?? tasks.error)}</Alert> : null}
       {ctx.loading || tasks.isLoading ? (
