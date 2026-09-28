@@ -18,6 +18,9 @@ export const AUDIT_CATEGORIES = [
   { value: "connection", label: "Conexões com plataformas" },
   { value: "ops_sector", label: "Central de Operações: setores" },
   { value: "ops_status", label: "Central de Operações: status das tarefas" },
+  { value: "ops_client_stage", label: "Central de Operações: etapas do onboarding" },
+  { value: "ops_queue_column", label: "Central de Operações: filas por setor" },
+  { value: "ops_activity_type", label: "Central de Operações: tipos de atividade" },
 ] as const;
 
 export type AuditCategory = (typeof AUDIT_CATEGORIES)[number]["value"];
@@ -49,6 +52,16 @@ const ACTION_LABELS: Record<string, string> = {
   "ops.status.update": "Central de Operações: alterou status de tarefa",
   "ops.status.reorder": "Central de Operações: mudou a ordem dos status",
   "ops.status.active": "Central de Operações: ativou/desativou status de tarefa",
+  "ops.client_stage.create": "Central de Operações: criou etapa do onboarding",
+  "ops.client_stage.update": "Central de Operações: alterou etapa do onboarding (nome, cor ou regras)",
+  "ops.client_stage.reorder": "Central de Operações: mudou a ordem das etapas do onboarding",
+  "ops.client_stage.active": "Central de Operações: ativou/desativou etapa do onboarding",
+  "ops.queue_column.create": "Central de Operações: criou coluna de fila",
+  "ops.queue_column.update": "Central de Operações: alterou coluna de fila",
+  "ops.queue_column.reorder": "Central de Operações: mudou a ordem das colunas da fila",
+  "ops.queue_column.active": "Central de Operações: ativou/desativou coluna de fila",
+  "ops.activity_type.create": "Central de Operações: criou tipo de atividade",
+  "ops.activity_type.update": "Central de Operações: alterou tipo de atividade",
   "ad_account.insert": "Vinculou conta de anúncio",
   "ad_account.update": "Conta de anúncio alterada",
   "connection.insert": "Conectou plataforma",

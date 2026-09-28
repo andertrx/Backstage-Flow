@@ -25,6 +25,8 @@ const OpsIndexRedirect = lazy(() => import("@/features/operations/OpsLayout.tsx"
 const OpsTeamPage = lazy(() => import("@/features/operations/TeamPage.tsx").then((m) => ({ default: m.TeamPage })));
 const OpsTasksPage = lazy(() => import("@/features/operations/TasksPage.tsx").then((m) => ({ default: m.TasksPage })));
 const OpsMyTasksPage = lazy(() => import("@/features/operations/MyTasksPage.tsx").then((m) => ({ default: m.MyTasksPage })));
+const OpsClientsRoute = lazy(() => import("@/features/operations/ClientsPage.tsx").then((m) => ({ default: m.ClientsRoute })));
+const OpsQueuesPage = lazy(() => import("@/features/operations/QueuesPage.tsx").then((m) => ({ default: m.QueuesPage })));
 const OpsSettingsPage = lazy(() => import("@/features/operations/OpsSettingsPage.tsx").then((m) => ({ default: m.OpsSettingsPage })));
 const TrackingPage = lazy(() => import("@/features/tracking/TrackingPage.tsx").then((m) => ({ default: m.TrackingPage })));
 const SyncPage = lazy(() => import("@/features/sync/SyncPage.tsx").then((m) => ({ default: m.SyncPage })));
@@ -141,6 +143,8 @@ export const router = createBrowserRouter([
           { index: true, element: <OpsIndexRedirect /> },
           { path: "minhas-tarefas", element: <OpsMyTasksPage /> },
           { path: "tarefas", element: <OpsTasksPage /> },
+          { path: "clientes", element: <OpsClientsRoute /> },
+          { path: "filas", element: <OpsQueuesPage /> },
           { path: "equipe", element: <OpsTeamPage /> },
           { path: "configuracoes", element: <OpsSettingsPage /> },
         ],

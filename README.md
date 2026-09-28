@@ -56,6 +56,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 36 — Central de Operações (auditoria e plano)](docs/etapa-36-central-operacoes/36.0-AUDITORIA.md) *(em andamento)*
   - [36.1 — Setores, equipe e permissões](docs/etapa-36-central-operacoes/36.1-SETORES-EQUIPE.md) ✅ concluída
   - [36.2 — Tarefas: Kanban, lista, Minhas tarefas, comentários, anexos e status](docs/etapa-36-central-operacoes/36.2-TAREFAS.md) ✅ concluída
+  - [36.3 — Kanban operacional: onboarding, Account Manager, filas por setor e demandas](docs/etapa-36-central-operacoes/36.3-KANBAN-OPERACIONAL.md) ✅ concluída
 
 ## Estrutura
 

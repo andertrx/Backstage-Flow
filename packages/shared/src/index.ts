@@ -25,3 +25,4 @@ export * from "./reports/breakdowns.ts";
 export * from "./reports/email.ts";
 export * from "./operations/permissions.ts";
 export * from "./operations/tasks.ts";
+export * from "./operations/clients.ts";

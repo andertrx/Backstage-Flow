@@ -296,8 +296,11 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     const OPS_ALL = ["ops.access", "ops.kanban.view", "ops.tasks.create", "ops.tasks.edit", "ops.tasks.archive", "ops.tasks.assign",
       "ops.tasks.sector", "ops.cards.move", "ops.clients.view", "ops.history.edit", "ops.meetings.manage", "ops.dashboard.view", "ops.commercial"];
     const me = db.opsMembers[userId];
-    const opsPerms = role === "admin" ? [...OPS_ALL, "ops.admin"]
+    const opsBase = role === "admin" ? [...OPS_ALL, "ops.admin"]
       : role !== "cliente" && me?.active && me.permissions.includes("ops.access") ? me.permissions : [];
+    // "ops.am": Account Manager de algum cliente no fluxo (Etapa 36.3; vem do banco).
+    const opsPerms = role !== "admin" && opsBase.length && Object.values(db.opsClientOps ?? {}).some((o) => o.am_user_id === userId)
+      ? [...opsBase, "ops.am"] : opsBase;
     const opsDeny = (msg = "Só o administrador pode mudar a configuração da Central de Operações.") => res(403, { code: "42501", message: msg });
     const opsBad = (message) => res(400, { code: "22023", message });
     if (url.includes("/rest/v1/rpc/ops_my_permissions")) return res(200, opsPerms);

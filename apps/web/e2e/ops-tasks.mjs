@@ -202,7 +202,7 @@ async function dragTo(page, card, column) {
     permissions: ["ops.access", "ops.tasks.create", "ops.tasks.edit"] };
   db.opsMembers[MARIA] = { primary: sectorId(db, "Copy"), secondary: [], job_title: "Copy", active: true, joins_meetings: true, permissions: ["ops.access"] };
   const mine = seedTask(db, { title: "Arte do post", sector_id: sectorId(db, "Design"), people: [{ user_id: USER_ID, role: "principal" }], due_date: day(0) });
-  seedTask(db, { title: "Texto secreto do Copy", sector_id: sectorId(db, "Copy"), people: [{ user_id: MARIA, role: "principal" }] });
+  seedTask(db, { title: "Texto secreto do Copy", sector_id: sectorId(db, "Copy"), people: [{ user_id: MARIA, role: "principal" }], created_by: MARIA });
   await login(page, "/");
   await page.waitForURL("**/operacoes/minhas-tarefas");
   await page.locator("[data-section=hoje]").getByText("Arte do post").waitFor();

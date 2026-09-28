@@ -1,5 +1,5 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { ClipboardList, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
+import { Building2, ClipboardList, Layers, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, NavLink, Outlet } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -11,17 +11,23 @@ import { useMyOpsPermissions } from "./api.ts";
 
 /**
  * Abas da Central. Cada aba entra quando a sua fase fica pronta (nada de botão
- * que não funciona): Clientes, Dashboard e Dailies chegam nas fases 36.3 a 36.7.
+ * que não funciona): Comercial, Dashboard e Dailies chegam nas fases 36.4 a 36.7.
+ * "anyOf": basta uma das permissões (Clientes: ficha operacional OU ser Account Manager).
  */
-export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission: OpsPermission }[] = [
+export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission: OpsPermission; anyOf?: OpsPermission[] }[] = [
   { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
   { to: "/operacoes/tarefas", label: "Tarefas", icon: ClipboardList, permission: "ops.access" },
+  { to: "/operacoes/clientes", label: "Clientes", icon: Building2, permission: "ops.clients.view", anyOf: ["ops.clients.view", "ops.am"] },
+  { to: "/operacoes/filas", label: "Filas", icon: Layers, permission: "ops.access" },
   { to: "/operacoes/equipe", label: "Equipe", icon: Users, permission: "ops.access" },
   { to: "/operacoes/configuracoes", label: "Configurações", icon: Settings, permission: "ops.admin" },
 ];
 
+export const tabAllowed = (granted: readonly string[] | undefined, t: { permission: OpsPermission; anyOf?: OpsPermission[] }) =>
+  (t.anyOf ?? [t.permission]).some((p) => opsCan(granted, p));
+
 /** Só quem tem a permissão da Central (conferida no banco) entra. */
-export function RequireOps({ permission, children }: { permission: OpsPermission; children: ReactNode }) {
+export function RequireOps({ permission, anyOf, children }: { permission: OpsPermission; anyOf?: OpsPermission[]; children: ReactNode }) {
   const perms = useMyOpsPermissions();
   if (perms.isLoading) return <FullPageSpinner />;
   if (perms.error) return <Alert tone="error">{errorMessage(perms.error)}</Alert>;
@@ -34,19 +40,19 @@ export function RequireOps({ permission, children }: { permission: OpsPermission
       </Card>
     );
   }
-  if (!opsCan(perms.data, permission)) return <Navigate to="/operacoes" replace />;
+  if (!tabAllowed(perms.data, { permission, anyOf })) return <Navigate to="/operacoes" replace />;
   return children;
 }
 
 export function OpsIndexRedirect() {
   const perms = useMyOpsPermissions();
-  const first = OPS_TABS.find((t) => opsCan(perms.data, t.permission));
+  const first = OPS_TABS.find((t) => tabAllowed(perms.data, t));
   return <Navigate to={first?.to ?? "/operacoes/minhas-tarefas"} replace />;
 }
 
 export function OpsLayout() {
   const perms = useMyOpsPermissions();
-  const tabs = OPS_TABS.filter((t) => opsCan(perms.data, t.permission));
+  const tabs = OPS_TABS.filter((t) => tabAllowed(perms.data, t));
   return (
     <RequireOps permission="ops.access">
       <div className="space-y-6" data-testid="ops-layout">

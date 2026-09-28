@@ -49,12 +49,18 @@ export interface OpsTaskRow {
   comments: number;
   attachments: number;
   overdue: boolean;
+  /** 36.3: demanda de origem, etapa do onboarding, obrigatória para avançar e coluna da fila. */
+  demand_id: string | null;
+  client_stage_id: string | null;
+  mandatory: boolean;
+  queue_column_id: string | null;
 }
 
 export interface OpsTaskFilters {
   q?: string;
   client_id?: string;
   sector_id?: string;
+  demand_id?: string;
   status_ids?: string[];
   priorities?: string[];
   person_id?: string;
@@ -66,6 +72,9 @@ export interface OpsTaskFilters {
 export interface OpsTaskDetail {
   task: OpsTaskRow & { description: string | null; effort_hours: number | null; created_by: string | null; created_by_name: string | null };
   people: OpsTaskPerson[];
+  demand: { id: string; number: number; title: string;
+    tasks: { id: string; number: number; sector_id: string; title: string | null; status_name: string; status_color: string; done: boolean; visible: boolean }[] } | null;
+  stage_name: string | null;
   tags: string[];
   depends_on: { id: string; number: number; title: string; status_name: string; status_color: string; done: boolean; visible: boolean }[];
   dependents: { id: string; number: number; title: string }[];
@@ -108,6 +117,9 @@ export interface OpsTaskInput {
   effort_hours: string;
   visibility: OpsVisibility;
   tags: string[];
+  /** 36.3: etapa do onboarding do cliente e se é obrigatória para avançar. */
+  client_stage_id: string;
+  mandatory: boolean;
   /** Só ao criar. */
   status_id?: string;
   people?: OpsPeopleInput;
@@ -199,6 +211,8 @@ function taskPayload(v: OpsTaskInput) {
     effort_hours: v.effort_hours.trim().replace(",", "."),
     visibility: v.visibility,
     tags: v.tags,
+    client_stage_id: v.client_id ? v.client_stage_id : "",
+    mandatory: Boolean(v.client_id && v.client_stage_id && v.mandatory),
     ...(v.status_id ? { status_id: v.status_id } : {}),
     ...(v.people ? { people: v.people } : {}),
   };

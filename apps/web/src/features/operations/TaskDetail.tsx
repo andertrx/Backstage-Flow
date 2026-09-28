@@ -8,46 +8,13 @@ import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDate, formatDateTime } from "@/lib/format.ts";
 import type { OpsSector } from "./api.ts";
+import { ACTION_LABELS, activityText } from "./activity.ts";
 import { Avatar, DueLabel, PriorityBadge, StatusPill } from "./TaskBits.tsx";
 import { PeopleFields, peopleInputFrom, TaskFormModal } from "./TaskFormModal.tsx";
 import {
   OPS_FILE_ACCEPT, type OpsDirectory, type OpsPeopleInput, type OpsStatus, type OpsTaskDetail, openAttachment, useAddAttachment, useAddComment,
   useArchiveTask, useOpsTask, useOpsTasks, useRemoveAttachment, useRemoveComment, useSetTaskPeople, useSetTaskStatus, useTaskDependency,
 } from "./tasksApi.ts";
-
-const ACTION_LABELS: Record<string, string> = {
-  "tarefa.criada": "Criou a tarefa",
-  "tarefa.editada": "Editou",
-  "tarefa.status": "Mudou o status",
-  "tarefa.pessoas": "Mudou as pessoas",
-  "tarefa.arquivada": "Arquivou",
-  "tarefa.desarquivada": "Desarquivou",
-  "tarefa.dependencia_incluida": "Incluiu dependência",
-  "tarefa.dependencia_retirada": "Retirou dependência",
-  "tarefa.comentario": "Comentou",
-  "tarefa.comentario_retirado": "Retirou um comentário",
-  "tarefa.anexo_incluido": "Anexou arquivo",
-  "tarefa.anexo_retirado": "Retirou anexo",
-};
-
-const FIELD_LABELS: Record<string, string> = {
-  titulo: "título", descricao: "descrição", cliente: "cliente", setor: "setor", status: "status", prioridade: "prioridade",
-  inicio: "início", prazo: "prazo", esforco: "esforço", visibilidade: "quem vê", etiquetas: "etiquetas",
-};
-
-function activityText(a: OpsTaskDetail["activity"][number], statusName: (id: string) => string): string {
-  const before = a.before ?? {};
-  const after = a.after ?? {};
-  switch (a.action) {
-    case "tarefa.status": return `${statusName(String(before.status))} → ${statusName(String(after.status))}`;
-    case "tarefa.editada": return `Mudou: ${Object.keys(after).map((k) => FIELD_LABELS[k] ?? k).join(", ")}`;
-    case "tarefa.dependencia_incluida": return `Depende de #${String(after.depende_de)}`;
-    case "tarefa.dependencia_retirada": return `Não depende mais de #${String(before.depende_de)}`;
-    case "tarefa.anexo_incluido": return String(after.arquivo ?? "");
-    case "tarefa.anexo_retirado": return String(before.arquivo ?? "");
-    default: return "";
-  }
-}
 
 function formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -366,6 +333,10 @@ export function TaskDetail({ id, sectors, statuses, directory, me, onClose }: {
                 <div><dt className="text-xs text-slate-500">Setor</dt><dd className="font-medium text-slate-800">{sector?.name ?? "—"}</dd></div>
                 <div><dt className="text-xs text-slate-500">Início</dt><dd className="text-slate-800">{t.start_date ? formatDate(t.start_date) : "—"}</dd></div>
                 <div><dt className="text-xs text-slate-500">Esforço estimado</dt><dd className="text-slate-800">{t.effort_hours != null ? `${String(t.effort_hours).replace(".", ",")} h` : "—"}</dd></div>
+                {d.stage_name && (
+                  <div><dt className="text-xs text-slate-500">Etapa do onboarding</dt>
+                    <dd className="text-slate-800">{d.stage_name}{t.mandatory ? " · obrigatória para avançar" : " · opcional"}</dd></div>
+                )}
                 <div><dt className="text-xs text-slate-500">Quem vê</dt><dd className="text-slate-800">{OPS_VISIBILITY_LABELS[t.visibility]}</dd></div>
                 <div><dt className="text-xs text-slate-500">Criada por</dt><dd className="text-slate-800">{t.created_by_name ?? "—"} · {formatDateTime(t.created_at)}</dd></div>
                 {d.tags.length > 0 && (
@@ -376,6 +347,21 @@ export function TaskDetail({ id, sectors, statuses, directory, me, onClose }: {
               </dl>
               {t.description && <p className="whitespace-pre-wrap break-words rounded-xl bg-slate-50 p-3 text-sm text-slate-700">{t.description}</p>}
 
+              {d.demand && (
+                <Section title={`Demanda #${d.demand.number}: ${d.demand.title}`}>
+                  <ul className="space-y-1 text-sm" data-testid="ops-task-demand">
+                    {d.demand.tasks.map((x) => (
+                      <li key={x.id} className="flex items-center gap-2">
+                        <span className={cn("font-medium", x.done ? "text-slate-400 line-through" : "text-slate-800", x.id === t.id && "text-blue-700")}>
+                          #{x.number} {x.visible ? x.title : "(tarefa de outro setor)"}
+                        </span>
+                        <span className="text-xs text-slate-500">{sectors.find((s) => s.id === x.sector_id)?.name}</span>
+                        <StatusPill name={x.status_name} color={x.status_color} />
+                      </li>
+                    ))}
+                  </ul>
+                </Section>
+              )}
               <People detail={d} directory={directory} me={me} />
               <Dependencies detail={d} />
               <Comments detail={d} directory={directory} me={me} />
@@ -386,7 +372,7 @@ export function TaskDetail({ id, sectors, statuses, directory, me, onClose }: {
                   {d.activity.map((a) => (
                     <li key={a.id} className="text-sm">
                       <span className="font-medium text-slate-800">{ACTION_LABELS[a.action] ?? a.action}</span>
-                      {activityText(a, statusName) && <span className="text-slate-600"> · {activityText(a, statusName)}</span>}
+                      {activityText(a, { status: statusName }) && <span className="text-slate-600"> · {activityText(a, { status: statusName })}</span>}
                       <p className="text-xs text-slate-400">
                         {a.origin === "sistema" ? "Sistema" : a.actor ?? "—"} · {formatDateTime(a.created_at)}
                       </p>

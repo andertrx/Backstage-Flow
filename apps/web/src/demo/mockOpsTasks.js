@@ -1,6 +1,7 @@
 /**
- * Tarefas da Central (Etapa 36.2) no servidor simulado: mesmas regras das
- * funções ops_task_* do banco (quem vê, permissões, versão, dependências).
+ * Tarefas da Central (Etapas 36.2 e 36.3) no servidor simulado: mesmas regras
+ * das funções ops_* do banco (quem vê, permissões, versão, dependências,
+ * etapas do cliente com regras de avanço, filas por setor, demandas).
  * Devolve a resposta, ou null quando o endereço não é de tarefas.
  */
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
@@ -21,6 +22,36 @@ export function seedOpsTasks() {
     opsAttachments: [],
     opsActivity: [],
     opsFiles: {},
+    // 36.3
+    opsClientStages: [
+      ["contrato_pago", "Contrato Pago", "#10B981"], ["onboarding_pendente", "Onboarding Pendente", "#06B6D4"],
+      ["coleta_acessos", "Coleta de Acessos e Materiais", "#22D3EE"], ["briefing", "Briefing", "#3B82F6"],
+      ["configuracao_inicial", "Configuração Inicial", "#A855F7"], ["liberado_execucao", "Liberado para Execução", "#F59E0B"],
+      ["operacao_andamento", "Operação em Andamento", "#EAB308"], ["acompanhamento", "Acompanhamento", "#EC4899"], ["concluido", "Concluído", "#64748B"],
+    ].map(([id, name, color], i) => ({ id, name, color, position: i + 1, active: true, require_mandatory: true, auto_advance: false })),
+    opsClientOps: {},
+    // Setores do servidor simulado: Design = …14, Copy = …15, Gestão de Tráfego = …16, Dev = …18.
+    opsQueueColumns: [
+      ["14", "Criativos pendentes", "#06B6D4", "nao_iniciado"], ["14", "Criativos em produção", "#F59E0B", "em_andamento"],
+      ["14", "Materiais em revisão", "#3B82F6", "em_revisao"], ["14", "Aguardando aprovação", "#EAB308", "aguardando_cliente"],
+      ["14", "Entregas concluídas", "#10B981", "finalizado"],
+      ["15", "Textos solicitados", "#06B6D4", "nao_iniciado"], ["15", "Textos em desenvolvimento", "#F59E0B", "em_andamento"],
+      ["15", "Textos em revisão", "#3B82F6", "em_revisao"], ["15", "Aguardando aprovação", "#EAB308", "aguardando_cliente"],
+      ["15", "Entregas concluídas", "#10B981", "finalizado"],
+      ["16", "Configurações pendentes", "#06B6D4", "nao_iniciado"], ["16", "Campanhas em preparação", "#F59E0B", "em_andamento"],
+      ["16", "Demandas de ajustes", "#EF4444", "em_andamento"], ["16", "Aguardando materiais", "#64748B", "aguardando_interno"],
+      ["16", "Tarefas concluídas", "#10B981", "finalizado"],
+      ["18", "Solicitações pendentes", "#06B6D4", "nao_iniciado"], ["18", "Em desenvolvimento", "#F59E0B", "em_andamento"],
+      ["18", "Testes", "#A855F7", "em_revisao"], ["18", "Revisões", "#3B82F6", "em_revisao"], ["18", "Entregas concluídas", "#10B981", "finalizado"],
+    ].map(([sec, name, color, status_id], i) => ({ id: `9c000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+      sector_id: `5ec70000-0000-4000-8000-0000000000${sec}`, name, color, status_id, position: (i % 5) + 1, active: true })),
+    opsDemands: [],
+    opsDemandSeq: 0,
+    opsActivityTypes: [
+      ["reuniao_cliente", "Reunião com cliente"], ["solicitacao", "Solicitação recebida"], ["ajuste_campanha", "Ajuste de campanha"],
+      ["envio_criativos", "Envio de criativos"], ["aprovacao", "Aprovação de material"], ["alteracao", "Alteração operacional"], ["entrega", "Entrega realizada"],
+    ].map(([id, name], i) => ({ id, name, position: i + 1, active: true })),
+    opsClientNotes: [],
   };
 }
 
@@ -42,7 +73,9 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     const m = db.opsMembers[uid];
     if (!m?.active || !m.permissions.includes("ops.access")) return false;
     const onTask = t.people.some((p) => p.user_id === uid);
-    if (t.visibility === "equipe") return true;
+    if (t.created_by === uid || t.visibility === "equipe") return true;
+    // 36.3: o Account Manager do cliente vê as demandas de todos os setores (menos "só as pessoas da tarefa").
+    if (t.visibility !== "participantes" && t.client_id && db.opsClientOps[t.client_id]?.am_user_id === uid) return true;
     if (t.visibility === "participantes") return onTask;
     return onTask || m.primary === t.sector_id || m.secondary.includes(t.sector_id);
   };
@@ -50,7 +83,67 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   const blockers = (t) => db.opsDeps.filter((d) => d.task_id === t.id)
     .map((d) => db.opsTasks.find((o) => o.id === d.depends_on_id)).filter((o) => o && !o.archived_at && !closed(o)).length;
   const log = (t, action, before, after, origin = "manual") =>
-    db.opsActivity.push({ id: db.opsActivity.length + 1, task_id: t.id, action, actor_id: userId, origin, before, after, created_at: new Date().toISOString() });
+    db.opsActivity.push({ id: db.opsActivity.length + 1, task_id: t.id, client_id: t.client_id ?? null, action, actor_id: userId, origin, before, after,
+      created_at: new Date().toISOString() });
+  const logClient = (clientId, action, before, after, origin = "manual") =>
+    db.opsActivity.push({ id: db.opsActivity.length + 1, task_id: null, client_id: clientId, action, actor_id: userId, origin, before, after,
+      created_at: new Date().toISOString() });
+  const stageOf = (id) => db.opsClientStages.find((x) => x.id === id);
+  const isAm = (cid) => opsPerms.includes("ops.access") && db.opsClientOps[cid]?.am_user_id === userId;
+  const clientVisible = (cid) => Boolean(cid) && (can("ops.clients.view") || isAm(cid));
+  const canMoveClient = (cid) => role === "admin" || isAm(cid) || (can("ops.clients.view") && can("ops.cards.move"));
+  const canManageClients = () => role === "admin" || (can("ops.clients.view") && can("ops.tasks.assign"));
+  /** Obrigatórias abertas nas etapas de posição [de, até) que exigem obrigatórias. */
+  const pending = (cid, from, to) => db.opsTasks.filter((t) => {
+    const st = stageOf(t.client_stage_id);
+    return t.client_id === cid && t.mandatory && !t.archived_at && st?.require_mandatory && st.position >= from && st.position < to && !closed(t);
+  }).length;
+  /** Avanço automático: só com a regra ligada, ao menos 1 obrigatória e todas concluídas. */
+  const autoAdvance = (t) => {
+    if (!t.mandatory || !t.client_id || !t.client_stage_id) return;
+    const o = db.opsClientOps[t.client_id];
+    const st = o && stageOf(o.stage_id);
+    if (!o || o.stage_id !== t.client_stage_id || !st?.auto_advance) return;
+    const inStage = db.opsTasks.filter((x) => x.client_id === t.client_id && x.client_stage_id === st.id && x.mandatory && !x.archived_at);
+    if (!inStage.length || inStage.some((x) => !closed(x))) return;
+    const next = db.opsClientStages.filter((x) => x.active && x.position > st.position).sort((a, b) => a.position - b.position)[0];
+    if (!next) return;
+    Object.assign(o, { stage_id: next.id, stage_since: new Date().toISOString(), version: o.version + 1 });
+    logClient(t.client_id, "cliente.etapa", { etapa: st.id }, { etapa: next.id, regra: `Avanço automático: todas as tarefas obrigatórias de "${st.name}" concluídas` }, "sistema");
+  };
+  const setStatus = (t, version, statusId) => {
+    if (!(can("ops.cards.move") || can("ops.tasks.edit"))) return deny("Você não tem permissão para mudar o status desta tarefa.");
+    if (t.archived_at) return bad("Tarefa arquivada: desarquive para mudar o status.");
+    if (t.version !== version) return conflict();
+    const s = statusOf(statusId);
+    if (!s?.active) return bad("Status inválido ou desativado.");
+    const n = blockers(t);
+    if (s.category === "concluido" && n > 0) {
+      return bad(`Esta tarefa depende de ${n} tarefa(s) ainda aberta(s). Conclua ou retire a dependência antes de finalizar.`);
+    }
+    if (t.status_id === s.id) return null;
+    log(t, "tarefa.status", { status: t.status_id }, { status: s.id });
+    Object.assign(t, { status_id: s.id, version: t.version + 1, completed_at: s.category === "concluido" ? new Date().toISOString() : null });
+    autoAdvance(t);
+    return null;
+  };
+  const summary = (cid) => {
+    const t0 = today();
+    const ts = db.opsTasks.filter((t) => t.client_id === cid && !t.archived_at);
+    const open = ts.filter((t) => !closed(t));
+    const cat = (t) => statusOf(t.status_id).category;
+    const acts = [...db.opsActivity.filter((a) => a.client_id === cid).map((a) => a.created_at),
+      ...db.opsClientNotes.filter((n) => n.client_id === cid && !n.removed_at).map((n) => n.happened_at)].sort();
+    return {
+      abertas: open.length, concluidas: ts.filter((t) => cat(t) === "concluido").length,
+      atrasadas: open.filter((t) => t.due_date && t.due_date < t0).length, urgentes: open.filter((t) => t.priority === "urgente").length,
+      bloqueadas: open.filter((t) => cat(t) === "bloqueado" || blockers(t) > 0).length,
+      aguardando_cliente: ts.filter((t) => cat(t) === "aguardando_cliente").length,
+      proxima_entrega: open.map((t) => t.due_date).filter((d) => d && d >= t0).sort()[0] ?? null,
+      obrigatorias: ts.filter((t) => t.mandatory).length, obrigatorias_concluidas: ts.filter((t) => t.mandatory && closed(t)).length,
+      setores: [...new Set(open.map((t) => t.sector_id))], ultima_atividade: acts.at(-1) ?? null,
+    };
+  };
   const peopleJson = (t) => [...t.people].sort((a, b) => ["principal", "adicional", "aprovador", "observador"].indexOf(a.role)
     - ["principal", "adicional", "aprovador", "observador"].indexOf(b.role)).map((p) => ({ ...p, name: name(p.user_id) }));
   const writePeople = (input) => {
@@ -80,7 +173,8 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   const files = url.match(/\/storage\/v1\/object\/(sign\/)?ops-files\/(.+?)(\?|$)/);
   if (files) {
     const path = decodeURIComponent(files[2]);
-    const t = find(path.split("/")[0]);
+    const folder = path.split("/")[0];
+    const t = folder.startsWith("cliente-") ? (clientVisible(folder.slice(8)) && can("ops.history.edit") ? { id: folder } : null) : find(folder);
     if (!t) return res(403, { statusCode: "403", error: "Unauthorized", message: "new row violates row-level security policy" });
     if (files[1]) return db.opsFiles[path] ? res(200, { signedURL: `/object/sign/ops-files/${path}?token=demo` }) : res(404, { message: "Object not found" });
     if (method === "POST" || method === "PUT") {
@@ -90,9 +184,14 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     return res(405, { message: "not allowed" });
   }
 
-  if (url.includes("/rest/v1/ops_statuses")) return res(200, opsPerms.includes("ops.access") ? [...db.opsStatuses].sort((a, b) => a.position - b.position) : []);
-  if (!url.includes("/rest/v1/rpc/ops_task") && !url.includes("/rest/v1/rpc/ops_comment") && !url.includes("/rest/v1/rpc/ops_attachment")
-      && !url.includes("/rest/v1/rpc/ops_directory") && !url.includes("/rest/v1/rpc/ops_team_counts") && !url.includes("/rest/v1/rpc/ops_status")) return null;
+  const sorted = (list) => (opsPerms.includes("ops.access") ? [...list].sort((a, b) => a.position - b.position) : []);
+  if (url.includes("/rest/v1/ops_statuses")) return res(200, sorted(db.opsStatuses));
+  if (url.includes("/rest/v1/ops_client_stages")) return res(200, sorted(db.opsClientStages));
+  if (url.includes("/rest/v1/ops_queue_columns")) return res(200, sorted(db.opsQueueColumns));
+  if (url.includes("/rest/v1/ops_activity_types")) return res(200, sorted(db.opsActivityTypes));
+  const prefixes = ["ops_task", "ops_comment", "ops_attachment", "ops_directory", "ops_team_counts", "ops_status", "ops_client", "ops_demand",
+    "ops_queue", "ops_activity_type"];
+  if (!prefixes.some((x) => url.includes(`/rest/v1/rpc/${x}`))) return null;
   const p = parse();
   db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
 
@@ -104,7 +203,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       (f.archived ? t.archived_at : !t.archived_at)
       && (!q || t.title.toLowerCase().includes(q) || (t.description ?? "").toLowerCase().includes(q) || String(t.number) === q.replace("#", "")
           || (t.client_name ?? "").toLowerCase().includes(q))
-      && (!f.client_id || t.client_id === f.client_id) && (!f.sector_id || t.sector_id === f.sector_id)
+      && (!f.client_id || t.client_id === f.client_id) && (!f.sector_id || t.sector_id === f.sector_id) && (!f.demand_id || t.demand_id === f.demand_id)
       && (!f.status_ids?.length || f.status_ids.includes(t.status_id)) && (!f.priorities?.length || f.priorities.includes(t.priority))
       && (!f.person_id || (f.person_id === "nenhum" ? !t.people.some((x) => x.role === "principal") : t.people.some((x) => x.user_id === f.person_id)))
       && (!f.mine || t.people.some((x) => x.user_id === userId))
@@ -120,6 +219,13 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     return res(200, {
       task: { ...row(t), created_by_name: name(t.created_by) },
       people: peopleJson(t),
+      demand: (() => {
+        const dm = db.opsDemands.find((x) => x.id === t.demand_id);
+        return dm ? { id: dm.id, number: dm.number, title: dm.title, tasks: db.opsTasks.filter((o) => o.demand_id === dm.id).sort((a, b) => a.number - b.number)
+          .map((o) => ({ id: o.id, number: o.number, sector_id: o.sector_id, title: visible(o) ? o.title : null, status_name: statusOf(o.status_id).name,
+            status_color: statusOf(o.status_id).color, done: closed(o), visible: visible(o) })) } : null;
+      })(),
+      stage_name: stageOf(t.client_stage_id)?.name ?? null,
       tags: t.tags,
       depends_on: db.opsDeps.filter((d) => d.task_id === t.id).map((d) => {
         const o = db.opsTasks.find((x) => x.id === d.depends_on_id);
@@ -184,22 +290,29 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     }
     if (!db.opsSectors.some((s) => s.id === input.sector_id && (s.status === "ativo" || s.id === t?.sector_id))) return bad("Escolha um setor ativo.");
     if ((input.title ?? "").trim().length < 3) return bad("Escreva o título (mínimo 3 letras).");
+    if (input.client_stage_id) {
+      if (!input.client_id) return bad("Etapa do onboarding só vale para tarefa de cliente.");
+      const st = stageOf(input.client_stage_id);
+      if (!st || (!st.active && st.id !== t?.client_stage_id)) return bad("Escolha uma etapa ativa do onboarding.");
+    }
     const fields = { title: input.title.trim(), description: input.description?.trim() || null, client_id: input.client_id || null, sector_id: input.sector_id,
       priority: input.priority || "media", start_date: input.start_date || null, due_date: input.due_date || null,
-      effort_hours: input.effort_hours ? Number(input.effort_hours) : null, visibility: input.visibility || "setor", tags: tags(input.tags) };
+      effort_hours: input.effort_hours ? Number(input.effort_hours) : null, visibility: input.visibility || "setor", tags: tags(input.tags),
+      client_stage_id: input.client_id ? input.client_stage_id || null : null,
+      mandatory: Boolean(input.client_id && input.client_stage_id && input.mandatory) };
     const now = new Date().toISOString();
     if (!t) {
       const status = statusOf(input.status_id || "nao_iniciado");
       if (!status?.active) return bad("Escolha um status ativo.");
       t = { id: crypto.randomUUID(), number: ++db.opsTaskSeq, ...fields, status_id: status.id, people: writePeople(input.people), version: 1, created_by: userId,
-        created_at: now, updated_at: now, completed_at: status.category === "concluido" ? now : null, archived_at: null };
+        created_at: now, updated_at: now, completed_at: status.category === "concluido" ? now : null, archived_at: null, demand_id: null, queue_column_id: null };
       db.opsTasks.push(t);
       log(t, "tarefa.criada", null, { titulo: t.title });
     } else {
       const changed = Object.keys(fields).filter((k) => JSON.stringify(fields[k]) !== JSON.stringify(t[k]));
       Object.assign(t, fields, { version: t.version + 1, updated_at: now });
       const map = { title: "titulo", description: "descricao", client_id: "cliente", sector_id: "setor", priority: "prioridade", start_date: "inicio",
-        due_date: "prazo", effort_hours: "esforco", visibility: "visibilidade", tags: "etiquetas" };
+        due_date: "prazo", effort_hours: "esforco", visibility: "visibilidade", tags: "etiquetas", client_stage_id: "etapa", mandatory: "obrigatoria" };
       if (changed.length) log(t, "tarefa.editada", {}, Object.fromEntries(changed.map((k) => [map[k], fields[k]])));
     }
     return res(200, t.id);
@@ -207,18 +320,25 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   if (rpc("ops_task_set_status")) {
     const t = find(p.p_id);
     if (!t) return bad("Tarefa não encontrada.");
-    if (!(can("ops.cards.move") || can("ops.tasks.edit"))) return deny("Você não tem permissão para mudar o status desta tarefa.");
-    if (t.archived_at) return bad("Tarefa arquivada: desarquive para mudar o status.");
-    if (t.version !== p.p_version) return conflict();
-    const s = statusOf(p.p_status);
-    if (!s?.active) return bad("Status inválido ou desativado.");
-    const n = blockers(t);
-    if (s.category === "concluido" && n > 0) {
-      return bad(`Esta tarefa depende de ${n} tarefa(s) ainda aberta(s). Conclua ou retire a dependência antes de finalizar.`);
+    return setStatus(t, p.p_version, p.p_status) ?? res(200, t.version);
+  }
+  if (rpc("ops_task_move_queue")) {
+    const t = find(p.p_id);
+    if (!t) return bad("Tarefa não encontrada.");
+    const c = db.opsQueueColumns.find((x) => x.id === p.p_column);
+    if (!c || !c.active || c.sector_id !== t.sector_id) return bad("Esta coluna não é da fila do setor da tarefa.");
+    const old = db.opsQueueColumns.find((x) => x.id === t.queue_column_id);
+    if (t.status_id !== c.status_id) {
+      const r = setStatus(t, p.p_version, c.status_id);
+      if (r) return r;
+    } else {
+      if (!(can("ops.cards.move") || can("ops.tasks.edit"))) return deny("Você não tem permissão para mover esta tarefa.");
+      if (t.archived_at) return bad("Tarefa arquivada: desarquive para mover.");
+      if (t.version !== p.p_version) return conflict();
+      t.version++;
     }
-    if (t.status_id === s.id) return res(200, t.version);
-    log(t, "tarefa.status", { status: t.status_id }, { status: s.id });
-    Object.assign(t, { status_id: s.id, version: t.version + 1, completed_at: s.category === "concluido" ? new Date().toISOString() : null });
+    if (t.queue_column_id !== c.id) log(t, "tarefa.fila", { coluna: old?.name ?? null }, { coluna: c.name });
+    t.queue_column_id = c.id;
     return res(200, t.version);
   }
   if (rpc("ops_task_set_people")) {
@@ -241,6 +361,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     t.archived_at = p.p_archived ? new Date().toISOString() : null;
     t.version++;
     log(t, p.p_archived ? "tarefa.arquivada" : "tarefa.desarquivada", null, null);
+    autoAdvance(t);
     return res(204);
   }
   if (rpc("ops_task_dependency")) {
@@ -307,6 +428,156 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     return res(204);
   }
 
+  // --- 36.3: clientes no fluxo, demandas e registro manual
+  const boardRow = (cid) => {
+    const o = db.opsClientOps[cid];
+    const c = db.clients.find((x) => x.id === cid);
+    const st = stageOf(o.stage_id);
+    return { client_id: cid, name: c?.name ?? "", client_status: c?.status ?? "ativo", stage_id: o.stage_id, stage_since: o.stage_since, version: o.version,
+      am_user_id: o.am_user_id, am_name: name(o.am_user_id), stage_pending: pending(cid, st.position, st.position + 1), can_move: canMoveClient(cid),
+      summary: summary(cid) };
+  };
+  const clientConflict = () => res(409, { code: "40001", message: "Alguém alterou este cliente antes de você. Recarregue para ver a versão atual." });
+  if (rpc("ops_client_board")) {
+    if (!opsPerms.includes("ops.access")) return res(200, null);
+    const f = p.f ?? {};
+    const rows = Object.keys(db.opsClientOps).filter(clientVisible).map(boardRow)
+      .filter((r) => (!f.mine || r.am_user_id === userId) && (!f.am_user_id || r.am_user_id === f.am_user_id)
+        && (!f.q || r.name.toLowerCase().includes(String(f.q).toLowerCase())))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return res(200, {
+      clients: rows,
+      available: canManageClients() ? db.clients.filter((c) => c.status !== "encerrado" && !db.opsClientOps[c.id]).map((c) => ({ id: c.id, name: c.name })) : [],
+      can: { manage: canManageClients(), release: can("ops.tasks.create"), note: can("ops.history.edit") },
+    });
+  }
+  if (rpc("ops_client_get")) {
+    const cid = p.p_client;
+    const c = db.clients.find((x) => x.id === cid);
+    if (!c || !clientVisible(cid)) return res(200, null);
+    const o = db.opsClientOps[cid];
+    const st = o && stageOf(o.stage_id);
+    return res(200, {
+      client: { id: c.id, name: c.name, status: c.status ?? "ativo" },
+      ops: o ? { stage_id: o.stage_id, stage_since: o.stage_since, started_at: o.started_at, version: o.version, am_user_id: o.am_user_id,
+        am_name: name(o.am_user_id), stage_pending: pending(cid, st.position, st.position + 1) } : null,
+      summary: summary(cid),
+      demands: db.opsDemands.filter((d) => d.client_id === cid).map((d) => {
+        const ts = db.opsTasks.filter((t) => t.demand_id === d.id && !t.archived_at);
+        return { id: d.id, number: d.number, title: d.title, created_at: d.created_at, total: ts.length, done: ts.filter(closed).length };
+      }).reverse(),
+      notes: db.opsClientNotes.filter((n) => n.client_id === cid && !n.removed_at).sort((a, b) => b.happened_at.localeCompare(a.happened_at)).map((n) => ({
+        ...n, type_name: db.opsActivityTypes.find((x) => x.id === n.type_id)?.name ?? n.type_id, responsible: name(n.responsible_id), author: name(n.created_by) })),
+      timeline: db.opsActivity.filter((a) => a.client_id === cid).slice().reverse().map((a) => {
+        const t = a.task_id ? db.opsTasks.find((x) => x.id === a.task_id) : null;
+        return { ...a, actor: name(a.actor_id), task_number: t?.number ?? null, task_visible: Boolean(t && visible(t)), task_title: t && visible(t) ? t.title : null,
+          sector_id: t?.sector_id ?? null };
+      }),
+      can: { move: canMoveClient(cid), manage: canManageClients(), note: can("ops.history.edit"), release: can("ops.tasks.create"), admin: role === "admin" },
+    });
+  }
+  if (rpc("ops_client_start")) {
+    if (!canManageClients()) return deny("Você não tem permissão para colocar clientes no fluxo operacional.");
+    if (!db.clients.some((c) => c.id === p.p_client)) return bad("Cliente não encontrado.");
+    if (db.opsClientOps[p.p_client]) return bad("Este cliente já está no fluxo operacional.");
+    const st = p.p_stage ? stageOf(p.p_stage) : db.opsClientStages.filter((x) => x.active).sort((a, b) => a.position - b.position)[0];
+    if (!st?.active) return bad("Escolha uma etapa ativa.");
+    if (p.p_am && !memberOk(p.p_am)) return bad("O Account Manager precisa estar ativo na Central.");
+    const now = new Date().toISOString();
+    db.opsClientOps[p.p_client] = { stage_id: st.id, am_user_id: p.p_am ?? null, started_at: now, stage_since: now, version: 1 };
+    logClient(p.p_client, "cliente.fluxo_iniciado", null, { etapa: st.id, am: p.p_am ?? null });
+    return res(204);
+  }
+  if (rpc("ops_client_set_am")) {
+    if (!canManageClients()) return deny("Você não tem permissão para trocar o Account Manager.");
+    const o = db.opsClientOps[p.p_client];
+    if (!o) return bad("Este cliente ainda não está no fluxo operacional.");
+    if (o.version !== p.p_version) return clientConflict();
+    if (p.p_am && !memberOk(p.p_am)) return bad("O Account Manager precisa estar ativo na Central.");
+    if ((p.p_am ?? null) === o.am_user_id) return res(200, o.version);
+    logClient(p.p_client, "cliente.am", { am: o.am_user_id }, { am: p.p_am ?? null });
+    Object.assign(o, { am_user_id: p.p_am ?? null, version: o.version + 1 });
+    return res(200, o.version);
+  }
+  if (rpc("ops_client_stage_move")) {
+    const o = db.opsClientOps[p.p_client];
+    if (!o || !clientVisible(p.p_client)) return bad("Este cliente não está no fluxo operacional.");
+    if (!canMoveClient(p.p_client)) return deny("Você não tem permissão para mudar a etapa deste cliente.");
+    if (o.version !== p.p_version) return clientConflict();
+    const to = stageOf(p.p_stage);
+    if (!to?.active) return bad("Escolha uma etapa ativa.");
+    if (to.id === o.stage_id) return res(200, o.version);
+    const from = stageOf(o.stage_id);
+    if (to.position > from.position) {
+      const n = pending(p.p_client, from.position, to.position);
+      if (n > 0) return bad(`Há ${n} tarefa(s) obrigatória(s) aberta(s) nesta etapa. Conclua antes de avançar o cliente.`);
+    }
+    logClient(p.p_client, "cliente.etapa", { etapa: from.id },
+      { etapa: to.id, regra: to.position > from.position ? "Avanço manual: nenhuma tarefa obrigatória aberta" : "Retorno manual de etapa" });
+    Object.assign(o, { stage_id: to.id, stage_since: new Date().toISOString(), version: o.version + 1 });
+    return res(200, o.version);
+  }
+  if (rpc("ops_demand_release")) {
+    const d = p.p ?? {};
+    if (!can("ops.tasks.create")) return deny();
+    if (!d.client_id || !db.clients.some((c) => c.id === d.client_id)) return bad("Escolha o cliente da demanda.");
+    if ((d.title ?? "").trim().length < 3) return bad("Escreva o título da demanda.");
+    const items = d.items ?? [];
+    if (items.length < 1 || items.length > 12) return bad("Escolha de 1 a 12 setores.");
+    if (items.some((i) => i.principal && i.principal !== userId) && !can("ops.tasks.assign")) return deny("Você não tem permissão para atribuir outras pessoas.");
+    if (items.some((i, idx) => i.depends_on !== null && i.depends_on !== undefined && (i.depends_on < 0 || i.depends_on >= idx))) {
+      return bad("Uma linha só pode depender de uma linha anterior.");
+    }
+    if (items.some((i) => !db.opsSectors.some((s) => s.id === i.sector_id && s.status === "ativo"))) return bad("Escolha um setor ativo.");
+    const now = new Date().toISOString();
+    const demand = { id: crypto.randomUUID(), number: ++db.opsDemandSeq, client_id: d.client_id, title: d.title.trim(), briefing: d.briefing || null, created_by: userId, created_at: now };
+    db.opsDemands.push(demand);
+    const ids = [];
+    items.forEach((i) => {
+      const sector = db.opsSectors.find((s) => s.id === i.sector_id);
+      const t = { id: crypto.randomUUID(), number: ++db.opsTaskSeq, title: (i.title || "").trim() || `${demand.title} — ${sector.name}`,
+        description: d.briefing || null, client_id: d.client_id, sector_id: i.sector_id, priority: i.priority || "media", start_date: null,
+        due_date: i.due_date || null, effort_hours: null, visibility: "setor", tags: [], status_id: "nao_iniciado",
+        people: i.principal ? [{ user_id: i.principal, role: "principal" }] : [], version: 1, created_by: userId, created_at: now, updated_at: now,
+        completed_at: null, archived_at: null, demand_id: demand.id, client_stage_id: d.client_stage_id || null,
+        mandatory: Boolean(d.client_stage_id && d.mandatory), queue_column_id: null };
+      db.opsTasks.push(t);
+      log(t, "tarefa.criada", null, { titulo: t.title });
+      if (i.depends_on !== null && i.depends_on !== undefined) {
+        db.opsDeps.push({ task_id: t.id, depends_on_id: ids[i.depends_on] });
+        log(t, "tarefa.dependencia_incluida", null, { depende_de: db.opsTasks.find((x) => x.id === ids[i.depends_on]).number });
+      }
+      ids.push(t.id);
+    });
+    logClient(d.client_id, "demanda.liberada", null, { demanda: demand.number, titulo: demand.title, tarefas: ids.length });
+    return res(200, { id: demand.id, number: demand.number, task_ids: ids });
+  }
+  if (rpc("ops_client_note_add")) {
+    const n = p.p ?? {};
+    if (!can("ops.history.edit")) return deny();
+    if (!clientVisible(n.client_id)) return bad("Cliente não encontrado.");
+    if (!db.opsActivityTypes.some((x) => x.id === n.type_id && x.active)) return bad("Escolha o tipo de atividade.");
+    if (!n.happened_at) return bad("Informe a data e a hora.");
+    if (n.responsible_id && !memberOk(n.responsible_id)) return bad("O responsável precisa estar ativo na Central.");
+    if (n.attachment_path) {
+      if (n.attachment_path.split("/")[0] !== `cliente-${n.client_id}`) return bad("Arquivo fora da pasta do cliente.");
+      if (!db.opsFiles[n.attachment_path]) return bad("O arquivo não chegou ao armazenamento. Envie de novo.");
+    }
+    const id = crypto.randomUUID();
+    db.opsClientNotes.push({ id, client_id: n.client_id, type_id: n.type_id, title: n.title.trim(), description: n.description || null, happened_at: n.happened_at,
+      responsible_id: n.responsible_id || null, sector_id: n.sector_id || null, next_step: n.next_step || null, attachment_path: n.attachment_path || null,
+      attachment_name: n.attachment_path ? n.attachment_name : null, created_by: userId, created_at: new Date().toISOString(), removed_at: null });
+    return res(200, id);
+  }
+  if (rpc("ops_client_note_remove")) {
+    const n = db.opsClientNotes.find((x) => x.id === p.p_id);
+    if (!n || !clientVisible(n.client_id)) return bad("Atividade não encontrada.");
+    if (n.created_by !== userId && role !== "admin") return deny("Só quem registrou (ou o admin) pode retirar a atividade.");
+    n.removed_at = new Date().toISOString();
+    logClient(n.client_id, "cliente.atividade_retirada", { titulo: n.title }, null);
+    return res(204);
+  }
+
   // --- Status (só admin)
   if (role !== "admin") return deny("Só o administrador pode mudar a configuração da Central de Operações.");
   if (rpc("ops_status_save")) {
@@ -340,6 +611,63 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     }
     s.active = p.p_active;
     return res(204);
+  }
+  if (rpc("ops_client_stage_save")) {
+    if (db.opsClientStages.some((x) => x.id !== p.p_id && x.name.toLowerCase() === p.p_name.trim().toLowerCase())) return bad("Já existe uma etapa com esse nome.");
+    const fields = { name: p.p_name.trim(), color: p.p_color, require_mandatory: p.p_require ?? true, auto_advance: p.p_auto ?? false };
+    if (p.p_id) { Object.assign(stageOf(p.p_id), fields); return res(200, p.p_id); }
+    const id = crypto.randomUUID();
+    db.opsClientStages.push({ id, ...fields, position: db.opsClientStages.length + 1, active: true });
+    return res(200, id);
+  }
+  if (rpc("ops_client_stage_reorder")) {
+    p.p_ids.forEach((id, i) => { const x = stageOf(id); if (x) x.position = i + 1; });
+    return res(204);
+  }
+  if (rpc("ops_client_stage_set_active")) {
+    const st = stageOf(p.p_id);
+    if (!st) return bad("Etapa não encontrada.");
+    if (!p.p_active) {
+      const inIt = Object.entries(db.opsClientOps).filter(([, o]) => o.stage_id === st.id);
+      if (inIt.length) {
+        const dest = stageOf(p.p_move_to);
+        if (!dest?.active || dest.id === st.id) return bad(`Há ${inIt.length} cliente(s) nesta etapa. Escolha para qual etapa eles vão antes de desativar.`);
+        for (const [cid, o] of inIt) {
+          logClient(cid, "cliente.etapa", { etapa: st.id }, { etapa: dest.id, regra: "Etapa desativada pelo administrador" }, "sistema");
+          Object.assign(o, { stage_id: dest.id, version: o.version + 1 });
+        }
+      }
+    }
+    st.active = p.p_active;
+    return res(204);
+  }
+  if (rpc("ops_queue_column_save")) {
+    if (!statusOf(p.p_status)?.active) return bad("Escolha um status ativo para a coluna.");
+    if (db.opsQueueColumns.some((x) => x.sector_id === p.p_sector && x.id !== p.p_id && x.name.toLowerCase() === p.p_name.trim().toLowerCase())) {
+      return bad("Este setor já tem uma coluna com esse nome.");
+    }
+    const fields = { name: p.p_name.trim(), color: p.p_color, status_id: p.p_status };
+    if (p.p_id) { Object.assign(db.opsQueueColumns.find((x) => x.id === p.p_id), fields); return res(200, p.p_id); }
+    const id = crypto.randomUUID();
+    db.opsQueueColumns.push({ id, sector_id: p.p_sector, ...fields, position: db.opsQueueColumns.filter((x) => x.sector_id === p.p_sector).length + 1, active: true });
+    return res(200, id);
+  }
+  if (rpc("ops_queue_column_reorder")) {
+    p.p_ids.forEach((id, i) => { const x = db.opsQueueColumns.find((c) => c.id === id && c.sector_id === p.p_sector); if (x) x.position = i + 1; });
+    return res(204);
+  }
+  if (rpc("ops_queue_column_set_active")) {
+    const c = db.opsQueueColumns.find((x) => x.id === p.p_id);
+    if (!c) return bad("Coluna não encontrada.");
+    c.active = p.p_active;
+    return res(204);
+  }
+  if (rpc("ops_activity_type_save")) {
+    if (db.opsActivityTypes.some((x) => x.id !== p.p_id && x.name.toLowerCase() === p.p_name.trim().toLowerCase())) return bad("Já existe um tipo com esse nome.");
+    if (p.p_id) { Object.assign(db.opsActivityTypes.find((x) => x.id === p.p_id), { name: p.p_name.trim(), active: p.p_active ?? true }); return res(200, p.p_id); }
+    const id = crypto.randomUUID();
+    db.opsActivityTypes.push({ id, name: p.p_name.trim(), position: db.opsActivityTypes.length + 1, active: true });
+    return res(200, id);
   }
   return null;
 }

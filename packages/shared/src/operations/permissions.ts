@@ -19,7 +19,8 @@ export const OPS_PERMISSIONS = [
   "ops.commercial",
 ] as const;
 
-export type OpsPermission = (typeof OPS_PERMISSIONS)[number] | "ops.admin";
+/** "ops.admin": só o admin. "ops.am": Account Manager de algum cliente (vem do banco, não é marcada à mão). */
+export type OpsPermission = (typeof OPS_PERMISSIONS)[number] | "ops.admin" | "ops.am";
 
 export const OPS_PERMISSION_LABELS: Record<(typeof OPS_PERMISSIONS)[number], string> = {
   "ops.access": "Acessar a Central de Operações",

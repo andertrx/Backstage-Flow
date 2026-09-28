@@ -1,7 +1,8 @@
 -- =============================================================================
--- REMOÇÃO da Central de Operações (Etapa 36: 36.1 e 36.2).
+-- REMOÇÃO da Central de Operações (Etapa 36: 36.1, 36.2 e 36.3).
 --
--- Apaga tarefas (com comentários, anexos registrados e histórico delas), status,
+-- Apaga o fluxo dos clientes (etapas, Account Manager, demandas, filas e
+-- atividades registradas), tarefas (com comentários, anexos registrados e histórico), status,
 -- setores, equipe da Central e permissões da Central, e volta as regras
 -- de clientes dos módulos de anúncios como eram antes (sem o papel "equipe").
 -- NÃO mexe em clientes, usuários, métricas, campanhas nem anúncios.
@@ -29,6 +30,41 @@ do $$ begin
     raise exception 'O bucket ops-files ainda existe. Baixe o que quiser guardar e apague o bucket pelo painel (Storage) antes de remover.';
   end if;
 end $$;
+
+-- 36.3: clientes no fluxo, filas, demandas e registro manual
+drop policy if exists "Vê demandas com tarefa visível ou do cliente que acompanha" on public.ops_demands;
+drop function if exists public.ops_activity_type_save(text, text, boolean);
+drop function if exists private.ops_activity_type_save_impl(text, text, boolean);
+drop function if exists public.ops_queue_column_set_active(uuid, boolean);
+drop function if exists private.ops_queue_column_set_active_impl(uuid, boolean);
+drop function if exists public.ops_queue_column_reorder(uuid, uuid[]);
+drop function if exists private.ops_queue_column_reorder_impl(uuid, uuid[]);
+drop function if exists public.ops_queue_column_save(uuid, uuid, text, text, text);
+drop function if exists private.ops_queue_column_save_impl(uuid, uuid, text, text, text);
+drop function if exists public.ops_client_stage_set_active(text, boolean, text);
+drop function if exists private.ops_client_stage_set_active_impl(text, boolean, text);
+drop function if exists public.ops_client_stage_reorder(text[]);
+drop function if exists private.ops_client_stage_reorder_impl(text[]);
+drop function if exists public.ops_client_stage_save(text, text, text, boolean, boolean);
+drop function if exists private.ops_client_stage_save_impl(text, text, text, boolean, boolean);
+drop function if exists public.ops_client_get(uuid);
+drop function if exists private.ops_client_get_impl(uuid);
+drop function if exists public.ops_client_board(jsonb);
+drop function if exists private.ops_client_board_impl(jsonb);
+drop function if exists public.ops_client_note_remove(uuid);
+drop function if exists private.ops_client_note_remove_impl(uuid);
+drop function if exists public.ops_client_note_add(jsonb);
+drop function if exists private.ops_client_note_add_impl(jsonb);
+drop function if exists public.ops_demand_release(jsonb);
+drop function if exists private.ops_demand_release_impl(jsonb);
+drop function if exists public.ops_client_stage_move(uuid, integer, text);
+drop function if exists private.ops_client_stage_move_impl(uuid, integer, text);
+drop function if exists public.ops_client_set_am(uuid, integer, uuid);
+drop function if exists private.ops_client_set_am_impl(uuid, integer, uuid);
+drop function if exists public.ops_client_start(uuid, text, uuid);
+drop function if exists private.ops_client_start_impl(uuid, text, uuid);
+drop function if exists public.ops_task_move_queue(uuid, integer, uuid);
+drop function if exists private.ops_task_move_queue_impl(uuid, integer, uuid);
 
 -- 36.2: tarefas
 drop policy if exists "Central envia anexos das tarefas visíveis" on storage.objects;
@@ -74,6 +110,17 @@ drop table if exists public.ops_tags;
 drop table if exists public.ops_task_deps;
 drop table if exists public.ops_task_people;
 drop table if exists public.ops_tasks;
+drop table if exists public.ops_client_notes;
+drop table if exists public.ops_activity_types;
+drop table if exists public.ops_demands;
+drop table if exists public.ops_queue_columns;
+drop table if exists public.ops_client_ops;
+drop table if exists public.ops_client_stages;
+drop function if exists private.ops_client_auto_advance_tg();
+drop function if exists private.ops_client_summary(uuid);
+drop function if exists private.ops_can_manage_clients();
+drop function if exists private.ops_can_move_client(uuid);
+drop function if exists private.ops_client_pending(uuid, integer, integer);
 drop table if exists public.ops_statuses;
 drop function if exists private.ops_write_tags(uuid, jsonb);
 drop function if exists private.ops_write_people(uuid, jsonb);
@@ -85,6 +132,8 @@ drop function if exists private.ops_log(uuid, uuid, text, jsonb, jsonb, text);
 drop function if exists private.ops_need(text);
 drop function if exists private.ops_task_folder_visible(text);
 drop function if exists private.ops_task_visible(uuid);
+drop function if exists private.ops_client_visible(uuid);
+drop function if exists private.ops_is_am(uuid);
 
 -- 36.1: setores e equipe
 drop function if exists public.ops_team();

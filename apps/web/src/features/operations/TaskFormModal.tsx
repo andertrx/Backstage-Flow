@@ -9,6 +9,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import type { OpsSector } from "./api.ts";
+import { useOpsClientStages } from "./clientsApi.ts";
 import {
   type OpsDirectory, type OpsPeopleInput, type OpsStatus, type OpsTaskDetail, type OpsTaskInput, type OpsTaskPerson, useSaveTask,
 } from "./tasksApi.ts";
@@ -117,12 +118,15 @@ export function TaskFormModal({ detail, sectors, statuses, directory, me, mySect
     effort_hours: t?.effort_hours != null ? String(t.effort_hours).replace(".", ",") : "",
     visibility: t?.visibility ?? "setor",
     tags: detail?.tags ?? [],
+    client_stage_id: t?.client_stage_id ?? "",
+    mandatory: t?.mandatory ?? false,
     status_id: t ? undefined : statuses.find((s) => s.active)?.id,
     people: t ? undefined : { principal: me, adicionais: [], aprovadores: [], observadores: [] },
   });
   const [tagsText, setTagsText] = useState((detail?.tags ?? []).join(", "));
   const [error, setError] = useState<string | null>(null);
   const save = useSaveTask();
+  const stages = useOpsClientStages();
   const set = <K extends keyof OpsTaskInput>(k: K, v: OpsTaskInput[K]) => setInput((p) => ({ ...p, [k]: v }));
 
   const sectorOptions = sectors.filter((s) => s.status === "ativo" || s.id === t?.sector_id);
@@ -197,6 +201,22 @@ export function TaskFormModal({ detail, sectors, statuses, directory, me, mySect
             )}
           </Field>
         </div>
+        {input.client_id && (
+          <div className="grid gap-3 rounded-xl bg-slate-50 p-3 sm:grid-cols-2">
+            <Field label="Etapa do onboarding do cliente" hint="Opcional. Liga a tarefa a uma etapa do fluxo do cliente.">
+              {(id) => (
+                <Select id={id} value={input.client_stage_id} onChange={(e) => setInput((p) => ({ ...p, client_stage_id: e.target.value, mandatory: e.target.value ? p.mandatory : false }))}>
+                  <option value="">Nenhuma</option>
+                  {(stages.data ?? []).filter((s) => s.active || s.id === t?.client_stage_id).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </Select>
+              )}
+            </Field>
+            <label className="flex items-start gap-2 self-end pb-2 text-sm text-slate-700">
+              <input type="checkbox" className="mt-1" checked={input.mandatory} disabled={!input.client_stage_id} onChange={(e) => set("mandatory", e.target.checked)} />
+              <span>Obrigatória para o cliente avançar desta etapa<span className="block text-xs text-slate-500">Tarefas opcionais não travam o avanço.</span></span>
+            </label>
+          </div>
+        )}
         <Field label="Etiquetas" hint="Separe por vírgula. Ex.: Campanha, Urgente cliente">
           {(id) => <Input id={id} value={tagsText} onChange={(e) => setTagsText(e.target.value)} />}
         </Field>

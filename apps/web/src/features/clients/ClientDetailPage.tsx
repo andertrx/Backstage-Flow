@@ -1,5 +1,5 @@
-import { can, formatCnpj, formatPhone, PLATFORMS } from "@backstage/shared";
-import { ArrowLeft, LayoutDashboard, Pencil } from "lucide-react";
+import { can, formatCnpj, formatPhone, opsCan, PLATFORMS } from "@backstage/shared";
+import { ArrowLeft, ClipboardList, History, Info as InfoIcon, LayoutDashboard, Pencil } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useParams } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -17,6 +17,12 @@ import { ClientAccessCard } from "./ClientAccessCard.tsx";
 import { ClientFormModal } from "./ClientFormModal.tsx";
 import { ClientStatusBadge } from "./StatusBadge.tsx";
 import { timezoneLabel } from "./timezones.ts";
+import { useMyOpsPermissions } from "@/features/operations/api.ts";
+import { ClientOpsTab } from "@/features/operations/ClientOps.tsx";
+import { cn } from "@/lib/cn.ts";
+import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
+
+type ClientTab = "dados" | "tarefas" | "historico";
 
 function Info({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -32,6 +38,13 @@ export function ClientDetailPage() {
   const { profile } = useAuth();
   const { data: client, isLoading, error } = useClient(id);
   const [editing, setEditing] = useState(false);
+  // Etapa 36.3: abas da Central de Operações (só para quem acompanha o cliente lá).
+  const opsPerms = useMyOpsPermissions();
+  const showOps = opsCan(opsPerms.data, "ops.clients.view") || opsCan(opsPerms.data, "ops.am");
+  const [params, update] = useSearchParamsUpdater();
+  const asked = params.get("aba") as ClientTab | null;
+  const tab: ClientTab = showOps && (asked === "tarefas" || asked === "historico") ? asked : "dados";
+  const setTab = (t: ClientTab) => update((p) => { if (t === "dados") p.delete("aba"); else p.set("aba", t); return p; });
 
   if (isLoading) return <FullPageSpinner />;
   if (error) return <Alert tone="error">{errorMessage(error)}</Alert>;
@@ -76,6 +89,22 @@ export function ClientDetailPage() {
         </div>
       </div>
 
+      {showOps && (
+        <nav className="flex flex-wrap gap-2" aria-label="Abas do cliente">
+          {([["dados", "Dados gerais", InfoIcon], ["tarefas", "Tarefas", ClipboardList], ["historico", "Histórico Operacional", History]] as const).map(([id, label, Icon]) => (
+            <button key={id} type="button" onClick={() => setTab(id)} aria-pressed={tab === id}
+              className={cn("inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all",
+                tab === id ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
+                  : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400")}>
+              <Icon className="size-4" aria-hidden />{label}
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {tab !== "dados" && <ClientOpsTab clientId={client.id} tab={tab} />}
+
+      {tab === "dados" && (<>
       <Card className="p-6">
         <h2 className="mb-4 text-base font-semibold">Dados cadastrais</h2>
         <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -105,6 +134,7 @@ export function ClientDetailPage() {
       {can(profile?.role, "clients.edit") && <ClientEmailCard clientId={client.id} timezone={client.timezone} />}
 
       {can(profile?.role, "users.manage") && <ClientAccessCard clientId={client.id} />}
+      </>)}
 
       {editing && <ClientFormModal client={client} onClose={() => setEditing(false)} />}
     </div>
