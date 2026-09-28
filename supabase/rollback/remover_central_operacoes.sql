@@ -1,7 +1,7 @@
 -- =============================================================================
--- REMOÇÃO da Central de Operações (Etapa 36: 36.1 a 36.5).
+-- REMOÇÃO da Central de Operações (Etapa 36: 36.1 a 36.6).
 --
--- Apaga as reuniões (Dailies, atas e itens), o Kanban comercial (leads e o histórico deles), o fluxo dos clientes (etapas, Account Manager, demandas, filas e
+-- Desliga os avisos diários e as repetições (pg_cron), apaga as notificações, as reuniões (Dailies, atas e itens), o Kanban comercial (leads e o histórico deles), o fluxo dos clientes (etapas, Account Manager, demandas, filas e
 -- atividades registradas), tarefas (com comentários, anexos registrados e histórico), status,
 -- setores, equipe da Central e permissões da Central, e volta as regras
 -- de clientes dos módulos de anúncios como eram antes (sem o papel "equipe").
@@ -30,6 +30,52 @@ do $$ begin
     raise exception 'O bucket ops-files ainda existe. Baixe o que quiser guardar e apague o bucket pelo painel (Storage) antes de remover.';
   end if;
 end $$;
+
+-- 36.6: notificações (sino), avisos diários e repetição. As tarefas e reuniões
+-- já criadas por repetição continuam (são tarefas e reuniões normais) até as partes delas.
+select cron.unschedule(jobname) from cron.job where jobname in ('ops-recurrences', 'ops-notify-daily');
+drop trigger if exists ops_task_people_notify on public.ops_task_people;
+drop trigger if exists ops_mentions_notify on public.ops_mentions;
+drop trigger if exists ops_comments_notify on public.ops_comments;
+drop trigger if exists ops_tasks_notify_done on public.ops_tasks;
+drop trigger if exists ops_meeting_people_notify on public.ops_meeting_people;
+drop trigger if exists ops_meeting_items_notify on public.ops_meeting_items;
+drop trigger if exists ops_client_ops_notify on public.ops_client_ops;
+drop trigger if exists ops_leads_notify on public.ops_leads;
+drop function if exists public.ops_notification_prefs_save(p_muted text[]);
+drop function if exists public.ops_notifications_list(p_unread boolean, p_kind text, p_limit integer);
+drop function if exists public.ops_notifications_read(p_ids bigint[]);
+drop function if exists public.ops_notifications_unread();
+drop function if exists public.ops_recurrence_for(p_kind text, p_id uuid);
+drop function if exists public.ops_recurrence_save(p jsonb);
+drop function if exists public.ops_recurrence_stop(p_id uuid);
+drop function if exists private.ops_notification_prefs_save_impl(p_muted text[]);
+drop function if exists private.ops_notifications_list_impl(p_unread boolean, p_kind text, p_limit integer);
+drop function if exists private.ops_notifications_read_impl(p_ids bigint[]);
+drop function if exists private.ops_notifications_unread_impl();
+drop function if exists private.ops_notify_am_tg();
+drop function if exists private.ops_notify_comment_tg();
+drop function if exists private.ops_notify_daily();
+drop function if exists private.ops_notify_lead_tg();
+drop function if exists private.ops_notify_meeting_item_tg();
+drop function if exists private.ops_notify_meeting_people_tg();
+drop function if exists private.ops_notify_mention_tg();
+drop function if exists private.ops_notify_task_done_tg();
+drop function if exists private.ops_notify_task_people_tg();
+drop function if exists private.ops_notify(p_user uuid, p_kind text, p_title text, p_body text, p_link text, p_dedupe text, p_task uuid, p_meeting uuid);
+drop function if exists private.ops_recurrence_for_impl(p_kind text, p_id uuid);
+drop function if exists private.ops_recurrence_save_impl(p jsonb);
+drop function if exists private.ops_recurrence_stop_impl(p_id uuid);
+drop function if exists private.ops_recurrence_can_stop(p_rec uuid);
+drop function if exists private.ops_recurrence_generate(p_rec uuid);
+drop function if exists private.ops_recurrence_matches(p_frequency text, p_weekdays smallint[], p_month_day smallint, p_day date);
+alter table public.ops_tasks drop column if exists recurrence_id, drop column if exists occurrence_date;
+alter table public.ops_meetings drop column if exists recurrence_id, drop column if exists occurrence_date;
+drop table if exists public.ops_recurrences;
+drop table if exists public.ops_notifications;
+drop table if exists public.ops_notification_prefs;
+drop function if exists private.ops_user_can(p_user uuid, p_permission text);
+drop function if exists private.ops_person_name(p_user uuid);
 
 -- 36.5: Dailies e reuniões (agenda, ata, presença e itens). As tarefas geradas
 -- por reuniões são tarefas normais e saem junto com as tarefas, mais abaixo.

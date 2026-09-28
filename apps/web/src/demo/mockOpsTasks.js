@@ -73,6 +73,10 @@ export function seedOpsTasks() {
     opsMeetings: [],
     opsMeetingSeq: 0,
     opsMeetingItems: [],
+    // 36.6
+    opsNotifications: [],
+    opsNotificationPrefs: {},
+    opsRecurrences: [],
   };
 }
 
@@ -109,6 +113,16 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   const logClient = (clientId, action, before, after, origin = "manual") =>
     db.opsActivity.push({ id: db.opsActivity.length + 1, task_id: null, client_id: clientId, action, actor_id: userId, origin, before, after,
       created_at: new Date().toISOString() });
+  /** 36.6: notificação (sem avisar quem fez, sem duplicar, respeitando as preferências). */
+  const notify = (uid, kind, title, body, link, dedupe) => {
+    if (!uid || uid === userId || !memberOk(uid)) return;
+    if ((db.opsNotificationPrefs[uid] ?? []).includes(kind)) return;
+    if (db.opsNotifications.some((n) => n.user_id === uid && n.dedupe_key === dedupe)) return;
+    db.opsNotifications.push({ id: db.opsNotifications.length + 1, user_id: uid, kind, title, body, link, actor_id: userId, dedupe_key: dedupe,
+      created_at: new Date().toISOString(), read_at: null });
+  };
+  const roleText = { principal: "Como responsável principal", adicional: "Como responsável adicional", aprovador: "Como aprovador", observador: "Como observador" };
+  const notifyPeople = (t) => { for (const x of t.people) notify(x.user_id, "tarefa.atribuida", `Você entrou na tarefa #${t.number}: ${t.title}`, roleText[x.role], `/operacoes/tarefas?tarefa=${t.id}`, `atribuida:${t.id}:${x.user_id}`); };
   const stageOf = (id) => db.opsClientStages.find((x) => x.id === id);
   const isAm = (cid) => opsPerms.includes("ops.access") && db.opsClientOps[cid]?.am_user_id === userId;
   const clientVisible = (cid) => Boolean(cid) && (can("ops.clients.view") || isAm(cid));
@@ -144,7 +158,11 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     }
     if (t.status_id === s.id) return null;
     log(t, "tarefa.status", { status: t.status_id }, { status: s.id });
+    const wasDone = t.completed_at;
     Object.assign(t, { status_id: s.id, version: t.version + 1, completed_at: s.category === "concluido" ? new Date().toISOString() : null });
+    if (!wasDone && t.completed_at) {
+      notify(t.created_by, "tarefa.concluida", `Tarefa #${t.number} concluída: ${t.title}`, `Concluída por ${name(userId)}`, `/operacoes/tarefas?tarefa=${t.id}`, `concluida:${t.id}:${t.completed_at}`);
+    }
     autoAdvance(t);
     return null;
   };
@@ -213,8 +231,9 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   if (url.includes("/rest/v1/ops_lead_stages")) return res(200, can("ops.commercial") ? sorted(db.opsLeadStages) : []);
   if (url.includes("/rest/v1/ops_loss_reasons")) return res(200, can("ops.commercial") ? sorted(db.opsLossReasons) : []);
   if (url.includes("/rest/v1/ops_meeting_categories")) return res(200, sorted(db.opsMeetingCategories));
+  if (url.includes("/rest/v1/ops_notification_prefs")) return res(200, db.opsNotificationPrefs[userId] ? { muted: db.opsNotificationPrefs[userId] } : null);
   const prefixes = ["ops_task", "ops_comment", "ops_attachment", "ops_directory", "ops_team_counts", "ops_status", "ops_client", "ops_demand",
-    "ops_queue", "ops_activity_type", "ops_lead", "ops_loss_reason", "ops_meeting"];
+    "ops_queue", "ops_activity_type", "ops_lead", "ops_loss_reason", "ops_meeting", "ops_notification", "ops_recurrence"];
   if (!prefixes.some((x) => url.includes(`/rest/v1/rpc/${x}`))) return null;
   const p = parse();
   db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
@@ -332,6 +351,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
         created_at: now, updated_at: now, completed_at: status.category === "concluido" ? now : null, archived_at: null, demand_id: null, queue_column_id: null };
       db.opsTasks.push(t);
       log(t, "tarefa.criada", null, { titulo: t.title });
+      notifyPeople(t);
     } else {
       const changed = Object.keys(fields).filter((k) => JSON.stringify(fields[k]) !== JSON.stringify(t[k]));
       Object.assign(t, fields, { version: t.version + 1, updated_at: now });
@@ -375,6 +395,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     if (people.some((x) => !memberOk(x.user_id))) return bad("Só pessoas ativas na Central podem entrar na tarefa.");
     log(t, "tarefa.pessoas", { pessoas: t.people }, { pessoas: people });
     Object.assign(t, { people, version: t.version + 1 });
+    notifyPeople(t);
     return res(200, t.version);
   }
   if (rpc("ops_task_archive")) {
@@ -420,6 +441,10 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     const id = db.opsComments.length + 1;
     db.opsComments.push({ id, task_id: t.id, author_id: userId, body: p.p_body.trim(), mentions, created_at: new Date().toISOString(), removed_at: null });
     log(t, "tarefa.comentario", null, { comentario: p.p_body.trim().slice(0, 300) });
+    for (const u of mentions) notify(u, "tarefa.mencao", `${name(userId)} mencionou você na tarefa #${t.number}`, p.p_body.trim().slice(0, 200), `/operacoes/tarefas?tarefa=${t.id}`, `mencao:${id}`);
+    for (const u of new Set([...t.people.map((x) => x.user_id), t.created_by])) {
+      if (!mentions.includes(u)) notify(u, "tarefa.comentario", `${name(userId)} comentou na tarefa #${t.number}: ${t.title}`, p.p_body.trim().slice(0, 200), `/operacoes/tarefas?tarefa=${t.id}`, `comentario:${id}`);
+    }
     return res(200, id);
   }
   if (rpc("ops_comment_remove")) {
@@ -797,6 +822,8 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     db.opsActivity.push({ id: db.opsActivity.length + 1, task_id: null, meeting_id: m.id, client_id: m.client_id ?? null, action, actor_id: userId, origin: "manual",
       before, after: { ...(after ?? {}), reuniao: m.number, titulo_reuniao: m.title }, created_at: new Date().toISOString() });
   const catOf = (id) => db.opsMeetingCategories.find((c) => c.id === id);
+  const spTime = (iso) => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(new Date(iso));
+  const notifyInvite = (m, u) => { if (m.status === "agendada") notify(u, "reuniao.convite", `Você foi chamado para a reunião #${m.number}: ${m.title}`, `${spTime(m.starts_at)} (horário de Brasília)`, `/operacoes/reunioes?reuniao=${m.id}`, `reuniao:${m.id}`); };
   const sectorName = (id) => db.opsSectors.find((s) => s.id === id)?.name ?? null;
   const spDay = (iso) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(iso));
   const meetingRow = (m) => {
@@ -867,12 +894,15 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
         organizer_id: userId, created_at: now, version: 1, people: ids.map((user_id) => ({ user_id, attended: null })) };
       db.opsMeetings.push(m);
       logMeeting(m, "reuniao.criada", null, { titulo: m.title });
+      for (const x of m.people) notifyInvite(m, x.user_id);
     } else {
       const names = { title: "titulo", category_id: "tipo", starts_at: "inicio", duration_min: "duracao", sector_id: "setor", client_id: "cliente",
         location: "local", agenda: "pauta" };
       const changed = Object.keys(fields).filter((k) => fields[k] !== m[k]);
       const peopleChanged = JSON.stringify(ids.slice().sort()) !== JSON.stringify(m.people.map((x) => x.user_id).sort());
+      const before = m.people.map((x) => x.user_id);
       Object.assign(m, fields, { version: m.version + 1, people: ids.map((user_id) => m.people.find((x) => x.user_id === user_id) ?? { user_id, attended: null }) });
+      for (const u of ids.filter((u) => !before.includes(u))) notifyInvite(m, u);
       if (changed.length || peopleChanged) {
         logMeeting(m, "reuniao.editada", {}, { ...Object.fromEntries(changed.map((k) => [names[k], fields[k]])), ...(peopleChanged ? { participantes: ids.map(name) } : {}) });
       }
@@ -919,6 +949,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       created_by: userId, created_at: new Date().toISOString(), removed_at: null };
     db.opsMeetingItems.push(item);
     logMeeting(m, "reuniao.item", null, { tipo: item.kind, texto: item.body });
+    if (item.owner_id) notify(item.owner_id, "reuniao.item", `${{ pendencia: "Pendência", bloqueio: "Bloqueio", decisao: "Decisão", objetivo: "Objetivo" }[item.kind]} para você na reunião #${m.number}: ${m.title}`, item.body.slice(0, 200), `/operacoes/reunioes?reuniao=${m.id}`, `item:${item.id}`);
     return res(200, item.id);
   }
   if (rpc("ops_meeting_item_remove")) {
@@ -951,6 +982,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     db.opsTasks.push(t);
     log(t, "tarefa.criada", null, { titulo: t.title });
     log(t, "tarefa.da_reuniao", null, { reuniao: m.number, titulo_reuniao: m.title });
+    notifyPeople(t);
     i.task_id = t.id;
     logMeeting(m, "reuniao.tarefa_criada", null, { tarefa: t.number, texto: i.body });
     return res(200, t.id);
@@ -963,6 +995,125 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     const id = crypto.randomUUID();
     db.opsMeetingCategories.push({ id, name: p.p_name.trim(), color: p.p_color, position: db.opsMeetingCategories.length + 1, active: true });
     return res(200, id);
+  }
+
+  // --- 36.6: notificações (sino) e repetição (mesmas regras de ops_notification*/ops_recurrence* no banco)
+  const KINDS = ["tarefa.atribuida", "tarefa.mencao", "tarefa.comentario", "tarefa.concluida", "tarefa.prazo", "tarefa.atrasada",
+    "reuniao.convite", "reuniao.hoje", "reuniao.item", "cliente.am", "lead.responsavel"];
+  const mine = () => db.opsNotifications.filter((n) => n.user_id === userId);
+  if (rpc("ops_notifications_unread")) return res(200, opsPerms.includes("ops.access") ? mine().filter((n) => !n.read_at).length : 0);
+  if (rpc("ops_notifications_list")) {
+    if (!opsPerms.includes("ops.access")) return res(200, null);
+    const items = mine().filter((n) => (!p.p_unread || !n.read_at) && (!p.p_kind || n.kind === p.p_kind))
+      .sort((a, b) => b.id - a.id).slice(0, Math.min(Math.max(p.p_limit ?? 30, 1), 200))
+      .map((n) => ({ id: n.id, kind: n.kind, title: n.title, body: n.body, link: n.link, actor: name(n.actor_id), created_at: n.created_at, read_at: n.read_at }));
+    return res(200, { items, unread: mine().filter((n) => !n.read_at).length });
+  }
+  if (rpc("ops_notifications_read")) {
+    if (!opsPerms.includes("ops.access")) return deny();
+    let k = 0;
+    for (const n of mine()) if (!n.read_at && (!p.p_ids?.length || p.p_ids.includes(n.id))) { n.read_at = new Date().toISOString(); k++; }
+    return res(200, k);
+  }
+  if (rpc("ops_notification_prefs_save")) {
+    if (!opsPerms.includes("ops.access")) return deny();
+    if ((p.p_muted ?? []).some((k) => !KINDS.includes(k))) return bad("Tipo de notificação desconhecido.");
+    db.opsNotificationPrefs[userId] = [...new Set(p.p_muted ?? [])].sort();
+    return res(204);
+  }
+  const recMatches = (r, day) => {
+    const d = new Date(`${day}T12:00:00Z`);
+    const dow = d.getUTCDay();
+    if (r.frequency === "diaria") return true;
+    if (r.frequency === "dias_uteis") return dow >= 1 && dow <= 5;
+    if (r.frequency === "semanal") return (r.weekdays ?? []).includes(dow);
+    const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+    return d.getUTCDate() === Math.min(r.month_day, last);
+  };
+  /** Gera as ocorrências que faltam (tarefas no dia; reuniões com 7 dias de antecedência). */
+  const recGenerate = (r) => {
+    const t0 = today();
+    const to = r.end_date && r.end_date < addDays(t0, r.kind === "tarefa" ? 0 : 6) ? r.end_date : addDays(t0, r.kind === "tarefa" ? 0 : 6);
+    let d = [r.start_date, r.last_date ? addDays(r.last_date, 1) : r.start_date, t0].sort().at(-1);
+    for (; d <= to; d = addDays(d, 1)) {
+      if (!recMatches(r, d)) continue;
+      if (r.kind === "reuniao") {
+        const src = db.opsMeetings.find((x) => x.id === r.meeting_id);
+        if (db.opsMeetings.some((x) => x.recurrence_id === r.id && x.occurrence_date === d)) continue;
+        const time = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(src.starts_at));
+        const m = { ...src, id: crypto.randomUUID(), number: ++db.opsMeetingSeq, status: "agendada", notes: null, cancel_reason: null, held_at: null,
+          starts_at: new Date(`${d}T${time}:00-03:00`).toISOString(), created_at: new Date().toISOString(), version: 1, recurrence_id: r.id, occurrence_date: d,
+          people: src.people.filter((x) => memberOk(x.user_id)).map((x) => ({ user_id: x.user_id, attended: null })) };
+        db.opsMeetings.push(m);
+        db.opsActivity.push({ id: db.opsActivity.length + 1, task_id: null, meeting_id: m.id, client_id: m.client_id, action: "reuniao.criada", actor_id: null,
+          origin: "sistema", before: null, after: { reuniao: m.number, titulo_reuniao: m.title, repeticao: src.number }, created_at: new Date().toISOString() });
+        for (const x of m.people) notifyInvite(m, x.user_id);
+      } else {
+        const src = db.opsTasks.find((x) => x.id === r.task_id);
+        if (db.opsTasks.some((x) => x.recurrence_id === r.id && x.occurrence_date === d)) continue;
+        const offset = src.due_date ? (Date.parse(src.due_date) - Date.parse(src.start_date ?? src.due_date)) / 86_400_000 : 0;
+        const t = { ...src, id: crypto.randomUUID(), number: ++db.opsTaskSeq, status_id: "nao_iniciado", start_date: d, due_date: addDays(d, offset),
+          people: src.people.filter((x) => memberOk(x.user_id)).map((x) => ({ ...x })), version: 1, created_by: r.created_by, created_at: new Date().toISOString(),
+          completed_at: null, archived_at: null, recurrence_id: r.id, occurrence_date: d };
+        db.opsTasks.push(t);
+        db.opsActivity.push({ id: db.opsActivity.length + 1, task_id: t.id, client_id: t.client_id, action: "tarefa.criada", actor_id: null, origin: "sistema",
+          before: null, after: { titulo: t.title, repeticao: src.number }, created_at: new Date().toISOString() });
+      }
+    }
+    if (to >= r.start_date) r.last_date = to;
+  };
+  const recView = (r, isSource) => ({ ...r, is_source: isSource, source_id: r.task_id ?? r.meeting_id,
+    source_number: r.kind === "tarefa" ? db.opsTasks.find((x) => x.id === r.task_id)?.number : db.opsMeetings.find((x) => x.id === r.meeting_id)?.number,
+    occurrences: (r.kind === "tarefa" ? db.opsTasks : db.opsMeetings).filter((x) => x.recurrence_id === r.id).length, created_by_name: name(r.created_by),
+    can_stop: r.active && (r.created_by === userId || role === "admin" || (r.kind === "tarefa" ? can("ops.tasks.edit")
+      : meetingCanEdit(db.opsMeetings.find((x) => x.id === r.meeting_id)))) });
+  if (rpc("ops_recurrence_for")) {
+    const isTask = p.p_kind === "tarefa";
+    const item = isTask ? find(p.p_id) : findMeeting(p.p_id);
+    if (!item) return res(200, null);
+    const own = db.opsRecurrences.filter((r) => (isTask ? r.task_id : r.meeting_id) === item.id).sort((a, b) => Number(b.active) - Number(a.active))[0];
+    const r = own ?? db.opsRecurrences.find((x) => x.id === item.recurrence_id);
+    return res(200, r ? recView(r, Boolean(own)) : null);
+  }
+  if (rpc("ops_recurrence_save")) {
+    const q = p.p ?? {};
+    const isTask = q.kind === "tarefa";
+    const item = isTask ? find(q.source_id) : findMeeting(q.source_id);
+    if (!item) return bad(isTask ? "Tarefa não encontrada." : "Reunião não encontrada.");
+    if (isTask) {
+      if (!can("ops.tasks.create")) return deny();
+      if (item.people.some((x) => x.user_id !== userId) && !can("ops.tasks.assign")) return deny();
+      if (item.archived_at) return bad("Tarefa arquivada não pode ser repetida.");
+    } else {
+      if (!can("ops.meetings.manage")) return deny();
+      if (item.status === "cancelada") return bad("Reunião cancelada não pode ser repetida.");
+    }
+    if (item.recurrence_id) return bad(`Esta ${isTask ? "tarefa" : "reunião"} já é uma repetição. Altere a repetição pela ${isTask ? "tarefa" : "reunião"} original.`);
+    if (db.opsRecurrences.some((r) => r.active && (isTask ? r.task_id : r.meeting_id) === item.id)) return bad(`Esta ${isTask ? "tarefa" : "reunião"} já se repete. Pare a repetição atual antes de criar outra.`);
+    if (!["diaria", "dias_uteis", "semanal", "mensal"].includes(q.frequency)) return bad("Escolha a frequência.");
+    const weekdays = [...new Set((q.weekdays ?? []).map(Number))].sort();
+    if (q.frequency === "semanal" && !weekdays.length) return bad("Escolha os dias da semana.");
+    if (q.frequency === "mensal" && !(Number(q.month_day) >= 1 && Number(q.month_day) <= 31)) return bad("Escolha o dia do mês (1 a 31).");
+    if (!q.start_date || q.start_date <= today()) return bad("A repetição começa a partir de amanhã.");
+    if (q.end_date && q.end_date < q.start_date) return bad("A data final vem depois do início.");
+    const r = { id: crypto.randomUUID(), kind: q.kind, task_id: isTask ? item.id : null, meeting_id: isTask ? null : item.id, frequency: q.frequency,
+      weekdays: q.frequency === "semanal" ? weekdays : null, month_day: q.frequency === "mensal" ? Number(q.month_day) : null, start_date: q.start_date,
+      end_date: q.end_date || null, active: true, stop_reason: null, last_date: null, created_by: userId };
+    db.opsRecurrences.push(r);
+    const info = { frequencia: r.frequency, dias: r.weekdays, dia_mes: r.month_day, inicio: r.start_date, fim: r.end_date };
+    if (isTask) log(item, "tarefa.repeticao", null, info); else logMeeting(item, "reuniao.repeticao", null, info);
+    recGenerate(r);
+    return res(200, r.id);
+  }
+  if (rpc("ops_recurrence_stop")) {
+    const r = db.opsRecurrences.find((x) => x.id === p.p_id);
+    const item = r && (r.kind === "tarefa" ? find(r.task_id) : findMeeting(r.meeting_id));
+    if (!item) return bad("Repetição não encontrada.");
+    if (!r.active) return res(204);
+    if (!recView(r, true).can_stop) return deny("Você não pode parar esta repetição.");
+    Object.assign(r, { active: false, stop_reason: `Parada por ${name(userId)}.` });
+    if (r.kind === "tarefa") log(item, "tarefa.repeticao_parada", null, null); else logMeeting(item, "reuniao.repeticao_parada", null, null);
+    return res(204);
   }
   // --- Status (só admin)
   if (role !== "admin") return deny("Só o administrador pode mudar a configuração da Central de Operações.");
