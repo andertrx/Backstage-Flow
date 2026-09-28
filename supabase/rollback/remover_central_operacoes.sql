@@ -1,7 +1,7 @@
 -- =============================================================================
--- REMOÇÃO da Central de Operações (Etapa 36: 36.1, 36.2 e 36.3).
+-- REMOÇÃO da Central de Operações (Etapa 36: 36.1, 36.2, 36.3 e 36.4).
 --
--- Apaga o fluxo dos clientes (etapas, Account Manager, demandas, filas e
+-- Apaga o Kanban comercial (leads e o histórico deles), o fluxo dos clientes (etapas, Account Manager, demandas, filas e
 -- atividades registradas), tarefas (com comentários, anexos registrados e histórico), status,
 -- setores, equipe da Central e permissões da Central, e volta as regras
 -- de clientes dos módulos de anúncios como eram antes (sem o papel "equipe").
@@ -30,6 +30,41 @@ do $$ begin
     raise exception 'O bucket ops-files ainda existe. Baixe o que quiser guardar e apague o bucket pelo painel (Storage) antes de remover.';
   end if;
 end $$;
+
+-- 36.4: Kanban comercial (leads, histórico dos leads, colunas e motivos de perda).
+-- Os clientes criados pela conversão continuam existindo (são clientes normais).
+drop function if exists public.ops_lead_archive(p_id uuid, p_archived boolean);
+drop function if exists public.ops_lead_board(f jsonb);
+drop function if exists public.ops_lead_convert(p_lead uuid, p_version integer, p_client uuid, p_start boolean, p_am uuid);
+drop function if exists public.ops_lead_duplicates(p jsonb);
+drop function if exists public.ops_lead_get(p_id uuid);
+drop function if exists public.ops_lead_move(p_id uuid, p_version integer, p_stage text, p_loss_reason text, p_loss_note text);
+drop function if exists public.ops_lead_note_add(p_lead uuid, p_kind text, p_body text, p_happened_at timestamp with time zone);
+drop function if exists public.ops_lead_save(p_id uuid, p_version integer, p jsonb);
+drop function if exists public.ops_lead_stage_reorder(p_ids text[]);
+drop function if exists public.ops_lead_stage_save(p_id text, p_name text, p_color text, p_category text, p_require_previous boolean, p_require_next_action boolean);
+drop function if exists public.ops_lead_stage_set_active(p_id text, p_active boolean, p_move_to text);
+drop function if exists public.ops_loss_reason_save(p_id text, p_name text, p_active boolean);
+drop function if exists private.ops_lead_archive_impl(p_id uuid, p_archived boolean);
+drop function if exists private.ops_lead_board_impl(f jsonb);
+drop function if exists private.ops_lead_convert_impl(p_lead uuid, p_version integer, p_client uuid, p_start boolean, p_am uuid);
+drop function if exists private.ops_lead_duplicates_impl(p jsonb);
+drop function if exists private.ops_lead_get_impl(p_id uuid);
+drop function if exists private.ops_lead_move_impl(p_id uuid, p_version integer, p_stage text, p_loss_reason text, p_loss_note text);
+drop function if exists private.ops_lead_note_add_impl(p_lead uuid, p_kind text, p_body text, p_happened_at timestamp with time zone);
+drop function if exists private.ops_lead_save_impl(p_id uuid, p_version integer, p jsonb);
+drop function if exists private.ops_lead_stage_reorder_impl(p_ids text[]);
+drop function if exists private.ops_lead_stage_save_impl(p_id text, p_name text, p_color text, p_category text, p_require_previous boolean, p_require_next_action boolean);
+drop function if exists private.ops_lead_stage_set_active_impl(p_id text, p_active boolean, p_move_to text);
+drop function if exists private.ops_loss_reason_save_impl(p_id text, p_name text, p_active boolean);
+drop function if exists private.ops_lead_log(p_lead uuid, p_action text, p_before jsonb, p_after jsonb, p_origin text);
+drop function if exists private.ops_lead_snapshot(p_lead uuid);
+drop function if exists private.ops_norm_name(t text);
+drop function if exists private.ops_norm_phone(t text);
+drop table if exists public.ops_lead_events;
+drop table if exists public.ops_leads;
+drop table if exists public.ops_loss_reasons;
+drop table if exists public.ops_lead_stages;
 
 -- 36.3: clientes no fluxo, filas, demandas e registro manual
 drop policy if exists "Vê demandas com tarefa visível ou do cliente que acompanha" on public.ops_demands;

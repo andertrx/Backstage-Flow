@@ -1,5 +1,5 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { Building2, ClipboardList, Layers, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
+import { Building2, ClipboardList, Handshake, Layers, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, NavLink, Outlet } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -11,12 +11,13 @@ import { useMyOpsPermissions } from "./api.ts";
 
 /**
  * Abas da Central. Cada aba entra quando a sua fase fica pronta (nada de botão
- * que não funciona): Comercial, Dashboard e Dailies chegam nas fases 36.4 a 36.7.
+ * que não funciona): Dashboard e Dailies chegam nas fases 36.5 a 36.7.
  * "anyOf": basta uma das permissões (Clientes: ficha operacional OU ser Account Manager).
  */
 export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission: OpsPermission; anyOf?: OpsPermission[] }[] = [
   { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
   { to: "/operacoes/tarefas", label: "Tarefas", icon: ClipboardList, permission: "ops.access" },
+  { to: "/operacoes/comercial", label: "Comercial", icon: Handshake, permission: "ops.commercial" },
   { to: "/operacoes/clientes", label: "Clientes", icon: Building2, permission: "ops.clients.view", anyOf: ["ops.clients.view", "ops.am"] },
   { to: "/operacoes/filas", label: "Filas", icon: Layers, permission: "ops.access" },
   { to: "/operacoes/equipe", label: "Equipe", icon: Users, permission: "ops.access" },

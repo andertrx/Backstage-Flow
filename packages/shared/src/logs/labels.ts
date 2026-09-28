@@ -21,6 +21,8 @@ export const AUDIT_CATEGORIES = [
   { value: "ops_client_stage", label: "Central de Operações: etapas do onboarding" },
   { value: "ops_queue_column", label: "Central de Operações: filas por setor" },
   { value: "ops_activity_type", label: "Central de Operações: tipos de atividade" },
+  { value: "ops_lead_stage", label: "Central de Operações: colunas comerciais" },
+  { value: "ops_loss_reason", label: "Central de Operações: motivos de perda" },
 ] as const;
 
 export type AuditCategory = (typeof AUDIT_CATEGORIES)[number]["value"];
@@ -62,6 +64,12 @@ const ACTION_LABELS: Record<string, string> = {
   "ops.queue_column.active": "Central de Operações: ativou/desativou coluna de fila",
   "ops.activity_type.create": "Central de Operações: criou tipo de atividade",
   "ops.activity_type.update": "Central de Operações: alterou tipo de atividade",
+  "ops.lead_stage.create": "Central de Operações: criou coluna comercial",
+  "ops.lead_stage.update": "Central de Operações: alterou coluna comercial (nome, cor, grupo ou regras)",
+  "ops.lead_stage.reorder": "Central de Operações: mudou a ordem das colunas comerciais",
+  "ops.lead_stage.active": "Central de Operações: ativou/desativou coluna comercial",
+  "ops.loss_reason.create": "Central de Operações: criou motivo de perda",
+  "ops.loss_reason.update": "Central de Operações: alterou motivo de perda",
   "ad_account.insert": "Vinculou conta de anúncio",
   "ad_account.update": "Conta de anúncio alterada",
   "connection.insert": "Conectou plataforma",

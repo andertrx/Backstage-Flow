@@ -200,7 +200,7 @@ declare
     'colunas e motivos iniciais', '11|5|ganho,perdido',
     'sem "Comercial" cria lead', 'não',
     'sem "Comercial" vê o quadro', 'nada|0',
-    'lead criado', 'prospeccao|45999998888|ana@sol.com|PR',
+    'lead criado', 'prospeccao|5545999998888|ana@sol.com|PR',
     'e-mail inválido', 'recusado',
     'lead novo direto em Perdido', 'recusado',
     'aviso de duplicado (não impede)', 'mesmo e-mail|mesmo nome',

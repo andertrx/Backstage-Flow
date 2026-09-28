@@ -52,6 +52,20 @@ export function seedOpsTasks() {
       ["envio_criativos", "Envio de criativos"], ["aprovacao", "Aprovação de material"], ["alteracao", "Alteração operacional"], ["entrega", "Entrega realizada"],
     ].map(([id, name], i) => ({ id, name, position: i + 1, active: true })),
     opsClientNotes: [],
+    // 36.4
+    opsLeadStages: [
+      ["prospeccao", "Prospecção", "#64748B", "aberto"], ["primeiro_contato", "Primeiro Contato", "#06B6D4", "aberto"],
+      ["reuniao_agendada", "Reunião Agendada", "#22D3EE", "aberto"], ["reuniao_realizada", "Reunião Realizada", "#3B82F6", "aberto"],
+      ["proposta_enviada", "Proposta Enviada", "#A855F7", "aberto"], ["negociacao", "Negociação", "#F59E0B", "aberto"],
+      ["contrato_enviado", "Contrato Enviado", "#EAB308", "aberto"], ["contrato_assinado", "Contrato Assinado", "#EC4899", "aberto"],
+      ["aguardando_pagamento", "Aguardando Pagamento", "#7C3AED", "aberto"], ["contrato_pago", "Contrato Pago", "#10B981", "ganho"],
+      ["perdido", "Perdido", "#EF4444", "perdido"],
+    ].map(([id, name, color, category], i) => ({ id, name, color, category, position: i + 1, active: true, require_previous: false, require_next_action: false })),
+    opsLossReasons: [["sem_fit", "Sem fit com a empresa"], ["sem_interesse", "Sem interesse no plano"], ["valor", "Valor incompatível"],
+      ["sem_retorno", "Sem retorno"], ["outros", "Outros motivos"]].map(([id, name], i) => ({ id, name, position: i + 1, active: true })),
+    opsLeads: [],
+    opsLeadSeq: 0,
+    opsLeadEvents: [],
   };
 }
 
@@ -189,8 +203,10 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   if (url.includes("/rest/v1/ops_client_stages")) return res(200, sorted(db.opsClientStages));
   if (url.includes("/rest/v1/ops_queue_columns")) return res(200, sorted(db.opsQueueColumns));
   if (url.includes("/rest/v1/ops_activity_types")) return res(200, sorted(db.opsActivityTypes));
+  if (url.includes("/rest/v1/ops_lead_stages")) return res(200, can("ops.commercial") ? sorted(db.opsLeadStages) : []);
+  if (url.includes("/rest/v1/ops_loss_reasons")) return res(200, can("ops.commercial") ? sorted(db.opsLossReasons) : []);
   const prefixes = ["ops_task", "ops_comment", "ops_attachment", "ops_directory", "ops_team_counts", "ops_status", "ops_client", "ops_demand",
-    "ops_queue", "ops_activity_type"];
+    "ops_queue", "ops_activity_type", "ops_lead", "ops_loss_reason"];
   if (!prefixes.some((x) => url.includes(`/rest/v1/rpc/${x}`))) return null;
   const p = parse();
   db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
@@ -578,6 +594,188 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     return res(204);
   }
 
+  // --- 36.4: Kanban comercial (tudo exige "Comercial"; contato nunca vai para o histórico)
+  const norm = (t) => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const digits = (t) => String(t ?? "").replace(/[^0-9]/g, "");
+  // Mesmo formato do cadastro de clientes: só dígitos com DDI (BR sem DDI ganha "55").
+  const normPhone = (t) => { const d = digits(t); if (!d) return null; if (String(t).trim().startsWith("+")) return d; return d.length === 10 || d.length === 11 ? `55${d}` : d; };
+  const leadStage = (id) => db.opsLeadStages.find((x) => x.id === id);
+  const leadLog = (l, action, before, after, extra = {}) =>
+    db.opsLeadEvents.push({ id: db.opsLeadEvents.length + 1, lead_id: l.id, action, actor_id: userId, origin: "manual", before, after,
+      created_at: new Date().toISOString(), kind: null, body: null, happened_at: null, ...extra });
+  const leadConflict = () => res(409, { code: "40001", message: "Alguém alterou este lead antes de você. Recarregue para ver a versão atual." });
+  const overdueLead = (l) => leadStage(l.stage_id).category === "aberto" && Boolean(l.next_action_date && l.next_action_date < today());
+  const similar = (a, b) => a && b && (a === b || (a.length >= 3 && (a.includes(b) || b.includes(a))));
+  if (url.includes("/rest/v1/rpc/ops_lead") || url.includes("/rest/v1/rpc/ops_loss_reason")) {
+    const isConfig = rpc("ops_lead_stage_save") || rpc("ops_lead_stage_reorder") || rpc("ops_lead_stage_set_active") || rpc("ops_loss_reason_save");
+    if (!isConfig) {
+      if (rpc("ops_lead_board") || rpc("ops_lead_get") || rpc("ops_lead_duplicates")) { if (!can("ops.commercial")) return res(200, null); }
+      else if (!can("ops.commercial")) return deny();
+    }
+  }
+  if (rpc("ops_lead_duplicates")) {
+    const q = p.p ?? {};
+    const name = norm(q.company_name);
+    const email = String(q.email ?? "").trim().toLowerCase();
+    const phone = normPhone(q.phone) ?? "";
+    const cnpj = String(q.cnpj ?? "").replace(/[^0-9A-Za-z]/g, "").toUpperCase();
+    const why = (o) => (cnpj && o.cnpj === cnpj ? "mesmo CNPJ" : email && (o.email ?? "").toLowerCase() === email ? "mesmo e-mail"
+      : phone && digits(o.phone) === phone ? "mesmo telefone" : norm(o.name ?? o.company_name) === name || (o.company && norm(o.company) === name) ? "mesmo nome" : "nome parecido");
+    const hit = (o, nm) => (cnpj && o.cnpj === cnpj) || (email && (o.email ?? "").toLowerCase() === email) || (phone.length >= 10 && digits(o.phone) === phone)
+      || (name.length >= 3 && nm.some((n) => similar(norm(n), name)));
+    return res(200, {
+      leads: db.opsLeads.filter((l) => l.id !== q.id && hit(l, [l.company_name])).slice(0, 10)
+        .map((l) => ({ id: l.id, number: l.number, company_name: l.company_name, stage_name: leadStage(l.stage_id).name, archived: Boolean(l.archived_at), reason: why(l) })),
+      clients: db.clients.filter((c) => !c.is_demo && hit(c, [c.name, c.company])).slice(0, 10)
+        .map((c) => ({ id: c.id, name: c.name, status: c.status ?? "ativo", reason: why(c) })),
+    });
+  }
+  if (rpc("ops_lead_save")) {
+    const v = p.p ?? {};
+    const phone = normPhone(v.phone);
+    const email = String(v.email ?? "").trim().toLowerCase() || null;
+    if (String(v.company_name ?? "").trim().length < 2) return bad("Informe o nome da empresa.");
+    if (phone && !/^[0-9]{10,15}$/.test(phone)) return bad("Telefone: use DDD + número (10 a 15 dígitos).");
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return bad("E-mail inválido.");
+    if (v.owner_id && !memberOk(v.owner_id)) return bad("O responsável comercial precisa estar ativo na Central.");
+    if (v.next_action_date && !String(v.next_action ?? "").trim()) return bad("Escreva qual é a próxima ação.");
+    const fields = { company_name: v.company_name.trim(), contact_name: v.contact_name?.trim() || null, phone, email,
+      cnpj: String(v.cnpj ?? "").replace(/[^0-9A-Za-z]/g, "").toUpperCase() || null, segment: v.segment?.trim() || null, city: v.city?.trim() || null,
+      state: v.state?.trim().toUpperCase() || null, origin: v.origin?.trim() || null, service_interest: v.service_interest?.trim() || null,
+      owner_id: v.owner_id || null, notes: v.notes?.trim() || null, potential_value: v.potential_value === "" || v.potential_value == null ? null : Number(v.potential_value),
+      currency: v.currency || "BRL", priority: v.priority || "media", entered_at: v.entered_at || today(), next_action: v.next_action?.trim() || null,
+      next_action_date: v.next_action_date || null };
+    const now = new Date().toISOString();
+    if (!p.p_id) {
+      const st = leadStage(v.stage_id) ?? db.opsLeadStages.filter((x) => x.active && x.category === "aberto").sort((a, b) => a.position - b.position)[0];
+      if (!st?.active || st.category !== "aberto") return bad("Um lead novo entra numa etapa em aberto.");
+      const l = { id: crypto.randomUUID(), number: ++db.opsLeadSeq, ...fields, stage_id: st.id, stage_since: now, last_interaction_at: null, loss_reason_id: null,
+        loss_note: null, lost_at: null, client_id: null, converted_at: null, converted_by: null, archived_at: null, version: 1, created_by: userId, created_at: now };
+      db.opsLeads.push(l);
+      leadLog(l, "lead.criado", null, { empresa: l.company_name, etapa: st.id, responsavel: l.owner_id });
+      return res(200, l.id);
+    }
+    const l = db.opsLeads.find((x) => x.id === p.p_id);
+    if (!l) return bad("Lead não encontrado.");
+    if (l.archived_at) return bad("Lead arquivado: desarquive para editar.");
+    if (l.version !== p.p_version) return leadConflict();
+    const map = { company_name: "empresa", segment: "segmento", city: "cidade", state: "uf", origin: "origem", service_interest: "servico", notes: "observacoes",
+      potential_value: "valor", currency: "moeda", priority: "prioridade", entered_at: "entrada", next_action: "proxima_acao", next_action_date: "data_proxima_acao",
+      contact_name: "contato", phone: "telefone", email: "email", cnpj: "cnpj" };
+    const privateKeys = ["contact_name", "phone", "email", "cnpj"];
+    const changed = Object.keys(map).filter((k) => fields[k] !== l[k]);
+    if (changed.length) {
+      leadLog(l, "lead.editado", Object.fromEntries(changed.map((k) => [map[k], privateKeys.includes(k) ? null : l[k]])),
+        Object.fromEntries(changed.map((k) => [map[k], privateKeys.includes(k) ? "alterado" : fields[k]])));
+    }
+    if (fields.owner_id !== l.owner_id) leadLog(l, "lead.responsavel", { responsavel: l.owner_id }, { responsavel: fields.owner_id });
+    Object.assign(l, fields, { version: l.version + 1 });
+    return res(200, l.id);
+  }
+  if (rpc("ops_lead_move")) {
+    const l = db.opsLeads.find((x) => x.id === p.p_id);
+    if (!l) return bad("Lead não encontrado.");
+    if (l.archived_at) return bad("Lead arquivado: desarquive para mover.");
+    if (l.version !== p.p_version) return leadConflict();
+    const from = leadStage(l.stage_id);
+    const to = leadStage(p.p_stage);
+    if (!to?.active) return bad("Escolha uma etapa ativa.");
+    if (to.id === from.id) return res(200, l.version);
+    if (l.client_id && to.category !== "ganho") return bad("Este lead já virou cliente: ele fica na etapa de contrato pago.");
+    if (to.category === "perdido" && !db.opsLossReasons.some((r) => r.id === p.p_loss_reason && r.active)) return bad("Escolha o motivo da perda.");
+    if (to.require_previous && to.position > from.position) {
+      const prev = db.opsLeadStages.filter((x) => x.active && x.position < to.position).sort((a, b) => b.position - a.position)[0];
+      if (prev?.id !== from.id) return bad(`"${to.name}" só recebe leads vindos da etapa anterior. Siga as etapas em ordem.`);
+    }
+    if (to.require_next_action && to.category === "aberto" && (!l.next_action || !l.next_action_date)) {
+      return bad(`Para entrar em "${to.name}", preencha a próxima ação e a data dela.`);
+    }
+    const lost = to.category === "perdido";
+    Object.assign(l, { stage_id: to.id, stage_since: new Date().toISOString(), version: l.version + 1, loss_reason_id: lost ? p.p_loss_reason : null,
+      loss_note: lost ? p.p_loss_note || null : null, lost_at: lost ? new Date().toISOString() : null });
+    leadLog(l, "lead.etapa", { etapa: from.id }, { etapa: to.id, ...(lost ? { motivo: p.p_loss_reason, observacao: p.p_loss_note || null } : {}) });
+    return res(200, l.version);
+  }
+  if (rpc("ops_lead_note_add")) {
+    const l = db.opsLeads.find((x) => x.id === p.p_lead);
+    if (!l) return bad("Lead não encontrado.");
+    if (String(p.p_body ?? "").trim().length < 2) return bad("Escreva o que aconteceu.");
+    const when = p.p_happened_at ?? new Date().toISOString();
+    leadLog(l, "lead.interacao", null, null, { kind: p.p_kind, body: p.p_body.trim(), happened_at: when });
+    if (!l.last_interaction_at || when > l.last_interaction_at) l.last_interaction_at = when;
+    return res(200, db.opsLeadEvents.length);
+  }
+  if (rpc("ops_lead_archive")) {
+    const l = db.opsLeads.find((x) => x.id === p.p_id);
+    if (!l) return bad("Lead não encontrado.");
+    if (Boolean(l.archived_at) === Boolean(p.p_archived)) return res(204);
+    l.archived_at = p.p_archived ? new Date().toISOString() : null;
+    l.version++;
+    leadLog(l, p.p_archived ? "lead.arquivado" : "lead.desarquivado", null, null);
+    return res(204);
+  }
+  if (rpc("ops_lead_convert")) {
+    const l = db.opsLeads.find((x) => x.id === p.p_lead);
+    if (!l) return bad("Lead não encontrado.");
+    if (l.version !== p.p_version) return leadConflict();
+    if (leadStage(l.stage_id).category !== "ganho") return bad("Só dá para converter quando o lead chega em Contrato Pago.");
+    if (l.client_id) return bad("Este lead já foi convertido em cliente.");
+    if (p.p_start && !canManageClients()) return deny('Iniciar o onboarding exige as permissões "Ver a ficha operacional dos clientes" e "Atribuir responsáveis".');
+    let clientId = p.p_client ?? null;
+    let created = false;
+    if (clientId) {
+      if (!db.clients.some((c) => c.id === clientId && !c.is_demo)) return bad("Cliente não encontrado.");
+    } else {
+      if (!["admin", "gestor"].includes(role)) return deny("Criar um cliente novo é só para administrador ou gestor. Peça a um deles, ou vincule a um cliente já cadastrado.");
+      const dup = db.clients.find((c) => (l.cnpj && c.cnpj === l.cnpj) || norm(c.name) === norm(l.company_name) || (c.company && norm(c.company) === norm(l.company_name)));
+      if (dup) return bad(`Já existe o cliente "${dup.name}" com este nome ou CNPJ. Vincule o lead a ele em vez de criar outro.`);
+      clientId = crypto.randomUUID();
+      db.clients.push({ id: clientId, name: l.company_name.slice(0, 120), company: l.company_name, cnpj: l.cnpj, owner_name: l.contact_name, phone: l.phone,
+        email: l.email, notes: `Convertido do lead comercial #${l.number}.`, status: "ativo", timezone: "America/Sao_Paulo", is_demo: false,
+        created_at: new Date().toISOString(), updated_at: "", created_by: userId });
+      if (role === "gestor") db.access.push({ user_id: userId, client_id: clientId, created_at: new Date().toISOString() });
+      created = true;
+    }
+    Object.assign(l, { client_id: clientId, converted_at: new Date().toISOString(), converted_by: userId, version: l.version + 1 });
+    let onboarding = "nao";
+    if (p.p_start) {
+      if (db.opsClientOps[clientId]) onboarding = "ja_estava";
+      else {
+        const st = db.opsClientStages.filter((x) => x.active).sort((a, b) => a.position - b.position)[0];
+        const now = new Date().toISOString();
+        db.opsClientOps[clientId] = { stage_id: st.id, am_user_id: p.p_am ?? null, started_at: now, stage_since: now, version: 1 };
+        logClient(clientId, "cliente.fluxo_iniciado", null, { etapa: st.id, am: p.p_am ?? null });
+        onboarding = "iniciado";
+      }
+    }
+    leadLog(l, "lead.convertido", null, { cliente: clientId, novo: created, onboarding });
+    logClient(clientId, "cliente.convertido", null, { lead: l.number, empresa: l.company_name, novo: created });
+    return res(200, { client_id: clientId, created, onboarding });
+  }
+  if (rpc("ops_lead_board")) {
+    const f = p.f ?? {};
+    const q = norm(f.q);
+    const leads = db.opsLeads.filter((l) => (f.archived ? l.archived_at : !l.archived_at)
+      && (!q || norm(l.company_name).includes(q) || norm(l.contact_name).includes(q) || norm(l.segment).includes(q) || String(l.number) === String(f.q).replace("#", ""))
+      && (!f.owner_id || (f.owner_id === "nenhum" ? !l.owner_id : l.owner_id === f.owner_id))
+      && (!f.origin || l.origin === f.origin) && (!f.priority || l.priority === f.priority) && (!f.overdue || overdueLead(l)))
+      .map((l) => ({ ...l, owner_name: name(l.owner_id), loss_reason: db.opsLossReasons.find((r) => r.id === l.loss_reason_id)?.name ?? null, overdue: overdueLead(l) }));
+    return res(200, { leads, origins: [...new Set(db.opsLeads.map((l) => l.origin).filter(Boolean))],
+      can: { create_client: ["admin", "gestor"].includes(role), onboarding: canManageClients() } });
+  }
+  if (rpc("ops_lead_get")) {
+    const l = db.opsLeads.find((x) => x.id === p.p_id);
+    if (!l) return res(200, null);
+    const st = leadStage(l.stage_id);
+    return res(200, {
+      lead: { ...l, owner_name: name(l.owner_id), stage_name: st.name, stage_color: st.color, category: st.category,
+        loss_reason: db.opsLossReasons.find((r) => r.id === l.loss_reason_id)?.name ?? null, client_name: db.clients.find((c) => c.id === l.client_id)?.name ?? null,
+        converted_by_name: name(l.converted_by), created_by_name: name(l.created_by), overdue: overdueLead(l) },
+      events: db.opsLeadEvents.filter((e) => e.lead_id === l.id).slice().reverse().map((e) => ({ ...e, actor: name(e.actor_id) })),
+      can: { create_client: ["admin", "gestor"].includes(role), onboarding: canManageClients(), client_ops: Boolean(l.client_id && clientVisible(l.client_id)) },
+    });
+  }
+
   // --- Status (só admin)
   if (role !== "admin") return deny("Só o administrador pode mudar a configuração da Central de Operações.");
   if (rpc("ops_status_save")) {
@@ -667,6 +865,51 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     if (p.p_id) { Object.assign(db.opsActivityTypes.find((x) => x.id === p.p_id), { name: p.p_name.trim(), active: p.p_active ?? true }); return res(200, p.p_id); }
     const id = crypto.randomUUID();
     db.opsActivityTypes.push({ id, name: p.p_name.trim(), position: db.opsActivityTypes.length + 1, active: true });
+    return res(200, id);
+  }
+  if (rpc("ops_lead_stage_save")) {
+    if (db.opsLeadStages.some((x) => x.id !== p.p_id && x.name.toLowerCase() === p.p_name.trim().toLowerCase())) return bad("Já existe uma coluna com esse nome.");
+    const fields = { name: p.p_name.trim(), color: p.p_color, category: p.p_category, require_previous: Boolean(p.p_require_previous),
+      require_next_action: Boolean(p.p_require_next_action) };
+    if (p.p_id) {
+      const st = leadStage(p.p_id);
+      if (st.category !== p.p_category && db.opsLeads.some((l) => l.stage_id === st.id)) return bad("Esta coluna já tem leads: o grupo não pode mudar. Crie uma coluna nova.");
+      Object.assign(st, fields);
+      return res(200, st.id);
+    }
+    const id = crypto.randomUUID();
+    db.opsLeadStages.push({ id, ...fields, position: db.opsLeadStages.length + 1, active: true });
+    return res(200, id);
+  }
+  if (rpc("ops_lead_stage_reorder")) {
+    p.p_ids.forEach((id, i) => { const x = leadStage(id); if (x) x.position = i + 1; });
+    return res(204);
+  }
+  if (rpc("ops_lead_stage_set_active")) {
+    const st = leadStage(p.p_id);
+    if (!st) return bad("Coluna não encontrada.");
+    if (!p.p_active) {
+      const inIt = db.opsLeads.filter((l) => l.stage_id === st.id);
+      if (inIt.length) {
+        const dest = leadStage(p.p_move_to);
+        if (!dest?.active || dest.id === st.id || dest.category !== st.category) {
+          return bad(`Há ${inIt.length} lead(s) nesta coluna. Escolha outra coluna do mesmo grupo para eles antes de desativar.`);
+        }
+        for (const l of inIt) {
+          db.opsLeadEvents.push({ id: db.opsLeadEvents.length + 1, lead_id: l.id, action: "lead.etapa", actor_id: userId, origin: "sistema", before: { etapa: st.id },
+            after: { etapa: dest.id, regra: "Coluna desativada pelo administrador" }, created_at: new Date().toISOString(), kind: null, body: null, happened_at: null });
+          Object.assign(l, { stage_id: dest.id, version: l.version + 1 });
+        }
+      }
+    }
+    st.active = p.p_active;
+    return res(204);
+  }
+  if (rpc("ops_loss_reason_save")) {
+    if (db.opsLossReasons.some((x) => x.id !== p.p_id && x.name.toLowerCase() === p.p_name.trim().toLowerCase())) return bad("Já existe um motivo com esse nome.");
+    if (p.p_id) { Object.assign(db.opsLossReasons.find((x) => x.id === p.p_id), { name: p.p_name.trim(), active: p.p_active ?? true }); return res(200, p.p_id); }
+    const id = crypto.randomUUID();
+    db.opsLossReasons.push({ id, name: p.p_name.trim(), position: db.opsLossReasons.length + 1, active: true });
     return res(200, id);
   }
   return null;

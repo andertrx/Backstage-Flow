@@ -18,6 +18,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "cliente.am": "Trocou o Account Manager",
   "cliente.atividade_retirada": "Retirou uma atividade registrada",
   "demanda.liberada": "Liberou uma demanda",
+  "cliente.convertido": "Veio do Comercial (lead convertido)",
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -50,6 +51,7 @@ export function activityText(a: { action: string; before: Record<string, unknown
     case "cliente.etapa": return `${stage(String(before.etapa))} → ${stage(String(after.etapa))}${after.regra ? ` (${String(after.regra)})` : ""}`;
     case "cliente.am": return `${before.am ? person(String(before.am)) : "ninguém"} → ${after.am ? person(String(after.am)) : "ninguém"}`;
     case "cliente.atividade_retirada": return String(before.titulo ?? "");
+    case "cliente.convertido": return `Lead #${String(after.lead)} ${String(after.empresa ?? "")}${after.novo ? " · cliente criado" : " · vinculado"}`;
     case "demanda.liberada": return `#${String(after.demanda)} ${String(after.titulo ?? "")} (${String(after.tarefas ?? 0)} tarefa(s))`;
     default: return "";
   }
