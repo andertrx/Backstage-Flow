@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessBalance, type BalanceInput, describeForecast } from "./balance.ts";
+import { assessBalance, type BalanceInput, describeForecast, PAYMENT_LABELS, paymentKind, shownAvailableMicros } from "./balance.ts";
 
 const M = 1_000_000;
 const base: BalanceInput = {
@@ -34,7 +34,7 @@ describe("saldo", () => {
 
   it("sem saldo é crítico e não vira 'saldo baixo'", () => {
     const r = assessBalance({ ...base, available_micros: 0 }, now);
-    expect(r.alerts).toEqual([{ code: "sem_saldo", label: "Sem saldo (limite atingido)", severity: "critical" }]);
+    expect(r.alerts).toEqual([{ code: "sem_saldo", label: "Sem saldo", severity: "critical" }]);
   });
 
   it("não inventa: sem disponível informado → sem previsão e sem alerta de saldo", () => {
@@ -63,5 +63,34 @@ describe("saldo", () => {
     expect(describeForecast(1.9)).toBe("cerca de 1 dia");
     expect(describeForecast(5.2)).toBe("cerca de 5 dias");
     expect(describeForecast(400)).toBe("mais de 1 ano");
+  });
+});
+
+describe("forma de pagamento e valor disponível", () => {
+  const base = { available_micros: null, is_prepay: false, funding_description: null };
+  it("saldo pré-pago (PIX/boleto) mostra o saldo real", () => {
+    const b = { ...base, available_basis: "meta_prepaid_balance", available_micros: 1345_320_000, is_prepay: true };
+    expect(paymentKind(b)).toBe("pre_pago");
+    expect(shownAvailableMicros(b)).toBe(1345_320_000);
+  });
+  it("cartão mostra R$ 0,00 (o limite nunca vira disponível)", () => {
+    const b = { ...base, available_basis: "meta_card", funding_description: "Mastercard *2596" };
+    expect(paymentKind(b)).toBe("cartao");
+    expect(shownAvailableMicros(b)).toBe(0);
+  });
+  it("cartão numa conta pré-paga: as duas formas, saldo só se informado", () => {
+    const b = { ...base, available_basis: "meta_card", is_prepay: true };
+    expect(paymentKind(b)).toBe("cartao_pre_pago");
+    expect(PAYMENT_LABELS[paymentKind(b)]).toBe("Cartão + saldo pré-pago");
+    expect(shownAvailableMicros(b)).toBeNull();
+  });
+  it("sem informação e orçamento do Google", () => {
+    expect(paymentKind({ ...base, available_basis: null })).toBe("nao_informado");
+    expect(shownAvailableMicros({ ...base, available_basis: null })).toBeNull();
+    expect(paymentKind({ ...base, available_basis: "google_account_budget", available_micros: 5 })).toBe("orcamento");
+  });
+  it("cartão não gera alerta de sem saldo", () => {
+    expect(assessBalance({ status: "ativa", available_micros: null, spend_last_7_days_micros: 100, spend_days: 2, low_balance_days: 3,
+      low_balance_amount_micros: null, issues: [], captured_at: null }).alerts).toEqual([]);
   });
 });

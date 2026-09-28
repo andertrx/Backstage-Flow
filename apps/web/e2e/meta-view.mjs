@@ -31,7 +31,7 @@ function seed(db) {
     account(GOOGLE, "google", "6223334445", EXC, "Excalibur Google", "BRL"),
     account(METAUS, "meta", "613", LOJA, "Loja US", "USD"),
   );
-  db.snapshots[META1] = { captured_at: `${day(0)}T09:00:00Z`, available_micros: 500 * M, available_basis: "meta_spend_cap",
+  db.snapshots[META1] = { captured_at: `${day(0)}T09:00:00Z`, available_micros: 500 * M, available_basis: "meta_prepaid_balance",
     funding_description: "Visa terminado em 1234", amount_due_micros: 120 * M, spend_cap_micros: 2000 * M, amount_spent_micros: 1500 * M };
 
   const camp = (id, ad_account_id, platform_id, external_id, name, status, objective) => ({ id, ad_account_id, client_id: EXC, platform_id, external_id, name, status, objective });

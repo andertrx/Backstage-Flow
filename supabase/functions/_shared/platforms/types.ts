@@ -74,9 +74,18 @@ export interface AccountFunding {
   spendCapMicros: number | null;
   /** Google: limite aprovado do orçamento da conta. */
   budgetMicros: number | null;
-  /** Disponível = limite − gasto, só quando os dois vêm da API. */
+  /**
+   * Dinheiro disponível, só quando a plataforma informa:
+   * Meta = saldo pré-pago (PIX/boleto) informado pelo Meta; Google = orçamento − veiculado.
+   * Nunca é o limite de gastos nem o limite do cartão.
+   */
   availableMicros: number | null;
-  availableBasis: "meta_spend_cap" | "google_account_budget" | null;
+  /**
+   * meta_prepaid_balance: saldo pré-pago informado pelo Meta · meta_card: pago no cartão
+   * (não há saldo em conta; a tela mostra R$ 0,00) · google_account_budget: orçamento da conta.
+   * "meta_spend_cap" existe só em fotografias antigas (antes da correção de 28/09/2026).
+   */
+  availableBasis: "meta_prepaid_balance" | "meta_card" | "google_account_budget" | null;
   budgetEndAt: string | null;
   /** Meta: texto da forma de pagamento, exatamente como veio. */
   fundingDescription: string | null;

@@ -1,4 +1,4 @@
-import { type AdAccountStatus, assessBalance, describeForecast, formatAccountId, getPlatform, platformName } from "@backstage/shared";
+import { type AdAccountStatus, assessBalance, describeForecast, formatAccountId, getPlatform, paymentKind, platformName, shownAvailableMicros } from "@backstage/shared";
 import { RefreshCw, Settings2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -8,11 +8,13 @@ import { InfoTooltip } from "@/components/ui/tooltip.tsx";
 import { AccountStatusBadge } from "@/features/ad-accounts/AccountStatusBadge.tsx";
 import { cn } from "@/lib/cn.ts";
 import { formatMoney } from "@/lib/format.ts";
+import { PaymentBadge } from "./PaymentBadge.tsx";
 import type { AccountBalance } from "./types.ts";
 
 export const NOT_AVAILABLE = "Informação não disponível pela API.";
 const BASIS = {
-  meta_spend_cap: "Limite de gastos da conta − valor já gasto.",
+  meta_prepaid_balance: "Saldo pré-pago (recargas por PIX ou boleto), exatamente como o Meta informa.",
+  meta_card: "Conta paga no cartão de crédito: não há dinheiro na conta. O limite do cartão ou de gastos não é saldo.",
   google_account_budget: "Orçamento da conta − valor já veiculado.",
 };
 
@@ -46,6 +48,8 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
   const currency = b.currency ?? "BRL";
   const money = (v: number | null) => (v == null ? <Missing /> : formatMoney(v / 1_000_000, currency));
   const a = assessBalance(b);
+  const kind = paymentKind(b);
+  const available = shownAvailableMicros(b);
   const checked = b.captured_at != null;
   const isSaldo = getPlatform(b.platform_id)?.money === "saldo";
   // Campos que a API informa viram linhas; os que ela não informa ficam juntos numa nota só (sem inventar valor).
@@ -60,7 +64,11 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
         </>
       ),
     },
-    { label: "Limite", hint: "Meta: limite de gastos da conta. Google: limite do orçamento da conta.", value: b.spend_cap_micros == null ? null : money(b.spend_cap_micros) },
+    {
+      label: isSaldo ? "Limite de gastos" : "Limite",
+      hint: "Teto de gastos definido na plataforma (Meta: limite de gastos da conta; Google: limite do orçamento). Não é dinheiro disponível.",
+      value: b.spend_cap_micros == null ? null : money(b.spend_cap_micros),
+    },
     { label: "Crédito disponível", hint: "Linhas de crédito não são informadas pelas APIs usadas.", value: null },
     ...(isSaldo
       ? [
@@ -69,7 +77,7 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
         ]
       : []),
   ];
-  const missing = [...(b.available_micros == null ? ["Valor disponível"] : []), ...rows.filter((r) => r.value == null).map((r) => r.label)];
+  const missing = [...(available == null ? ["Valor disponível"] : []), ...rows.filter((r) => r.value == null).map((r) => r.label)];
 
   return (
     <Card
@@ -89,6 +97,7 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
         </div>
         <AccountStatusBadge status={b.status as AdAccountStatus} />
       </div>
+      {checked && <PaymentBadge b={b} className="self-start" />}
 
       {a.alerts.length > 0 && (
         <ul className="flex flex-wrap gap-1.5" aria-label="Alertas de saldo">
@@ -110,12 +119,15 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
               <p className="flex items-center gap-1 text-xs text-slate-500">
                 Valor disponível
                 <InfoTooltip label="Sobre Valor disponível">
-                  {b.available_basis ? BASIS[b.available_basis] : "Só aparece quando a plataforma informa o limite e o quanto já foi usado. Saldo pré-pago do Meta não tem valor numérico na API."}
+                  {kind === "cartao_pre_pago"
+                    ? "A conta tem cartão e saldo pré-pago. O saldo real só aparece quando a plataforma informa; o limite do cartão nunca é mostrado como saldo."
+                    : b.available_basis ? BASIS[b.available_basis] : "Só aparece quando a plataforma informa o dinheiro disponível na conta (saldo pré-pago ou orçamento)."}
                 </InfoTooltip>
               </p>
-              <p className={cn("text-lg font-semibold tabular-nums", b.available_micros == null ? "text-slate-400" : "text-slate-900")}>
-                {b.available_micros == null ? "—" : formatMoney(b.available_micros / 1_000_000, currency)}
+              <p className={cn("text-lg font-semibold tabular-nums", available == null ? "text-slate-400" : "text-slate-900")} data-testid="balance-available">
+                {available == null ? "—" : formatMoney(available / 1_000_000, currency)}
               </p>
+              {kind === "cartao" && <p className="text-xs text-slate-500">Pago no cartão: sem saldo em conta.</p>}
             </div>
             <div>
               <p className="flex items-center gap-1 text-xs text-slate-500">
@@ -126,7 +138,9 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
                 {a.forecastDays != null ? describeForecast(a.forecastDays) : "—"}
               </p>
               {a.forecastDays == null && (
-                <p className="text-xs text-slate-400">{b.available_micros == null ? "Sem valor disponível para calcular." : "Sem gasto recente para calcular."}</p>
+                <p className="text-xs text-slate-400">
+                  {kind === "cartao" ? "Pago no cartão: não se aplica." : b.available_micros == null ? "Sem valor disponível para calcular." : "Sem gasto recente para calcular."}
+                </p>
               )}
             </div>
           </div>

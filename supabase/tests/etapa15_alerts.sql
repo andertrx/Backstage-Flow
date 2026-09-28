@@ -28,11 +28,12 @@ insert into public.ad_accounts (id, platform_id, external_id, client_id, name, c
   ('00000000-0000-0000-0000-00000000e005', 'meta',   'e05',        '00000000-0000-0000-0000-00000000e0f1', 'Atrasada',      'BRL', 'ativa', null, null),
   ('00000000-0000-0000-0000-00000000e006', 'meta',   'e06',        '00000000-0000-0000-0000-00000000e0f1', 'Desvinculada',  'BRL', 'ativa', null, now());
 
-insert into public.account_snapshots (ad_account_id, client_id, platform_id, status, currency, available_micros, issues, captured_at) values
-  ('00000000-0000-0000-0000-00000000e001', '00000000-0000-0000-0000-00000000e0f1', 'meta',   'ativa', 'BRL', 0, '{}', now()),
-  ('00000000-0000-0000-0000-00000000e002', '00000000-0000-0000-0000-00000000e0f1', 'meta',   'ativa', 'BRL', 100000000, '{}', now()),
-  ('00000000-0000-0000-0000-00000000e003', '00000000-0000-0000-0000-00000000e0f1', 'google', 'pagamento_pendente', 'BRL', null, '{cobranca_problema,pagamento_pendente}', now()),
-  ('00000000-0000-0000-0000-00000000e006', '00000000-0000-0000-0000-00000000e0f1', 'meta',   'ativa', 'BRL', 0, '{}', now());
+-- Meta pré-paga: o disponível é o saldo que o Meta escreve (correção de 28/09/2026).
+insert into public.account_snapshots (ad_account_id, client_id, platform_id, status, currency, available_micros, issues, captured_at, funding_description, payload) values
+  ('00000000-0000-0000-0000-00000000e001', '00000000-0000-0000-0000-00000000e0f1', 'meta',   'ativa', 'BRL', 0, '{}', now(), 'Saldo disponível (R$0,00 BRL)', '{"funding_source_type":20,"is_prepay_account":true}'),
+  ('00000000-0000-0000-0000-00000000e002', '00000000-0000-0000-0000-00000000e0f1', 'meta',   'ativa', 'BRL', 100000000, '{}', now(), 'Saldo disponível (R$100,00 BRL)', '{"funding_source_type":20,"is_prepay_account":true}'),
+  ('00000000-0000-0000-0000-00000000e003', '00000000-0000-0000-0000-00000000e0f1', 'google', 'pagamento_pendente', 'BRL', null, '{cobranca_problema,pagamento_pendente}', now(), null, '{}'),
+  ('00000000-0000-0000-0000-00000000e006', '00000000-0000-0000-0000-00000000e0f1', 'meta',   'ativa', 'BRL', 0, '{}', now(), 'Saldo disponível (R$0,00 BRL)', '{"funding_source_type":20,"is_prepay_account":true}');
 
 insert into public.sync_state (ad_account_id, status, last_success_at, last_error_message) values
   ('00000000-0000-0000-0000-00000000e004', 'erro', now() - interval '3 hours', 'Token expirado'),
@@ -122,8 +123,9 @@ begin
   if n <> 9 then raise exception 'FALHOU: verificação repetida duplicou alertas (%)', n; end if;
 
   -- Problema resolvido na plataforma → alerta resolvido automaticamente (histórico fica)
-  insert into public.account_snapshots (ad_account_id, client_id, platform_id, status, currency, available_micros, issues, captured_at)
-  values ('00000000-0000-0000-0000-00000000e001', '00000000-0000-0000-0000-00000000e0f1', 'meta', 'ativa', 'BRL', 900000000, '{}', now() + interval '1 second');
+  insert into public.account_snapshots (ad_account_id, client_id, platform_id, status, currency, available_micros, issues, captured_at, funding_description, payload)
+  values ('00000000-0000-0000-0000-00000000e001', '00000000-0000-0000-0000-00000000e0f1', 'meta', 'ativa', 'BRL', 900000000, '{}', now() + interval '1 second',
+          'Saldo disponível (R$900,00 BRL)', '{"funding_source_type":20,"is_prepay_account":true}');
   perform public.refresh_alerts();
   select * into a from public.alerts where alert_key = 'sem_saldo:00000000-0000-0000-0000-00000000e001';
   if a.status <> 'resolvido' or a.resolution <> 'automatica' or a.resolved_at is null then raise exception 'FALHOU: resolução automática'; end if;

@@ -7,6 +7,7 @@ import {
   KPI_DEFINITIONS,
   type KpiKey,
   objectiveLabel,
+  shownAvailableMicros,
 } from "@backstage/shared";
 import { ArrowRight } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
@@ -17,6 +18,7 @@ import { Card } from "@/components/ui/card.tsx";
 import { InfoTooltip } from "@/components/ui/tooltip.tsx";
 import { AccountStatusBadge } from "@/features/ad-accounts/AccountStatusBadge.tsx";
 import { useAccountBalances } from "@/features/balance/api.ts";
+import { PaymentBadge } from "@/features/balance/PaymentBadge.tsx";
 import type { AccountBalance } from "@/features/balance/types.ts";
 import { useCampaignTable } from "@/features/campaigns/api.ts";
 import { CampaignStatusBadge } from "@/features/campaigns/CampaignStatusBadge.tsx";
@@ -258,9 +260,11 @@ function AccountCard({ b, view }: { b: AccountBalance; view: PlatformView }) {
           </>
         ) : (
           <>
-            <Row label="Saldo disponível" testId="account-available" hint="Limite de gastos − valor já gasto, quando a plataforma informa os dois. Saldo pré-pago do Meta não tem valor numérico na API.">
-              {money(b.available_micros)}
+            <Row label="Saldo disponível" testId="account-available"
+              hint="Dinheiro na conta: saldo pré-pago (PIX/boleto) como o Meta informa. Conta paga no cartão não tem saldo em conta (R$ 0,00); o limite nunca é mostrado como saldo.">
+              {money(shownAvailableMicros(b))}
             </Row>
+            <Row label="Pagamento em uso" testId="account-payment"><PaymentBadge b={b} /></Row>
             <Row label="Cobrança" testId="account-billing">{payment ?? missing}</Row>
             <Row label="Forma de pagamento" testId="account-funding" hint="Texto informado pela plataforma, exibido exatamente como veio.">{b.funding_description ?? missing}</Row>
             {b.amount_due_micros != null && <Row label="Valor devido">{formatMoney(b.amount_due_micros / 1_000_000, currency)}</Row>}

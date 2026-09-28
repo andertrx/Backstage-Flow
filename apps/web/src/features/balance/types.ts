@@ -13,7 +13,7 @@ export interface AccountBalance {
   low_balance_amount_micros: number | null;
   captured_at: string | null;
   available_micros: number | null;
-  available_basis: "meta_spend_cap" | "google_account_budget" | null;
+  available_basis: "meta_prepaid_balance" | "meta_card" | "google_account_budget" | null;
   amount_spent_micros: number | null;
   amount_due_micros: number | null;
   spend_cap_micros: number | null;

@@ -29,6 +29,15 @@ describe("resumo do saldo", () => {
     expect(s.critical).toBe(2);
   });
 
+  it("conta paga no cartão entra com R$ 0,00 e nunca soma o limite", () => {
+    const s = summarizeBalances([
+      row({ available_micros: 1345.32 * M, available_basis: "meta_prepaid_balance", is_prepay: true }),
+      row({ available_basis: "meta_card", spend_cap_micros: 5000 * M, funding_description: "Mastercard *2596" }),
+      row({ available_basis: "meta_card", is_prepay: true }),
+    ], "BRL");
+    expect(s).toEqual({ currency: "BRL", availableMicros: 1345.32 * M, reporting: 2, total: 3, alerts: 0, critical: 0 });
+  });
+
   it("sem contas → nada inventado", () => {
     expect(summarizeBalances([], "BRL")).toEqual({ currency: null, availableMicros: null, reporting: 0, total: 0, alerts: 0, critical: 0 });
   });

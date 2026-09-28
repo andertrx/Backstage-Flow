@@ -73,8 +73,9 @@ export function BalanceCard({ totals, loading }: { totals: BalanceTotals; loadin
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium text-slate-500">Saldo</h3>
         <InfoTooltip label="O que é Saldo?" align="right">
-          Soma do valor disponível das contas em que a plataforma informa o limite e o quanto já foi usado. Contas sem
-          essa informação não entram na soma (não inventamos valores). Detalhes de cada conta em "Saldo por conta", abaixo.
+          Soma do dinheiro disponível nas contas: saldo pré-pago (PIX/boleto) informado pela plataforma e orçamento do Google.
+          Conta paga no cartão entra com R$ 0,00: o limite do cartão ou de gastos não é saldo. Contas sem essa informação não
+          entram na soma (não inventamos valores). Detalhes de cada conta em "Saldo por conta", abaixo.
         </InfoTooltip>
       </div>
       {loading ? (

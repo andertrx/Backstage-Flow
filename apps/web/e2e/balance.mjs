@@ -12,6 +12,7 @@ const LOJA = "e0000000-0000-4000-8000-000000000002";
 const META = "a0000000-0000-4000-8000-000000000701";
 const GOOGLE = "a0000000-0000-4000-8000-000000000702";
 const US = "a0000000-0000-4000-8000-000000000704";
+const CARD = "a0000000-0000-4000-8000-000000000705";
 
 function seed(db) {
   const client = (id, name) => ({ id, name, company: null, cnpj: null, owner_name: null, phone: null, email: null, notes: null, status: "ativo", timezone: "America/Sao_Paulo", is_demo: false, created_at: "", updated_at: "", created_by: null });
@@ -21,7 +22,13 @@ function seed(db) {
     account(META, "meta", "711", EXC, "Excalibur Meta", "BRL"),
     account(GOOGLE, "google", "7223334445", EXC, "Excalibur Google", "BRL"),
     account(US, "google", "7445556667", LOJA, "Loja US", "USD", "pagamento_pendente"),
+    account(CARD, "meta", "712", EXC, "Excalibur Cartão", "BRL"),
   );
+  // Conta paga no cartão (como a Golfinho): o limite de gastos NUNCA vira saldo disponível.
+  db.snapshots[CARD] = {
+    captured_at: new Date(Date.now() - 3600_000).toISOString(), available_micros: null, available_basis: "meta_card",
+    spend_cap_micros: 5000 * M, amount_spent_micros: 1567.86 * M, funding_description: "Mastercard *2596", issues: [],
+  };
   // Gasto da conta Meta: R$ 100 por dia nos 2 últimos dias → média R$ 100/dia
   for (const d of [-1, -2]) {
     db.metrics.push({ date: day(d), ad_account_id: META, level: "account", campaign_id: null, client_id: EXC, platform_id: "meta", currency: "BRL", spend_micros: 100 * M, impressions: 0, clicks: 0 });
@@ -32,10 +39,10 @@ function seed(db) {
   };
   // Fotografia de 3 horas atrás: "Atualizar" consulta a API de novo (com menos de 10 min, usaria o cache).
   db.snapshots[US] = { captured_at: new Date(Date.now() - 3 * 3600_000).toISOString(), currency: "USD", issues: ["pagamento_pendente"] };
-  // O que a "API do Meta" devolve ao atualizar: limite R$ 1.000, gasto R$ 750 → disponível R$ 250
+  // O que a "API do Meta" devolve ao atualizar: conta pré-paga (PIX/boleto) com saldo de R$ 250 informado pelo Meta.
   db.fundingApi[META] = {
-    available_micros: 250 * M, available_basis: "meta_spend_cap", spend_cap_micros: 1000 * M, amount_spent_micros: 750 * M,
-    amount_due_micros: 15 * M, funding_description: "Visa final 1234", issues: [],
+    available_micros: 250 * M, available_basis: "meta_prepaid_balance", spend_cap_micros: 1000 * M, amount_spent_micros: 750 * M,
+    amount_due_micros: 15 * M, funding_description: "Saldo disponível (R$250,00 BRL)", issues: [],
   };
   db.fundingApi[GOOGLE] = db.snapshots[GOOGLE];
   db.fundingErrors[US] = "O Google pediu uma pausa nas consultas. Tente novamente em alguns minutos.";
@@ -53,11 +60,11 @@ const text = async (locator) => clean(await locator.innerText());
   await login(page, "/");
   await page.getByRole("heading", { name: "Saldo por conta" }).waitFor();
   await card(page, "Excalibur Meta").waitFor();
-  check(await page.getByRole("group", { name: /^Saldo / }).count() === 3, "uma ficha de saldo por conta");
+  check(await page.getByRole("group", { name: /^Saldo / }).count() === 4, "uma ficha de saldo por conta");
 
   const kpi = page.getByRole("group", { name: "Saldo", exact: true });
   await kpi.getByText("R$ 1.800,00").waitFor();
-  check((await text(kpi)).includes("1 de 2 contas informam"), "cartão Saldo soma só contas que informam (BRL, sem somar USD)");
+  check((await text(kpi)).includes("2 de 3 contas informam"), "cartão Saldo soma só contas que informam (BRL, sem somar USD; cartão entra com R$ 0,00)");
   check((await text(kpi)).includes("1 conta com alerta"), "cartão Saldo conta alertas");
 
   check((await text(card(page, "Excalibur Meta"))).includes("Saldo ainda não verificado"), "conta nunca verificada: sem valores inventados");
@@ -72,17 +79,28 @@ const text = async (locator) => clean(await locator.innerText());
 
   check((await text(card(page, "Loja US"))).includes("Pagamento pendente"), "alerta de pagamento pendente");
 
+  // Conta paga no cartão: disponível R$ 0,00, com a forma de pagamento clara e sem alerta de "sem saldo".
+  const cardText = await text(card(page, "Excalibur Cartão"));
+  check((await card(page, "Excalibur Cartão").getByTestId("balance-available").innerText()).replace(/\u00a0/g, " ") === "R$ 0,00"
+    && cardText.includes("Pago no cartão: sem saldo em conta.") && !cardText.includes("R$ 3.432,14"),
+    "cartão: disponível R$ 0,00 (o limite de gastos não vira saldo)");
+  check(await card(page, "Excalibur Cartão").getByTestId("payment-badge").getAttribute("data-kind") === "cartao"
+    && cardText.includes("Cartão de crédito") && cardText.includes("Mastercard *2596"), "cartão: forma de pagamento identificada");
+  check(cardText.includes("Limite de gastos") && cardText.includes("R$ 5.000,00") && !cardText.includes("Sem saldo"),
+    "cartão: limite aparece com o nome certo e sem alerta de sem saldo");
+
   // Atualizar uma conta
   await card(page, "Excalibur Meta").getByRole("button", { name: "Atualizar saldo" }).click();
   await page.getByText("Saldo atualizado.").waitFor();
   const meta = await text(card(page, "Excalibur Meta"));
   check(db.adAccountCalls.at(-1).action === "refresh_balance" && db.adAccountCalls.at(-1).adAccountIds[0] === META, "atualizar pede o saldo ao servidor");
-  check(meta.includes("R$ 250,00") && meta.includes("R$ 1.000,00") && meta.includes("R$ 750,00"), "Meta: disponível = limite − gasto");
-  check(meta.includes("Visa final 1234") && meta.includes("R$ 15,00"), "Meta: forma de pagamento (texto do Meta) e valor devido");
+  check(meta.includes("R$ 250,00") && meta.includes("R$ 1.000,00") && meta.includes("R$ 750,00"), "Meta pré-paga: disponível = saldo informado pelo Meta");
+  check(meta.includes("Saldo pré-pago (PIX/boleto)") && meta.includes("Saldo disponível (R$250,00 BRL)") && meta.includes("R$ 15,00"),
+    "Meta: forma de pagamento (saldo pré-pago) e valor devido");
   check(meta.includes("R$ 100,00") && meta.includes("cerca de 2 dias"), "gasto médio e previsão de duração");
   check(meta.includes("Saldo baixo"), "previsão abaixo de 3 dias → alerta de saldo baixo");
   await kpi.getByText("R$ 2.050,00").waitFor();
-  check((await text(kpi)).includes("2 de 2 contas informam") && (await text(kpi)).includes("2 contas com alerta"), "cartão Saldo atualiza junto");
+  check((await text(kpi)).includes("3 de 3 contas informam") && (await text(kpi)).includes("2 contas com alerta"), "cartão Saldo atualiza junto");
 
   await page.getByRole("button", { name: "O que é Saldo?" }).hover();
   await page.getByRole("tooltip").filter({ hasText: "não inventamos valores" }).waitFor();
@@ -112,7 +130,7 @@ const text = async (locator) => clean(await locator.innerText());
   await page.getByRole("button", { name: "Atualizar todos os saldos" }).click();
   await page.getByText("Loja US:").waitFor();
   check((await page.getByRole("alert").innerText()).includes("pediu uma pausa"), "erro de uma conta aparece com o motivo, sem esconder as outras");
-  check(db.adAccountCalls.at(-1).adAccountIds.length === 3, "atualiza todas as contas do filtro");
+  check(db.adAccountCalls.at(-1).adAccountIds.length === 4, "atualiza todas as contas do filtro");
 
   // Filtro de cliente vale para o saldo
   await page.getByLabel("Cliente", { exact: true }).selectOption({ label: "Loja Internacional" });

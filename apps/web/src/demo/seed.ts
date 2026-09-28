@@ -266,7 +266,7 @@ export function seedDemo(): MockDb {
         id: accountId, platform_id: acc.platform, external_id: externalId, client_id: clientId,
         connection_id: acc.platform === "meta" ? did("c", 1) : did("c", 2), name: acc.name, currency: acc.currency, timezone: TZ,
         status: acc.status, raw_status: null, status_reason: null, business_name: acc.platform === "meta" ? "BM da agência (Demo)" : "MCC da agência (Demo)",
-        is_prepay: acc.platform === "meta", is_test_account: false, is_demo: true, linked_at: ago(60 * 24 * 400), details_updated_at: ago(20), unlinked_at: null, assets: [],
+        is_prepay: acc.platform === "meta" && acc.available != null, is_test_account: false, is_demo: true, linked_at: ago(60 * 24 * 400), details_updated_at: ago(20), unlinked_at: null, assets: [],
       });
       const account: Record<string, number> = Object.fromEntries(METRIC_KEYS.map((k) => [k, 0]));
       const accountDaily = new Map<string, Record<string, number>>();
@@ -373,9 +373,13 @@ export function seedDemo(): MockDb {
       db.snapshots[accountId] = {
         captured_at: ago(25), currency: acc.currency,
         available_micros: acc.available == null ? null : Math.round(acc.available * M),
-        available_basis: acc.available == null ? null : acc.platform === "meta" ? "meta_spend_cap" : "google_account_budget",
-        amount_spent_micros: spent, spend_cap_micros: acc.available == null ? null : spent + Math.round(acc.available * M),
-        issues: acc.issues ?? [], funding_description: acc.platform === "meta" ? "Cartão fictício final 0000" : null,
+        // Meta: com saldo = pré-paga (PIX/boleto, valor informado pelo Meta); sem saldo informado = paga no cartão.
+        available_basis: acc.platform === "meta" ? (acc.available == null ? "meta_card" : "meta_prepaid_balance")
+          : acc.available == null ? null : "google_account_budget",
+        amount_spent_micros: spent, spend_cap_micros: acc.platform === "google" && acc.available != null ? spent + Math.round(acc.available * M) : null,
+        issues: acc.issues ?? [],
+        funding_description: acc.platform !== "meta" ? null : acc.available == null ? "Cartão fictício *0000"
+          : `Saldo disponível (${acc.currency === "USD" ? "$" : "R$"}${acc.available.toLocaleString(acc.currency === "USD" ? "en-US" : "pt-BR", { minimumFractionDigits: 2 })} ${acc.currency})`,
       };
       db.fundingApi[accountId] = { ...db.snapshots[accountId] };
       db.syncState[accountId] = { status: "sucesso", last_attempt_at: ago(35), last_success_at: ago(35), next_run_at: ago(-25) };

@@ -19,9 +19,9 @@ function seed(db) {
   db.syncState[id(2)] = { status: "sucesso", last_success_at: minAgo(40) };
   db.syncState[id(3)] = { status: "sucesso", last_success_at: minAgo(200) };
   // Conta Nova: nunca sincronizada.
-  db.snapshots[id(1)] = { captured_at: minAgo(3), available_micros: 500 * M, available_basis: "meta_spend_cap", issues: [] };
-  db.snapshots[id(2)] = { captured_at: minAgo(120), available_micros: 800 * M, available_basis: "meta_spend_cap", issues: [] };
-  db.fundingApi[id(2)] = { available_micros: 700 * M, available_basis: "meta_spend_cap", issues: [] };
+  db.snapshots[id(1)] = { captured_at: minAgo(3), available_micros: 500 * M, available_basis: "meta_prepaid_balance", issues: [] };
+  db.snapshots[id(2)] = { captured_at: minAgo(120), available_micros: 800 * M, available_basis: "meta_prepaid_balance", issues: [] };
+  db.fundingApi[id(2)] = { available_micros: 700 * M, available_basis: "meta_prepaid_balance", issues: [] };
 }
 
 const freshness = (page) => page.getByTestId("data-freshness");

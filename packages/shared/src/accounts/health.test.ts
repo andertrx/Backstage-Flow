@@ -49,6 +49,6 @@ describe("saúde da conta", () => {
     expect(accountHealth({ ...ok, status: "encerrada" }, now).status).toBe("desativada");
     expect(accountHealth({ ...ok, status: "desconhecida" }, now).status).toBe("atencao");
     expect(accountHealth({ ...ok, issues: ["cobranca_problema"] }, now).status).toBe("pagamento_pendente");
-    expect(accountHealth({ ...ok, available_micros: 0 }, now)).toEqual({ status: "atencao", reasons: ["Sem saldo (limite atingido)."] });
+    expect(accountHealth({ ...ok, available_micros: 0 }, now)).toEqual({ status: "atencao", reasons: ["Sem saldo."] });
   });
 });

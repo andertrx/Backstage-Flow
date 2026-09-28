@@ -16,6 +16,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 5 — Banco histórico](docs/etapa-05-banco-historico/README.md) ✅ concluída
 - [Etapa 6 — Dashboard principal](docs/etapa-06-dashboard-principal/README.md) ✅ concluída
 - [Etapa 7 — Verificação de saldo](docs/etapa-07-verificacao-saldo/README.md) ✅ concluída
+  - [Correção de 28/09/2026 — valor disponível real e forma de pagamento (cartão × PIX/boleto)](docs/etapa-07-verificacao-saldo/CORRECAO-2026-09-28-FORMA-DE-PAGAMENTO.md) ✅
 - [Etapa 8 — Saúde das contas](docs/etapa-08-saude-contas/README.md) ✅ concluída
 - [Etapa 9 — Campanhas](docs/etapa-09-campanhas/README.md) ✅ concluída
 - [Etapa 10 — Conjuntos e Anúncios](docs/etapa-10-conjuntos-anuncios/README.md) ✅ concluída

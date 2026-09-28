@@ -21,11 +21,12 @@ insert into public.ad_accounts (id, platform_id, external_id, client_id, name, c
   ('00000000-0000-0000-0000-000000000702', 'google', '7223334445', '00000000-0000-0000-0000-0000000007f1', 'Excalibur Google', 'BRL', 'America/Sao_Paulo', 'ativa'),
   ('00000000-0000-0000-0000-000000000704', 'google', '7445556667', '00000000-0000-0000-0000-0000000007f2', 'Loja US',          'USD', 'America/New_York',  'pagamento_pendente');
 
--- Duas fotografias da conta Meta: vale a mais recente
-insert into public.account_snapshots (ad_account_id, client_id, platform_id, status, currency, captured_at, spend_cap_micros, amount_spent_micros, available_micros, available_basis, funding_description, issues) values
-  ('00000000-0000-0000-0000-000000000701', '00000000-0000-0000-0000-0000000007f1', 'meta', 'ativa', 'BRL', now() - interval '2 days', 1000000000, 100000000, 900000000, 'meta_spend_cap', null, '{}'),
-  ('00000000-0000-0000-0000-000000000701', '00000000-0000-0000-0000-0000000007f1', 'meta', 'ativa', 'BRL', now() - interval '1 hour', 1000000000, 700000000, 300000000, 'meta_spend_cap', 'Visa final 1234', '{}'),
-  ('00000000-0000-0000-0000-000000000704', '00000000-0000-0000-0000-0000000007f2', 'google', 'pagamento_pendente', 'USD', now(), null, null, null, null, null, '{pagamento_pendente}');
+-- Duas fotografias da conta Meta (pré-paga): vale a mais recente.
+-- Correção de 28/09/2026: o disponível é o saldo que o Meta escreve, não limite − gasto.
+insert into public.account_snapshots (ad_account_id, client_id, platform_id, status, currency, captured_at, spend_cap_micros, amount_spent_micros, available_micros, available_basis, funding_description, issues, payload) values
+  ('00000000-0000-0000-0000-000000000701', '00000000-0000-0000-0000-0000000007f1', 'meta', 'ativa', 'BRL', now() - interval '2 days', 1000000000, 100000000, null, null, 'Saldo disponível (R$900,00 BRL)', '{}', '{"funding_source_type":20,"is_prepay_account":true}'),
+  ('00000000-0000-0000-0000-000000000701', '00000000-0000-0000-0000-0000000007f1', 'meta', 'ativa', 'BRL', now() - interval '1 hour', 1000000000, 700000000, null, null, 'Saldo disponível (R$300,00 BRL)', '{}', '{"funding_source_type":20,"is_prepay_account":true}'),
+  ('00000000-0000-0000-0000-000000000704', '00000000-0000-0000-0000-0000000007f2', 'google', 'pagamento_pendente', 'USD', now(), null, null, null, null, null, '{pagamento_pendente}', '{}');
 
 -- Gasto dos 2 dias anteriores (ontem e anteontem, no fuso da conta): R$ 150 + R$ 50 = R$ 200 em 2 dias.
 -- Hoje, 3 dias atrás e 9 dias atrás NÃO contam.
@@ -55,7 +56,7 @@ begin
   if (select count(*) from public.account_balances()) <> 3 then raise exception 'FALHOU: admin deveria ver 3 contas'; end if;
 
   select * into b from public.account_balances() where ad_account_id = '00000000-0000-0000-0000-000000000701';
-  if b.available_micros <> 300000000 or b.funding_description <> 'Visa final 1234' then raise exception 'FALHOU: não usou a fotografia mais recente'; end if;
+  if b.available_micros <> 300000000 or b.available_basis <> 'meta_prepaid_balance' or b.funding_description <> 'Saldo disponível (R$300,00 BRL)' then raise exception 'FALHOU: não usou a fotografia mais recente'; end if;
   if b.spend_last_7_days_micros <> 200000000 or b.spend_days <> 2 then
     raise exception 'FALHOU: gasto dos 2 dias anteriores = % em % dias (hoje e dias mais antigos não contam)', b.spend_last_7_days_micros, b.spend_days;
   end if;

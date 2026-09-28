@@ -1,4 +1,4 @@
-import { assessBalance, type BalanceAlert } from "@backstage/shared";
+import { assessBalance, type BalanceAlert, shownAvailableMicros } from "@backstage/shared";
 import type { AccountBalance } from "./types.ts";
 
 export interface BalanceTotals {
@@ -13,7 +13,9 @@ export interface BalanceTotals {
 
 /**
  * Resumo para o cartão "Saldo" do dashboard. Só soma contas da MESMA moeda
- * e só as que a API informa o disponível — as demais são contadas à parte.
+ * e só dinheiro real: saldo pré-pago (PIX/boleto) e orçamento informados pela
+ * API. Conta paga no cartão entra com R$ 0,00 (o limite nunca é somado).
+ * Contas sem informação são contadas à parte.
  */
 export function summarizeBalances(rows: AccountBalance[], preferredCurrency: string | null): BalanceTotals {
   const counts = new Map<string, number>();
@@ -23,7 +25,7 @@ export function summarizeBalances(rows: AccountBalance[], preferredCurrency: str
     : [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
   const inCurrency = rows.filter((r) => r.currency === currency);
-  const known = inCurrency.filter((r) => r.available_micros != null);
+  const known = inCurrency.map((r) => shownAvailableMicros(r)).filter((v): v is number => v != null);
   let alerts = 0;
   let critical = 0;
   for (const r of rows) {
@@ -33,7 +35,7 @@ export function summarizeBalances(rows: AccountBalance[], preferredCurrency: str
   }
   return {
     currency,
-    availableMicros: known.length ? known.reduce((t, r) => t + (r.available_micros ?? 0), 0) : null,
+    availableMicros: known.length ? known.reduce((t, v) => t + v, 0) : null,
     reporting: known.length,
     total: inCurrency.length,
     alerts,

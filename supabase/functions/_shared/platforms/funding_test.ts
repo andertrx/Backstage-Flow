@@ -2,7 +2,7 @@ import { assertEquals } from "jsr:@std/assert@1";
 import { createGoogleAdapter } from "./google/adapter.ts";
 import { activeBudget, mapGoogleFunding, zonedToIso } from "./google/funding.ts";
 import { createMetaAdapter } from "./meta/adapter.ts";
-import { mapMetaFunding, metaMoneyToMicros } from "./meta/funding.ts";
+import { mapMetaFunding, metaMoneyToMicros, parseMetaPrepaidBalance } from "./meta/funding.ts";
 import type { PlatformAccount } from "./types.ts";
 
 Deno.env.set("GOOGLE_ADS_DEVELOPER_TOKEN", "DEV-TOKEN");
@@ -20,30 +20,55 @@ Deno.test("Meta: dinheiro vem em centavos (e sem centavos em moedas como JPY)", 
   assertEquals(metaMoneyToMicros("abc", "BRL"), null);
 });
 
-Deno.test("Meta: disponível = limite de gastos − gasto; texto da forma de pagamento como veio", () => {
+Deno.test("Meta: saldo pré-pago (PIX/boleto) = valor que o Meta informa, nunca limite − gasto", () => {
   const f = mapMetaFunding({
-    id: "act_1", currency: "BRL", account_status: 1, amount_spent: "30000", spend_cap: "100000", balance: "1500",
-    funding_source_details: { type: 20, display_string: " Saldo disponível (R$ 123,45 BRL) " },
+    id: "act_1", currency: "BRL", account_status: 1, amount_spent: "30000", spend_cap: "821443", balance: "1500", is_prepay_account: true,
+    funding_source_details: { type: 20, display_string: " Saldo disponível (R$1.345,32 BRL) " },
   });
-  assertEquals(f.spendCapMicros, 1000 * M);
+  assertEquals(f.spendCapMicros, 8214.43 * M);
   assertEquals(f.amountSpentMicros, 300 * M);
-  assertEquals(f.availableMicros, 700 * M);
-  assertEquals(f.availableBasis, "meta_spend_cap");
+  assertEquals(f.availableMicros, 1345.32 * M);
+  assertEquals(f.availableBasis, "meta_prepaid_balance");
   assertEquals(f.amountDueMicros, 15 * M);
-  assertEquals(f.fundingDescription, "Saldo disponível (R$ 123,45 BRL)");
+  assertEquals(f.fundingDescription, "Saldo disponível (R$1.345,32 BRL)");
   assertEquals(f.issues, []);
 });
 
-Deno.test("Meta: sem limite de gastos (spend_cap 0) → disponível não informado", () => {
+Deno.test("Meta: pago no cartão → sem saldo em conta (o limite de gastos não vira disponível)", () => {
+  const f = mapMetaFunding({
+    id: "act_1", currency: "BRL", account_status: 1, amount_spent: "156786", spend_cap: "500000", is_prepay_account: false,
+    funding_source_details: { type: 1, display_string: "Mastercard *2596" },
+  });
+  assertEquals(f.spendCapMicros, 5000 * M, "o limite continua guardado como limite");
+  assertEquals(f.availableMicros, null);
+  assertEquals(f.availableBasis, "meta_card");
+  assertEquals(f.issues, [], "cartão não gera alerta de 'sem saldo'");
+});
+
+Deno.test("Meta: sem forma de pagamento legível → disponível não informado", () => {
   const f = mapMetaFunding({ id: "act_1", currency: "BRL", account_status: 1, amount_spent: "30000", spend_cap: "0" });
   assertEquals(f.spendCapMicros, null);
   assertEquals(f.availableMicros, null);
   assertEquals(f.availableBasis, null);
   assertEquals(f.fundingDescription, null);
+  const prepaidNoText = mapMetaFunding({ id: "act_1", currency: "BRL", is_prepay_account: true, funding_source_details: { type: 20 } });
+  assertEquals(prepaidNoText.availableMicros, null, "pré-pago sem o texto do saldo: não inventa");
 });
 
-Deno.test("Meta: limite atingido e problemas de cobrança", () => {
-  assertEquals(mapMetaFunding({ id: "act_1", currency: "BRL", account_status: 1, amount_spent: "100000", spend_cap: "100000" }).issues, ["sem_saldo"]);
+Deno.test("Meta: texto do saldo pré-pago", () => {
+  assertEquals(parseMetaPrepaidBalance("Saldo disponível (R$1.345,32 BRL)", "BRL"), 1345.32 * M);
+  assertEquals(parseMetaPrepaidBalance("Saldo disponível (R$392,15 BRL)", "BRL"), 392.15 * M);
+  assertEquals(parseMetaPrepaidBalance("Saldo disponível (R$0,00 BRL)", "BRL"), 0);
+  assertEquals(parseMetaPrepaidBalance("Available balance ($1,234.50 USD)", "USD"), 1234.5 * M);
+  assertEquals(parseMetaPrepaidBalance("Saldo disponível (R$12.345 BRL)", "BRL"), 12345 * M);
+  assertEquals(parseMetaPrepaidBalance("Saldo disponível (R$1.345,32 BRL)", "USD"), null, "moeda diferente da conta");
+  assertEquals(parseMetaPrepaidBalance("Mastercard *2596", "BRL"), null);
+  assertEquals(parseMetaPrepaidBalance(null, "BRL"), null);
+});
+
+Deno.test("Meta: saldo pré-pago zerado e problemas de cobrança", () => {
+  assertEquals(mapMetaFunding({ id: "act_1", currency: "BRL", account_status: 1, is_prepay_account: true,
+    funding_source_details: { type: 20, display_string: "Saldo disponível (R$0,00 BRL)" } }).issues, ["sem_saldo"]);
   assertEquals(mapMetaFunding({ id: "act_1", account_status: 3 }).issues, ["pagamento_pendente"]);
   assertEquals(mapMetaFunding({ id: "act_1", account_status: 9 }).issues, ["cobranca_problema"]);
   assertEquals(mapMetaFunding({ id: "act_1", account_status: 2, disable_reason: 3 }).issues, ["cobranca_problema", "conta_desativada"]);

@@ -19,7 +19,7 @@ export interface BalanceAlert {
 }
 
 export const BALANCE_ALERTS: Record<BalanceAlertCode, { label: string; severity: BalanceSeverity }> = {
-  sem_saldo: { label: "Sem saldo (limite atingido)", severity: "critical" },
+  sem_saldo: { label: "Sem saldo", severity: "critical" },
   saldo_baixo: { label: "Saldo baixo", severity: "warning" },
   pagamento_pendente: { label: "Pagamento pendente", severity: "critical" },
   cobranca_problema: { label: "Problema na cobrança", severity: "critical" },
@@ -78,6 +78,49 @@ export function assessBalance(b: BalanceInput, now: Date = new Date()): BalanceA
   const alerts = [...codes].map(alert).sort((x, y) => (x.severity === y.severity ? 0 : x.severity === "critical" ? -1 : 1));
   const stale = b.captured_at != null && now.getTime() - Date.parse(b.captured_at) > 24 * 3600 * 1000;
   return { avgDailySpendMicros: avg, forecastDays, alerts, stale };
+}
+
+// -----------------------------------------------------------------------------
+// Forma de pagamento e valor disponível (correção de 28/09/2026).
+// O limite de gastos ou o limite do cartão NUNCA é mostrado como disponível.
+// -----------------------------------------------------------------------------
+
+export type AvailableBasis = "meta_prepaid_balance" | "meta_card" | "google_account_budget";
+
+export type PaymentKind = "pre_pago" | "cartao" | "cartao_pre_pago" | "orcamento" | "nao_informado";
+
+export interface PaymentInput {
+  available_basis: string | null;
+  available_micros: number | null;
+  is_prepay: boolean | null;
+  funding_description: string | null;
+}
+
+export const PAYMENT_LABELS: Record<PaymentKind, string> = {
+  pre_pago: "Saldo pré-pago (PIX/boleto)",
+  cartao: "Cartão de crédito",
+  cartao_pre_pago: "Cartão + saldo pré-pago",
+  orcamento: "Orçamento da conta",
+  nao_informado: "Forma de pagamento não informada",
+};
+
+/**
+ * Forma de pagamento EM USO, como a plataforma informa.
+ * - Saldo pré-pago (PIX/boleto): o disponível é o saldo real informado.
+ * - Cartão: não há dinheiro na conta; o disponível é R$ 0,00.
+ * - Cartão numa conta marcada como pré-paga: as duas formas; o saldo real só
+ *   aparece se a plataforma informar (nunca o limite do cartão).
+ */
+export function paymentKind(b: PaymentInput): PaymentKind {
+  if (b.available_basis === "meta_prepaid_balance") return "pre_pago";
+  if (b.available_basis === "meta_card") return b.is_prepay ? "cartao_pre_pago" : "cartao";
+  if (b.available_basis === "google_account_budget") return "orcamento";
+  return "nao_informado";
+}
+
+/** Valor disponível para mostrar: cartão = 0 (sem dinheiro na conta); os demais como informado (null = não informado). */
+export function shownAvailableMicros(b: PaymentInput): number | null {
+  return paymentKind(b) === "cartao" ? 0 : b.available_micros;
 }
 
 /** "3,5 dias" → texto amigável da previsão. */

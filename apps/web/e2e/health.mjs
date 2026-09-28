@@ -28,10 +28,10 @@ function seed(db) {
     acc(6, "meta", "816", LOJA, "Loja Antiga", "BRL", "encerrada", "c-meta"),
   );
   for (const n of [1, 2, 3, 6]) db.syncState[id(n)] = { status: "sucesso", last_success_at: hoursAgo(2) };
-  db.snapshots[id(1)] = { captured_at: hoursAgo(1), available_micros: 900 * M, available_basis: "meta_spend_cap", issues: [] };
+  db.snapshots[id(1)] = { captured_at: hoursAgo(1), available_micros: 900 * M, available_basis: "meta_prepaid_balance", issues: [] };
   db.snapshots[id(2)] = { captured_at: hoursAgo(1), issues: ["pagamento_pendente"] };
   for (const n of [1, 2, 4, 5, 6]) db.fundingApi[id(n)] = { ...(db.snapshots[id(n)] ?? { issues: [] }) };
-  db.fundingApi[id(5)] = { issues: [], available_micros: 300 * M, available_basis: "meta_spend_cap" };
+  db.fundingApi[id(5)] = { issues: [], available_micros: 300 * M, available_basis: "meta_prepaid_balance" };
   db.fundingErrors[id(3)] = "A autorização do Google expirou. Conecte o Google Ads novamente.";
 }
 

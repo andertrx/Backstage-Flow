@@ -23,11 +23,38 @@ export interface RawFundingAccount extends RawAdAccount {
   funding_source_details?: { type?: number; display_string?: string };
 }
 
+/** Forma de pagamento em uso (funding_source_details.type). */
+export const META_FUNDING_CREDIT_CARD = 1;
+/** Saldo pré-pago (recargas por PIX ou boleto): o texto traz "Saldo disponível (R$1.345,32 BRL)". */
+export const META_FUNDING_PREPAID_BALANCE = 20;
+
+/**
+ * Lê o saldo pré-pago do texto oficial do Meta, ex. "Saldo disponível (R$1.345,32 BRL)".
+ * Só aceita quando a moeda escrita é a moeda da conta; senão devolve null (não inventa).
+ * Aceita "1.345,32" e "1,345.32": o separador decimal é o último ponto/vírgula seguido de 1 ou 2 dígitos.
+ */
+export function parseMetaPrepaidBalance(display: string | null | undefined, currency: string | null): number | null {
+  if (!display || !currency) return null;
+  const m = /\(\s*[^\d(]*?([\d][\d.,\s]*)\s+([A-Z]{3})\s*\)/.exec(display);
+  if (!m || m[2] !== currency.toUpperCase()) return null;
+  const num = m[1].replace(/\s/g, "");
+  const dec = /[.,](\d{1,2})$/.exec(num);
+  const whole = (dec ? num.slice(0, dec.index) : num).replace(/[.,]/g, "");
+  if (!/^\d+$/.test(whole)) return null;
+  const value = Number(`${whole}.${dec ? dec[1].padEnd(2, "0") : "00"}`);
+  return Number.isFinite(value) ? Math.round(value * 1_000_000) : null;
+}
+
 /**
  * Status/motivos do Meta → problemas de cobrança:
  *   account_status 3 (UNSETTLED) e 8 (PENDING_SETTLEMENT) → pagamento pendente
  *   9 (IN_GRACE_PERIOD) ou disable_reason 3 (RISK_PAYMENT) → problema na cobrança
  *   7 (PENDING_RISK_REVIEW) → conta limitada · 2 (DISABLED) → conta desativada
+ *
+ * Valor disponível (correção de 28/09/2026): o limite de gastos (spend_cap) NÃO é
+ * dinheiro na conta. Disponível só existe para saldo pré-pago (PIX/boleto), com o
+ * valor que o próprio Meta informa. Conta paga no cartão não tem saldo em conta:
+ * fica "meta_card" (a tela mostra R$ 0,00) e não gera alerta de "sem saldo".
  */
 export function mapMetaFunding(raw: RawFundingAccount): AccountFunding {
   const currency = raw.currency?.toUpperCase() ?? null;
@@ -35,7 +62,13 @@ export function mapMetaFunding(raw: RawFundingAccount): AccountFunding {
   const capRaw = metaMoneyToMicros(raw.spend_cap, currency);
   // spend_cap = 0 significa "sem limite de gastos" (documentação do Meta).
   const cap = capRaw && capRaw > 0 ? capRaw : null;
-  const available = cap != null && spent != null ? Math.max(0, cap - spent) : null;
+  const type = raw.funding_source_details?.type;
+  const display = raw.funding_source_details?.display_string?.trim() || null;
+  const prepaid = type === META_FUNDING_PREPAID_BALANCE || raw.is_prepay_account === true;
+  const available = prepaid ? parseMetaPrepaidBalance(display, currency) : null;
+  const basis: AccountFunding["availableBasis"] = available != null
+    ? "meta_prepaid_balance"
+    : type === META_FUNDING_CREDIT_CARD ? "meta_card" : null;
 
   const issues = new Set<FundingIssue>();
   const status = raw.account_status;
@@ -52,9 +85,9 @@ export function mapMetaFunding(raw: RawFundingAccount): AccountFunding {
     spendCapMicros: cap,
     budgetMicros: null,
     availableMicros: available,
-    availableBasis: available != null ? "meta_spend_cap" : null,
+    availableBasis: basis,
     budgetEndAt: null,
-    fundingDescription: raw.funding_source_details?.display_string?.trim() || null,
+    fundingDescription: display,
     issues: [...issues],
     raw: {
       account_status: raw.account_status ?? null,
