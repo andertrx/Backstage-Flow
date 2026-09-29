@@ -6,6 +6,8 @@ Site publicado: https://www.backstageflow.com.br (endereço antigo, ainda ativo:
 
 **Pendências para você:** [docs/PENDENCIAS.md](docs/PENDENCIAS.md)
 
+**Para o Claude (ou quem continuar o projeto):** comece por [CLAUDE.md](CLAUDE.md) e pela pasta [docs/claude/](docs/claude/) — regras, jeito de trabalhar, estado atual e histórico das decisões.
+
 O projeto é construído em etapas. A documentação de cada etapa fica em [`docs/`](docs/).
 
 - [Etapa 0 — Planejamento](docs/etapa-00-planejamento/README.md) ✅ aprovada
