@@ -10,7 +10,7 @@
   - etiqueta da forma de pagamento em cada conta.
   - Commit `c0042bd`. Documento: `docs/etapa-07-verificacao-saldo/CORRECAO-2026-09-28-FORMA-DE-PAGAMENTO.md`.
 - **Etapa 36 (Central de Operações) concluída** (36.1 a 36.7). Relatório final: `docs/etapa-36-central-operacoes/36.16-RELATORIO-FINAL.md`.
-- O Ander **ainda não escolheu a próxima etapa**. Na última conversa ele perguntou "qual a próxima etapa?", e a recomendação foi a 34.5 (abaixo).
+- **Etapa 37 (Monitoramento de Desempenho): auditoria 37.0 pronta** (30/09/2026), nada implementado. Documento: `docs/etapa-37-monitoramento/37.0-AUDITORIA.md`. Aguarda o "pode avançar" e 4 decisões (menu, cor, alerta antigo, link do Gerenciador).
 
 ## 2. Etapas: situação
 | Etapa | Situação |
@@ -20,6 +20,7 @@
 | 34 — Tracking & CAPI | 🔄 em andamento: feitas 34.1, 34.2, 34.3, 34.4, 34.5-W e 34.5-W2 |
 | 35 — Campaign Builder do Meta | ⏸️ **em espera**: o pedido foi enviado por engano; a auditoria está guardada |
 | 36 — Central de Operações | ✅ concluída |
+| 37 — Monitoramento de Desempenho | 🔎 auditoria 37.0 pronta; aguardando autorização para a 37.1 |
 
 ### Próximas fases possíveis (Etapa 34, ver `docs/etapa-34-tracking/ANALISE-E-PLANO.md`)
 | Fase | O que entrega | Depende do Ander? |
