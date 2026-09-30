@@ -39,10 +39,10 @@ describe("menu lateral", () => {
 });
 
 describe("grupos do menu", () => {
-  it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36)", () => {
+  it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36; Monitoramento antes de Alertas na Etapa 37)", () => {
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
       "Dashboard", "Clientes", "Contas", "Central de Operações", "Meta Ads", "Google Ads", "Campanhas",
-      "Relatórios", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações",
+      "Relatórios", "Monitoramento", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações",
     ]);
   });
 

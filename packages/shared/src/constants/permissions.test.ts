@@ -34,6 +34,13 @@ describe("permissões", () => {
     expect(ROLES.filter((role) => can(role, "tracking.whatsapp"))).toEqual(["admin", "gestor", "operador"]);
   });
 
+  it("Monitoramento (Etapa 37): mesma matriz que o banco confere", () => {
+    expect(ROLES.filter((role) => can(role, "monitor.view"))).toEqual(["admin", "gestor", "operador", "visualizador"]);
+    expect(ROLES.filter((role) => can(role, "monitor.handle"))).toEqual(["admin", "gestor", "operador"]);
+    expect(ROLES.filter((role) => can(role, "monitor.rules"))).toEqual(["admin", "gestor"]);
+    expect(ROLES.filter((role) => can(role, "monitor.admin"))).toEqual(["admin"]);
+  });
+
   it("sem papel, sem permissão", () => {
     expect(can(null, "clients.view")).toBe(false);
   });

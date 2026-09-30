@@ -30,3 +30,4 @@ export * from "./operations/commercial.ts";
 export * from "./operations/meetings.ts";
 export * from "./operations/notifications.ts";
 export * from "./operations/dashboard.ts";
+export * from "./monitoring/monitoring.ts";

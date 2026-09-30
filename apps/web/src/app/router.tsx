@@ -19,6 +19,7 @@ const PublicReportPage = lazy(() => import("@/features/client-report/PublicRepor
 const ClientsPage = lazy(() => import("@/features/clients/ClientsPage.tsx").then((m) => ({ default: m.ClientsPage })));
 const ExecutivePage = lazy(() => import("@/features/executive/ExecutivePage.tsx").then((m) => ({ default: m.ExecutivePage })));
 const ComparisonPage = lazy(() => import("@/features/comparison/ComparisonPage.tsx").then((m) => ({ default: m.ComparisonPage })));
+const MonitoringPage = lazy(() => import("@/features/monitoring/MonitoringPage.tsx").then((m) => ({ default: m.MonitoringPage })));
 const AlertsPage = lazy(() => import("@/features/alerts/AlertsPage.tsx").then((m) => ({ default: m.AlertsPage })));
 const OpsLayout = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsLayout })));
 const OpsIndexRedirect = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsIndexRedirect })));
@@ -131,6 +132,14 @@ export const router = createBrowserRouter([
           </RequirePermission>
         ),
       })),
+      {
+        path: "monitoramento",
+        element: (
+          <RequirePermission permission="monitor.view">
+            <MonitoringPage />
+          </RequirePermission>
+        ),
+      },
       {
         path: "alertas",
         element: (

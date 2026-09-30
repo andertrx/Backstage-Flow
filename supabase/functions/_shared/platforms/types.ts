@@ -140,6 +140,8 @@ export interface PlatformAd {
   reviewStatus: string | null;
   /** Só endereços https (o banco recusa outros). */
   thumbnailUrl: string | null;
+  /** ID do criativo na plataforma (Meta: creative.id). null quando a plataforma não informa. */
+  creativeExternalId?: string | null;
 }
 
 export interface PlatformStructure {

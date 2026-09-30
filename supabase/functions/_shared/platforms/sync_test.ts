@@ -49,6 +49,8 @@ Deno.test("Meta: anúncio com criativo, revisão e miniatura só https", () => {
   assertEquals(a.status, "erro");
   assertEquals(a.thumbnailUrl, null);
   assertEquals(mapMetaAd({ id: "10", effective_status: "ACTIVE", creative: { thumbnail_url: "https://cdn/x.jpg" } }).thumbnailUrl, "https://cdn/x.jpg");
+  assertEquals(a.creativeExternalId, null);
+  assertEquals(mapMetaAd({ id: "11", creative: { id: "cr_77", object_type: "VIDEO" } }).creativeExternalId, "cr_77");
 });
 
 Deno.test("Meta: insights do dia → leads, mensagens, compras e valor", () => {

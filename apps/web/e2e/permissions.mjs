@@ -15,7 +15,7 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   await login(page, "/configuracoes/permissoes");
   await page.getByRole("heading", { name: "Papéis e permissões", level: 1 }).waitFor();
   check(await page.getByRole("link", { name: "Papéis e permissões" }).count() === 1, "aba nova nas Configurações");
-  check(await page.getByTestId("permission-row").count() === 13, "13 permissões explicadas em português");
+  check(await page.getByTestId("permission-row").count() === 17, "17 permissões explicadas em português (4 do Monitoramento, Etapa 37)");
   const cell = (perm, role) => page.locator(`[data-testid=permission-row][data-permission="${perm}"] td[data-role=${role}] svg`).getAttribute("aria-label");
   check(await cell("logs.view", "gestor") === "Sim" && await cell("logs.view", "operador") === "Não", "logs: gestor sim, operador não");
   check(await cell("clients.edit", "gestor") === "Sim" && await cell("clients.edit", "operador") === "Não", "editar clientes: gestor sim, operador não");

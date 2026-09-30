@@ -10,7 +10,7 @@
   - etiqueta da forma de pagamento em cada conta.
   - Commit `c0042bd`. Documento: `docs/etapa-07-verificacao-saldo/CORRECAO-2026-09-28-FORMA-DE-PAGAMENTO.md`.
 - **Etapa 36 (Central de Operações) concluída** (36.1 a 36.7). Relatório final: `docs/etapa-36-central-operacoes/36.16-RELATORIO-FINAL.md`.
-- **Etapa 37 (Monitoramento de Desempenho): auditoria 37.0 pronta** (30/09/2026), nada implementado. Documento: `docs/etapa-37-monitoramento/37.0-AUDITORIA.md`. Aguarda o "pode avançar" e 4 decisões (menu, cor, alerta antigo, link do Gerenciador).
+- **Etapa 37 (Monitoramento de Desempenho):** auditoria 37.0 aprovada ("pode avançar" = propostas aceitas: menu em Análise antes de Alertas, azul, alerta antigo desligado na 37.3, só link oficial). **37.1 pronta** (30/09/2026): `docs/etapa-37-monitoramento/37.1-BASE.md`. Próxima: 37.2 (Comparativos, Campanhas, Criativos).
 
 ## 2. Etapas: situação
 | Etapa | Situação |
@@ -20,7 +20,7 @@
 | 34 — Tracking & CAPI | 🔄 em andamento: feitas 34.1, 34.2, 34.3, 34.4, 34.5-W e 34.5-W2 |
 | 35 — Campaign Builder do Meta | ⏸️ **em espera**: o pedido foi enviado por engano; a auditoria está guardada |
 | 36 — Central de Operações | ✅ concluída |
-| 37 — Monitoramento de Desempenho | 🔎 auditoria 37.0 pronta; aguardando autorização para a 37.1 |
+| 37 — Monitoramento de Desempenho | 🔄 em andamento: 37.1 feita; próximas 37.2 a 37.6 (plano na auditoria) |
 
 ### Próximas fases possíveis (Etapa 34, ver `docs/etapa-34-tracking/ANALISE-E-PLANO.md`)
 | Fase | O que entrega | Depende do Ander? |
@@ -36,6 +36,7 @@
    - O GitHub tem a regra nova do saldo (`_shared/platforms/meta/funding.ts`), mas as versões publicadas no Supabase são as antigas.
    - Não há risco: um gatilho no banco (`account_snapshots_meta_payment`) e a função `account_balances()` aplicam a regra a tudo que chega.
    - Publique as duas na próxima mudança de servidor (como fazer: COMO-TRABALHAR, seção 5).
+   - **Atualização 30/09 (37.1):** elas também levam o ID do criativo (`creative{id}`). Não foi publicado porque o pacote tem 62–178 mil caracteres e a ferramenta exige colar à mão. Proposta ao Ander em PENDENCIAS: publicação automática pelo GitHub (token só nos segredos do GitHub).
 2. **Google Ads:** nenhuma conta conectada ainda.
    - Quando a primeira for conectada, confira o que a API informa sobre a forma de pagamento (cartão, PIX ou boleto) e o saldo. Hoje o disponível do Google é "orçamento − veiculado", só quando existe orçamento com limite.
 3. **Saúde das contas:** a tela mostra o disponível da função `account_health`, que não traz a origem do saldo. Conta no cartão aparece como "—" (não como R$ 0,00). É aceitável; melhorar se o Ander pedir.

@@ -16,6 +16,11 @@
 ## GitHub
 - [ ] Deixar o repositório **privado** (em 27/09/2026 o GitHub ainda informava "público"). Teste: abrir github.com/andertrx/Backstage-Flow numa aba anônima → deve aparecer 404.
 
+## Publicação do servidor (Edge Functions) — proposta, só se você quiser
+- [ ] **Publicação automática pelo GitHub.** Hoje, publicar as funções grandes (`sync`, `ad-accounts`) exige colar o arquivo inteiro à mão, o que é arriscado; por isso elas estão **mais novas no GitHub** do que no ar (ID do criativo da Etapa 37.1 e correção do saldo de 28/09 — o saldo já funciona pelo banco).
+  - Solução: você cria um "token de acesso" no Supabase (Account → Access Tokens) e cola **só nos segredos do GitHub** (Settings → Secrets → Actions), nunca no chat. Aí eu crio a rotina que publica sozinha a cada envio.
+  - Me avise se quiser; até lá eu aviso nos relatórios o que está pendente de publicar.
+
 ## Tracking / Meta
 - [ ] Escolher o cliente piloto
 - [ ] ID do Pixel (conjunto de dados) do piloto

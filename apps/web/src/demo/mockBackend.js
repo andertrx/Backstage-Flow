@@ -78,6 +78,8 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     trackingLeads: [],
     trackingPurchases: [],
     trackingJourneys: {},
+    /** Monitoramento (Etapa 37): regras de limite (como public.monitor_rules). null = cria os padrões na 1ª leitura. */
+    monitorRules: null,
     /** Meta CAPI (34.3): destinos (o "token" fica só aqui no servidor simulado), resumo e registro. */
     trackingDestinations: [],
     trackingCapiLog: [],
@@ -580,6 +582,78 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/platform_connections")) {
       const platform = eqParam(url, "platform_id");
       return res(200, db.connections.filter((c) => !platform || c.platform_id === platform));
+    }
+
+    // --- Monitoramento (Etapa 37): mesmas regras de private.monitor_*_impl
+    if (url.includes("/rest/v1/rpc/monitor_")) {
+      const p = parse();
+      const fn = url.split("/rpc/")[1].split("?")[0];
+      db.rpcCalls.push({ fn, ...p });
+      const can = (what) => ({ view: ["admin", "gestor", "operador", "visualizador"], handle: ["admin", "gestor", "operador"], rules: ["admin", "gestor"], admin: ["admin"] })[what].includes(role);
+      const visible = (clientId) => role === "admin" || db.access.some((a) => a.user_id === userId && a.client_id === clientId);
+      const err = (code, message) => res(code === "42501" ? 403 : 400, { code, message });
+      if (!db.monitorRules) {
+        db.monitorRules = [["cost_per_result", "up", 20, 40], ["cpc", "up", 20, 40], ["cpm", "up", 20, 40], ["ctr", "down", 15, 30], ["results", "down", 20, 40], ["roas", "down", 20, 40]]
+          .map(([metric, direction, a, c], i) => ({ id: `rule-g${i}`, scope: "global", scope_id: null, client_id: null, metric, direction, attention_pct: a, critical_pct: c,
+            min_volume: null, active: true, note: null, replaces_id: null, archived_at: null, created_at: "2026-09-30T22:52:50Z", created_by: null }));
+      }
+      const scopeClient = (scope, id) => scope === "client" ? db.clients.find((c) => c.id === id)?.id
+        : scope === "account" ? db.adAccounts.find((a) => a.id === id)?.client_id
+        : scope === "campaign" ? db.campaigns.find((c) => c.id === id)?.client_id
+        : scope === "ad" ? db.ads.find((a) => a.id === id)?.client_id : null;
+      const scopeName = (scope, id) => scope === "global" ? "Todos os clientes"
+        : ({ client: db.clients, account: db.adAccounts, campaign: db.campaigns, ad: db.ads })[scope].find((x) => x.id === id)?.name ?? null;
+      if (fn === "monitor_rules_list") {
+        if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
+        const order = ["global", "client", "account", "campaign", "ad"];
+        return res(200, db.monitorRules
+          .filter((r) => (!r.client_id || visible(r.client_id)) && (p.p_include_history || !r.archived_at))
+          .sort((a, b) => order.indexOf(a.scope) - order.indexOf(b.scope) || b.created_at.localeCompare(a.created_at))
+          .map((r) => ({ ...r, scope_name: scopeName(r.scope, r.scope_id), client_name: db.clients.find((c) => c.id === r.client_id)?.name ?? null,
+            created_by_name: db.profiles.find((x) => x.id === r.created_by)?.full_name ?? null })));
+      }
+      if (fn === "monitor_rule_save") {
+        if (!can("rules")) return err("42501", "Sem permissão para gerenciar as regras do monitoramento");
+        const a = Number(p.p_attention), c = Number(p.p_critical);
+        if (!(a > 0 && a <= 1000)) return err("22023", "O limite de atenção precisa ser maior que 0% e até 1000%.");
+        if (!(c > 0 && c <= 1000)) return err("22023", "O limite crítico precisa ser maior que 0% e até 1000%.");
+        if (c < a) return err("22023", "O limite crítico não pode ser menor que o de atenção.");
+        let clientId = null;
+        if (p.p_scope === "global") {
+          if (!can("admin")) return err("42501", "Só o administrador muda as regras que valem para todos os clientes");
+        } else {
+          clientId = scopeClient(p.p_scope, p.p_scope_id);
+          if (!clientId || !visible(clientId)) return err("22023", "Cliente, conta, campanha ou anúncio não encontrado");
+        }
+        const now = new Date().toISOString();
+        if (p.p_replaces_id) {
+          const old = db.monitorRules.find((r) => r.id === p.p_replaces_id);
+          if (!old) return err("22023", "Regra não encontrada");
+          if (old.archived_at) return res(409, { code: "40001", message: "Esta regra foi alterada por outra pessoa. Atualize a página." });
+          if (old.scope !== p.p_scope || old.scope_id !== (p.p_scope_id ?? null) || old.metric !== p.p_metric) return err("22023", "Para mudar onde a regra vale ou a métrica, crie uma regra nova.");
+          old.archived_at = now;
+        } else if (db.monitorRules.some((r) => !r.archived_at && r.scope === p.p_scope && r.metric === p.p_metric && r.scope_id === (p.p_scope_id ?? null))) {
+          return err("22023", "Já existe uma regra desta métrica neste lugar. Edite a existente.");
+        }
+        const id = `rule-${db.monitorRules.length + 1}`;
+        db.monitorRules.push({ id, scope: p.p_scope, scope_id: p.p_scope_id ?? null, client_id: clientId, metric: p.p_metric, direction: p.p_direction,
+          attention_pct: a, critical_pct: c, min_volume: p.p_min_volume ?? null, active: p.p_active !== false, note: p.p_note?.trim() || null,
+          replaces_id: p.p_replaces_id ?? null, archived_at: null, created_at: now, created_by: userId });
+        return res(200, id);
+      }
+      if (fn === "monitor_rule_archive") {
+        if (!can("rules")) return err("42501", "Sem permissão para gerenciar as regras do monitoramento");
+        const r = db.monitorRules.find((x) => x.id === p.p_id);
+        if (!r || (r.client_id && !visible(r.client_id))) return err("22023", "Regra não encontrada");
+        if (r.scope === "global") return err("22023", "A regra global não pode ser removida. Para parar de monitorar a métrica, desative-a.");
+        r.archived_at = new Date().toISOString();
+        return res(204);
+      }
+    }
+    // --- Anúncios (o site só lê; o Monitoramento lista os de uma campanha)
+    if (url.includes("/rest/v1/ads?")) {
+      const campaignId = eqParam(url, "campaign_id");
+      return res(200, db.ads.filter((a) => !campaignId || a.campaign_id === campaignId));
     }
 
     // --- Contas de anúncio (o site só lê)

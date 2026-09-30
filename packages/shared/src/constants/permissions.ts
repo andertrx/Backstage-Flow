@@ -20,6 +20,10 @@ export const PERMISSIONS = [
   "tracking.view",
   "tracking.manage",
   "tracking.whatsapp",
+  "monitor.view",
+  "monitor.handle",
+  "monitor.rules",
+  "monitor.admin",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -37,9 +41,12 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "tracking.view",
     "tracking.manage",
     "tracking.whatsapp",
+    "monitor.view",
+    "monitor.handle",
+    "monitor.rules",
   ],
-  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view", "tracking.whatsapp"],
-  visualizador: ["clients.view", "internal.view", "tracking.view"],
+  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view", "tracking.whatsapp", "monitor.view", "monitor.handle"],
+  visualizador: ["clients.view", "internal.view", "tracking.view", "monitor.view"],
   // Etapa 36: só a Central de Operações (permissões próprias, por pessoa).
   equipe: [],
   cliente: [],
@@ -65,6 +72,10 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "tracking.view": "Ver o Tracking (visitas, origens e eventos dos sites dos clientes)",
   "tracking.manage": "Configurar o Tracking (containers, domínios autorizados e código de instalação)",
   "tracking.whatsapp": "Marcar conversas do WhatsApp como Lead ou Venda (pelo código de rastreio)",
+  "monitor.view": "Ver o Monitoramento de Desempenho (variações, alertas de desempenho e histórico)",
+  "monitor.handle": "Tratar alertas de desempenho (atribuir, comentar, registrar providência, resolver, virar tarefa)",
+  "monitor.rules": "Gerenciar as regras e os limites do monitoramento (as que valem para todos: só o administrador)",
+  "monitor.admin": "Administrar o Monitoramento (regras globais e notificações de outras pessoas)",
 };
 
 /** Quais clientes cada papel enxerga (a regra que o banco aplica em toda consulta). */

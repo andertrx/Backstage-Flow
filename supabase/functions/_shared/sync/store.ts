@@ -135,6 +135,7 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
         creative_type: a.creativeType,
         review_status: a.reviewStatus,
         thumbnail_url: a.thumbnailUrl,
+        creative_external_id: a.creativeExternalId ?? null,
       }));
       const ads = await upsertReturningIds(db, "ads", adRows);
       return { count: campaigns.size + adGroups.size + ads.size, ids: { campaigns, adGroups, ads } };

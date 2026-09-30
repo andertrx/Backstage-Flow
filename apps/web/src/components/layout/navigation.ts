@@ -1,5 +1,6 @@
 import { can, opsCan, type Permission, PLATFORMS, type Role } from "@backstage/shared";
 import {
+  Activity,
   Bell,
   Building2,
   FileBarChart,
@@ -41,6 +42,7 @@ export const NAV_ITEMS: NavItem[] = [
   ...PLATFORMS.map((p): NavItem => ({ label: p.name, path: p.path, icon: platformLook(p.id).icon, group: "Anúncios", permission: "internal.view" })),
   { label: "Campanhas", path: "/campanhas", icon: Target, group: "Anúncios", permission: "internal.view" },
   { label: "Relatórios", path: "/relatorios", icon: FileBarChart, group: "Análise", permission: "reports.generate" },
+  { label: "Monitoramento", path: "/monitoramento", icon: Activity, group: "Análise", permission: "monitor.view" },
   { label: "Alertas", path: "/alertas", icon: Bell, group: "Análise", permission: "internal.view" },
   { label: "Tracking (em construção)", path: "/tracking", icon: Radar, group: "Análise", permission: "tracking.view" },
   { label: "Sincronização", path: "/sincronizacao", icon: RefreshCw, group: "Sistema", permission: "internal.view" },

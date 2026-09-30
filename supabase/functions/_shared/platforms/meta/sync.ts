@@ -80,7 +80,7 @@ export interface RawAd {
   name?: string;
   status?: string;
   effective_status?: string;
-  creative?: { object_type?: string; thumbnail_url?: string };
+  creative?: { id?: string; object_type?: string; thumbnail_url?: string };
 }
 
 export function mapMetaCampaign(r: RawCampaign, currency: string | null, now = new Date()): PlatformCampaign {
@@ -129,6 +129,8 @@ export function mapMetaAd(r: RawAd): PlatformAd {
     creativeType: objectType ? (CREATIVE_TYPE[objectType] ?? objectType) : null,
     reviewStatus: r.effective_status && REVIEW.has(r.effective_status) ? r.effective_status : r.effective_status === "ACTIVE" ? "APPROVED" : null,
     thumbnailUrl: https(r.creative?.thumbnail_url),
+    // ID do criativo (Etapa 37): agrupa anúncios que usam o MESMO criativo, nunca por nome parecido.
+    creativeExternalId: r.creative?.id ?? null,
   };
 }
 
@@ -144,7 +146,7 @@ export async function fetchMetaStructure(token: string, externalId: string, curr
     limit: "200",
   }, token, fetchImpl);
   const ads = await graphGetAll<RawAd>(`${act}/ads`, {
-    fields: "id,adset_id,campaign_id,name,status,effective_status,creative{object_type,thumbnail_url}",
+    fields: "id,adset_id,campaign_id,name,status,effective_status,creative{id,object_type,thumbnail_url}",
     limit: "100",
   }, token, fetchImpl);
   return {
