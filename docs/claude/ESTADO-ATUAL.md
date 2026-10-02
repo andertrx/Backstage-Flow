@@ -67,6 +67,6 @@ A lista completa está em [`docs/PENDENCIAS.md`](../PENDENCIAS.md). Lembre nos r
 ## 5. Números de referência (28/09/2026)
 - **Testes unitários:** web 147 e shared 166.
 - **Edge Functions:** 115 testes.
-- **Navegador:** 42 roteiros, 1.267 verificações (30/09/2026).
+- **Navegador:** 43 roteiros, 1.300 verificações (02/10/2026).
 - **Testes SQL da Central:** 178 verificações (36.1 a 36.7).
 - **Contas reais do Meta:** 28 (17 no cartão e 11 pré-pagas). Nenhuma conta Google conectada.
