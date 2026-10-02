@@ -603,6 +603,59 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         : scope === "ad" ? db.ads.find((a) => a.id === id)?.client_id : null;
       const scopeName = (scope, id) => scope === "global" ? "Todos os clientes"
         : ({ client: db.clients, account: db.adAccounts, campaign: db.campaigns, ad: db.ads })[scope].find((x) => x.id === id)?.name ?? null;
+      if (fn === "monitor_compare" || fn === "monitor_daily") {
+        if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
+        const lvl = p.p_level;
+        if (!["account", "campaign", "ad_group", "ad", "creative"].includes(lvl)) return err("22023", "Nível inválido.");
+        const mLevel = lvl === "creative" ? "ad" : lvl;
+        const adOf = (id) => db.ads.find((a) => a.id === id);
+        const keyOf = (m) => lvl === "account" ? m.ad_account_id : lvl === "campaign" ? m.campaign_id : lvl === "ad_group" ? m.ad_group_id : lvl === "ad" ? m.ad_id
+          : `${m.ad_account_id}:${adOf(m.ad_id)?.creative_external_id ?? `ad-${m.ad_id}`}`;
+        const K = ["spend_micros", "impressions", "clicks", "link_clicks", "leads", "messages", "conversions", "conversion_value_micros"];
+        const sum = (list, k) => (list.length && !list.every((m) => m[k] == null) ? list.reduce((t, m) => t + (m[k] ?? 0), 0) : null);
+        const base = db.metrics.filter((m) => m.level === mLevel && !m.superseded && visible(m.client_id));
+        if (fn === "monitor_daily") {
+          const rows = base.filter((m) => String(keyOf(m)) === p.p_key && m.date >= p.p_from && m.date <= p.p_to);
+          if (!rows.length && !base.some((m) => String(keyOf(m)) === p.p_key)) return res(200, []);
+          const dates = [...new Set(rows.map((m) => m.date))].sort();
+          return res(200, dates.map((d) => ({ date: d, ...Object.fromEntries(K.map((k) => [k, sum(rows.filter((m) => m.date === d), k)])) })));
+        }
+        if (p.p_prev_to >= p.p_from && p.p_prev_from <= p.p_to) return err("22023", "Os dois períodos não podem se sobrepor.");
+        const inCur = (m) => m.date >= p.p_from && m.date <= p.p_to;
+        const inPrev = (m) => m.date >= p.p_prev_from && m.date <= p.p_prev_to;
+        const rows = base.filter((m) => (inCur(m) || inPrev(m)) && (!p.p_client_id || m.client_id === p.p_client_id) &&
+          (!p.p_platform || m.platform_id === p.p_platform) && (!p.p_campaign_id || m.campaign_id === p.p_campaign_id));
+        const groups = new Map();
+        for (const m of rows) { const k = String(keyOf(m)); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(m); }
+        const out = [...groups.entries()].map(([k, list]) => {
+          const first = list[0];
+          const acc = db.adAccounts.find((a) => a.id === first.ad_account_id) ?? {};
+          const camp = db.campaigns.find((c) => c.id === first.campaign_id);
+          const grp = db.adGroups.find((g) => g.id === first.ad_group_id);
+          const lastAd = adOf([...list].sort((a, b) => b.date.localeCompare(a.date))[0].ad_id);
+          const cur = list.filter(inCur), prev = list.filter(inPrev);
+          const cov = db.coverage[first.ad_account_id];
+          const ss = db.syncState[first.ad_account_id] ?? {};
+          const entity = lvl === "account" ? acc : lvl === "campaign" ? camp : lvl === "ad_group" ? grp : lastAd;
+          return {
+            entity_key: k, level: lvl, entity_id: lvl === "creative" ? null : (entity?.id ?? null), name: entity?.name ?? null, status: entity?.status ?? null,
+            client_id: first.client_id, client_name: db.clients.find((c) => c.id === first.client_id)?.name ?? "", platform_id: first.platform_id,
+            ad_account_id: first.ad_account_id, account_name: acc.name ?? "", currency: acc.currency ?? first.currency, timezone: acc.timezone ?? null,
+            campaign_id: first.campaign_id ?? null, campaign_name: camp?.name ?? null, objective: camp?.objective ?? null,
+            ad_group_id: first.ad_group_id ?? null, ad_group_name: grp?.name ?? null,
+            thumbnail_url: ["ad", "creative"].includes(lvl) ? (lastAd?.thumbnail_url ?? null) : null,
+            creative_type: ["ad", "creative"].includes(lvl) ? (lastAd?.creative_type ?? null) : null,
+            creative_external_id: ["ad", "creative"].includes(lvl) ? (lastAd?.creative_external_id ?? null) : null,
+            preview_link: ["ad", "creative"].includes(lvl) ? (lastAd?.preview_link ?? null) : null,
+            ads_count: lvl === "creative" ? new Set(list.map((m) => m.ad_id)).size : null, first_seen_at: null,
+            ...Object.fromEntries(K.map((x) => [`cur_${x}`, sum(cur, x)])), cur_days: new Set(cur.map((m) => m.date)).size,
+            ...Object.fromEntries(K.map((x) => [`prev_${x}`, sum(prev, x)])), prev_days: new Set(prev.map((m) => m.date)).size,
+            coverage: !cov?.history_from ? "sem_historico" : cov.history_from <= p.p_prev_from && cov.history_to >= p.p_to ? "completa" : "parcial",
+            sync_status: ss.status ?? null, last_success_at: ss.last_success_at ?? null,
+          };
+        }).sort((a, b) => ((b.cur_spend_micros ?? 0) + (b.prev_spend_micros ?? 0)) - ((a.cur_spend_micros ?? 0) + (a.prev_spend_micros ?? 0)));
+        return res(200, out.slice(0, p.p_limit ?? 500));
+      }
       if (fn === "monitor_rules_list") {
         if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
         const order = ["global", "client", "account", "campaign", "ad"];

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyVariation,
+  compareSeverity,
   DEFAULT_RULES,
+  evaluateComparison,
   hasMinimumVolume,
   intervalNote,
   type MonitorRule,
@@ -13,6 +15,7 @@ import {
   resultKindForObjective,
   resultsFor,
   validateRule,
+  worseSeverity,
 } from "./monitoring.ts";
 
 const T = (p: Partial<MonitorTotals>): MonitorTotals => ({
@@ -121,6 +124,8 @@ describe("volume mínimo e gravidade", () => {
   });
   it("sem base é informativo; investimento nunca passa de informativo", () => {
     expect(classifyVariation(monitorVariation(1, null), cpcRule, true)).toMatchObject({ severity: "informativo", quality: "sem_base" });
+    expect(classifyVariation(monitorVariation(null, null), cpcRule, true)).toMatchObject({ severity: "normal", quality: "sem_base" });
+    expect(classifyVariation(monitorVariation(null, 10), cpcRule, true).severity).toBe("normal");
     const spend: MonitorRule = { ...cpcRule, metric: "spend", direction: "both" };
     expect(classifyVariation(monitorVariation(50, 100), spend, true).severity).toBe("informativo");
   });
@@ -171,5 +176,41 @@ describe("períodos", () => {
   it("avisa quando a avaliação é mais frequente que a atualização", () => {
     expect(intervalNote(15)).toMatch(/dados novos/);
     expect(intervalNote(60)).toBeNull();
+  });
+});
+
+describe("avaliação de uma comparação", () => {
+  const base = { level: "campaign" as const, objective: "OUTCOME_LEADS", coverage: "completa" as const, partial: false,
+    target: { client_id: "c1", account_id: "a1", campaign_id: "k1", ad_id: null } };
+  const prev = T({ spend_micros: 200_000_000, impressions: 20_000, clicks: 400, leads: 20 });
+  it("custo por lead +60% e leads −50% = crítico", () => {
+    const e = evaluateComparison({ ...base, previous: prev, current: T({ spend_micros: 160_000_000, impressions: 20_000, clicks: 400, leads: 10 }) }, DEFAULT_RULES);
+    expect(e.resultKind).toBe("leads");
+    expect(e.metrics.cost_per_result.current).toBe(16);
+    expect(e.metrics.cost_per_result.previous).toBe(10);
+    expect(e.metrics.cost_per_result.severity).toBe("critico");
+    expect(e.metrics.results.severity).toBe("critico");
+    expect(e.metrics.spend.severity).toBe("normal"); // sem regra de investimento por padrão
+    expect(e.metrics.roas.variation.kind).toBe("unavailable");
+    expect(e.worst).toBe("critico");
+  });
+  it("período parcial e histórico incompleto viram informativo", () => {
+    const cur = T({ spend_micros: 160_000_000, impressions: 20_000, clicks: 400, leads: 10 });
+    const p = evaluateComparison({ ...base, partial: true, previous: prev, current: cur }, DEFAULT_RULES);
+    expect(p.metrics.results).toMatchObject({ severity: "informativo", quality: "periodo_parcial" });
+    const h = evaluateComparison({ ...base, coverage: "parcial", previous: prev, current: cur }, DEFAULT_RULES);
+    expect(h.metrics.results).toMatchObject({ severity: "informativo", quality: "historico_incompleto" });
+    expect(h.worst).toBe("informativo");
+  });
+  it("conta soma leads + mensagens + conversões; alcance sem custo por resultado", () => {
+    const acc = evaluateComparison({ ...base, level: "account", previous: T({ leads: 5, messages: 5 }), current: T({ leads: 5, messages: 5, conversions: 2 }) }, DEFAULT_RULES);
+    expect(acc.resultKind).toBe("mixed");
+    expect(acc.metrics.results.current).toBe(12);
+    const aw = evaluateComparison({ ...base, objective: "OUTCOME_AWARENESS", previous: prev, current: prev }, DEFAULT_RULES);
+    expect(aw.metrics.cost_per_result.variation.kind).toBe("unavailable");
+  });
+  it("ordena gravidades", () => {
+    expect((["normal", "critico", "informativo", "atencao"] as const).slice().sort(compareSeverity)).toEqual(["critico", "atencao", "informativo", "normal"]);
+    expect(worseSeverity("atencao", "informativo")).toBe("atencao");
   });
 });

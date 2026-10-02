@@ -7,10 +7,18 @@
 -- NÃO mexe em clientes, usuários, métricas, campanhas nem anúncios.
 -- Só rodar com decisão explícita, no SQL Editor. Depois: reverter os commits da
 -- Etapa 37 no GitHub e publicar de novo a Edge Function "sync".
+-- 37.2: apaga as funções de comparação e série diária (só liam o histórico; nada a apagar de dados).
 -- (As fases seguintes acrescentam seus trechos aqui.)
 -- =============================================================================
 begin;
 
+-- 37.2
+drop function if exists public.monitor_daily(text, text, date, date);
+drop function if exists private.monitor_daily_impl(text, text, date, date);
+drop function if exists public.monitor_compare(text, date, date, date, date, uuid, text, uuid, uuid, integer);
+drop function if exists private.monitor_compare_impl(text, date, date, date, date, uuid, text, uuid, uuid, integer);
+
+-- 37.1
 drop function if exists public.monitor_rule_archive(uuid);
 drop function if exists private.monitor_rule_archive_impl(uuid);
 drop function if exists public.monitor_rule_save(uuid, text, uuid, text, text, numeric, numeric, integer, boolean, text);

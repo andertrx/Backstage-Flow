@@ -307,13 +307,15 @@ export const MONITOR_SEVERITY_LABELS: Record<MonitorSeverity, string> = {
 };
 
 /** Qualidade do dado que sustenta a classificação. */
-export type DataQuality = "confirmado" | "amostra_pequena" | "sem_base" | "dados_em_revisao";
+export type DataQuality = "confirmado" | "amostra_pequena" | "sem_base" | "dados_em_revisao" | "periodo_parcial" | "historico_incompleto";
 
 export const DATA_QUALITY_LABELS: Record<DataQuality, string> = {
   confirmado: "Confirmado pelos dados disponíveis",
   amostra_pequena: "Amostra pequena — sinal de atenção, não conclusivo",
   sem_base: "Sem base comparativa",
   dados_em_revisao: "Dados recentes: a plataforma ainda pode ajustar os números",
+  periodo_parcial: "Período parcial (hoje ainda em coleta): não é equivalente ao anterior",
+  historico_incompleto: "O histórico guardado não cobre os dois períodos inteiros",
 };
 
 export interface Classification {
@@ -326,14 +328,18 @@ export interface Classification {
 /**
  * Classifica uma variação pela regra:
  * - sem regra ativa → normal;
- * - sem base / sem dados → informativo "sem base";
+ * - sem valor atual → normal (a métrica não existe ou depende de outra que já alerta);
+ * - sem valor anterior → informativo "sem base";
  * - amostra pequena → no máximo informativo;
  * - piora ≥ crítico → crítico; ≥ atenção → atenção; senão normal.
  * "both" (investimento) nunca passa de informativo: mudança de gasto não é, sozinha, um problema.
  */
 export function classifyVariation(variation: MonitorVariation, rule: MonitorRule | null, volumeOk: boolean): Classification {
   if (!rule || !rule.active) return { severity: "normal", quality: "confirmado", worsening_pct: null };
-  if (variation.kind === "no_base" || variation.kind === "unavailable") return { severity: "informativo", quality: "sem_base", worsening_pct: null };
+  // Sem valor atual (métrica que não existe para o item, ou custo sem resultados): não alerta por si;
+  // a queda de resultados é que avisa. Sem valor anterior (item novo): só informativo.
+  if (variation.kind === "unavailable") return { severity: "normal", quality: "sem_base", worsening_pct: null };
+  if (variation.kind === "no_base") return { severity: "informativo", quality: "sem_base", worsening_pct: null };
   if (variation.kind === "new" || variation.kind === "no_change") return { severity: "normal", quality: volumeOk ? "confirmado" : "amostra_pequena", worsening_pct: null };
   const pct = variation.percent ?? 0;
   const worsening = rule.direction === "up" ? pct : rule.direction === "down" ? -pct : Math.abs(pct);
@@ -479,4 +485,77 @@ export function intervalNote(minutes: EvaluationInterval, syncEveryMinutes = 60)
   return minutes < syncEveryMinutes
     ? `As contas atualizam cerca de 1 vez a cada ${syncEveryMinutes} minutos. Avaliações mais frequentes só reavaliam contas que receberam dados novos.`
     : null;
+}
+
+// ---------------------------------------------------------------- avaliação de uma comparação
+
+export type CompareLevel = "account" | "campaign" | "ad_group" | "ad" | "creative";
+export type Coverage = "completa" | "parcial" | "sem_historico";
+
+/** Métricas mostradas e avaliadas nas comparações (frequência fica de fora: alcance não se soma entre dias). */
+export const COMPARED_METRICS = ["spend", "results", "cost_per_result", "ctr", "cpc", "cpm", "roas"] as const satisfies readonly MonitorMetric[];
+export type ComparedMetric = (typeof COMPARED_METRICS)[number];
+
+export interface CompareInput {
+  level: CompareLevel;
+  objective: string | null;
+  coverage: Coverage;
+  /** O período atual inclui hoje. */
+  partial: boolean;
+  current: MonitorTotals;
+  previous: MonitorTotals;
+  target: MonitorTarget;
+}
+
+export interface MetricEvaluation extends Classification {
+  metric: ComparedMetric;
+  current: number | null;
+  previous: number | null;
+  variation: MonitorVariation;
+  rule: MonitorRule | null;
+}
+
+export interface CompareEvaluation {
+  resultKind: ResultKind;
+  metrics: Record<ComparedMetric, MetricEvaluation>;
+  /** A pior gravidade entre as métricas. */
+  worst: MonitorSeverity;
+}
+
+const SEVERITY_RANK: Record<MonitorSeverity, number> = { critico: 3, atencao: 2, informativo: 1, normal: 0 };
+
+export function worseSeverity(a: MonitorSeverity, b: MonitorSeverity): MonitorSeverity {
+  return SEVERITY_RANK[a] >= SEVERITY_RANK[b] ? a : b;
+}
+
+/** Ordena do mais grave para o menos grave. */
+export function compareSeverity(a: MonitorSeverity, b: MonitorSeverity): number {
+  return SEVERITY_RANK[b] - SEVERITY_RANK[a];
+}
+
+/**
+ * Avalia todas as métricas de uma linha comparada, com as regras em vigor.
+ * Conta e cliente usam a soma de leads + mensagens + conversões; os demais níveis,
+ * o resultado do objetivo da campanha. Período parcial ou histórico incompleto
+ * nunca passam de informativo (não são comparações equivalentes).
+ */
+export function evaluateComparison(input: CompareInput, rules: MonitorRule[]): CompareEvaluation {
+  const resultKind = input.level === "account" ? "mixed" : resultKindForObjective(input.objective);
+  const cur = monitorValues(input.current, resultKind);
+  const prev = monitorValues(input.previous, resultKind);
+  let worst: MonitorSeverity = "normal";
+  const metrics = {} as Record<ComparedMetric, MetricEvaluation>;
+  for (const metric of COMPARED_METRICS) {
+    const variation = monitorVariation(cur[metric], prev[metric]);
+    const rule = resolveRule(rules, metric, input.target);
+    const volumeOk = hasMinimumVolume(metric, input.current, input.previous, resultKind, rule?.min_volume);
+    let c = classifyVariation(variation, rule, volumeOk);
+    if (c.severity === "critico" || c.severity === "atencao") {
+      if (input.partial) c = { ...c, severity: "informativo", quality: "periodo_parcial" };
+      else if (input.coverage !== "completa") c = { ...c, severity: "informativo", quality: "historico_incompleto" };
+    }
+    metrics[metric] = { metric, current: cur[metric], previous: prev[metric], variation, rule, ...c };
+    worst = worseSeverity(worst, c.severity);
+  }
+  return { resultKind, metrics, worst };
 }
