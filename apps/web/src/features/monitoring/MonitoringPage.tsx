@@ -9,13 +9,15 @@ import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatRelative } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
+import { AlertsOverview, AlertsTab, EngineSettings } from "./alerts.tsx";
 import { useMonitorRules } from "./api.ts";
 import { CompareTable, CreativesGrid, FiltersBar, LEVEL_LABELS, useMonitorFilters } from "./compare.tsx";
 import { RulesSettings } from "./RulesSettings.tsx";
 
-/** Abas entregues até agora (Alertas e Histórico entram nas fases 37.3 a 37.6, sem botões de mentira). */
+/** Abas entregues até agora (o histórico completo e a central de tratamento entram nas fases 37.4 a 37.6, sem botões de mentira). */
 const TABS = [
   { value: "visao-geral", label: "Visão geral" },
+  { value: "alertas", label: "Alertas" },
   { value: "comparativos", label: "Comparativos" },
   { value: "campanhas", label: "Campanhas" },
   { value: "criativos", label: "Criativos" },
@@ -63,9 +65,14 @@ export function MonitoringPage() {
       </div>
 
       {tab === "configuracoes" ? (
-        <RulesSettings />
+        <div className="space-y-8">
+          <EngineSettings />
+          <RulesSettings />
+        </div>
+      ) : tab === "alertas" ? (
+        <AlertsTab />
       ) : tab === "visao-geral" ? (
-        <Overview onOpenSettings={() => setTab("configuracoes")} />
+        <Overview onOpenSettings={() => setTab("configuracoes")} onOpenAlerts={() => setTab("alertas")} />
       ) : (
         <CompareTabs tab={tab} />
       )}
@@ -133,8 +140,8 @@ const STATE_LOOK: Record<CollectState, { label: string; icon: typeof Clock; tone
   nunca: { label: "Nunca sincronizada", icon: AlertTriangle, tone: "text-slate-600" },
 };
 
-/** Visão geral (37.1): a situação da coleta, que decide se os números podem ser comparados. */
-function Overview({ onOpenSettings }: { onOpenSettings: () => void }) {
+/** Visão geral: alertas abertos e avaliação automática (37.3) e a situação da coleta, que decide se os números podem ser comparados. */
+function Overview({ onOpenSettings, onOpenAlerts }: { onOpenSettings: () => void; onOpenAlerts: () => void }) {
   const { profile } = useAuth();
   const { data: accounts = [], isLoading, error } = useSyncOverview();
   const { data: rules = [] } = useMonitorRules();
@@ -151,6 +158,8 @@ function Overview({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <div className="space-y-6">
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
+
+      <AlertsOverview onOpenAlerts={onOpenAlerts} />
 
       <section aria-labelledby="coleta" className="space-y-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -216,7 +225,7 @@ function Overview({ onOpenSettings }: { onOpenSettings: () => void }) {
           </button>
         </Card>
         <p className="text-xs text-slate-500">
-          A central de alertas de desempenho, as notificações e o histórico de alertas entram nas próximas fases desta etapa.
+          Atribuir, comentar e registrar providências nos alertas, as notificações e a integração com o dashboard entram nas próximas fases desta etapa.
         </p>
       </section>
     </div>

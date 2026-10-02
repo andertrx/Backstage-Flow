@@ -67,6 +67,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 37 — Monitoramento de Desempenho](docs/etapa-37-monitoramento/37.0-AUDITORIA.md) *(em andamento)*
   - [37.1 — Base: permissões, limites e regras, situação da coleta, ID do criativo](docs/etapa-37-monitoramento/37.1-BASE.md) ✅ concluída
   - [37.2 — Comparativos, Campanhas e Criativos (miniaturas, tendência, dia a dia)](docs/etapa-37-monitoramento/37.2-COMPARATIVOS.md) ✅ concluída
+  - [37.3 — Motor de alertas de desempenho (avaliação automática, aba Alertas, reincidência)](docs/etapa-37-monitoramento/37.3-MOTOR-DE-ALERTAS.md) ✅ concluída
 
 ## Estrutura
 

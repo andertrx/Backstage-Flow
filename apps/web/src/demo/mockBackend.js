@@ -80,6 +80,11 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     trackingJourneys: {},
     /** Monitoramento (Etapa 37): regras de limite (como public.monitor_rules). null = cria os padrões na 1ª leitura. */
     monitorRules: null,
+    /** Motor de alertas (37.3): alertas, avaliações, configuração e os alertas que a próxima "Avaliar agora" vai encontrar. */
+    monitorAlerts: [],
+    monitorRuns: [],
+    monitorSettings: { enabled: true, eval_interval_minutes: 60, stale_hours: 3 },
+    monitorNextAlerts: [],
     /** Meta CAPI (34.3): destinos (o "token" fica só aqui no servidor simulado), resumo e registro. */
     trackingDestinations: [],
     trackingCapiLog: [],
@@ -655,6 +660,56 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           };
         }).sort((a, b) => ((b.cur_spend_micros ?? 0) + (b.prev_spend_micros ?? 0)) - ((a.cur_spend_micros ?? 0) + (a.prev_spend_micros ?? 0)));
         return res(200, out.slice(0, p.p_limit ?? 500));
+      }
+      if (fn === "monitor_status") {
+        if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
+        const s = db.monitorSettings;
+        const r = [...db.monitorRuns].sort((a, b) => b.started_at.localeCompare(a.started_at))[0] ?? null;
+        const open = db.monitorAlerts.filter((a) => !a.resolved_at && a.status !== "ignorado" && visible(a.client_id));
+        return res(200, {
+          enabled: s.enabled, eval_interval_minutes: s.eval_interval_minutes, stale_hours: s.stale_hours,
+          last_run: r && { started_at: r.started_at, finished_at: r.finished_at, trigger: r.trigger, evaluated: r.evaluated, skipped: r.skipped,
+            created: r.created, updated: r.updated, resolved: r.resolved, error: r.error ?? null },
+          last_evaluated_at: db.monitorRuns.filter((x) => x.evaluated > 0).map((x) => x.started_at).sort().at(-1) ?? null,
+          next_run_at: s.enabled ? new Date(Date.parse(r?.started_at ?? new Date().toISOString()) + s.eval_interval_minutes * 60_000).toISOString() : null,
+          open: Object.fromEntries(["critico", "atencao", "informativo"].map((k) => [k, open.filter((a) => a.severity === k).length])),
+        });
+      }
+      if (fn === "monitor_alerts_list") {
+        if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
+        const limit = p.p_limit ?? 300;
+        if (!(limit >= 1 && limit <= 1000)) return err("22023", "Quantidade inválida (1 a 1000).");
+        const rank = { critico: 0, atencao: 1, informativo: 2 };
+        return res(200, db.monitorAlerts
+          .filter((a) => visible(a.client_id) && (p.p_open === false || !a.resolved_at))
+          .sort((a, b) => Number(!!a.resolved_at) - Number(!!b.resolved_at) || rank[a.severity] - rank[b.severity] || b.last_detected_at.localeCompare(a.last_detected_at))
+          .slice(0, limit)
+          .map((a) => ({ ...a, client_name: db.clients.find((c) => c.id === a.client_id)?.name ?? "",
+            account_name: db.adAccounts.find((x) => x.id === a.ad_account_id)?.name ?? "",
+            campaign_name: db.campaigns.find((c) => c.id === a.campaign_id)?.name ?? null,
+            ad_name: db.ads.find((x) => x.id === a.ad_id)?.name ?? null, thumbnail_url: db.ads.find((x) => x.id === a.ad_id)?.thumbnail_url ?? null })));
+      }
+      if (fn === "monitor_evaluate_now") {
+        if (!can("rules")) return err("42501", "Sem permissão para avaliar agora");
+        const now = new Date();
+        if (db.monitorRuns.some((r) => Date.parse(r.started_at) > now.getTime() - 120_000)) {
+          return err("22023", "Uma avaliação acabou de rodar. Aguarde 2 minutos para avaliar de novo.");
+        }
+        // Simulação: os alertas preparados pelo teste "aparecem" nesta avaliação.
+        const created = db.monitorNextAlerts.splice(0);
+        db.monitorAlerts.push(...created);
+        const run = { started_at: now.toISOString(), finished_at: now.toISOString(), trigger: "manual", evaluated: db.adAccounts.filter((a) => !a.unlinked_at).length,
+          skipped: 0, created: created.length, updated: 0, resolved: 0, error: null };
+        db.monitorRuns.push(run);
+        return res(200, { run_id: db.monitorRuns.length, evaluated: run.evaluated, skipped: 0, created: run.created, updated: 0, resolved: 0, error: null });
+      }
+      if (fn === "monitor_settings_save") {
+        if (!can("admin")) return err("42501", "Só o administrador muda a frequência do monitoramento");
+        if (![15, 30, 60, 180, 360, 1440].includes(Number(p.p_interval))) return err("22023", "Frequência inválida.");
+        const h = Number(p.p_stale_hours ?? 3);
+        if (!(Number.isInteger(h) && h >= 1 && h <= 48)) return err("22023", "O atraso tolerado precisa ser de 1 a 48 horas.");
+        db.monitorSettings = { enabled: p.p_enabled !== false, eval_interval_minutes: Number(p.p_interval), stale_hours: h };
+        return res(204);
       }
       if (fn === "monitor_rules_list") {
         if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");

@@ -44,7 +44,8 @@ const clean = (s) => s.replace(/ /g, " ");
   const { browser, page, errors } = await launch();
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
-  await login(page, "/");
+  // Entra direto em Contas: o Dashboard sincroniza sozinho as contas atrasadas ao abrir (Etapa 24) e mudaria os status no meio do teste.
+  await login(page, "/contas");
   await page.getByRole("link", { name: "Contas" }).click();
   await page.getByRole("heading", { name: "Saúde das contas" }).waitFor();
   await page.getByTestId("health-row").first().waitFor();

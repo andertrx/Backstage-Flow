@@ -224,3 +224,137 @@ export function useMonitorDaily(level: CompareLevel, key: string | null, range: 
     },
   });
 }
+
+// ---------------------------------------------------------------- motor de alertas (37.3)
+
+export type AlertKind = "limite" | "anomalia" | "sem_resultados";
+export type AlertSeverity = "critico" | "atencao" | "informativo";
+
+/** Uma mudança registrada na campanha/anúncio durante o período (status ou orçamento). */
+export interface AlertContextChange {
+  field: string;
+  level: string;
+  old: unknown;
+  new: unknown;
+  at: string;
+}
+
+/** Um alerta de desempenho (public.monitor_alerts_list). Valores na moeda da conta. */
+export interface MonitorAlertRow {
+  id: number;
+  kind: AlertKind;
+  level: "campaign" | "ad";
+  metric: string;
+  severity: AlertSeverity;
+  status: string;
+  client_id: string;
+  client_name: string;
+  platform_id: string;
+  ad_account_id: string;
+  account_name: string;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  ad_id: string | null;
+  ad_name: string | null;
+  thumbnail_url: string | null;
+  currency: string;
+  current_value: number | null;
+  previous_value: number | null;
+  variation_pct: number | null;
+  period_from: string;
+  period_to: string;
+  prev_from: string | null;
+  prev_to: string | null;
+  attention_pct: number | null;
+  critical_pct: number | null;
+  explanation: string;
+  context: AlertContextChange[];
+  details: Record<string, unknown>;
+  detections: number;
+  first_detected_at: string;
+  last_detected_at: string;
+  recurrence_of: number | null;
+  recurrence_count: number;
+  resolved_at: string | null;
+  resolution: "automatica" | "manual" | null;
+}
+
+export function useMonitorAlerts(open: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "alerts", open],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("monitor_alerts_list", { p_open: open, p_limit: 500 });
+      if (error) throw new FriendlyError(monitorError(error, "Não conseguimos carregar os alertas de desempenho."));
+      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+        ...(r as unknown as MonitorAlertRow),
+        id: Number(r.id),
+        current_value: num(r.current_value),
+        previous_value: num(r.previous_value),
+        variation_pct: num(r.variation_pct),
+        attention_pct: num(r.attention_pct),
+        critical_pct: num(r.critical_pct),
+        detections: Number(r.detections ?? 1),
+        recurrence_count: Number(r.recurrence_count ?? 0),
+        context: Array.isArray(r.context) ? (r.context as AlertContextChange[]) : [],
+        details: (r.details ?? {}) as Record<string, unknown>,
+      })) as MonitorAlertRow[];
+    },
+  });
+}
+
+/** Situação do motor (public.monitor_status). */
+export interface MonitorStatus {
+  enabled: boolean;
+  eval_interval_minutes: number;
+  stale_hours: number;
+  last_run: {
+    started_at: string;
+    finished_at: string | null;
+    trigger: "agendada" | "manual";
+    evaluated: number;
+    skipped: number;
+    created: number;
+    updated: number;
+    resolved: number;
+    error: string | null;
+  } | null;
+  last_evaluated_at: string | null;
+  next_run_at: string | null;
+  open: { critico: number; atencao: number; informativo: number };
+}
+
+export function useMonitorStatus() {
+  return useQuery({
+    queryKey: [...KEY, "status"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("monitor_status");
+      if (error) throw new FriendlyError(monitorError(error, "Não conseguimos carregar a situação do monitoramento."));
+      return data as MonitorStatus;
+    },
+  });
+}
+
+export function useEvaluateNow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("monitor_evaluate_now");
+      if (error) throw new FriendlyError(monitorError(error, "Não conseguimos avaliar agora."));
+      const r = (data ?? {}) as { error?: string | null; evaluated?: number; created?: number; updated?: number; resolved?: number };
+      if (r.error) throw new FriendlyError("A avaliação parou por um erro e foi registrada. Nenhum alerta foi alterado.");
+      return r;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useSaveMonitorSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (s: { enabled: boolean; interval: number; staleHours: number }) => {
+      const { error } = await supabase.rpc("monitor_settings_save", { p_enabled: s.enabled, p_interval: s.interval, p_stale_hours: s.staleHours });
+      if (error) throw new FriendlyError(monitorError(error, "Não conseguimos salvar a configuração."));
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}

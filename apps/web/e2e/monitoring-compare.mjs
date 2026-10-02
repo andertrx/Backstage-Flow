@@ -78,7 +78,7 @@ async function waitRows(page, n) {
   await login(page, "/monitoramento");
   await page.getByRole("heading", { name: "Monitoramento de Desempenho", level: 1 }).waitFor();
   const tabs = await page.getByRole("tab").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Visão geral", "Comparativos", "Campanhas", "Criativos", "Configurações"]), `abas novas (${tabs})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Visão geral", "Alertas", "Comparativos", "Campanhas", "Criativos", "Configurações"]), `abas novas (${tabs})`);
 
   // Campanhas: últimos 7 dias × 7 anteriores
   await page.getByRole("tab", { name: "Campanhas" }).click();
