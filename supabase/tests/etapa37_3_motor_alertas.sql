@@ -35,9 +35,11 @@ insert into public.sync_state (ad_account_id, status, history_from, history_to, 
   ('00000000-0000-0000-0000-00000373ac03', 'sucesso', '2026-01-01', '2026-09-30', now() - interval '5 hours'),
   ('00000000-0000-0000-0000-00000373ac04', 'sucesso', '2026-01-01', '2026-09-30', now());
 
--- C1 leads (piora), C2 pausada, C3 nova (começou 20/09), C4 anomalia, C5 resolvida à mão, C6 conta com erro, C7 cliente B.
-insert into public.campaigns (id, ad_account_id, client_id, platform_id, external_id, name, objective, start_date)
-select ('00000000-0000-0000-0000-00000373ca0' || n)::uuid, acc::uuid, cli::uuid, 'meta', 'c' || n, 'C' || n || ' T373', 'OUTCOME_LEADS', sd::date
+-- C1 leads (piora), C2 sem gasto na semana, C3 nova (começou 20/09), C4 anomalia, C5 resolvida à mão, C6 conta com erro, C7 cliente B,
+-- C8 PAUSADA na plataforma (números ruins, mas desativada: descartada).
+insert into public.campaigns (id, ad_account_id, client_id, platform_id, external_id, name, objective, start_date, status)
+select ('00000000-0000-0000-0000-00000373ca0' || n)::uuid, acc::uuid, cli::uuid, 'meta', 'c' || n, 'C' || n || ' T373', 'OUTCOME_LEADS', sd::date,
+       (case when n = 8 then 'pausada' else 'ativa' end)::public.entity_status
 from (values
   (1, '00000000-0000-0000-0000-00000373ac01', '00000000-0000-0000-0000-00000373cc01', '2026-06-01'),
   (2, '00000000-0000-0000-0000-00000373ac01', '00000000-0000-0000-0000-00000373cc01', '2026-06-01'),
@@ -45,12 +47,13 @@ from (values
   (4, '00000000-0000-0000-0000-00000373ac01', '00000000-0000-0000-0000-00000373cc01', '2026-06-01'),
   (5, '00000000-0000-0000-0000-00000373ac01', '00000000-0000-0000-0000-00000373cc01', '2026-06-01'),
   (6, '00000000-0000-0000-0000-00000373ac02', '00000000-0000-0000-0000-00000373cc01', '2026-06-01'),
-  (7, '00000000-0000-0000-0000-00000373ac04', '00000000-0000-0000-0000-00000373cc02', '2026-06-01')
+  (7, '00000000-0000-0000-0000-00000373ac04', '00000000-0000-0000-0000-00000373cc02', '2026-06-01'),
+  (8, '00000000-0000-0000-0000-00000373ac01', '00000000-0000-0000-0000-00000373cc01', '2026-06-01')
 ) as v(n, acc, cli, sd);
-insert into public.ad_groups (id, campaign_id, ad_account_id, client_id, platform_id, external_id, name) values
-  ('00000000-0000-0000-0000-00000373ab01', '00000000-0000-0000-0000-00000373ca01', '00000000-0000-0000-0000-00000373ac01', '00000000-0000-0000-0000-00000373cc01', 'meta', 'g1', 'Conjunto T373');
-insert into public.ads (id, ad_group_id, campaign_id, ad_account_id, client_id, platform_id, external_id, name) values
-  ('00000000-0000-0000-0000-00000373ad09', '00000000-0000-0000-0000-00000373ab01', '00000000-0000-0000-0000-00000373ca01', '00000000-0000-0000-0000-00000373ac01', '00000000-0000-0000-0000-00000373cc01', 'meta', 'd9', 'Anúncio sem leads T373');
+insert into public.ad_groups (id, campaign_id, ad_account_id, client_id, platform_id, external_id, name, status) values
+  ('00000000-0000-0000-0000-00000373ab01', '00000000-0000-0000-0000-00000373ca01', '00000000-0000-0000-0000-00000373ac01', '00000000-0000-0000-0000-00000373cc01', 'meta', 'g1', 'Conjunto T373', 'ativa');
+insert into public.ads (id, ad_group_id, campaign_id, ad_account_id, client_id, platform_id, external_id, name, status) values
+  ('00000000-0000-0000-0000-00000373ad09', '00000000-0000-0000-0000-00000373ab01', '00000000-0000-0000-0000-00000373ca01', '00000000-0000-0000-0000-00000373ac01', '00000000-0000-0000-0000-00000373cc01', 'meta', 'd9', 'Anúncio sem leads T373', 'ativa');
 
 -- Linhas diárias (R$ 10/dia, 1.000 impressões, 50 cliques). Anterior: 5 leads/dia (R$ 2,00 por lead). Atual: 2 leads/dia (R$ 5,00).
 create or replace function pg_temp.day_rows(p_camp text, p_acc text, p_cli text, p_ext text, p_from date, p_to date,
@@ -63,10 +66,10 @@ returns void language sql as $$
 $$;
 select pg_temp.day_rows('00000000-0000-0000-0000-00000373ca0' || n, '00000000-0000-0000-0000-00000373ac0' || a, '00000000-0000-0000-0000-00000373cc0' || c,
                         'c' || n, '2026-09-14', '2026-09-20', 10000000, 1000, 50, 5)
-  from (values (1, 1, 1), (2, 1, 1), (3, 1, 1), (5, 1, 1), (6, 2, 1), (7, 4, 2)) v(n, a, c);
+  from (values (1, 1, 1), (2, 1, 1), (3, 1, 1), (5, 1, 1), (6, 2, 1), (7, 4, 2), (8, 1, 1)) v(n, a, c);
 select pg_temp.day_rows('00000000-0000-0000-0000-00000373ca0' || n, '00000000-0000-0000-0000-00000373ac0' || a, '00000000-0000-0000-0000-00000373cc0' || c,
                         'c' || n, '2026-09-21', '2026-09-27', 10000000, 1000, 50, case when n = 3 then 1 else 2 end)
-  from (values (1, 1, 1), (3, 1, 1), (5, 1, 1), (6, 2, 1), (7, 4, 2)) v(n, a, c);
+  from (values (1, 1, 1), (3, 1, 1), (5, 1, 1), (6, 2, 1), (7, 4, 2), (8, 1, 1)) v(n, a, c);
 -- Conta C: só para ter dados recentes.
 select pg_temp.day_rows(null, '00000000-0000-0000-0000-00000373ac03', '00000000-0000-0000-0000-00000373cc01',
                         'cc', '2026-09-14', '2026-09-27', 1000000, 100, 5, 1);
@@ -190,6 +193,20 @@ reset role;
 set local role anon;
 insert into r373 values ('visitante lista', pg_temp.try($q$select * from public.monitor_alerts_list()$q$));
 reset role;
+insert into r373 select 'C8 pausada descartada', count(*)::text from public.monitor_alerts where campaign_id = '00000000-0000-0000-0000-00000373ca08';
+
+-- 9. Desativou na plataforma: a campanha C7 e o conjunto do anúncio D9 foram pausados → alertas encerrados (histórico mantido).
+update public.campaigns set status = 'pausada' where id = '00000000-0000-0000-0000-00000373ca07';
+update public.ad_groups set status = 'pausada' where id = '00000000-0000-0000-0000-00000373ab01';
+insert into r373 select 'avaliação 7', coalesce(private.monitor_evaluate('manual', null, '2026-09-28') ->> 'error', 'sem erro');
+insert into r373 select 'C7 desativada', string_agg(a.status || ':' || coalesce(a.details ->> 'closed_reason', '-') || ':'
+         || (select e.to_value from public.monitor_alert_events e where e.alert_id = a.id order by e.id desc limit 1), ',' order by a.metric)
+  from public.monitor_alerts a where a.campaign_id = '00000000-0000-0000-0000-00000373ca07';
+insert into r373 select 'D9 conjunto desativado', a.status || ':' || coalesce(a.details ->> 'closed_reason', '-')
+  from public.monitor_alerts a where a.dedupe_key = 'sem_resultados:ad:00000000-0000-0000-0000-00000373ad09:results';
+insert into r373 select 'C1 ativa continua', count(*)::text from public.monitor_alerts
+ where campaign_id = '00000000-0000-0000-0000-00000373ca01' and level = 'campaign' and resolved_at is null;
+
 insert into r373 select 'agendada desligada', private.monitor_evaluate('agendada') ->> 'skipped';
 insert into r373 values ('tipo inválido', pg_temp.try($q$select private.monitor_evaluate('outra')$q$));
 
@@ -237,6 +254,11 @@ declare
     'admin vê', '6/2',
     'tabela direta (escrever)', '42501',
     'visitante lista', '42501',
+    'C8 pausada descartada', '0',
+    'avaliação 7', 'sem erro',
+    'C7 desativada', 'resolvido:inativo:inativo,resolvido:inativo:inativo',
+    'D9 conjunto desativado', 'resolvido:inativo',
+    'C1 ativa continua', '3',
     'agendada desligada', 'desligado',
     'tipo inválido', '22023');
   r record;

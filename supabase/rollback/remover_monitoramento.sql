@@ -33,6 +33,7 @@ drop function if exists private.monitor_cand_no_results();
 drop function if exists private.monitor_cand_anomalies();
 drop function if exists private.monitor_cand_limits();
 drop function if exists private.monitor_prepare_accounts(text, date, integer);
+drop function if exists private.monitor_entity_active(text, uuid, uuid);
 drop function if exists private.monitor_probe_tmp();
 drop function if exists private.monitor_metric_label(text);
 drop function if exists private.monitor_fmt(text, numeric, text);

@@ -51,6 +51,8 @@ function seed(db) {
       context: [{ field: "status", level: "campaign", old: "ativa", new: "pausada", at: ago(60 * 30) }] }),
     alert(4, { kind: "anomalia", metric: "results", severity: "atencao", resolved_at: ago(200), resolution: "automatica", status: "resolvido", period_from: day(-1), period_to: day(-1),
       explanation: "Fora do padrão: em ontem resultados = 1, contra média de 10 nos 28 dias anteriores (8,8 desvios-padrão abaixo)." }),
+    alert(6, { client_id: LOJA, ad_account_id: US, campaign_id: C3, currency: "USD", metric: "ctr", severity: "atencao", current_value: 0.8, previous_value: 1, variation_pct: -20, resolved_at: ago(100), resolution: "automatica",
+      status: "resolvido", details: { closed_reason: "inativo" }, explanation: "CTR: queda de 20,0% (de 1,00% para 0,80%) nos últimos 7 dias em relação aos 7 dias anteriores. Limite de atenção: 15%." }),
   );
   // O que a próxima "Avaliar agora" vai encontrar
   db.monitorNextAlerts.push(alert(5, { metric: "ctr", severity: "atencao", current_value: 0.8, previous_value: 1, variation_pct: -20,
@@ -114,13 +116,16 @@ const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   check(await cards.count() === 1, "filtro por tipo");
   await page.getByLabel("Tipo").selectOption("anomalia");
   check(await page.getByTestId("sem-alertas").count() === 1, "sem resultado: mensagem clara");
+  await page.getByLabel("Tipo").selectOption("");
   // Histórico (resolvidos)
   await page.getByRole("button", { name: "Resolvidos (histórico)" }).click();
   await page.getByTestId("alerta").first().waitFor();
-  const res = clean(await cards.first().innerText());
-  check(await cards.count() === 1 && res.includes("Fora do padrão") && res.includes("Normalizou sozinho"), `resolvido aparece no histórico (${res})`);
+  check(await cards.count() === 2, `2 resolvidos no histórico (${await cards.count()})`);
+  const res = clean(await page.locator("[data-testid=alerta][data-kind=anomalia]").innerText());
+  check(res.includes("Fora do padrão") && res.includes("Normalizou sozinho"), `resolvido aparece no histórico (${res})`);
+  const off = clean(await page.locator("[data-testid=alerta]", { hasText: "Loja US Vendas" }).innerText());
+  check(off.includes("Encerrado: item desativado"), `item desativado: encerrado com o motivo (${off})`);
   check(db.rpcCalls.some((c) => c.fn === "monitor_alerts_list" && c.p_open === false), "histórico consulta os resolvidos");
-  await page.getByLabel("Tipo").selectOption("");
   await page.getByRole("button", { name: "Abertos" }).click();
 
   // Configurações: frequência e avaliar agora

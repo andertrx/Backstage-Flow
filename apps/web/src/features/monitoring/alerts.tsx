@@ -151,7 +151,8 @@ function AlertCard({ a, now }: { a: MonitorAlertRow; now: Date }) {
           )}
           {a.resolved_at && (
             <span className="text-xs text-slate-500">
-              {a.resolution === "manual" ? "Resolvido à mão" : "Normalizou sozinho"} {formatRelative(a.resolved_at, now)}
+              {a.resolution === "manual" ? "Resolvido à mão" : a.details.closed_reason === "inativo" ? "Encerrado: item desativado" : "Normalizou sozinho"}{" "}
+              {formatRelative(a.resolved_at, now)}
             </span>
           )}
         </div>
@@ -212,7 +213,7 @@ export function AlertsTab() {
     <div className="space-y-4">
       <Alert tone="info">
         Os alertas são gerados sozinhos, comparando os <strong>últimos 7 dias completos</strong> com os 7 anteriores (e o dia de ontem com os 28 dias antes dele).
-        Cada alerta explica a conta feita. Itens pausados ou sem gasto no período não geram alerta. Nada é pausado nem alterado nas plataformas.
+        Cada alerta explica a conta feita. <strong>Só campanhas, conjuntos e anúncios ativos</strong> geram alerta: quando um item é desativado, o alerta dele é encerrado (fica no histórico). Nada é pausado nem alterado nas plataformas.
       </Alert>
       <Card className="flex flex-wrap items-end gap-3 p-3">
         <div className="inline-flex rounded-lg bg-slate-100 p-1" role="group" aria-label="Quais alertas">
