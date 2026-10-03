@@ -12,9 +12,39 @@
 -- (monitor_alerts e o histórico deles, monitor_alert_events, monitor_runs, monitor_settings,
 -- monitor_account_state). Depois, para o alerta antigo "Queda de resultados" voltar a
 -- funcionar, rode também supabase/rollback/reativar_queda_resultados.sql.
+-- 37.4: apaga as funções de tratar alertas. As tarefas criadas a partir de alertas ficam na Central de Operações.
 -- (As fases seguintes acrescentam seus trechos aqui.)
 -- =============================================================================
 begin;
+
+-- 37.4
+drop function if exists public.monitor_alert_detail(bigint);
+drop function if exists private.monitor_alert_detail_impl(bigint);
+drop function if exists public.monitor_alerts_query(boolean, integer);
+drop function if exists private.monitor_alerts_query_impl(boolean, integer);
+drop function if exists private.monitor_alerts_json(boolean, integer, bigint);
+drop function if exists public.monitor_alert_assignees(bigint);
+drop function if exists private.monitor_alert_assignees_impl(bigint);
+drop function if exists public.monitor_alert_to_task(bigint, uuid, date, integer);
+drop function if exists private.monitor_alert_to_task_impl(bigint, uuid, date, integer);
+drop function if exists public.monitor_alert_resolve(bigint, text, integer);
+drop function if exists private.monitor_alert_resolve_impl(bigint, text, integer);
+drop function if exists public.monitor_alert_action(bigint, text);
+drop function if exists private.monitor_alert_action_impl(bigint, text);
+drop function if exists public.monitor_alert_comment(bigint, text);
+drop function if exists private.monitor_alert_comment_impl(bigint, text);
+drop function if exists public.monitor_alert_assign(bigint, uuid, integer);
+drop function if exists private.monitor_alert_assign_impl(bigint, uuid, integer);
+drop function if exists public.monitor_alert_seen(bigint);
+drop function if exists private.monitor_alert_seen_impl(bigint);
+drop function if exists public.monitor_alert_set_status(bigint, text, integer);
+drop function if exists private.monitor_alert_set_status_impl(bigint, text, integer);
+drop function if exists private.monitor_followups(date);
+drop function if exists private.monitor_period_value(text, uuid, uuid, text, date, date);
+drop function if exists private.monitor_status_label(text);
+drop function if exists private.monitor_user_name(uuid);
+drop function if exists private.monitor_alert_lock(bigint, integer, boolean);
+drop function if exists private.monitor_user_can_handle(uuid, uuid);
 
 -- 37.3
 select cron.unschedule(jobid) from cron.job where jobname = 'monitor-evaluate';
