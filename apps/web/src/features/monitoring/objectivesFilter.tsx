@@ -27,6 +27,7 @@ export function useMonitorObjectives() {
 export function useSaveMonitorObjectives() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: KEY,
     mutationFn: async (objectives: ObjectiveGroup[]) => {
       const { error } = await supabase.rpc("monitor_view_prefs_save", { p_objectives: objectives });
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos salvar o filtro de objetivo."));
@@ -39,16 +40,23 @@ export function useSaveMonitorObjectives() {
       return { before };
     },
     onError: (_e, _v, ctx) => qc.setQueryData(KEY, ctx?.before ?? []),
-    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+    // Cliques seguidos: só relê do banco depois do último (uma releitura atrasada não desfaz o clique seguinte).
+    onSettled: () => {
+      if (qc.isMutating({ mutationKey: KEY }) <= 1) void qc.invalidateQueries({ queryKey: KEY });
+    },
   });
 }
 
 /** Barra de objetivos no topo do Monitoramento: nenhum marcado = todos. */
 export function ObjectiveFilter() {
+  const qc = useQueryClient();
   const { objectives } = useMonitorObjectives();
   const save = useSaveMonitorObjectives();
-  const toggle = (g: ObjectiveGroup) =>
-    save.mutate(objectives.includes(g) ? objectives.filter((o) => o !== g) : OBJECTIVE_GROUPS.filter((o) => o === g || objectives.includes(o)));
+  // Parte sempre do valor mais recente (inclusive de um clique que ainda está salvando).
+  const toggle = (g: ObjectiveGroup) => {
+    const current = qc.getQueryData<ObjectiveGroup[]>(KEY) ?? objectives;
+    save.mutate(current.includes(g) ? current.filter((o) => o !== g) : OBJECTIVE_GROUPS.filter((o) => o === g || current.includes(o)));
+  };
   const chip = (active: boolean) =>
     cn("rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset transition",
       active ? "bg-blue-600 text-white ring-blue-600" : "bg-white text-slate-600 ring-slate-200 hover:text-blue-700 hover:ring-blue-400");

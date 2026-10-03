@@ -60,7 +60,6 @@ let saved;
   check(await pressed(page, "Vendas") && await pressed(page, "Leads (cadastros)") && !(await pressed(page, "Todos")), "dois objetivos marcados ao mesmo tempo");
   check((await text(page.getByTestId("abertos-critico"))).includes("1") && (await text(page.getByTestId("abertos-atencao"))).includes("1"), "Visão geral filtrada: 1 crítico e 1 de atenção");
   check(await page.getByTestId("alerta-urgente").count() === 2, "Mais urgentes: só Vendas e Leads");
-  await page.screenshot({ path: `${SHOTS}/objetivo-visao-geral.png` });
 
   // Alertas
   await page.getByRole("tab", { name: "Alertas" }).click();
@@ -70,7 +69,13 @@ let saved;
 
   // Campanhas
   await page.getByRole("tab", { name: "Campanhas" }).click();
-  await page.getByText("Vendas Loja").first().waitFor();
+  // Espera a tabela de campanhas com pausas curtas (a aba anterior também mostrava "Vendas Loja" por alguns milissegundos;
+  // e a espera contínua do Playwright, conferindo a cada quadro, segurava o redesenho da troca de aba no navegador de teste).
+  for (let i = 0; i < 75; i++) {
+    await page.waitForTimeout(200);
+    const t = await page.locator("main").textContent();
+    if (t.includes("Cadastro EndForm") && t.includes("Vendas Loja") && !t.includes("Carregando")) break;
+  }
   const camp = await text(page.locator("main"));
   check(camp.includes("Cadastro EndForm") && !camp.includes("Tráfego Blog") && !camp.includes("WhatsApp Conversas"), "Campanhas: só Vendas e Leads");
   check(db.rpcCalls.some((c) => c.fn === "monitor_compare" && JSON.stringify([...(c.p_objectives ?? [])].sort()) === JSON.stringify(["leads", "vendas"])), "comparação pede os objetivos ao banco");
@@ -83,6 +88,7 @@ let saved;
   // Engajamento sozinho
   await page.getByTestId("filtro-objetivo").getByRole("button", { name: "Vendas", exact: true }).click();
   await page.getByTestId("filtro-objetivo").getByRole("button", { name: "Leads (cadastros)", exact: true }).click();
+  await page.waitForFunction(() => document.querySelector("[data-testid=filtro-objetivo] button")?.getAttribute("aria-pressed") === "true", null, { timeout: 5000 }).catch(() => {});
   check(await pressed(page, "Todos"), "desmarcar tudo volta para Todos");
   await page.getByTestId("filtro-objetivo").getByRole("button", { name: "Engajamento (conversas)", exact: true }).click();
   await page.getByRole("tab", { name: "Alertas" }).click();
@@ -106,6 +112,8 @@ let saved;
   await page.getByTestId("filtro-objetivo").getByRole("button", { name: "Leads (cadastros)", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll("[data-testid=filtro-objetivo] [aria-pressed=true]").length === 2, null, { timeout: 5000 }).catch(() => {});
   saved = db.monitorViewPrefs;
+  await page.getByTestId("alerta-urgente").first().waitFor();
+  await page.screenshot({ path: `${SHOTS}/objetivo-visao-geral.png` });
   check(JSON.stringify(saved?.[USER_ID]) === JSON.stringify(["leads", "vendas"]), "filtro salvo de novo (Vendas + Leads)");
   check(errors.length === 0, `sem erros ${errors.join(" | ")}`);
   await browser.close();
