@@ -604,6 +604,21 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       const can = (what) => ({ view: ["admin", "gestor", "operador", "visualizador"], handle: ["admin", "gestor", "operador"], rules: ["admin", "gestor"], admin: ["admin"] })[what].includes(role);
       const visible = (clientId) => role === "admin" || db.access.some((a) => a.user_id === userId && a.client_id === clientId);
       const err = (code, message) => res(code === "42501" ? 403 : 400, { code, message });
+      // Filtro de objetivo (mesma regra de private.monitor_objective_group).
+      const OBJ = { OUTCOME_SALES: "vendas", CONVERSIONS: "vendas", PRODUCT_CATALOG_SALES: "vendas", OUTCOME_LEADS: "leads", LEAD_GENERATION: "leads",
+        OUTCOME_ENGAGEMENT: "engajamento", MESSAGES: "engajamento", POST_ENGAGEMENT: "engajamento", PAGE_LIKES: "engajamento", EVENT_RESPONSES: "engajamento",
+        VIDEO_VIEWS: "engajamento", OUTCOME_TRAFFIC: "trafego", LINK_CLICKS: "trafego", OUTCOME_AWARENESS: "reconhecimento", BRAND_AWARENESS: "reconhecimento",
+        REACH: "reconhecimento", OUTCOME_APP_PROMOTION: "app", APP_INSTALLS: "app" };
+      const objGroup = (o) => OBJ[String(o ?? "").trim().toUpperCase()] ?? "outros";
+      const objFilter = Array.isArray(p.p_objectives) && p.p_objectives.length > 0 ? p.p_objectives : null;
+      const campaignOk = (campaignId) => !objFilter || (campaignId != null && objFilter.includes(objGroup(db.campaigns.find((c) => c.id === campaignId)?.objective)));
+      if (fn === "monitor_view_prefs_get") return res(200, { objectives: db.monitorViewPrefs?.[userId] ?? [] });
+      if (fn === "monitor_view_prefs_save") {
+        const v = [...new Set(p.p_objectives ?? [])].sort();
+        if (v.some((o) => !["vendas", "leads", "engajamento", "trafego", "reconhecimento", "app", "outros"].includes(o))) return err("22023", "Objetivo inválido.");
+        db.monitorViewPrefs = { ...(db.monitorViewPrefs ?? {}), [userId]: v };
+        return res(204);
+      }
       if (!db.monitorRules) {
         db.monitorRules = [["cost_per_result", "up", 20, 40], ["cpc", "up", 20, 40], ["cpm", "up", 20, 40], ["ctr", "down", 15, 30], ["results", "down", 20, 40], ["roas", "down", 20, 40]]
           .map(([metric, direction, a, c], i) => ({ id: `rule-g${i}`, scope: "global", scope_id: null, client_id: null, metric, direction, attention_pct: a, critical_pct: c,
@@ -613,7 +628,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       if (fn === "monitor_summary" || fn === "monitor_history") {
         if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
         if (p.p_platform && !["meta", "google"].includes(p.p_platform)) return err("22023", "Plataforma inválida.");
-        const base = db.monitorAlerts.filter((a) => visible(a.client_id) && (!p.p_client || a.client_id === p.p_client) && (!p.p_platform || a.platform_id === p.p_platform));
+        const base = db.monitorAlerts.filter((a) => visible(a.client_id) && (!p.p_client || a.client_id === p.p_client) && (!p.p_platform || a.platform_id === p.p_platform)
+          && campaignOk(a.campaign_id));
         const sev = (list) => ({ critico: list.filter((a) => a.severity === "critico").length, atencao: list.filter((a) => a.severity === "atencao").length,
           informativo: list.filter((a) => a.severity === "informativo").length });
         const clientName = (id) => db.clients.find((c) => c.id === id)?.name ?? null;
@@ -719,7 +735,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
         const lvl = p.p_level;
         if (!["account", "campaign", "ad_group", "ad", "creative"].includes(lvl)) return err("22023", "Nível inválido.");
-        const mLevel = lvl === "creative" ? "ad" : lvl;
+        const mLevel = lvl === "creative" ? "ad" : lvl === "account" && objFilter ? "campaign" : lvl;
         const adOf = (id) => db.ads.find((a) => a.id === id);
         const keyOf = (m) => lvl === "account" ? m.ad_account_id : lvl === "campaign" ? m.campaign_id : lvl === "ad_group" ? m.ad_group_id : lvl === "ad" ? m.ad_id
           : `${m.ad_account_id}:${adOf(m.ad_id)?.creative_external_id ?? `ad-${m.ad_id}`}`;
@@ -736,7 +752,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         const inCur = (m) => m.date >= p.p_from && m.date <= p.p_to;
         const inPrev = (m) => m.date >= p.p_prev_from && m.date <= p.p_prev_to;
         const rows = base.filter((m) => (inCur(m) || inPrev(m)) && (!p.p_client_id || m.client_id === p.p_client_id) &&
-          (!p.p_platform || m.platform_id === p.p_platform) && (!p.p_campaign_id || m.campaign_id === p.p_campaign_id));
+          (!p.p_platform || m.platform_id === p.p_platform) && (!p.p_campaign_id || m.campaign_id === p.p_campaign_id) && campaignOk(m.campaign_id));
         const groups = new Map();
         for (const m of rows) { const k = String(keyOf(m)); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(m); }
         const out = [...groups.entries()].map(([k, list]) => {
@@ -803,7 +819,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         const task = a.task_id ? db.opsTasks?.find((t) => t.id === a.task_id) : null;
         return { status: "novo", version: 1, assigned_to: null, task_id: null, ...a,
           client_name: db.clients.find((c) => c.id === a.client_id)?.name ?? "", account_name: db.adAccounts.find((x) => x.id === a.ad_account_id)?.name ?? "",
-          campaign_name: db.campaigns.find((c) => c.id === a.campaign_id)?.name ?? null, ad_name: db.ads.find((x) => x.id === a.ad_id)?.name ?? null,
+          campaign_name: db.campaigns.find((c) => c.id === a.campaign_id)?.name ?? null,
+          campaign_objective: db.campaigns.find((c) => c.id === a.campaign_id)?.objective ?? null, ad_name: db.ads.find((x) => x.id === a.ad_id)?.name ?? null,
           thumbnail_url: db.ads.find((x) => x.id === a.ad_id)?.thumbnail_url ?? null, assignee_name: nameOf(a.assigned_to),
           task_number: task?.number ?? null, task_title: task?.title ?? null };
       };

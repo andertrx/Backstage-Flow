@@ -17,9 +17,23 @@
 -- 3 tabelas de notificações (preferências, avisos e histórico de envios). Depois, apagar a Edge
 -- Function "monitor-email" no painel do Supabase.
 -- 37.6: apaga as funções de resumo e histórico (só leitura; nada a apagar de dados).
+-- Filtro de objetivo (03/10): apaga o filtro salvo de cada pessoa (monitor_view_prefs) e as funções do filtro.
 -- (As fases seguintes acrescentam seus trechos aqui.)
 -- =============================================================================
 begin;
+
+-- Filtro de objetivo
+drop function if exists public.monitor_view_prefs_get();
+drop function if exists private.monitor_view_prefs_get_impl();
+drop function if exists public.monitor_view_prefs_save(text[]);
+drop function if exists private.monitor_view_prefs_save_impl(text[]);
+drop function if exists public.monitor_compare(text, date, date, date, date, uuid, text, uuid, uuid, integer, text[]);
+drop function if exists private.monitor_compare_impl(text, date, date, date, date, uuid, text, uuid, uuid, integer, text[]);
+drop function if exists public.monitor_summary(uuid, text, text[]);
+drop function if exists private.monitor_summary_impl(uuid, text, text[]);
+drop function if exists public.monitor_history(integer, uuid, text, text[]);
+drop function if exists private.monitor_history_impl(integer, uuid, text, text[]);
+drop table if exists public.monitor_view_prefs;
 
 -- 37.6
 drop function if exists public.monitor_summary(uuid, text);
@@ -137,6 +151,8 @@ drop function if exists private.monitor_rules_list_impl(boolean);
 drop function if exists private.monitor_scope_name(text, uuid);
 drop function if exists private.monitor_scope_client(text, uuid);
 drop table if exists public.monitor_rules;
+drop function if exists private.monitor_objective_ok(uuid, text[]);
+drop function if exists private.monitor_objective_group(text);
 drop function if exists private.monitor_can(text);
 
 drop index if exists public.ads_creative_idx;

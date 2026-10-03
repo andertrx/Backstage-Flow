@@ -52,23 +52,26 @@ export interface MonitorHistory {
 
 const KEY = ["monitoring", "overview"] as const;
 
-export function useMonitorSummary(clientId: string | null = null, platform: MonitorPlatform | null = null, enabled = true) {
+/** `objectives` = filtro de objetivo do Monitoramento; sem ele (faixa do dashboard, ficha do cliente), mostra tudo. */
+export function useMonitorSummary(clientId: string | null = null, platform: MonitorPlatform | null = null, enabled = true, objectives?: readonly string[]) {
   return useQuery({
-    queryKey: [...KEY, "summary", clientId, platform],
+    queryKey: [...KEY, "summary", clientId, platform, objectives ?? null],
     enabled,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("monitor_summary", { p_client: clientId, p_platform: platform });
+      const { data, error } = objectives
+        ? await supabase.rpc("monitor_summary", { p_client: clientId, p_platform: platform, p_objectives: [...objectives] })
+        : await supabase.rpc("monitor_summary", { p_client: clientId, p_platform: platform });
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o resumo do monitoramento."));
       return data as MonitorSummary;
     },
   });
 }
 
-export function useMonitorHistory(days: number, clientId: string | null, platform: MonitorPlatform | null) {
+export function useMonitorHistory(days: number, clientId: string | null, platform: MonitorPlatform | null, objectives: readonly string[]) {
   return useQuery({
-    queryKey: [...KEY, "history", days, clientId, platform],
+    queryKey: [...KEY, "history", days, clientId, platform, objectives],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("monitor_history", { p_days: days, p_client: clientId, p_platform: platform });
+      const { data, error } = await supabase.rpc("monitor_history", { p_days: days, p_client: clientId, p_platform: platform, p_objectives: [...objectives] });
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o histórico do monitoramento."));
       const h = data as MonitorHistory;
       return { ...h, median_hours: h.median_hours == null ? null : Number(h.median_hours) };

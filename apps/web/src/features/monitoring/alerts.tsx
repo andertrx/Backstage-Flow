@@ -1,4 +1,4 @@
-import { can, type ComparedMetric, PLATFORM_OPTIONS } from "@backstage/shared";
+import { can, type ComparedMetric, matchesObjectives, PLATFORM_OPTIONS } from "@backstage/shared";
 import { BellRing, ClipboardList, ImageOff, Play, Repeat, UserRound } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -25,6 +25,8 @@ import {
   useSaveMonitorSettings,
 } from "./api.ts";
 import { fmtMetric, SEVERITY_LOOK, SeverityBadge } from "./compare.tsx";
+import { useMonitorObjectives } from "./objectivesFilter.tsx";
+import { useMonitorSummary } from "./overviewApi.ts";
 
 export const KIND_LABELS: Record<AlertKind, string> = {
   limite: "Passou do limite",
@@ -78,6 +80,10 @@ function lastRunText(s: MonitorStatus, now: Date) {
 /** Visão geral: alertas abertos por gravidade e a situação da avaliação automática. */
 export function AlertsOverview({ onOpenAlerts }: { onOpenAlerts: () => void }) {
   const { data: s, isLoading, error } = useMonitorStatus();
+  // Com filtro de objetivo, os totais vêm do resumo filtrado.
+  const { objectives } = useMonitorObjectives();
+  const filtered = useMonitorSummary(null, null, objectives.length > 0, objectives);
+  const open = objectives.length > 0 ? filtered.data?.open : s?.open;
   const now = new Date();
   return (
     <section aria-labelledby="avaliacao" className="space-y-3">
@@ -96,7 +102,7 @@ export function AlertsOverview({ onOpenAlerts }: { onOpenAlerts: () => void }) {
         {SEVERITY_ORDER.map((sev) => (
           <Card key={sev} className={cn("border-l-4 p-4", SEVERITY_LOOK[sev].border)} data-testid={`abertos-${sev}`}>
             <p className={cn("text-sm font-medium", SEVERITY_LOOK[sev].text)}>{SEVERITY_TITLES[sev]}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{isLoading || !s ? "…" : s.open[sev]}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">{isLoading || !open ? "…" : open[sev]}</p>
             <p className="text-xs text-slate-500">aberto(s)</p>
           </Card>
         ))}
@@ -226,13 +232,15 @@ export function AlertsTab() {
   const platform = params.get("plataforma") ?? "";
   const setUrlFilter = (key: "cliente" | "plataforma", value: string) => updateParams((p) => { if (value) p.set(key, value); else p.delete(key); return p; });
   const setClientId = (v: string) => setUrlFilter("cliente", v);
+  const { objectives } = useMonitorObjectives();
   const openId = Number(params.get("alerta")) || null;
   const setOpenId = (id: number | null) => updateParams((p) => { if (id) p.set("alerta", String(id)); else p.delete("alerta"); return p; });
   const { data: clients = [] } = useClients();
   const { data: alerts = [], isLoading, error } = useMonitorAlerts(open);
   const now = new Date();
   const shown = alerts.filter((a) => (!open || !a.resolved_at) && (open || a.resolved_at))
-    .filter((a) => (!clientId || a.client_id === clientId) && (!platform || a.platform_id === platform) && (!severity || a.severity === severity) && (!kind || a.kind === kind)
+    .filter((a) => (!clientId || a.client_id === clientId) && (!platform || a.platform_id === platform)
+      && (objectives.length === 0 || (a.campaign_id != null && matchesObjectives(a.campaign_objective, objectives))) && (!severity || a.severity === severity) && (!kind || a.kind === kind)
       && (!status || a.status === status) && (!mine || a.assigned_to === profile?.id));
 
   return (

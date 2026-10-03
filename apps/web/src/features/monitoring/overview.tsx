@@ -13,6 +13,7 @@ import { errorMessage } from "@/lib/errors.ts";
 import { STATUS_LABELS } from "./alertDetail.tsx";
 import type { AlertStatus } from "./api.ts";
 import { SeverityBadge } from "./compare.tsx";
+import { useMonitorObjectives } from "./objectivesFilter.tsx";
 import { type MonitorPlatform, type MonitorSummary, useMonitorHistory, useMonitorSummary } from "./overviewApi.ts";
 
 /** Etapa 37.6 — Visão geral, aba Histórico e os blocos do monitoramento no dashboard, ficha do cliente e visões Meta/Google. */
@@ -125,7 +126,8 @@ export function ClientMonitorCard({ clientId }: { clientId: string }) {
 
 /** Visão geral: com você, sem responsável, mais urgentes e por cliente. */
 export function OverviewExtras() {
-  const { data: s, error, isLoading } = useMonitorSummary();
+  const { objectives } = useMonitorObjectives();
+  const { data: s, error, isLoading } = useMonitorSummary(null, null, true, objectives);
   if (error) return <Alert tone="error">{errorMessage(error)}</Alert>;
   if (isLoading || !s) return null;
   const tile = (label: string, v: number, testid: string, to: string) => (
@@ -190,7 +192,8 @@ export function HistoryTab() {
   const [platform, setPlatform] = useState<MonitorPlatform>("");
   const [asTable, setAsTable] = useState(false);
   const { data: clients = [] } = useClients();
-  const { data: h, error, isLoading } = useMonitorHistory(days, clientId || null, platform || null);
+  const { objectives } = useMonitorObjectives();
+  const { data: h, error, isLoading } = useMonitorHistory(days, clientId || null, platform || null, objectives);
 
   const lines: ChartLine[] = h ? [
     { key: "created", label: "Criados", color: HISTORY_COLORS.created, values: h.days.map((d) => d.created) },

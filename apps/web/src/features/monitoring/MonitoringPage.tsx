@@ -13,6 +13,7 @@ import { AlertsOverview, AlertsTab, EngineSettings } from "./alerts.tsx";
 import { useMonitorRules } from "./api.ts";
 import { CompareTable, CreativesGrid, FiltersBar, LEVEL_LABELS, useMonitorFilters } from "./compare.tsx";
 import { NotifySettings } from "./NotifySettings.tsx";
+import { ObjectiveFilter } from "./objectivesFilter.tsx";
 import { HistoryTab, OverviewExtras } from "./overview.tsx";
 import { RulesSettings } from "./RulesSettings.tsx";
 
@@ -66,6 +67,8 @@ export function MonitoringPage() {
           </button>
         ))}
       </div>
+
+      {tab !== "configuracoes" && <ObjectiveFilter />}
 
       {tab === "configuracoes" ? (
         <div className="space-y-8">

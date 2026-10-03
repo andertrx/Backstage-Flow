@@ -43,6 +43,7 @@ import { errorMessage } from "@/lib/errors.ts";
 import { formatAxisValue, formatChange, formatDate, formatKpi } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { type CompareRow, useMonitorCompare, useMonitorDaily, useMonitorRules } from "./api.ts";
+import { useMonitorObjectives } from "./objectivesFilter.tsx";
 
 // ---------------------------------------------------------------- filtros (no endereço)
 
@@ -193,7 +194,8 @@ function noDeliveryAsZero(t: MonitorTotals, days: number, coverage: CompareRow["
 }
 
 export function useEvaluatedRows(level: CompareLevel, filters: MonitorFilters, pair: PeriodPair) {
-  const q = useMonitorCompare({ level, current: pair.current, previous: pair.previous, clientId: filters.clientId, platform: filters.platform, campaignId: filters.campaignId });
+  const { objectives } = useMonitorObjectives();
+  const q = useMonitorCompare({ level, current: pair.current, previous: pair.previous, clientId: filters.clientId, platform: filters.platform, campaignId: filters.campaignId, objectives });
   const { data: rules = [] } = useMonitorRules();
   const rows = useMemo(() => {
     const list: EvaluatedRow[] = (q.data ?? []).map((raw) => {

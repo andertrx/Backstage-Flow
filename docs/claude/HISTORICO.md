@@ -88,6 +88,7 @@
 - **03/10:** Ander pediu **"somente campanhas, conjuntos e criativos ativos. Os desativados pode descartar"**. Item desativado não gera alerta e o alerta dele é encerrado (fica no histórico).
 - **37.5:** o Monitoramento ganhou **ícone de avisos próprio** (o sino da Central não mudou), para os dois módulos continuarem independentes. WhatsApp só "preparado".
 - **37.6:** faixa curta no dashboard e nas visões Meta/Google, bloco na ficha do cliente, aba Histórico. Tudo de leitura; nada é pausado nas plataformas.
+- **03/10 (pedido extra):** filtro de objetivo com vários objetivos, salvo por pessoa, em todas as abas. "End form" é evento personalizado e conta como **Leads**; "engajamento" = conversas.
 - **Relatório final:** `docs/etapa-37-monitoramento/37.7-RELATORIO-FINAL.md`.
 
 ## 5. Aprendizados técnicos (armadilhas que já custaram tempo)

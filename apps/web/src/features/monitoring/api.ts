@@ -171,6 +171,8 @@ export interface CompareParams {
   clientId: string | null;
   platform: string | null;
   campaignId: string | null;
+  /** Grupos de objetivo escolhidos (vazio = todos). */
+  objectives: readonly string[];
 }
 
 export function useMonitorCompare(p: CompareParams) {
@@ -186,8 +188,10 @@ export function useMonitorCompare(p: CompareParams) {
         p_prev_to: p.previous.to,
         p_client_id: p.clientId,
         p_platform: p.platform,
+        p_account_id: null,
         p_campaign_id: p.campaignId,
         p_limit: 500,
+        p_objectives: [...p.objectives],
       });
       if (error) throw new FriendlyError(monitorError(error, "Não conseguimos carregar a comparação."));
       return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
@@ -255,6 +259,8 @@ export interface MonitorAlertRow {
   ad_account_id: string;
   account_name: string;
   campaign_id: string | null;
+  /** Objetivo da campanha (para o filtro de objetivo). */
+  campaign_objective?: string | null;
   campaign_name: string | null;
   ad_id: string | null;
   ad_name: string | null;
