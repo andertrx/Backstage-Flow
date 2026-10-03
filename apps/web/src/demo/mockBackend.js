@@ -85,6 +85,8 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     monitorRuns: [],
     monitorSettings: { enabled: true, eval_interval_minutes: 60, stale_hours: 3 },
     monitorNextAlerts: [],
+    /** Tratar alertas (37.4): linha do tempo de cada alerta. */
+    monitorEvents: [],
     /** Meta CAPI (34.3): destinos (o "token" fica só aqui no servidor simulado), resumo e registro. */
     trackingDestinations: [],
     trackingCapiLog: [],
@@ -688,6 +690,122 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
             account_name: db.adAccounts.find((x) => x.id === a.ad_account_id)?.name ?? "",
             campaign_name: db.campaigns.find((c) => c.id === a.campaign_id)?.name ?? null,
             ad_name: db.ads.find((x) => x.id === a.ad_id)?.name ?? null, thumbnail_url: db.ads.find((x) => x.id === a.ad_id)?.thumbnail_url ?? null })));
+      }
+      // --- 37.4: tratar alertas (mesmas regras de private.monitor_alert_*_impl)
+      const handle = can("handle");
+      const nameOf = (id) => db.profiles.find((x) => x.id === id)?.full_name ?? null;
+      const alertJson = (a) => {
+        const task = a.task_id ? db.opsTasks?.find((t) => t.id === a.task_id) : null;
+        return { status: "novo", version: 1, assigned_to: null, task_id: null, ...a,
+          client_name: db.clients.find((c) => c.id === a.client_id)?.name ?? "", account_name: db.adAccounts.find((x) => x.id === a.ad_account_id)?.name ?? "",
+          campaign_name: db.campaigns.find((c) => c.id === a.campaign_id)?.name ?? null, ad_name: db.ads.find((x) => x.id === a.ad_id)?.name ?? null,
+          thumbnail_url: db.ads.find((x) => x.id === a.ad_id)?.thumbnail_url ?? null, assignee_name: nameOf(a.assigned_to),
+          task_number: task?.number ?? null, task_title: task?.title ?? null };
+      };
+      const ev = (a, kind, extra = {}) => db.monitorEvents.push({ id: db.monitorEvents.length + 1, alert_id: a.id, kind, from_value: null, to_value: null,
+        note: null, data: {}, created_at: new Date().toISOString(), actor: userId, ...extra });
+      const canHandleUser = (uid, clientId) => {
+        const prof = db.profiles.find((x) => x.id === uid);
+        return Boolean(prof?.active !== false && ["admin", "gestor", "operador"].includes(prof?.role)
+          && (prof.role === "admin" || db.access.some((x) => x.user_id === uid && x.client_id === clientId)));
+      };
+      const lock = (id, version, openOnly = true) => {
+        if (!handle) return { fail: err("42501", "Sem permissão para tratar alertas de desempenho") };
+        const a = db.monitorAlerts.find((x) => x.id === Number(id));
+        if (!a || !visible(a.client_id)) return { fail: err("22023", "Alerta não encontrado.") };
+        if (version != null && (a.version ?? 1) !== Number(version)) return { fail: res(409, { code: "40001", message: "Alguém alterou este alerta antes de você. Recarregue para ver a versão atual." }) };
+        if (openOnly && a.resolved_at) return { fail: err("22023", "Este alerta já foi encerrado.") };
+        a.status ??= "novo"; a.version ??= 1;
+        return { a };
+      };
+      if (fn === "monitor_alerts_query") {
+        if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
+        const limit = p.p_limit ?? 500;
+        if (!(limit >= 1 && limit <= 1000)) return err("22023", "Quantidade inválida (1 a 1000).");
+        const rank = { critico: 0, atencao: 1, informativo: 2 };
+        return res(200, db.monitorAlerts
+          .filter((a) => visible(a.client_id) && (p.p_open === false || !a.resolved_at))
+          .sort((a, b) => Number(!!a.resolved_at) - Number(!!b.resolved_at) || rank[a.severity] - rank[b.severity] || b.last_detected_at.localeCompare(a.last_detected_at))
+          .slice(0, limit).map(alertJson));
+      }
+      if (fn === "monitor_alert_detail") {
+        if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
+        const a = db.monitorAlerts.find((x) => x.id === Number(p.p_id));
+        if (!a || !visible(a.client_id)) return err("22023", "Alerta não encontrado.");
+        return res(200, { alert: alertJson(a), can_handle: handle,
+          events: db.monitorEvents.filter((e) => e.alert_id === a.id).map((e) => ({ ...e, actor_name: nameOf(e.actor) })) });
+      }
+      if (fn === "monitor_alert_seen") {
+        const a = db.monitorAlerts.find((x) => x.id === Number(p.p_id));
+        if (handle && a && visible(a.client_id) && (a.status ?? "novo") === "novo" && !a.resolved_at) {
+          Object.assign(a, { status: "visualizado", version: (a.version ?? 1) + 1 });
+          ev(a, "estado", { from_value: "novo", to_value: "visualizado" });
+        }
+        return res(204);
+      }
+      if (fn === "monitor_alert_set_status") {
+        if (!["visualizado", "em_analise", "aguardando_acao", "ignorado"].includes(p.p_status)) return err("22023", "Estado inválido.");
+        const { a, fail } = lock(p.p_id, p.p_version);
+        if (fail) return fail;
+        if (a.status === p.p_status) return res(200, a.version);
+        ev(a, "estado", { from_value: a.status, to_value: p.p_status });
+        Object.assign(a, { status: p.p_status, version: a.version + 1 });
+        return res(200, a.version);
+      }
+      if (fn === "monitor_alert_assignees") {
+        if (!handle) return err("42501", "Sem permissão para tratar alertas de desempenho");
+        const a = db.monitorAlerts.find((x) => x.id === Number(p.p_id));
+        if (!a || !visible(a.client_id)) return err("22023", "Alerta não encontrado.");
+        return res(200, db.profiles.filter((x) => canHandleUser(x.id, a.client_id)).map((x) => ({ id: x.id, name: x.full_name, role: x.role }))
+          .sort((x, y) => x.name.localeCompare(y.name)));
+      }
+      if (fn === "monitor_alert_assign") {
+        const { a, fail } = lock(p.p_id, p.p_version);
+        if (fail) return fail;
+        if (p.p_user && !canHandleUser(p.p_user, a.client_id)) return err("22023", "Essa pessoa não pode tratar alertas deste cliente.");
+        if ((a.assigned_to ?? null) === (p.p_user ?? null)) return res(200, a.version);
+        ev(a, "atribuido", { from_value: nameOf(a.assigned_to), to_value: nameOf(p.p_user) ?? "ninguém", data: { user_id: p.p_user ?? null } });
+        Object.assign(a, { assigned_to: p.p_user ?? null, version: a.version + 1 });
+        return res(200, a.version);
+      }
+      if (fn === "monitor_alert_comment" || fn === "monitor_alert_action") {
+        const text = (p.p_text ?? "").trim();
+        if (fn === "monitor_alert_comment" && !(text.length >= 1 && text.length <= 2000)) return err("22023", "Escreva o comentário (até 2.000 caracteres).");
+        if (fn === "monitor_alert_action" && !(text.length >= 3 && text.length <= 2000)) return err("22023", "Descreva a providência (de 3 a 2.000 caracteres).");
+        const { a, fail } = lock(p.p_id, null, false);
+        if (fail) return fail;
+        ev(a, fn === "monitor_alert_comment" ? "comentario" : "providencia", { note: text, data: fn === "monitor_alert_action" ? { metric: a.metric } : {} });
+        return res(204);
+      }
+      if (fn === "monitor_alert_resolve") {
+        const { a, fail } = lock(p.p_id, p.p_version);
+        if (fail) return fail;
+        ev(a, "estado", { from_value: a.status, to_value: "resolvido", note: p.p_note?.trim() || null });
+        Object.assign(a, { status: "resolvido", resolved_at: new Date().toISOString(), resolution: "manual", resolved_by: userId, version: a.version + 1 });
+        return res(204);
+      }
+      if (fn === "monitor_alert_to_task") {
+        const { a, fail } = lock(p.p_id, p.p_version);
+        if (fail) return fail;
+        if (a.task_id) return err("22023", "Este alerta já virou tarefa.");
+        if (!(opsPerms.includes("ops.admin") || (opsPerms.includes("ops.access") && opsPerms.includes("ops.tasks.create")))) {
+          return err("42501", "Você não tem permissão para esta ação na Central de Operações.");
+        }
+        if (!db.opsSectors.some((x) => x.id === p.p_sector_id && x.status === "ativo")) return err("22023", "Escolha um setor ativo.");
+        const metricName = { cost_per_result: "Custo por resultado", results: "Resultados", cpc: "CPC", cpm: "CPM", ctr: "CTR", roas: "ROAS" }[a.metric] ?? a.metric;
+        const entity = a.level === "ad" ? db.ads.find((x) => x.id === a.ad_id)?.name : db.campaigns.find((x) => x.id === a.campaign_id)?.name;
+        const now = new Date().toISOString();
+        const memberOk = (uid) => uid && (db.opsMembers[uid]?.active || db.profiles.find((x) => x.id === uid)?.role === "admin");
+        const principal = memberOk(a.assigned_to) ? a.assigned_to : memberOk(userId) ? userId : null;
+        const t = { id: crypto.randomUUID(), number: ++db.opsTaskSeq, title: `Alerta: ${metricName} — ${entity ?? "item"}`.slice(0, 200),
+          description: `${a.explanation}\n\nCriada a partir do alerta de desempenho nº ${a.id} (Monitoramento).`, client_id: a.client_id, sector_id: p.p_sector_id,
+          priority: a.severity === "critico" ? "alta" : "media", start_date: null, due_date: p.p_due_date ?? null, effort_hours: null, visibility: "setor", tags: [],
+          client_stage_id: null, mandatory: false, status_id: "nao_iniciado", people: principal ? [{ user_id: principal, role: "principal" }] : [], version: 1,
+          created_by: userId, created_at: now, updated_at: now, completed_at: null, archived_at: null, demand_id: null, queue_column_id: null };
+        db.opsTasks.push(t);
+        ev(a, "tarefa", { note: t.title, data: { task_id: t.id, task_number: t.number } });
+        Object.assign(a, { task_id: t.id, version: a.version + 1, status: ["novo", "visualizado"].includes(a.status) ? "em_analise" : a.status });
+        return res(200, t.id);
       }
       if (fn === "monitor_evaluate_now") {
         if (!can("rules")) return err("42501", "Sem permissão para avaliar agora");

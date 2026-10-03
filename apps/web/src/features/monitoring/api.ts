@@ -239,14 +239,16 @@ export interface AlertContextChange {
   at: string;
 }
 
-/** Um alerta de desempenho (public.monitor_alerts_list). Valores na moeda da conta. */
+/** Estado do tratamento do alerta (37.4). */
+export type AlertStatus = "novo" | "visualizado" | "em_analise" | "aguardando_acao" | "resolvido" | "ignorado";
+
+/** Um alerta de desempenho (public.monitor_alerts_query). Valores na moeda da conta. */
 export interface MonitorAlertRow {
   id: number;
   kind: AlertKind;
   level: "campaign" | "ad";
   metric: string;
   severity: AlertSeverity;
-  status: string;
   client_id: string;
   client_name: string;
   platform_id: string;
@@ -277,30 +279,126 @@ export interface MonitorAlertRow {
   recurrence_count: number;
   resolved_at: string | null;
   resolution: "automatica" | "manual" | null;
+  /** 37.4: tratamento. */
+  status: AlertStatus;
+  version: number;
+  assigned_to: string | null;
+  assignee_name: string | null;
+  task_id: string | null;
+  task_number: number | null;
 }
+
+const alertRow = (r: Record<string, unknown>): MonitorAlertRow => ({
+  ...(r as unknown as MonitorAlertRow),
+  id: Number(r.id),
+  current_value: num(r.current_value),
+  previous_value: num(r.previous_value),
+  variation_pct: num(r.variation_pct),
+  attention_pct: num(r.attention_pct),
+  critical_pct: num(r.critical_pct),
+  detections: Number(r.detections ?? 1),
+  recurrence_count: Number(r.recurrence_count ?? 0),
+  version: Number(r.version ?? 1),
+  task_number: num(r.task_number),
+  context: Array.isArray(r.context) ? (r.context as AlertContextChange[]) : [],
+  details: (r.details ?? {}) as Record<string, unknown>,
+});
 
 export function useMonitorAlerts(open: boolean) {
   return useQuery({
     queryKey: [...KEY, "alerts", open],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("monitor_alerts_list", { p_open: open, p_limit: 500 });
+      const { data, error } = await supabase.rpc("monitor_alerts_query", { p_open: open, p_limit: 500 });
       if (error) throw new FriendlyError(monitorError(error, "Não conseguimos carregar os alertas de desempenho."));
-      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
-        ...(r as unknown as MonitorAlertRow),
-        id: Number(r.id),
-        current_value: num(r.current_value),
-        previous_value: num(r.previous_value),
-        variation_pct: num(r.variation_pct),
-        attention_pct: num(r.attention_pct),
-        critical_pct: num(r.critical_pct),
-        detections: Number(r.detections ?? 1),
-        recurrence_count: Number(r.recurrence_count ?? 0),
-        context: Array.isArray(r.context) ? (r.context as AlertContextChange[]) : [],
-        details: (r.details ?? {}) as Record<string, unknown>,
-      })) as MonitorAlertRow[];
+      return ((data ?? []) as Record<string, unknown>[]).map(alertRow);
     },
   });
 }
+
+// ---------------------------------------------------------------- tratar alertas (37.4)
+
+export type AlertEventKind = "criado" | "piorou" | "melhorou" | "normalizado" | "estado" | "atribuido" | "comentario" | "providencia" | "tarefa" | "avaliacao";
+
+/** Um item da linha do tempo do alerta. Permanente. */
+export interface AlertEvent {
+  id: number;
+  kind: AlertEventKind;
+  from_value: string | null;
+  to_value: string | null;
+  note: string | null;
+  data: Record<string, unknown>;
+  created_at: string;
+  actor_name: string | null;
+}
+
+export interface AlertDetail {
+  alert: MonitorAlertRow;
+  can_handle: boolean;
+  events: AlertEvent[];
+}
+
+export function useAlertDetail(id: number | null) {
+  return useQuery({
+    queryKey: [...KEY, "alert", id],
+    enabled: id != null,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("monitor_alert_detail", { p_id: id });
+      if (error) throw new FriendlyError(monitorError(error, "Não conseguimos abrir o alerta."));
+      const d = data as { alert: Record<string, unknown>; can_handle: boolean; events: AlertEvent[] };
+      return { alert: alertRow(d.alert), can_handle: d.can_handle, events: (d.events ?? []).map((e) => ({ ...e, id: Number(e.id), data: e.data ?? {} })) } as AlertDetail;
+    },
+  });
+}
+
+export interface AssigneeOption {
+  id: string;
+  name: string;
+  role: string;
+}
+
+export function useAlertAssignees(id: number | null, enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "assignees", id],
+    enabled: enabled && id != null,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("monitor_alert_assignees", { p_id: id });
+      if (error) throw new FriendlyError(monitorError(error, "Não conseguimos carregar quem pode ser responsável."));
+      return (data ?? []) as AssigneeOption[];
+    },
+  });
+}
+
+/** Ações no alerta: o banco confere permissão, cliente e versão (40001 = alguém alterou antes). */
+function useAlertAction<T>(fn: (v: T) => Promise<unknown>) {
+  const qc = useQueryClient();
+  // Também depois de erro: se alguém alterou antes (40001), a tela recarrega a versão atual.
+  return useMutation({ mutationFn: fn, onSettled: () => qc.invalidateQueries({ queryKey: KEY }) });
+}
+
+async function rpc(name: string, args: Record<string, unknown>, fallback: string) {
+  const { data, error } = await supabase.rpc(name, args);
+  if (error) throw new FriendlyError(monitorError(error, fallback));
+  return data;
+}
+
+export const useMarkAlertSeen = () =>
+  useAlertAction((id: number) => rpc("monitor_alert_seen", { p_id: id }, "Não conseguimos marcar o alerta como visto."));
+export const useSetAlertStatus = () =>
+  useAlertAction((v: { id: number; status: AlertStatus; version: number }) =>
+    rpc("monitor_alert_set_status", { p_id: v.id, p_status: v.status, p_version: v.version }, "Não conseguimos mudar o estado."));
+export const useAssignAlert = () =>
+  useAlertAction((v: { id: number; userId: string | null; version: number }) =>
+    rpc("monitor_alert_assign", { p_id: v.id, p_user: v.userId, p_version: v.version }, "Não conseguimos mudar o responsável."));
+export const useCommentAlert = () =>
+  useAlertAction((v: { id: number; text: string }) => rpc("monitor_alert_comment", { p_id: v.id, p_text: v.text }, "Não conseguimos salvar o comentário."));
+export const useAlertProvidence = () =>
+  useAlertAction((v: { id: number; text: string }) => rpc("monitor_alert_action", { p_id: v.id, p_text: v.text }, "Não conseguimos registrar a providência."));
+export const useResolveAlert = () =>
+  useAlertAction((v: { id: number; note: string; version: number }) =>
+    rpc("monitor_alert_resolve", { p_id: v.id, p_note: v.note || null, p_version: v.version }, "Não conseguimos resolver o alerta."));
+export const useAlertToTask = () =>
+  useAlertAction((v: { id: number; sectorId: string; dueDate: string | null; version: number }) =>
+    rpc("monitor_alert_to_task", { p_id: v.id, p_sector_id: v.sectorId, p_due_date: v.dueDate, p_version: v.version }, "Não conseguimos criar a tarefa.") as Promise<string>);
 
 /** Situação do motor (public.monitor_status). */
 export interface MonitorStatus {

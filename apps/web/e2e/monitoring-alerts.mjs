@@ -125,7 +125,7 @@ const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   check(res.includes("Fora do padrão") && res.includes("Normalizou sozinho"), `resolvido aparece no histórico (${res})`);
   const off = clean(await page.locator("[data-testid=alerta]", { hasText: "Loja US Vendas" }).innerText());
   check(off.includes("Encerrado: item desativado"), `item desativado: encerrado com o motivo (${off})`);
-  check(db.rpcCalls.some((c) => c.fn === "monitor_alerts_list" && c.p_open === false), "histórico consulta os resolvidos");
+  check(db.rpcCalls.some((c) => c.fn === "monitor_alerts_query" && c.p_open === false), "histórico consulta os resolvidos");
   await page.getByRole("button", { name: "Abertos" }).click();
 
   // Configurações: frequência e avaliar agora

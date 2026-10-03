@@ -1,5 +1,5 @@
 import { can, type ComparedMetric } from "@backstage/shared";
-import { BellRing, ImageOff, Play, Repeat } from "lucide-react";
+import { BellRing, ClipboardList, ImageOff, Play, Repeat, UserRound } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -10,10 +10,13 @@ import { useClients } from "@/features/clients/api.ts";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDate, formatDateTime, formatRelative } from "@/lib/format.ts";
+import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
+import { AlertDetailModal, STATUS_LABELS, StatusBadge } from "./alertDetail.tsx";
 import {
   type AlertContextChange,
   type AlertKind,
   type AlertSeverity,
+  type AlertStatus,
   type MonitorAlertRow,
   type MonitorStatus,
   useEvaluateNow,
@@ -134,7 +137,7 @@ function AlertThumb({ url, name }: { url: string | null; name: string }) {
   return <img src={url} alt={`Miniatura de ${name}`} referrerPolicy="no-referrer" loading="lazy" onError={() => setFailed(true)} className="size-14 shrink-0 rounded-lg bg-slate-100 object-cover" />;
 }
 
-function AlertCard({ a, now }: { a: MonitorAlertRow; now: Date }) {
+function AlertCard({ a, now, onOpen }: { a: MonitorAlertRow; now: Date; onOpen: () => void }) {
   const entity = (a.level === "ad" ? a.ad_name : a.campaign_name) ?? "—";
   const metric = a.metric as ComparedMetric;
   return (
@@ -143,6 +146,7 @@ function AlertCard({ a, now }: { a: MonitorAlertRow; now: Date }) {
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <SeverityBadge severity={a.severity} />
+          {!a.resolved_at && <StatusBadge status={a.status} />}
           <span className="text-xs font-medium text-slate-600">{KIND_LABELS[a.kind]}</span>
           {a.recurrence_count > 0 && (
             <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700" data-testid="reincidencia">
@@ -184,6 +188,12 @@ function AlertCard({ a, now }: { a: MonitorAlertRow; now: Date }) {
             </dd>
           </div>
         </dl>
+        {(a.assignee_name || a.task_number) && (
+          <p className="flex flex-wrap gap-x-4 text-xs text-slate-600">
+            {a.assignee_name && <span className="inline-flex items-center gap-1" data-testid="responsavel"><UserRound className="size-3.5" aria-hidden /> {a.assignee_name}</span>}
+            {a.task_number && <span className="inline-flex items-center gap-1"><ClipboardList className="size-3.5" aria-hidden /> Tarefa nº {a.task_number}</span>}
+          </p>
+        )}
         {a.context.length > 0 && (
           <div className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600" data-testid="mudancas">
             <p className="font-medium text-slate-700">Mudanças no período (podem explicar a variação):</p>
@@ -192,6 +202,11 @@ function AlertCard({ a, now }: { a: MonitorAlertRow; now: Date }) {
             </ul>
           </div>
         )}
+      </div>
+      <div className="shrink-0">
+        <button type="button" onClick={onOpen} className="rounded-md px-2 py-1 text-sm font-medium text-brand-700 hover:bg-brand-50" data-testid="abrir-alerta">
+          Abrir
+        </button>
       </div>
     </Card>
   );
@@ -203,17 +218,24 @@ export function AlertsTab() {
   const [clientId, setClientId] = useState("");
   const [severity, setSeverity] = useState<"" | AlertSeverity>("");
   const [kind, setKind] = useState<"" | AlertKind>("");
+  const [status, setStatus] = useState<"" | AlertStatus>("");
+  const [mine, setMine] = useState(false);
+  const { profile } = useAuth();
+  const [params, updateParams] = useSearchParamsUpdater();
+  const openId = Number(params.get("alerta")) || null;
+  const setOpenId = (id: number | null) => updateParams((p) => { if (id) p.set("alerta", String(id)); else p.delete("alerta"); return p; });
   const { data: clients = [] } = useClients();
   const { data: alerts = [], isLoading, error } = useMonitorAlerts(open);
   const now = new Date();
   const shown = alerts.filter((a) => (!open || !a.resolved_at) && (open || a.resolved_at))
-    .filter((a) => (!clientId || a.client_id === clientId) && (!severity || a.severity === severity) && (!kind || a.kind === kind));
+    .filter((a) => (!clientId || a.client_id === clientId) && (!severity || a.severity === severity) && (!kind || a.kind === kind)
+      && (!status || a.status === status) && (!mine || a.assigned_to === profile?.id));
 
   return (
     <div className="space-y-4">
       <Alert tone="info">
         Os alertas são gerados sozinhos, comparando os <strong>últimos 7 dias completos</strong> com os 7 anteriores (e o dia de ontem com os 28 dias antes dele).
-        Cada alerta explica a conta feita. <strong>Só campanhas, conjuntos e anúncios ativos</strong> geram alerta: quando um item é desativado, o alerta dele é encerrado (fica no histórico). Nada é pausado nem alterado nas plataformas.
+        Cada alerta explica a conta feita; clique em <strong>Abrir</strong> para tratar (estado, responsável, comentários, providências, tarefa). <strong>Só campanhas, conjuntos e anúncios ativos</strong> geram alerta: quando um item é desativado, o alerta dele é encerrado (fica no histórico). Nada é pausado nem alterado nas plataformas.
       </Alert>
       <Card className="flex flex-wrap items-end gap-3 p-3">
         <div className="inline-flex rounded-lg bg-slate-100 p-1" role="group" aria-label="Quais alertas">
@@ -245,6 +267,18 @@ export function AlertsTab() {
             {(Object.keys(KIND_LABELS) as AlertKind[]).map((k) => <option key={k} value={k}>{KIND_LABELS[k]}</option>)}
           </Select>
         </label>
+        {open && (
+          <label className="text-xs text-slate-600">
+            Estado
+            <Select className="mt-1 w-44" value={status} onChange={(e) => setStatus(e.target.value as "" | AlertStatus)} aria-label="Estado">
+              <option value="">Todos</option>
+              {(["novo", "visualizado", "em_analise", "aguardando_acao", "ignorado"] as AlertStatus[]).map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+            </Select>
+          </label>
+        )}
+        <label className="flex items-center gap-2 self-center text-sm text-slate-700">
+          <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} /> Só os meus
+        </label>
       </Card>
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       {isLoading ? (
@@ -257,9 +291,10 @@ export function AlertsTab() {
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-slate-500" data-testid="total-alertas">{shown.length} alerta(s)</p>
-          {shown.map((a) => <AlertCard key={a.id} a={a} now={now} />)}
+          {shown.map((a) => <AlertCard key={a.id} a={a} now={now} onOpen={() => setOpenId(a.id)} />)}
         </div>
       )}
+      {openId && <AlertDetailModal id={openId} onClose={() => setOpenId(null)} />}
     </div>
   );
 }

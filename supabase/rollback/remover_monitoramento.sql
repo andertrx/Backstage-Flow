@@ -18,6 +18,8 @@
 begin;
 
 -- 37.4
+drop function if exists public.monitor_alerts_list(boolean, integer);
+drop function if exists private.monitor_alerts_list_impl(boolean, integer);
 drop function if exists public.monitor_alert_detail(bigint);
 drop function if exists private.monitor_alert_detail_impl(bigint);
 drop function if exists public.monitor_alerts_query(boolean, integer);

@@ -17,8 +17,13 @@
 - [ ] Deixar o repositório **privado** (em 27/09/2026 o GitHub ainda informava "público"). Teste: abrir github.com/andertrx/Backstage-Flow numa aba anônima → deve aparecer 404.
 
 ## Monitoramento (Etapa 37.3) — limpeza de 1 minuto, quando der
-- [ ] No Supabase → SQL Editor, rodar: `drop function if exists private.monitor_probe_tmp();`
-  É uma função vazia que sobrou de um teste meu (não faz nada). A minha ferramenta não consegue apagar coisas no banco sem uma confirmação que ela não mostra.
+- [ ] No Supabase → SQL Editor, rodar estas 2 linhas:
+  ```sql
+  drop function if exists private.monitor_probe_tmp();
+  drop function if exists public.monitor_alerts_list(boolean, integer), private.monitor_alerts_list_impl(boolean, integer);
+  ```
+  A 1ª é uma função vazia que sobrou de um teste meu. A 2ª é a lista antiga de alertas, trocada na 37.4 por `monitor_alerts_query` (a tela não usa mais a antiga).
+  Nenhuma delas guarda dados. A minha ferramenta não consegue apagar coisas no banco sem uma confirmação que ela não mostra.
 
 ## Publicação do servidor (Edge Functions) — proposta, só se você quiser
 - [ ] **Publicação automática pelo GitHub.** Hoje, publicar as funções grandes (`sync`, `ad-accounts`) exige colar o arquivo inteiro à mão, o que é arriscado; por isso elas estão **mais novas no GitHub** do que no ar (ID do criativo da Etapa 37.1 e correção do saldo de 28/09 — o saldo já funciona pelo banco).
