@@ -32,7 +32,8 @@ const first = await step(async () => { await page.reload(); await page.getByRole
 check(first.repeated.length === 0, `Dashboard: nenhuma chamada repetida (${first.repeated.join(" | ")})`);
 // Etapa 36.6: +1 chamada para o sino da Central (contagem de não lidas), só para quem está na Central.
 // Etapa 37.5: +1 chamada para o ícone de avisos do Monitoramento (lista com a contagem de não lidos).
-check(first.total <= 12, `Dashboard: poucas chamadas ao abrir (${first.total})`);
+// Etapa 37.6: +1 chamada para a faixa do Monitoramento no dashboard (resumo dos alertas abertos).
+check(first.total <= 13, `Dashboard: poucas chamadas ao abrir (${first.total})`);
 check(rpc("dashboard_summary") === 2, "resumo: período atual + período de comparação (2 chamadas)");
 
 // 2) Trocar o período: só o que depende do período (resumo x2 + gráfico)

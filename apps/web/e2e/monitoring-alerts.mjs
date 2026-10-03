@@ -71,7 +71,7 @@ const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   await page.getByRole("heading", { name: "Monitoramento de Desempenho", level: 1 }).waitFor();
 
   const tabs = await page.getByRole("tab").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Visão geral", "Alertas", "Comparativos", "Campanhas", "Criativos", "Configurações"]), `aba Alertas logo depois da Visão geral (${tabs})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Visão geral", "Alertas", "Comparativos", "Campanhas", "Criativos", "Histórico", "Configurações"]), `aba Alertas logo depois da Visão geral (${tabs})`);
 
   // Visão geral: abertos por gravidade e situação da avaliação
   await page.waitForFunction(() => document.querySelector("[data-testid=abertos-critico]")?.textContent.includes("1"), null, { timeout: 5000 }).catch(() => {});
@@ -106,9 +106,14 @@ const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   await page.screenshot({ path: `${SHOTS}/37.3-alertas.png`, fullPage: true });
 
   // Filtros
+  // Etapa 37.6: o filtro de cliente passa pelo endereço; espera a lista atualizar.
+  const waitCount = (n) => page.waitForFunction((k) => document.querySelectorAll("[data-testid=alerta]").length === k, n, { timeout: 5000 }).catch(() => {});
   await page.getByLabel("Cliente").selectOption(LOJA);
+  await waitCount(1);
   check(await cards.count() === 1, "filtro por cliente");
+  check(page.url().includes("cliente="), "filtro de cliente fica no endereço");
   await page.getByLabel("Cliente").selectOption("");
+  await page.waitForFunction(() => !location.search.includes("cliente="), null, { timeout: 5000 }).catch(() => {});
   await page.getByLabel("Gravidade").selectOption("critico");
   check(await cards.count() === 1, "filtro por gravidade");
   await page.getByLabel("Gravidade").selectOption("");

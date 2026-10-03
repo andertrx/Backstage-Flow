@@ -46,7 +46,7 @@ const cardValue = async (page, s) => clean(await page.getByTestId(`coleta-${s}`)
 
   check(await page.getByRole("link", { name: /^Monitoramento/ }).first().getAttribute("aria-current") === "page", "item do menu marcado como página atual");
   const tabs = await page.getByRole("tab").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Visão geral", "Alertas", "Comparativos", "Campanhas", "Criativos", "Configurações"]), `só as abas que já funcionam (${tabs})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Visão geral", "Alertas", "Comparativos", "Campanhas", "Criativos", "Histórico", "Configurações"]), `só as abas que já funcionam (${tabs})`);
 
   // Visão geral: situação da coleta
   await page.waitForFunction(() => document.querySelector("[data-testid=coleta-em_dia]")?.textContent.includes("1"), null, { timeout: 5000 }).catch(() => {});
