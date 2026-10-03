@@ -20,6 +20,7 @@ import { timezoneLabel } from "./timezones.ts";
 import { useMyOpsPermissions } from "@/features/operations/api.ts";
 import { ClientOpsTab } from "@/features/operations/ClientOps.tsx";
 import { ClientMeetingsList } from "@/features/operations/MeetingsPage.tsx";
+import { ClientMonitorCard } from "@/features/monitoring/overview.tsx";
 import { cn } from "@/lib/cn.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 
@@ -124,6 +125,8 @@ export function ClientDetailPage() {
           </div>
         )}
       </Card>
+
+      <ClientMonitorCard clientId={client.id} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {PLATFORMS.map((p) => (

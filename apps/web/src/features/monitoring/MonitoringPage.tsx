@@ -13,15 +13,17 @@ import { AlertsOverview, AlertsTab, EngineSettings } from "./alerts.tsx";
 import { useMonitorRules } from "./api.ts";
 import { CompareTable, CreativesGrid, FiltersBar, LEVEL_LABELS, useMonitorFilters } from "./compare.tsx";
 import { NotifySettings } from "./NotifySettings.tsx";
+import { HistoryTab, OverviewExtras } from "./overview.tsx";
 import { RulesSettings } from "./RulesSettings.tsx";
 
-/** Abas entregues até agora (o histórico completo e a central de tratamento entram nas fases 37.4 a 37.6, sem botões de mentira). */
+/** Abas do Monitoramento (Etapa 37 completa). */
 const TABS = [
   { value: "visao-geral", label: "Visão geral" },
   { value: "alertas", label: "Alertas" },
   { value: "comparativos", label: "Comparativos" },
   { value: "campanhas", label: "Campanhas" },
   { value: "criativos", label: "Criativos" },
+  { value: "historico", label: "Histórico" },
   { value: "configuracoes", label: "Configurações" },
 ] as const;
 type Tab = (typeof TABS)[number]["value"];
@@ -73,6 +75,8 @@ export function MonitoringPage() {
         </div>
       ) : tab === "alertas" ? (
         <AlertsTab />
+      ) : tab === "historico" ? (
+        <HistoryTab />
       ) : tab === "visao-geral" ? (
         <Overview onOpenSettings={() => setTab("configuracoes")} onOpenAlerts={() => setTab("alertas")} />
       ) : (
@@ -163,6 +167,8 @@ function Overview({ onOpenSettings, onOpenAlerts }: { onOpenSettings: () => void
 
       <AlertsOverview onOpenAlerts={onOpenAlerts} />
 
+      <OverviewExtras />
+
       <section aria-labelledby="coleta" className="space-y-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="coleta" className="text-base font-semibold">Situação da coleta</h2>
@@ -226,9 +232,6 @@ function Overview({ onOpenSettings, onOpenAlerts }: { onOpenSettings: () => void
             Ver os limites
           </button>
         </Card>
-        <p className="text-xs text-slate-500">
-          Atribuir, comentar e registrar providências nos alertas, as notificações e a integração com o dashboard entram nas próximas fases desta etapa.
-        </p>
       </section>
     </div>
   );

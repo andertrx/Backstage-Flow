@@ -16,9 +16,16 @@
 -- 37.5: desliga os agendamentos "monitor-digest" e "monitor-emails", apaga o disparo de avisos e as
 -- 3 tabelas de notificações (preferências, avisos e histórico de envios). Depois, apagar a Edge
 -- Function "monitor-email" no painel do Supabase.
+-- 37.6: apaga as funções de resumo e histórico (só leitura; nada a apagar de dados).
 -- (As fases seguintes acrescentam seus trechos aqui.)
 -- =============================================================================
 begin;
+
+-- 37.6
+drop function if exists public.monitor_summary(uuid, text);
+drop function if exists private.monitor_summary_impl(uuid, text);
+drop function if exists public.monitor_history(integer, uuid, text);
+drop function if exists private.monitor_history_impl(integer, uuid, text);
 
 -- 37.5
 select cron.unschedule(jobid) from cron.job where jobname in ('monitor-digest', 'monitor-emails');

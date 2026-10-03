@@ -609,6 +609,58 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           .map(([metric, direction, a, c], i) => ({ id: `rule-g${i}`, scope: "global", scope_id: null, client_id: null, metric, direction, attention_pct: a, critical_pct: c,
             min_volume: null, active: true, note: null, replaces_id: null, archived_at: null, created_at: "2026-09-30T22:52:50Z", created_by: null }));
       }
+      // Visão geral e histórico (37.6).
+      if (fn === "monitor_summary" || fn === "monitor_history") {
+        if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
+        if (p.p_platform && !["meta", "google"].includes(p.p_platform)) return err("22023", "Plataforma inválida.");
+        const base = db.monitorAlerts.filter((a) => visible(a.client_id) && (!p.p_client || a.client_id === p.p_client) && (!p.p_platform || a.platform_id === p.p_platform));
+        const sev = (list) => ({ critico: list.filter((a) => a.severity === "critico").length, atencao: list.filter((a) => a.severity === "atencao").length,
+          informativo: list.filter((a) => a.severity === "informativo").length });
+        const clientName = (id) => db.clients.find((c) => c.id === id)?.name ?? null;
+        if (fn === "monitor_summary") {
+          const open = base.filter((a) => !a.resolved_at);
+          const o = open.filter((a) => a.status !== "ignorado");
+          const rank = { critico: 1, atencao: 2, informativo: 3 };
+          const byClient = [...new Set(o.map((a) => a.client_id))].map((id) => {
+            const l = o.filter((a) => a.client_id === id);
+            return { client_id: id, client_name: clientName(id), ...sev(l), unassigned: l.filter((a) => !a.assigned_to).length, _t: l.length };
+          }).sort((a, b) => b.critico - a.critico || b._t - a._t || a.client_name.localeCompare(b.client_name)).map(({ _t, ...r }) => r);
+          const top = [...o].sort((a, b) => rank[a.severity] - rank[b.severity] || b.last_detected_at.localeCompare(a.last_detected_at)).slice(0, 5).map((a) => ({
+            id: a.id, severity: a.severity, status: a.status, metric: a.metric, kind: a.kind, variation_pct: a.variation_pct, client_name: clientName(a.client_id),
+            platform_id: a.platform_id, level: a.level, last_detected_at: a.last_detected_at,
+            entity_name: db.ads?.find((x) => x.id === a.ad_id)?.name ?? db.campaigns.find((x) => x.id === a.campaign_id)?.name ?? db.adAccounts.find((x) => x.id === a.ad_account_id)?.name ?? null,
+            assignee_name: db.profiles.find((x) => x.id === a.assigned_to)?.full_name ?? null,
+          }));
+          return res(200, { open: sev(o), ignored: open.length - o.length, new: o.filter((a) => a.status === "novo").length,
+            unassigned: o.filter((a) => !a.assigned_to).length, mine: o.filter((a) => a.assigned_to === userId).length, by_client: byClient, top,
+            last_run_at: db.monitorRuns.at(-1)?.finished_at ?? null });
+        }
+        const days = p.p_days ?? 30;
+        if (days < 7 || days > 180) return err("22023", "Período inválido (7 a 180 dias).");
+        const spDay = (iso) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(iso));
+        const to = spDay(new Date().toISOString());
+        const list = Array.from({ length: days }, (_, i) => new Date(Date.parse(`${to}T12:00:00Z`) - (days - 1 - i) * 86_400_000).toISOString().slice(0, 10));
+        const from = list[0];
+        const c = base.filter((a) => spDay(a.first_detected_at) >= from);
+        const r = base.filter((a) => a.resolved_at && spDay(a.resolved_at) >= from);
+        const ids = new Set(base.map((a) => a.id));
+        const f = db.monitorEvents.filter((e) => e.kind === "avaliacao" && ids.has(e.alert_id) && spDay(e.created_at) >= from);
+        const hours = r.map((a) => (Date.parse(a.resolved_at) - Date.parse(a.first_detected_at)) / 3_600_000).sort((x, y) => x - y);
+        const median = hours.length ? (hours.length % 2 ? hours[(hours.length - 1) / 2] : (hours[hours.length / 2 - 1] + hours[hours.length / 2]) / 2) : null;
+        const metrics = [...new Set(c.map((a) => a.metric))].map((m) => ({ metric: m, created: c.filter((a) => a.metric === m).length }))
+          .sort((x, y) => y.created - x.created || x.metric.localeCompare(y.metric));
+        return res(200, {
+          from, to, days: list.map((d) => ({ day: d, created: c.filter((a) => spDay(a.first_detected_at) === d).length, resolved: r.filter((a) => spDay(a.resolved_at) === d).length })),
+          created: c.length, created_by_severity: sev(c), still_open: c.filter((a) => !a.resolved_at).length, recurrences: c.filter((a) => a.recurrence_of).length,
+          resolved: r.length, resolved_manual: r.filter((a) => a.resolution === "manual").length,
+          resolved_auto: r.filter((a) => a.resolution === "automatica" && a.details?.closed_reason !== "inativo").length,
+          resolved_inactive: r.filter((a) => a.details?.closed_reason === "inativo").length,
+          median_hours: median == null ? null : Math.round(median * 10) / 10,
+          followups: { melhorou: f.filter((e) => e.to_value === "melhorou").length, piorou: f.filter((e) => e.to_value === "piorou").length,
+            igual: f.filter((e) => e.to_value === "igual").length, sem_dados: f.filter((e) => e.to_value === "sem_dados").length },
+          by_metric: metrics,
+        });
+      }
       // Notificações (37.5).
       if (fn === "monitor_notifications_list" || fn === "monitor_notifications_read") {
         if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");

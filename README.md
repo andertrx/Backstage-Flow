@@ -64,12 +64,13 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [36.5 — Dailies e reuniões: agenda, ata, presença e pendência → tarefa](docs/etapa-36-central-operacoes/36.5-DAILIES-E-REUNIOES.md) ✅ concluída
   - [36.6 — Notificações (sino), avisos de prazo e repetição de tarefas e reuniões](docs/etapa-36-central-operacoes/36.6-NOTIFICACOES-E-REPETICAO.md) ✅ concluída
   - [36.7 — Painel operacional, visões salvas, busca da Central e atalho no dashboard geral](docs/etapa-36-central-operacoes/36.7-PAINEL-E-FINAL.md) ✅ concluída
-- [Etapa 37 — Monitoramento de Desempenho](docs/etapa-37-monitoramento/37.0-AUDITORIA.md) *(em andamento)*
+- [Etapa 37 — Monitoramento de Desempenho](docs/etapa-37-monitoramento/37.7-RELATORIO-FINAL.md) ✅ concluída
   - [37.1 — Base: permissões, limites e regras, situação da coleta, ID do criativo](docs/etapa-37-monitoramento/37.1-BASE.md) ✅ concluída
   - [37.2 — Comparativos, Campanhas e Criativos (miniaturas, tendência, dia a dia)](docs/etapa-37-monitoramento/37.2-COMPARATIVOS.md) ✅ concluída
   - [37.3 — Motor de alertas de desempenho (avaliação automática, aba Alertas, reincidência)](docs/etapa-37-monitoramento/37.3-MOTOR-DE-ALERTAS.md) ✅ concluída
   - [37.4 — Tratar alertas (estados, responsável, comentários, providências, tarefa, avaliação posterior)](docs/etapa-37-monitoramento/37.4-TRATAR-ALERTAS.md) ✅ concluída
   - [37.5 — Notificações (ícone de avisos, preferências, e-mail, resumo diário, histórico de envios)](docs/etapa-37-monitoramento/37.5-NOTIFICACOES.md) ✅ concluída
+  - [37.6 — Visão geral, aba Histórico e integração (dashboard, ficha do cliente, Meta/Google)](docs/etapa-37-monitoramento/37.6-VISAO-GERAL-E-INTEGRACAO.md) ✅ concluída
 
 ## Estrutura
 

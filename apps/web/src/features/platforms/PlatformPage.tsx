@@ -31,6 +31,7 @@ import { FiltersBar } from "@/features/dashboard/FiltersBar.tsx";
 import { KpiCard } from "@/features/dashboard/KpiCard.tsx";
 import { missingReason, NOT_AVAILABLE, pickCurrency } from "@/features/dashboard/summary.ts";
 import { useDashboardFilters } from "@/features/dashboard/useDashboardFilters.ts";
+import { MonitorShortcut } from "@/features/monitoring/overview.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatKpi, formatMoney } from "@/lib/format.ts";
 import { type PeriodReach, usePeriodReach, usePlatformStructure } from "./api.ts";
@@ -93,6 +94,7 @@ export function PlatformPage({ view }: { view: PlatformView }) {
 
       <FiltersBar filters={filters} period={period} clients={clients} onChange={setFilters} onClear={clear} lockedPlatform />
       <DataFreshness clientId={filters.clientId} platform={view.id} accountId={filters.accountId} />
+      <MonitorShortcut clientId={filters.clientId} platform={view.id} />
 
       {summary.error && <Alert tone="error">{errorMessage(summary.error)}</Alert>}
 

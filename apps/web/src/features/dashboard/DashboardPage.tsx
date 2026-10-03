@@ -19,6 +19,7 @@ import { missingReason, pickCurrency } from "./summary.ts";
 import { useDashboardFilters } from "./useDashboardFilters.ts";
 import { DataFreshness } from "@/features/sync/DataFreshness.tsx";
 import { OpsShortcut } from "@/features/operations/OpsShortcut.tsx";
+import { MonitorShortcut } from "@/features/monitoring/overview.tsx";
 
 const EMPTY: MetricTotals = { spend_micros: null, impressions: null, clicks: null, leads: null, messages: null, conversions: null, conversion_value_micros: null };
 
@@ -79,6 +80,8 @@ export function DashboardPage() {
       </div>
       {/* Etapa 36.7: atalho da Central (só para quem está nela; mesma consulta do sino). */}
       <OpsShortcut />
+      {/* Etapa 37.6: alertas de desempenho abertos (respeita o cliente e a plataforma escolhidos). */}
+      <MonitorShortcut clientId={filters.clientId} platform={filters.platform} />
 
       <FiltersBar filters={filters} period={period} clients={clients} onChange={setFilters} onClear={clear} />
       <DataFreshness clientId={filters.clientId} platform={filters.platform} accountId={filters.accountId} />

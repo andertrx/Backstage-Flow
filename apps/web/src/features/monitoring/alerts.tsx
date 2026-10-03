@@ -1,4 +1,4 @@
-import { can, type ComparedMetric } from "@backstage/shared";
+import { can, type ComparedMetric, PLATFORM_OPTIONS } from "@backstage/shared";
 import { BellRing, ClipboardList, ImageOff, Play, Repeat, UserRound } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -215,20 +215,24 @@ function AlertCard({ a, now, onOpen }: { a: MonitorAlertRow; now: Date; onOpen: 
 /** Aba Alertas: os alertas de desempenho gerados pelo motor (abertos ou o histórico). */
 export function AlertsTab() {
   const [open, setOpen] = useState(true);
-  const [clientId, setClientId] = useState("");
   const [severity, setSeverity] = useState<"" | AlertSeverity>("");
   const [kind, setKind] = useState<"" | AlertKind>("");
   const [status, setStatus] = useState<"" | AlertStatus>("");
   const [mine, setMine] = useState(false);
   const { profile } = useAuth();
   const [params, updateParams] = useSearchParamsUpdater();
+  // Cliente e plataforma ficam no endereço: os atalhos do dashboard, da ficha do cliente e das visões Meta/Google abrem já filtrados.
+  const clientId = params.get("cliente") ?? "";
+  const platform = params.get("plataforma") ?? "";
+  const setUrlFilter = (key: "cliente" | "plataforma", value: string) => updateParams((p) => { if (value) p.set(key, value); else p.delete(key); return p; });
+  const setClientId = (v: string) => setUrlFilter("cliente", v);
   const openId = Number(params.get("alerta")) || null;
   const setOpenId = (id: number | null) => updateParams((p) => { if (id) p.set("alerta", String(id)); else p.delete("alerta"); return p; });
   const { data: clients = [] } = useClients();
   const { data: alerts = [], isLoading, error } = useMonitorAlerts(open);
   const now = new Date();
   const shown = alerts.filter((a) => (!open || !a.resolved_at) && (open || a.resolved_at))
-    .filter((a) => (!clientId || a.client_id === clientId) && (!severity || a.severity === severity) && (!kind || a.kind === kind)
+    .filter((a) => (!clientId || a.client_id === clientId) && (!platform || a.platform_id === platform) && (!severity || a.severity === severity) && (!kind || a.kind === kind)
       && (!status || a.status === status) && (!mine || a.assigned_to === profile?.id));
 
   return (
@@ -251,6 +255,13 @@ export function AlertsTab() {
           <Select className="mt-1 w-48" value={clientId} onChange={(e) => setClientId(e.target.value)} aria-label="Cliente">
             <option value="">Todos</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+        </label>
+        <label className="text-xs text-slate-600">
+          Plataforma
+          <Select className="mt-1 w-36" value={platform} onChange={(e) => setUrlFilter("plataforma", e.target.value)} aria-label="Plataforma">
+            <option value="">Todas</option>
+            {PLATFORM_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
         </label>
         <label className="text-xs text-slate-600">

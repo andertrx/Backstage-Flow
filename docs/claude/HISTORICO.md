@@ -42,6 +42,7 @@
 | 35 | Campaign Builder do Meta | Pedido enviado **por engano**: auditoria guardada, em espera |
 | 36 | Central de Operações (36.1–36.7) | Ver seção 3 |
 | — | Correção do saldo (28/09) | Ver seção 4 |
+| 37 | Monitoramento de Desempenho (37.1–37.6) | Ver seção 4.1 |
 
 ## 3. Central de Operações (Etapa 36): decisões
 - **Módulo independente:**
@@ -82,6 +83,13 @@
   - cartão não gera alerta falso de "sem saldo";
   - regra aplicada também no banco (gatilho + leitura).
 
+## 4.1 Monitoramento de Desempenho (Etapa 37): decisões
+- **Auditoria 37.0 aprovada** ("pode avançar" = propostas aceitas): item "Monitoramento" no grupo Análise, antes de Alertas; azul; o alerta antigo "Queda de resultados" foi desligado na 37.3; só o link oficial de prévia do Meta.
+- **03/10:** Ander pediu **"somente campanhas, conjuntos e criativos ativos. Os desativados pode descartar"**. Item desativado não gera alerta e o alerta dele é encerrado (fica no histórico).
+- **37.5:** o Monitoramento ganhou **ícone de avisos próprio** (o sino da Central não mudou), para os dois módulos continuarem independentes. WhatsApp só "preparado".
+- **37.6:** faixa curta no dashboard e nas visões Meta/Google, bloco na ficha do cliente, aba Histórico. Tudo de leitura; nada é pausado nas plataformas.
+- **Relatório final:** `docs/etapa-37-monitoramento/37.7-RELATORIO-FINAL.md`.
+
 ## 5. Aprendizados técnicos (armadilhas que já custaram tempo)
 - **Transações e funções:** uma função `stable` não enxerga o que a mesma instrução gravou. Nos testes, separe em instruções diferentes.
 - **Servidor simulado dos testes de navegador:** toda RPC nova precisa de tratador com as mesmas regras do banco. Na Central, ele fica antes do bloqueio "só admin".
@@ -89,6 +97,8 @@
 - **Testes que dependem de data/hora:** `charts.mjs` falha às segundas e `tracking.mjs` perto de 00h UTC. Não confunda com regressão.
 - **Publicar Edge Function:** é preciso empacotar num arquivo só. Quando for arriscado, prefira colocar a regra também no banco (como na correção do saldo) para não depender da publicação.
 - **Documentação oficial do Meta:** o site `developers.facebook.com` fica bloqueado no ambiente. Use os dados reais que a API já devolveu (guardados no banco) para confirmar o comportamento, e diga isso ao Ander.
+- **Ferramenta do banco (MCP):** `execute_sql`/`apply_migration` travam ("timeout") quando o SQL tem `TRUNCATE`, `DELETE` ou `DROP`. Use nomes novos em vez de apagar, ou deixe a linha para o Ander rodar no SQL Editor.
+- **Testes de navegador:** `page.goto` perde o login simulado; navegue clicando nos links do menu. Contas simuladas precisam de `assets: []` para a ficha do cliente abrir.
 - **Nomes de plataforma nas telas:** o teste de arquitetura proíbe escrever "meta"/"google" fixo. Use o catálogo de plataformas.
 
 ## 6. Onde está cada coisa
