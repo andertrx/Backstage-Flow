@@ -10,7 +10,7 @@
   - etiqueta da forma de pagamento em cada conta.
   - Commit `c0042bd`. Documento: `docs/etapa-07-verificacao-saldo/CORRECAO-2026-09-28-FORMA-DE-PAGAMENTO.md`.
 - **Etapa 36 (Central de Operações) concluída** (36.1 a 36.7). Relatório final: `docs/etapa-36-central-operacoes/36.16-RELATORIO-FINAL.md`.
-- **Etapa 37 (Monitoramento de Desempenho):** auditoria 37.0 aprovada ("pode avançar" = propostas aceitas: menu em Análise antes de Alertas, azul, alerta antigo desligado na 37.3, só link oficial). **37.1 pronta** (30/09/2026): `docs/etapa-37-monitoramento/37.1-BASE.md`. **37.2 pronta** (01/10/2026): `37.2-COMPARATIVOS.md`. **37.3 pronta** (02/10/2026): `37.3-MOTOR-DE-ALERTAS.md` — motor agendado (`monitor-evaluate`, a cada 15 min, respeita a frequência configurada), alerta antigo "Queda de resultados" desligado (reativação em `supabase/rollback/reativar_queda_resultados.sql`). **37.4 pronta** (03/10/2026): `37.4-TRATAR-ALERTAS.md` — tratar alertas no painel do alerta; a lista passou a usar `monitor_alerts_query` (jsonb). Próxima: 37.5 (notificações).
+- **Etapa 37 (Monitoramento de Desempenho):** auditoria 37.0 aprovada ("pode avançar" = propostas aceitas: menu em Análise antes de Alertas, azul, alerta antigo desligado na 37.3, só link oficial). **37.1 pronta** (30/09/2026): `docs/etapa-37-monitoramento/37.1-BASE.md`. **37.2 pronta** (01/10/2026): `37.2-COMPARATIVOS.md`. **37.3 pronta** (02/10/2026): `37.3-MOTOR-DE-ALERTAS.md` — motor agendado (`monitor-evaluate`, a cada 15 min, respeita a frequência configurada), alerta antigo "Queda de resultados" desligado (reativação em `supabase/rollback/reativar_queda_resultados.sql`). **37.4 pronta** (03/10/2026): `37.4-TRATAR-ALERTAS.md` — tratar alertas no painel do alerta; a lista passou a usar `monitor_alerts_query` (jsonb). **37.5 pronta** (03/10/2026): `37.5-NOTIFICACOES.md` — ícone de avisos próprio do Monitoramento no topo (o sino da Central não mudou), preferências por pessoa, e-mail pela Edge Function `monitor-email` (agendamentos `monitor-emails` a cada 5 min e `monitor-digest` de hora em hora), WhatsApp só "preparado". Próxima: 37.6 (visão geral e integração com dashboard e ficha do cliente).
 - **Armadilha (ferramenta do banco):** `execute_sql`/`apply_migration` ficam esperando uma confirmação que nunca aparece (e dão "timeout") quando o SQL tem `TRUNCATE`, `DELETE` ou `DROP`. Use alternativas (ex.: renomear tabelas temporárias) ou peça ao Ander para rodar no SQL Editor. Sobrou uma função vazia de teste, `private.monitor_probe_tmp()` (não faz nada; remover no SQL Editor quando der).
 
 ## 2. Etapas: situação
@@ -21,7 +21,7 @@
 | 34 — Tracking & CAPI | 🔄 em andamento: feitas 34.1, 34.2, 34.3, 34.4, 34.5-W e 34.5-W2 |
 | 35 — Campaign Builder do Meta | ⏸️ **em espera**: o pedido foi enviado por engano; a auditoria está guardada |
 | 36 — Central de Operações | ✅ concluída |
-| 37 — Monitoramento de Desempenho | 🔄 em andamento: 37.1 a 37.4 feitas; próximas 37.5 e 37.6 (plano na auditoria) |
+| 37 — Monitoramento de Desempenho | 🔄 em andamento: 37.1 a 37.5 feitas; próxima 37.6 (plano na auditoria) |
 
 ### Próximas fases possíveis (Etapa 34, ver `docs/etapa-34-tracking/ANALISE-E-PLANO.md`)
 | Fase | O que entrega | Depende do Ander? |

@@ -13,9 +13,41 @@
 -- monitor_account_state). Depois, para o alerta antigo "Queda de resultados" voltar a
 -- funcionar, rode também supabase/rollback/reativar_queda_resultados.sql.
 -- 37.4: apaga as funções de tratar alertas. As tarefas criadas a partir de alertas ficam na Central de Operações.
+-- 37.5: desliga os agendamentos "monitor-digest" e "monitor-emails", apaga o disparo de avisos e as
+-- 3 tabelas de notificações (preferências, avisos e histórico de envios). Depois, apagar a Edge
+-- Function "monitor-email" no painel do Supabase.
 -- (As fases seguintes acrescentam seus trechos aqui.)
 -- =============================================================================
 begin;
+
+-- 37.5
+select cron.unschedule(jobid) from cron.job where jobname in ('monitor-digest', 'monitor-emails');
+drop trigger if exists monitor_alert_events_notify on public.monitor_alert_events;
+drop function if exists private.monitor_event_notify_tg();
+drop function if exists public.monitor_notifications_list(integer, boolean);
+drop function if exists private.monitor_notifications_list_impl(integer, boolean);
+drop function if exists public.monitor_notifications_read(bigint[]);
+drop function if exists private.monitor_notifications_read_impl(bigint[]);
+drop function if exists public.monitor_prefs_get(uuid);
+drop function if exists private.monitor_prefs_get_impl(uuid);
+drop function if exists public.monitor_prefs_save(uuid, jsonb);
+drop function if exists private.monitor_prefs_save_impl(uuid, jsonb);
+drop function if exists private.monitor_prefs_target(uuid);
+drop function if exists public.monitor_notify_people();
+drop function if exists private.monitor_notify_people_impl();
+drop function if exists public.monitor_deliveries_list(integer);
+drop function if exists private.monitor_deliveries_list_impl(integer);
+drop function if exists public.monitor_email_queue(integer);
+drop function if exists public.monitor_email_mark(bigint, boolean, text);
+drop function if exists private.trigger_monitor_emails();
+drop function if exists private.monitor_digest(timestamptz);
+drop function if exists private.monitor_deliver(uuid, text, text, text, bigint, text, uuid, text);
+drop function if exists private.monitor_user_sees(uuid, uuid);
+drop function if exists private.monitor_severity_rank(text);
+drop function if exists private.monitor_prefs_of(uuid);
+drop table if exists public.monitor_deliveries;
+drop table if exists public.monitor_notifications;
+drop table if exists public.monitor_notify_prefs;
 
 -- 37.4
 drop function if exists public.monitor_alerts_list(boolean, integer);

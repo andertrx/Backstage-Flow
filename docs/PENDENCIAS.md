@@ -25,6 +25,10 @@
   A 1ª é uma função vazia que sobrou de um teste meu. A 2ª é a lista antiga de alertas, trocada na 37.4 por `monitor_alerts_query` (a tela não usa mais a antiga).
   Nenhuma delas guarda dados. A minha ferramenta não consegue apagar coisas no banco sem uma confirmação que ela não mostra.
 
+## Monitoramento (Etapa 37.5) — avisos por e-mail, quando quiser
+- [ ] Em **Monitoramento → Configurações → Minhas notificações**, marcar "Por e-mail" (e, se quiser, os alertas de atenção ou o resumo diário). Hoje você recebe só no sistema (ícone no topo), que é o padrão.
+  - Quando o primeiro e-mail chegar, me avise para eu marcar o envio real como testado.
+
 ## Publicação do servidor (Edge Functions) — proposta, só se você quiser
 - [ ] **Publicação automática pelo GitHub.** Hoje, publicar as funções grandes (`sync`, `ad-accounts`) exige colar o arquivo inteiro à mão, o que é arriscado; por isso elas estão **mais novas no GitHub** do que no ar (ID do criativo da Etapa 37.1 e correção do saldo de 28/09 — o saldo já funciona pelo banco).
   - Solução: você cria um "token de acesso" no Supabase (Account → Access Tokens) e cola **só nos segredos do GitHub** (Settings → Secrets → Actions), nunca no chat. Aí eu crio a rotina que publica sozinha a cada envio.

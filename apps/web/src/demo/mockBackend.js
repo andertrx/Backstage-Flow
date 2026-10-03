@@ -87,6 +87,11 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     monitorNextAlerts: [],
     /** Tratar alertas (37.4): linha do tempo de cada alerta. */
     monitorEvents: [],
+    /** Notificações (37.5): avisos no sistema, preferências por pessoa (sem linha = padrão) e histórico de envios. */
+    monitorNotifications: [],
+    monitorPrefs: {},
+    monitorDeliveries: [],
+    emailReady: true,
     /** Meta CAPI (34.3): destinos (o "token" fica só aqui no servidor simulado), resumo e registro. */
     trackingDestinations: [],
     trackingCapiLog: [],
@@ -603,6 +608,54 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         db.monitorRules = [["cost_per_result", "up", 20, 40], ["cpc", "up", 20, 40], ["cpm", "up", 20, 40], ["ctr", "down", 15, 30], ["results", "down", 20, 40], ["roas", "down", 20, 40]]
           .map(([metric, direction, a, c], i) => ({ id: `rule-g${i}`, scope: "global", scope_id: null, client_id: null, metric, direction, attention_pct: a, critical_pct: c,
             min_volume: null, active: true, note: null, replaces_id: null, archived_at: null, created_at: "2026-09-30T22:52:50Z", created_by: null }));
+      }
+      // Notificações (37.5).
+      if (fn === "monitor_notifications_list" || fn === "monitor_notifications_read") {
+        if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
+        const mine = db.monitorNotifications.filter((n) => n.user_id === userId);
+        if (fn === "monitor_notifications_read") {
+          const hit = mine.filter((n) => !n.read_at && (!p.p_ids || p.p_ids.includes(n.id)));
+          hit.forEach((n) => { n.read_at = new Date().toISOString(); });
+          return res(200, hit.length);
+        }
+        const sorted = [...mine].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id);
+        const items = sorted.filter((n) => !p.p_unread || !n.read_at).slice(0, p.p_limit ?? 30)
+          .map(({ id, kind, title, body, link, alert_id, created_at, read_at }) => ({ id, kind, title, body, link, alert_id, created_at, read_at }));
+        return res(200, { unread: mine.filter((n) => !n.read_at).length, items });
+      }
+      if (fn === "monitor_prefs_get" || fn === "monitor_prefs_save") {
+        if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
+        const target = p.p_user ?? userId;
+        if (target !== userId && !can("admin")) return err("42501", "Só o administrador muda as notificações de outra pessoa");
+        const person = db.profiles.find((x) => x.id === target && ["admin", "gestor", "operador", "visualizador"].includes(x.role));
+        if (!person) return err("22023", "Pessoa não encontrada.");
+        if (fn === "monitor_prefs_get") {
+          const saved = db.monitorPrefs[target];
+          const base = saved ?? { enabled: person.role !== "visualizador", internal: true, email: false, whatsapp: false, min_severity: "critico", client_ids: null,
+            mode: "imediato", digest_hour: 8, quiet_start: null, quiet_end: null, notify_assigned: true, notify_followups: true };
+          return res(200, { ...base, user_id: target, user_name: person.full_name, is_default: !saved, has_email: Boolean(person.email), email_ready: db.emailReady });
+        }
+        const v = p.p ?? {};
+        if (!["critico", "atencao", "informativo"].includes(v.min_severity)) return err("22023", "Gravidade mínima inválida.");
+        if (!["imediato", "resumo", "ambos"].includes(v.mode)) return err("22023", "Escolha quando receber: na hora, só resumo diário ou os dois.");
+        if ((v.quiet_start == null) !== (v.quiet_end == null) || (v.quiet_start != null && v.quiet_start === v.quiet_end)) {
+          return err("22023", "Horário de silêncio inválido: informe início e fim diferentes (0 a 23 h).");
+        }
+        db.monitorPrefs[target] = { enabled: v.enabled ?? true, internal: v.internal ?? true, email: Boolean(v.email), whatsapp: Boolean(v.whatsapp),
+          min_severity: v.min_severity, client_ids: v.client_ids?.length ? v.client_ids : null, mode: v.mode, digest_hour: v.digest_hour,
+          quiet_start: v.quiet_start ?? null, quiet_end: v.quiet_end ?? null, notify_assigned: v.notify_assigned ?? true, notify_followups: v.notify_followups ?? true };
+        return res(204);
+      }
+      if (fn === "monitor_notify_people") {
+        if (!can("admin")) return err("42501", "Só o administrador vê as notificações de outras pessoas");
+        return res(200, db.profiles.filter((x) => x.active && ["admin", "gestor", "operador", "visualizador"].includes(x.role))
+          .map((x) => ({ id: x.id, name: x.full_name, role: x.role })).sort((a, b) => a.name.localeCompare(b.name)));
+      }
+      if (fn === "monitor_deliveries_list") {
+        if (!can("view")) return err("42501", "Sem permissão para ver o monitoramento");
+        return res(200, db.monitorDeliveries.filter((d) => d.user_id === userId || can("admin"))
+          .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id).slice(0, p.p_limit ?? 100)
+          .map((d) => ({ ...d, user_name: db.profiles.find((x) => x.id === d.user_id)?.full_name ?? null })));
       }
       const scopeClient = (scope, id) => scope === "client" ? db.clients.find((c) => c.id === id)?.id
         : scope === "account" ? db.adAccounts.find((a) => a.id === id)?.client_id

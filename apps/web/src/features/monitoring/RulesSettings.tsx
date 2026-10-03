@@ -69,7 +69,7 @@ export function RulesSettings() {
 
       <section aria-labelledby="limites-gerais" className="space-y-3">
         <h2 id="limites-gerais" className="text-base font-semibold">Limites gerais (todos os clientes)</h2>
-        <Card className="overflow-x-auto">
+        <Card className="relative overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
               <tr>

@@ -12,6 +12,7 @@ import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { AlertsOverview, AlertsTab, EngineSettings } from "./alerts.tsx";
 import { useMonitorRules } from "./api.ts";
 import { CompareTable, CreativesGrid, FiltersBar, LEVEL_LABELS, useMonitorFilters } from "./compare.tsx";
+import { NotifySettings } from "./NotifySettings.tsx";
 import { RulesSettings } from "./RulesSettings.tsx";
 
 /** Abas entregues até agora (o histórico completo e a central de tratamento entram nas fases 37.4 a 37.6, sem botões de mentira). */
@@ -68,6 +69,7 @@ export function MonitoringPage() {
         <div className="space-y-8">
           <EngineSettings />
           <RulesSettings />
+          <NotifySettings />
         </div>
       ) : tab === "alertas" ? (
         <AlertsTab />
