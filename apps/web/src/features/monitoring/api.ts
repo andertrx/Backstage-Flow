@@ -409,6 +409,8 @@ export const useAlertToTask = () =>
 /** Situação do motor (public.monitor_status). */
 export interface MonitorStatus {
   enabled: boolean;
+  /** Gravidade mínima para gerar alerta (padrão: só críticos). */
+  min_severity?: AlertSeverity;
   eval_interval_minutes: number;
   stale_hours: number;
   last_run: {
@@ -447,6 +449,17 @@ export function useEvaluateNow() {
       const r = (data ?? {}) as { error?: string | null; evaluated?: number; created?: number; updated?: number; resolved?: number };
       if (r.error) throw new FriendlyError("A avaliação parou por um erro e foi registrada. Nenhum alerta foi alterado.");
       return r;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useSaveMinSeverity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (minSeverity: AlertSeverity) => {
+      const { error } = await supabase.rpc("monitor_min_severity_save", { p_min_severity: minSeverity });
+      if (error) throw new FriendlyError(monitorError(error, "Não conseguimos salvar quais alertas são gerados."));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });

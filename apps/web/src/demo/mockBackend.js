@@ -790,7 +790,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         const r = [...db.monitorRuns].sort((a, b) => b.started_at.localeCompare(a.started_at))[0] ?? null;
         const open = db.monitorAlerts.filter((a) => !a.resolved_at && a.status !== "ignorado" && visible(a.client_id));
         return res(200, {
-          enabled: s.enabled, eval_interval_minutes: s.eval_interval_minutes, stale_hours: s.stale_hours,
+          enabled: s.enabled, eval_interval_minutes: s.eval_interval_minutes, stale_hours: s.stale_hours, min_severity: s.min_severity ?? "critico",
           last_run: r && { started_at: r.started_at, finished_at: r.finished_at, trigger: r.trigger, evaluated: r.evaluated, skipped: r.skipped,
             created: r.created, updated: r.updated, resolved: r.resolved, error: r.error ?? null },
           last_evaluated_at: db.monitorRuns.filter((x) => x.evaluated > 0).map((x) => x.started_at).sort().at(-1) ?? null,
@@ -942,6 +942,12 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           skipped: 0, created: created.length, updated: 0, resolved: 0, error: null };
         db.monitorRuns.push(run);
         return res(200, { run_id: db.monitorRuns.length, evaluated: run.evaluated, skipped: 0, created: run.created, updated: 0, resolved: 0, error: null });
+      }
+      if (fn === "monitor_min_severity_save") {
+        if (!can("admin")) return err("42501", "Só o administrador muda quais alertas são gerados");
+        if (!["critico", "atencao", "informativo"].includes(p.p_min_severity)) return err("22023", "Gravidade inválida.");
+        db.monitorSettings.min_severity = p.p_min_severity;
+        return res(204);
       }
       if (fn === "monitor_settings_save") {
         if (!can("admin")) return err("42501", "Só o administrador muda a frequência do monitoramento");

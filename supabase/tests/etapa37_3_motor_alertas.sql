@@ -6,6 +6,10 @@
 -- =============================================================================
 begin;
 
+-- Este teste confere o motor completo (todas as gravidades). Desde 04/10/2026 o padrão é "só críticos":
+-- ver etapa37_alertas_so_criticos.sql.
+update public.monitor_settings set min_severity = 'informativo' where id = 1;
+
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-0000-0000-00000373aa01', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin@t373.local'),
   ('00000000-0000-0000-0000-00000373aa02', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'gestor@t373.local'),

@@ -54,6 +54,8 @@ export interface MonitorFilters {
   platform: string | null;
   campaignId: string | null;
   onlyRelevant: boolean;
+  /** Padrão: só itens ativos (campanha, conjunto, anúncio). Marcado = mostra também os pausados/desativados. */
+  showPaused: boolean;
 }
 
 export function useMonitorFilters() {
@@ -70,6 +72,7 @@ export function useMonitorFilters() {
     platform: params.get("plataforma"),
     campaignId: params.get("campanha"),
     onlyRelevant: params.get("relevantes") === "1",
+    showPaused: params.get("pausados") === "1",
   };
   const set = (patch: Record<string, string | null>) =>
     update((latest) => {
@@ -123,6 +126,10 @@ export function FiltersBar({ filters, pair, set }: ReturnType<typeof useMonitorF
         <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
           <input type="checkbox" className="size-4 rounded border-slate-300" checked={filters.onlyRelevant} onChange={(e) => set({ relevantes: e.target.checked ? "1" : null })} />
           Só variações relevantes (atenção ou crítico)
+        </label>
+        <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
+          <input type="checkbox" className="size-4 rounded border-slate-300" checked={filters.showPaused} onChange={(e) => set({ pausados: e.target.checked ? "1" : null })} data-testid="mostrar-pausados" />
+          Mostrar também pausados e desativados
         </label>
       </div>
       {filters.period === "custom" && (
@@ -212,9 +219,11 @@ export function useEvaluatedRows(level: CompareLevel, filters: MonitorFilters, p
       };
     });
     return list
+      // Padrão: só ativos (no nível Conta, a conta inteira).
+      .filter((r) => filters.showPaused || level === "account" || r.status === "ativa")
       .filter((r) => !filters.onlyRelevant || r.evaluation.worst === "critico" || r.evaluation.worst === "atencao")
       .sort((a, b) => compareSeverity(a.evaluation.worst, b.evaluation.worst) || (b.current.spend_micros ?? 0) - (a.current.spend_micros ?? 0));
-  }, [q.data, rules, level, pair.partial, filters.onlyRelevant]);
+  }, [q.data, rules, level, pair.partial, filters.onlyRelevant, filters.showPaused]);
   return { ...q, rows };
 }
 

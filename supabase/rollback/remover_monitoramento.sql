@@ -22,6 +22,11 @@
 -- =============================================================================
 begin;
 
+-- Só críticos (04/10)
+drop function if exists public.monitor_min_severity_save(text);
+drop function if exists private.monitor_min_severity_save_impl(text);
+drop function if exists private.monitor_severity_ok(text);
+
 -- Filtro de objetivo
 drop function if exists public.monitor_view_prefs_get();
 drop function if exists private.monitor_view_prefs_get_impl();

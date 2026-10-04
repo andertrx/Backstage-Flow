@@ -22,6 +22,7 @@ import {
   useEvaluateNow,
   useMonitorAlerts,
   useMonitorStatus,
+  useSaveMinSeverity,
   useSaveMonitorSettings,
 } from "./api.ts";
 import { fmtMetric, SEVERITY_LOOK, SeverityBadge } from "./compare.tsx";
@@ -161,7 +162,7 @@ function AlertCard({ a, now, onOpen }: { a: MonitorAlertRow; now: Date; onOpen: 
           )}
           {a.resolved_at && (
             <span className="text-xs text-slate-500">
-              {a.resolution === "manual" ? "Resolvido à mão" : a.details.closed_reason === "inativo" ? "Encerrado: item desativado" : "Normalizou sozinho"}{" "}
+              {a.resolution === "manual" ? "Resolvido à mão" : a.details.closed_reason === "inativo" ? "Encerrado: item desativado" : a.details.closed_reason === "abaixo_do_minimo" ? "Encerrado: deixou de ser crítico" : "Normalizou sozinho"}{" "}
               {formatRelative(a.resolved_at, now)}
             </span>
           )}
@@ -247,7 +248,7 @@ export function AlertsTab() {
     <div className="space-y-4">
       <Alert tone="info">
         Os alertas são gerados sozinhos, comparando os <strong>últimos 7 dias completos</strong> com os 7 anteriores (e o dia de ontem com os 28 dias antes dele).
-        Cada alerta explica a conta feita; clique em <strong>Abrir</strong> para tratar (estado, responsável, comentários, providências, tarefa). <strong>Só campanhas, conjuntos e anúncios ativos</strong> geram alerta: quando um item é desativado, o alerta dele é encerrado (fica no histórico). Nada é pausado nem alterado nas plataformas.
+        Cada alerta explica a conta feita; clique em <strong>Abrir</strong> para tratar (estado, responsável, comentários, providências, tarefa). <strong>Só alertas críticos, e só de campanhas, conjuntos e anúncios ativos</strong> (o administrador muda a gravidade em Configurações): quando um item é desativado, o alerta dele é encerrado (fica no histórico). Nada é pausado nem alterado nas plataformas.
       </Alert>
       <Card className="flex flex-wrap items-end gap-3 p-3">
         <div className="inline-flex rounded-lg bg-slate-100 p-1" role="group" aria-label="Quais alertas">
@@ -367,9 +368,43 @@ export function EngineSettings() {
           )}
           {save.error && <Alert tone="error">{errorMessage(save.error)}</Alert>}
           {save.isSuccess && !draft && <Alert tone="success">Configuração salva.</Alert>}
+          <MinSeveritySetting isAdmin={isAdmin} current={s.min_severity ?? "critico"} />
           <EvaluateNowButton />
         </Card>
       )}
     </section>
+  );
+}
+
+
+const MIN_SEVERITY_OPTIONS: { value: AlertSeverity; label: string }[] = [
+  { value: "critico", label: "Só críticos (recomendado)" },
+  { value: "atencao", label: "Críticos e de atenção" },
+  { value: "informativo", label: "Todos (inclusive informativos)" },
+];
+
+/** Quais alertas o motor gera (padrão: só críticos). Só o administrador muda. */
+function MinSeveritySetting({ isAdmin, current }: { isAdmin: boolean; current: AlertSeverity }) {
+  const save = useSaveMinSeverity();
+  const [value, setValue] = useState<AlertSeverity | null>(null);
+  const shown = value ?? current;
+  const label = MIN_SEVERITY_OPTIONS.find((o) => o.value === current)?.label ?? current;
+  if (!isAdmin) {
+    return <p className="text-sm text-slate-700" data-testid="gravidade-minima-leitura">Gera alertas: <strong>{label}</strong>, só de campanhas, conjuntos e anúncios ativos. Só o administrador muda isso.</p>;
+  }
+  return (
+    <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4" data-testid="gravidade-minima">
+      <Field label="Gerar alertas a partir de" hint="Vale a partir da próxima avaliação. Abaixo disso, o alerta aberto é encerrado (fica no histórico).">
+        {(id) => (
+          <Select id={id} className="w-64" value={shown} onChange={(e) => setValue(e.target.value as AlertSeverity)}>
+            {MIN_SEVERITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </Select>
+        )}
+      </Field>
+      <Button type="button" loading={save.isPending} disabled={value === null || value === current}
+        onClick={() => value && save.mutate(value, { onSuccess: () => setValue(null) })}>Salvar</Button>
+      {save.error && <Alert tone="error">{errorMessage(save.error)}</Alert>}
+      {save.isSuccess && value === null && <span className="text-sm text-emerald-700">Salvo.</span>}
+    </div>
   );
 }
