@@ -71,7 +71,7 @@ const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   await page.getByRole("heading", { name: "Monitoramento de Desempenho", level: 1 }).waitFor();
 
   const tabs = await page.getByRole("tab").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Visão geral", "Alertas", "Comparativos", "Campanhas", "Criativos", "Histórico", "Configurações"]), `aba Alertas logo depois da Visão geral (${tabs})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Visão geral", "Alertas", "Histórico", "Configurações"]), `aba Alertas logo depois da Visão geral (${tabs})`);
 
   // Visão geral: abertos por gravidade e situação da avaliação
   await page.waitForFunction(() => document.querySelector("[data-testid=abertos-critico]")?.textContent.includes("1"), null, { timeout: 5000 }).catch(() => {});

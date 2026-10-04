@@ -67,8 +67,8 @@ let saved;
   const list = await text(page.locator("main"));
   check(await page.getByTestId("alerta").count() === 2 && list.includes("Vendas Loja") && list.includes("Cadastro EndForm") && !list.includes("WhatsApp Conversas"), "Alertas: só as campanhas de Vendas e Leads");
 
-  // Campanhas
-  await page.getByRole("tab", { name: "Campanhas" }).click();
+  // Campanhas (nível dentro de Alertas)
+  await page.getByTestId("nivel-alertas").getByRole("button", { name: "Campanhas", exact: true }).click();
   // Espera a tabela de campanhas com pausas curtas (a aba anterior também mostrava "Vendas Loja" por alguns milissegundos;
   // e a espera contínua do Playwright, conferindo a cada quadro, segurava o redesenho da troca de aba no navegador de teste).
   for (let i = 0; i < 75; i++) {

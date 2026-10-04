@@ -12,7 +12,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   if (loading) return <FullPageSpinner />;
-  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   if (!profile || !profile.active) return <PendingAccessPage />;
   return children;
 }

@@ -75,8 +75,8 @@ const until = async (page, fn, ms = 10000) => { for (let i = 0; i < ms / 200; i+
   check((await text(page.getByTestId("alerta").first())).includes("Encerrado: deixou de ser crítico"), "histórico: encerrado porque deixou de ser crítico");
 
   // Campanhas: só ativas por padrão
-  await page.getByRole("tab", { name: "Campanhas" }).click();
-  await until(page, async () => (await page.locator("[role=tab][aria-selected=true]").innerText()) === "Campanhas" && (await page.getByTestId("mostrar-pausados").count()) === 1, 40000);
+  await page.getByTestId("nivel-alertas").getByRole("button", { name: "Campanhas", exact: true }).click();
+  await until(page, async () => (await page.getByTestId("mostrar-pausados").count()) === 1, 40000);
   await until(page, async () => { const t = await page.locator("main").textContent(); return t.includes("Leads Ativa") && !t.includes("Carregando"); });
   let camp = await text(page.locator("main"));
   check(camp.includes("Leads Ativa") && !camp.includes("Promo Pausada"), "Campanhas: só a ativa por padrão");

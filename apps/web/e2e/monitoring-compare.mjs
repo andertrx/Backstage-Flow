@@ -54,6 +54,9 @@ function seed(db) {
     m("account", {}, prev, { spend: 15_000_000, impr: 5000, clk: 150, leads: 4 });
     m("account", {}, cur, { spend: 15_000_000, impr: 5000, clk: 150, leads: 2 });
     m("account", { acc: US, cli: LOJA, cur: "USD" }, cur, { spend: 3_000_000, impr: 1500, clk: 40, conv: 1 });
+    // Conjunto da C1
+    m("ad_group", { c: C1, g: G1 }, prev, { spend: 10_000_000, impr: 2000, clk: 60, leads: 4 });
+    m("ad_group", { c: C1, g: G1 }, cur, { spend: 10_000_000, impr: 2000, clk: 60, leads: 2 });
     // Anúncios da C1
     m("ad", { c: C1, g: G1, a: A1 }, cur, { spend: 4_000_000, impr: 800, clk: 24, leads: 1 });
     m("ad", { c: C1, g: G1, a: A2 }, cur, { spend: 3_000_000, impr: 600, clk: 18, leads: 1 });
@@ -68,6 +71,12 @@ async function waitRows(page, n) {
   return rowsOf(page).count();
 }
 
+/** Correção de 04/10: Campanhas, Conjuntos, Anúncios, Criativos e Contas são níveis dentro da aba Alertas. */
+async function openLevel(page, name, viaTab = true) {
+  if (viaTab) await page.getByRole("tab", { name: "Alertas" }).click();
+  await page.getByTestId("nivel-alertas").getByRole("button", { name, exact: true }).click();
+}
+
 {
   const { browser, page, errors } = await launch();
   const db = await mockSupabase(page, { role: "admin" });
@@ -78,10 +87,13 @@ async function waitRows(page, n) {
   await login(page, "/monitoramento");
   await page.getByRole("heading", { name: "Monitoramento de Desempenho", level: 1 }).waitFor();
   const tabs = await page.getByRole("tab").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Visão geral", "Alertas", "Comparativos", "Campanhas", "Criativos", "Histórico", "Configurações"]), `abas novas (${tabs})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Visão geral", "Alertas", "Histórico", "Configurações"]), `4 abas: Campanhas e Criativos ficam dentro de Alertas (${tabs})`);
 
-  // Campanhas: últimos 7 dias × 7 anteriores
-  await page.getByRole("tab", { name: "Campanhas" }).click();
+  // Campanhas (nível dentro de Alertas): últimos 7 dias × 7 anteriores
+  await openLevel(page, "Campanhas");
+  check(page.url().includes("aba=alertas") && page.url().includes("nivel=campanhas"), "nível Campanhas fica no endereço");
+  const levels = await page.getByTestId("nivel-alertas").getByRole("button").allInnerTexts();
+  check(JSON.stringify(levels) === JSON.stringify(["Alertas", "Campanhas", "Conjuntos", "Anúncios", "Criativos", "Contas"]), `seletor de nível (${levels})`);
   check(await waitRows(page, 3) === 3, "3 campanhas comparadas");
   const periods = clean(await page.getByTestId("periodos").innerText());
   check(periods.includes(`${br(day(-7))} a ${br(day(-1))}`) && periods.includes(`${br(day(-14))} a ${br(day(-8))}`) && periods.includes("7 dias cada"), `períodos de mesma duração (${periods})`);
@@ -96,13 +108,17 @@ async function waitRows(page, n) {
   check(clean(await page.getByTestId("resumo-critico").innerText()).endsWith("1") && clean(await page.getByTestId("resumo-normal").innerText()).endsWith("1"), "resumo por gravidade");
   await page.screenshot({ path: `${SHOTS}/37.2-campanhas.png`, fullPage: true });
 
-  // Só variações relevantes
-  await page.getByLabel("Só variações relevantes (atenção ou crítico)").click();
-  await page.waitForURL(/relevantes=1/);
-  check(await waitRows(page, 1) === 1, "filtro de relevantes deixa só a crítica");
-  check(await page.getByLabel("Só variações relevantes (atenção ou crítico)").isChecked(), "filtro marcado e guardado no endereço");
-  await page.getByLabel("Só variações relevantes (atenção ou crítico)").click();
-  await waitRows(page, 3);
+  // Filtro de gravidade
+  await page.getByLabel("Gravidade", { exact: true }).selectOption("critico");
+  await page.waitForURL(/gravidade=critico/);
+  check(await waitRows(page, 1) === 1, "gravidade Crítico deixa só a crítica");
+  check(clean(await page.getByTestId("resumo-normal").innerText()).endsWith("1"), "o resumo continua contando todos os itens");
+  await page.getByLabel("Gravidade", { exact: true }).selectOption("normal");
+  check(await waitRows(page, 1) === 1 && (await rowsOf(page).first().getAttribute("data-severity")) === "normal", "gravidade Normal deixa só a normal");
+  await page.getByLabel("Gravidade", { exact: true }).selectOption("relevantes");
+  check(await waitRows(page, 1) === 1, "crítico ou atenção deixa só a crítica");
+  await page.getByLabel("Gravidade", { exact: true }).selectOption("");
+  check(await waitRows(page, 3) === 3, "Todas volta às 3");
 
   // Detalhe da campanha: métricas, gráfico e dia a dia
   await page.getByRole("button", { name: "Leads Setembro" }).click();
@@ -122,12 +138,20 @@ async function waitRows(page, n) {
   // Navegar na hierarquia: anúncios desta campanha
   await dlg.getByRole("button", { name: "Ver anúncios desta campanha" }).click();
   await page.getByTestId("filtro-campanha").waitFor();
-  check(page.url().includes("aba=comparativos") && page.url().includes("nivel=ad") && page.url().includes(`campanha=${C1}`), "abre Comparativos no nível de anúncio, só da campanha");
+  check(page.url().includes("aba=alertas") && page.url().includes("nivel=anuncios") && page.url().includes(`campanha=${C1}`), "abre Alertas no nível Anúncios, só da campanha");
   check(await waitRows(page, 3) === 3, "3 anúncios da campanha");
   check(clean(await page.locator("table").innerText()).includes("Foto academia"), "anúncio do período anterior também aparece (sem entrega agora)");
   await page.getByTestId("filtro-campanha").click();
-  await page.getByRole("button", { name: "Contas" }).click();
+  await openLevel(page, "Contas", false);
   check(await waitRows(page, 2) === 2, "nível de conta: 2 contas");
+  await openLevel(page, "Conjuntos", false);
+  check(await waitRows(page, 1) === 1 && clean(await rowsOf(page).first().innerText()).startsWith("Público frio") && page.url().includes("nivel=conjuntos"), "nível Conjuntos lista o conjunto");
+  check(clean(await page.getByTestId("nivel-explicacao").innerText()).includes("não são criados alertas"), "Conjuntos avisa que ali não há alerta registrado");
+  await openLevel(page, "Alertas", false);
+  await page.getByRole("group", { name: "Quais alertas" }).waitFor();
+  check(!page.url().includes("nivel="), "opção Alertas volta para a lista de alertas");
+  await openLevel(page, "Contas", false);
+  await waitRows(page, 2);
 
   // Período personalizado
   await page.getByLabel("Período").selectOption("custom");
@@ -138,7 +162,7 @@ async function waitRows(page, n) {
   check(cp.includes(`${br(day(-6))} a ${br(day(-4))}`) && cp.includes("3 dias cada"), `personalizado compara com os 3 dias anteriores (${cp})`);
 
   // Criativos
-  await page.getByRole("tab", { name: "Criativos" }).click();
+  await openLevel(page, "Criativos", false);
   await page.getByLabel("Período").selectOption("last_7_days");
   await page.waitForFunction(() => document.querySelectorAll("[data-testid=criativo-card]").length === 2, null, { timeout: 6000 }).catch(() => {});
   const cards = page.getByTestId("criativo-card");
@@ -171,10 +195,25 @@ async function waitRows(page, n) {
   seed(db);
   db.access.push({ user_id: (await import("./support.mjs")).USER_ID, client_id: EXC });
   await login(page, "/monitoramento");
-  await page.getByRole("tab", { name: "Campanhas" }).click();
+  await openLevel(page, "Campanhas");
   check(await waitRows(page, 2) === 2, "visualizador vê só as campanhas dos clientes liberados");
   check(errors.length === 0, "sem erros (visualizador)");
   await browser.close();
+}
+
+{
+  // Endereços antigos (abas Campanhas, Criativos e Comparativos) abrem o nível certo dentro de Alertas
+  for (const [old, want] of [["aba=campanhas", "nivel=campanhas"], ["aba=criativos", "nivel=criativos"], ["aba=comparativos&nivel=ad_group", "nivel=conjuntos"]]) {
+    const { browser, page, errors } = await launch();
+    const db = await mockSupabase(page, { role: "admin" });
+    seed(db);
+    await login(page, `/monitoramento?${old}`);
+    await page.getByTestId("nivel-alertas").waitFor();
+    await page.waitForURL((u) => u.search.includes(want), { timeout: 8000 }).catch(() => {});
+    check(page.url().includes("aba=alertas") && page.url().includes(want), `endereço antigo ${old} abre Alertas → ${want} (${page.url()})`);
+    check(errors.length === 0, `sem erros (${old})`);
+    await browser.close();
+  }
 }
 
 {
@@ -184,10 +223,19 @@ async function waitRows(page, n) {
   seed(db);
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page, "/monitoramento");
-  await page.getByRole("tab", { name: "Criativos" }).click();
+  await openLevel(page, "Criativos");
   await page.getByTestId("criativo-card").first().waitFor();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check(overflow <= 1, `celular: sem rolagem lateral (${overflow}px)`);
+  const lastTab = await page.getByRole("tab", { name: "Configurações" }).boundingBox();
+  check(lastTab.x + lastTab.width <= 390 + 0.5, `celular: as 4 abas cabem na tela (${Math.round(lastTab.x + lastTab.width)}px)`);
+  const sel = await page.getByTestId("nivel-alertas").boundingBox();
+  check(sel.x >= 0 && sel.x + sel.width <= 390 + 0.5, `celular: seletor de nível inteiro na tela (${Math.round(sel.x)}–${Math.round(sel.x + sel.width)})`);
+  for (const b of await page.getByTestId("nivel-alertas").getByRole("button").all()) {
+    const bb = await b.boundingBox();
+    check(bb.x >= 0 && bb.x + bb.width <= 390 + 0.5, `celular: opção "${await b.innerText()}" visível sem rolar`);
+  }
+  await page.screenshot({ path: `${SHOTS}/37.10-celular.png` });
   await browser.close();
 }
 

@@ -53,10 +53,22 @@ export interface MonitorFilters {
   clientId: string | null;
   platform: string | null;
   campaignId: string | null;
-  onlyRelevant: boolean;
+  /** Filtro de gravidade: um nível só, ou "relevantes" (crítico ou atenção). Vazio = todas. */
+  severity: SeverityFilter;
   /** Padrão: só itens ativos (campanha, conjunto, anúncio). Marcado = mostra também os pausados/desativados. */
   showPaused: boolean;
 }
+
+export type SeverityFilter = "" | MonitorSeverity | "relevantes";
+export const SEVERITY_FILTER_OPTIONS: { value: SeverityFilter; label: string }[] = [
+  { value: "", label: "Todas" },
+  { value: "critico", label: "Crítico" },
+  { value: "atencao", label: "Atenção" },
+  { value: "relevantes", label: "Crítico ou atenção" },
+  { value: "informativo", label: "Informativo" },
+  { value: "normal", label: "Normal" },
+];
+const SEVERITY_FILTER_VALUES = SEVERITY_FILTER_OPTIONS.map((o) => o.value);
 
 export function useMonitorFilters() {
   const [params, update] = useSearchParamsUpdater();
@@ -71,7 +83,10 @@ export function useMonitorFilters() {
     clientId: params.get("cliente"),
     platform: params.get("plataforma"),
     campaignId: params.get("campanha"),
-    onlyRelevant: params.get("relevantes") === "1",
+    // "relevantes=1" é o endereço antigo da caixinha "só variações relevantes".
+    severity: SEVERITY_FILTER_VALUES.includes(params.get("gravidade") as SeverityFilter)
+      ? (params.get("gravidade") as SeverityFilter)
+      : params.get("relevantes") === "1" ? "relevantes" : "",
     showPaused: params.get("pausados") === "1",
   };
   const set = (patch: Record<string, string | null>) =>
@@ -123,10 +138,13 @@ export function FiltersBar({ filters, pair, set }: ReturnType<typeof useMonitorF
             </Select>
           )}
         </Field>
-        <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
-          <input type="checkbox" className="size-4 rounded border-slate-300" checked={filters.onlyRelevant} onChange={(e) => set({ relevantes: e.target.checked ? "1" : null })} />
-          Só variações relevantes (atenção ou crítico)
-        </label>
+        <Field label="Gravidade">
+          {(id) => (
+            <Select id={id} value={filters.severity} onChange={(e) => set({ gravidade: e.target.value || null, relevantes: null })} data-testid="filtro-gravidade">
+              {SEVERITY_FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
+          )}
+        </Field>
         <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
           <input type="checkbox" className="size-4 rounded border-slate-300" checked={filters.showPaused} onChange={(e) => set({ pausados: e.target.checked ? "1" : null })} data-testid="mostrar-pausados" />
           Mostrar também pausados e desativados
@@ -204,7 +222,7 @@ export function useEvaluatedRows(level: CompareLevel, filters: MonitorFilters, p
   const { objectives } = useMonitorObjectives();
   const q = useMonitorCompare({ level, current: pair.current, previous: pair.previous, clientId: filters.clientId, platform: filters.platform, campaignId: filters.campaignId, objectives });
   const { data: rules = [] } = useMonitorRules();
-  const rows = useMemo(() => {
+  const all = useMemo(() => {
     const list: EvaluatedRow[] = (q.data ?? []).map((raw) => {
       const r = { ...raw, current: noDeliveryAsZero(raw.current, raw.cur_days, raw.coverage), previous: noDeliveryAsZero(raw.previous, raw.prev_days, raw.coverage) };
       return {
@@ -218,13 +236,18 @@ export function useEvaluatedRows(level: CompareLevel, filters: MonitorFilters, p
       ),
       };
     });
+    // Padrão: só ativos (no nível Conta, a conta inteira).
     return list
-      // Padrão: só ativos (no nível Conta, a conta inteira).
       .filter((r) => filters.showPaused || level === "account" || r.status === "ativa")
-      .filter((r) => !filters.onlyRelevant || r.evaluation.worst === "critico" || r.evaluation.worst === "atencao")
       .sort((a, b) => compareSeverity(a.evaluation.worst, b.evaluation.worst) || (b.current.spend_micros ?? 0) - (a.current.spend_micros ?? 0));
-  }, [q.data, rules, level, pair.partial, filters.onlyRelevant, filters.showPaused]);
-  return { ...q, rows };
+  }, [q.data, rules, level, pair.partial, filters.showPaused]);
+  // O resumo conta tudo; a lista mostra só a gravidade escolhida.
+  const sev = filters.severity;
+  const rows = useMemo(
+    () => (sev ? all.filter((r) => (sev === "relevantes" ? r.evaluation.worst === "critico" || r.evaluation.worst === "atencao" : r.evaluation.worst === sev)) : all),
+    [all, sev],
+  );
+  return { ...q, rows, all };
 }
 
 export function SeveritySummary({ rows }: { rows: EvaluatedRow[] }) {
@@ -246,15 +269,19 @@ export function SeveritySummary({ rows }: { rows: EvaluatedRow[] }) {
 const LEVEL_LABELS: Record<CompareLevel, string> = {
   account: "Contas", campaign: "Campanhas", ad_group: "Conjuntos / grupos", ad: "Anúncios", creative: "Criativos",
 };
+/** Nível no endereço (aba Alertas): ?nivel=campanhas, conjuntos, anuncios, criativos, contas. */
+export const LEVEL_PARAM: Record<CompareLevel, string> = {
+  account: "contas", campaign: "campanhas", ad_group: "conjuntos", ad: "anuncios", creative: "criativos",
+};
 
 export function CompareTable({ level, filters, pair, set }: { level: CompareLevel } & ReturnType<typeof useMonitorFilters>) {
-  const { rows, isLoading, isFetching, error } = useEvaluatedRows(level, filters, pair);
+  const { rows, all, isLoading, isFetching, error } = useEvaluatedRows(level, filters, pair);
   const [open, setOpen] = useState<EvaluatedRow | null>(null);
 
   return (
     <div className="space-y-4">
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
-      <SeveritySummary rows={rows} />
+      <SeveritySummary rows={all} />
       <p className="text-xs text-slate-500">
         A gravidade usa os limites das Configurações. Cada linha mostra o valor atual e a variação em relação ao período anterior, na moeda da própria conta (moedas nunca são somadas).
       </p>
@@ -271,7 +298,7 @@ export function CompareTable({ level, filters, pair, set }: { level: CompareLeve
             {isLoading && <tr><td colSpan={9} className="px-3 py-8 text-center text-slate-500">Carregando…</td></tr>}
             {!isLoading && rows.length === 0 && (
               <tr><td colSpan={9} className="px-3 py-8 text-center text-slate-500" data-testid="compare-vazio">
-                {filters.onlyRelevant ? "Nenhuma variação relevante neste período." : "Nenhum dado nos dois períodos."}
+                {filters.severity && all.length > 0 ? "Nenhum item com essa gravidade neste período." : "Nenhum dado nos dois períodos."}
               </td></tr>
             )}
             {rows.map((r) => (
@@ -304,7 +331,7 @@ export function CompareTable({ level, filters, pair, set }: { level: CompareLeve
         </table>
       </Card>
       {rows.length >= 500 && <p className="text-xs text-slate-500">Mostrando os 500 itens com maior investimento. Use os filtros para ver os demais.</p>}
-      {open && <EntityDetail row={open} pair={pair} onClose={() => setOpen(null)} onDrill={(lvl) => { set({ aba: "comparativos", nivel: lvl, campanha: open.campaign_id }); setOpen(null); }} />}
+      {open && <EntityDetail row={open} pair={pair} onClose={() => setOpen(null)} onDrill={(lvl) => { set({ aba: "alertas", nivel: LEVEL_PARAM[lvl], campanha: open.campaign_id }); setOpen(null); }} />}
     </div>
   );
 }
@@ -502,20 +529,20 @@ function Thumb({ row, className }: { row: CompareRow; className?: string }) {
 const CARD_METRICS: ComparedMetric[] = ["spend", "results", "cost_per_result", "ctr"];
 
 export function CreativesGrid({ filters, pair }: ReturnType<typeof useMonitorFilters>) {
-  const { rows, isLoading, error } = useEvaluatedRows("creative", filters, pair);
+  const { rows, all, isLoading, error } = useEvaluatedRows("creative", filters, pair);
   const [open, setOpen] = useState<EvaluatedRow | null>(null);
   const grouped = rows.filter((r) => (r.ads_count ?? 0) > 1).length;
 
   return (
     <div className="space-y-4">
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
-      <SeveritySummary rows={rows} />
+      <SeveritySummary rows={all} />
       <Alert tone="info">
         Anúncios que usam o <strong>mesmo criativo</strong> (mesmo código informado pela plataforma) aparecem juntos; nunca agrupamos só porque os nomes são parecidos.
         {grouped === 0 && " Enquanto a plataforma não informar o código do criativo, cada anúncio aparece sozinho."}
       </Alert>
       {isLoading && <p className="py-8 text-center text-sm text-slate-500">Carregando…</p>}
-      {!isLoading && rows.length === 0 && <Card className="p-8 text-center text-sm text-slate-500" data-testid="criativos-vazio">Nenhum criativo com dados nos dois períodos.</Card>}
+      {!isLoading && rows.length === 0 && <Card className="p-8 text-center text-sm text-slate-500" data-testid="criativos-vazio">{filters.severity && all.length > 0 ? "Nenhum criativo com essa gravidade neste período." : "Nenhum criativo com dados nos dois períodos."}</Card>}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {rows.map((r) => (
           <Card key={r.entity_key} className={cn("flex flex-col gap-3 border-l-4 p-3", SEVERITY_LOOK[r.evaluation.worst].border)} data-testid="criativo-card" data-severity={r.evaluation.worst}>

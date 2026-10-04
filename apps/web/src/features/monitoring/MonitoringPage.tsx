@@ -1,5 +1,6 @@
-import { can, freshness } from "@backstage/shared";
+import { can, type CompareLevel, freshness } from "@backstage/shared";
 import { Activity, AlertTriangle, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { useEffect } from "react";
 import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Card } from "@/components/ui/card.tsx";
@@ -11,31 +12,50 @@ import { formatDateTime, formatRelative } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { AlertsOverview, AlertsTab, EngineSettings } from "./alerts.tsx";
 import { useMonitorRules } from "./api.ts";
-import { CompareTable, CreativesGrid, FiltersBar, LEVEL_LABELS, useMonitorFilters } from "./compare.tsx";
+import { CompareTable, CreativesGrid, FiltersBar, LEVEL_PARAM, useMonitorFilters } from "./compare.tsx";
 import { NotifySettings } from "./NotifySettings.tsx";
 import { ObjectiveFilter } from "./objectivesFilter.tsx";
 import { HistoryTab, OverviewExtras } from "./overview.tsx";
 import { RulesSettings } from "./RulesSettings.tsx";
 
-/** Abas do Monitoramento (Etapa 37 completa). */
+/**
+ * Abas do Monitoramento. Correção de 04/10: Comparativos, Campanhas e Criativos viraram níveis dentro de Alertas
+ * (os endereços antigos continuam abrindo o nível certo).
+ */
 const TABS = [
   { value: "visao-geral", label: "Visão geral" },
   { value: "alertas", label: "Alertas" },
-  { value: "comparativos", label: "Comparativos" },
-  { value: "campanhas", label: "Campanhas" },
-  { value: "criativos", label: "Criativos" },
   { value: "historico", label: "Histórico" },
   { value: "configuracoes", label: "Configurações" },
 ] as const;
 type Tab = (typeof TABS)[number]["value"];
 
+/** Abas antigas → nível dentro de Alertas. */
+const OLD_TABS: Record<string, CompareLevel> = { comparativos: "campaign", campanhas: "campaign", criativos: "creative" };
+const OLD_LEVELS: Record<string, CompareLevel> = { account: "account", campaign: "campaign", ad_group: "ad_group", ad: "ad", creative: "creative" };
+
 export function MonitoringPage() {
   const [params, updateParams] = useSearchParamsUpdater();
+  const oldTab = params.get("aba") ?? "";
+  useEffect(() => {
+    if (!(oldTab in OLD_TABS)) return;
+    updateParams((latest) => {
+      const oldLevel = OLD_LEVELS[latest.get("nivel") ?? ""];
+      const level = oldTab === "comparativos" && oldLevel ? oldLevel : OLD_TABS[oldTab];
+      latest.set("aba", "alertas");
+      latest.set("nivel", LEVEL_PARAM[level]);
+      if (oldTab === "campanhas") latest.delete("campanha");
+      return latest;
+    });
+  }, [oldTab, updateParams]);
   const tab: Tab = TABS.some((t) => t.value === params.get("aba")) ? (params.get("aba") as Tab) : "visao-geral";
   const setTab = (value: Tab) =>
     updateParams((latest) => {
       if (value === "visao-geral") latest.delete("aba");
       else latest.set("aba", value);
+      // Clicar na aba Alertas abre a lista de alertas (o nível escolhido vale só dentro da aba).
+      latest.delete("nivel");
+      latest.delete("campanha");
       return latest;
     });
 
@@ -59,7 +79,7 @@ export function MonitoringPage() {
             aria-selected={tab === t.value}
             onClick={() => setTab(t.value)}
             className={cn(
-              "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium",
+              "-mb-px shrink-0 border-b-2 px-2 py-2 text-sm font-medium sm:px-3",
               tab === t.value ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800",
             )}
           >
@@ -76,58 +96,66 @@ export function MonitoringPage() {
           <RulesSettings />
           <NotifySettings />
         </div>
-      ) : tab === "alertas" ? (
-        <AlertsTab />
       ) : tab === "historico" ? (
         <HistoryTab />
       ) : tab === "visao-geral" ? (
         <Overview onOpenSettings={() => setTab("configuracoes")} onOpenAlerts={() => setTab("alertas")} />
-      ) : (
-        <CompareTabs tab={tab} />
+      ) : oldTab in OLD_TABS ? null : (
+        <AlertsArea />
       )}
     </div>
   );
 }
 
-const COMPARE_LEVELS = ["account", "campaign", "ad_group", "ad"] as const;
-type CompareTabLevel = (typeof COMPARE_LEVELS)[number];
+/** Seletor de nível da aba Alertas: a lista de alertas ou a situação de cada item, nível por nível. */
+const ALERT_VIEWS: { level: CompareLevel | null; label: string }[] = [
+  { level: null, label: "Alertas" },
+  { level: "campaign", label: "Campanhas" },
+  { level: "ad_group", label: "Conjuntos" },
+  { level: "ad", label: "Anúncios" },
+  { level: "creative", label: "Criativos" },
+  { level: "account", label: "Contas" },
+];
+const LEVEL_FROM_PARAM = Object.fromEntries(Object.entries(LEVEL_PARAM).map(([l, p]) => [p, l])) as Record<string, CompareLevel>;
 
-/** Comparativos, Campanhas e Criativos: mesmos filtros (no endereço), compartilhados entre as abas. */
-function CompareTabs({ tab }: { tab: "comparativos" | "campanhas" | "criativos" }) {
+function AlertsArea() {
   const f = useMonitorFilters();
-  const nivel = f.params.get("nivel");
-  const level: CompareTabLevel = (COMPARE_LEVELS as readonly string[]).includes(nivel ?? "") ? (nivel as CompareTabLevel) : "campaign";
+  const level: CompareLevel | null = LEVEL_FROM_PARAM[f.params.get("nivel") ?? ""] ?? null;
   return (
     <div className="space-y-4">
-      <FiltersBar {...f} />
-      {tab === "comparativos" && (
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg bg-slate-100 p-1" role="group" aria-label="Nível da comparação">
-            {COMPARE_LEVELS.map((l) => (
-              <button
-                key={l}
-                type="button"
-                aria-pressed={level === l}
-                onClick={() => f.set({ nivel: l === "campaign" ? null : l })}
-                className={cn("rounded-md px-3 py-1.5 text-sm font-medium", level === l ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900")}
-              >
-                {LEVEL_LABELS[l]}
-              </button>
-            ))}
-          </div>
+      <div>
+        <div className="inline-flex flex-wrap gap-0.5 rounded-lg bg-slate-100 p-1" role="group" aria-label="Ver por nível" data-testid="nivel-alertas">
+          {ALERT_VIEWS.map((v) => (
+            <button
+              key={v.label}
+              type="button"
+              aria-pressed={level === v.level}
+              onClick={() => f.set({ nivel: v.level ? LEVEL_PARAM[v.level] : null, campanha: null })}
+              className={cn("shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium", level === v.level ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900")}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {level === null ? (
+        <AlertsTab />
+      ) : (
+        <>
+          <p className="text-sm text-slate-500" data-testid="nivel-explicacao">
+            Situação de cada item neste nível, calculada agora pelos limites das Configurações (crítico, atenção, informativo ou normal).
+            {level === "ad_group" || level === "creative" || level === "account"
+              ? " Neste nível não são criados alertas nem avisos: a lista mostra a situação para você acompanhar."
+              : " Os alertas registrados (com responsável e tratamento) ficam na opção Alertas."}
+          </p>
+          <FiltersBar {...f} />
           {f.filters.campaignId && (
             <button type="button" onClick={() => f.set({ campanha: null })} className="rounded-md bg-brand-50 px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-100" data-testid="filtro-campanha">
               Só uma campanha ✕
             </button>
           )}
-        </div>
-      )}
-      {tab === "criativos" ? (
-        <CreativesGrid {...f} />
-      ) : (
-        // Na aba Campanhas, todas as campanhas (o filtro "só uma campanha" é do Comparativos).
-        <CompareTable key={tab === "campanhas" ? "campaign" : level} level={tab === "campanhas" ? "campaign" : level} {...f}
-          filters={tab === "campanhas" ? { ...f.filters, campaignId: null } : f.filters} />
+          {level === "creative" ? <CreativesGrid {...f} /> : <CompareTable key={level} level={level} {...f} />}
+        </>
       )}
     </div>
   );
