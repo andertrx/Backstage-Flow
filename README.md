@@ -72,7 +72,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [37.5 — Notificações (ícone de avisos, preferências, e-mail, resumo diário, histórico de envios)](docs/etapa-37-monitoramento/37.5-NOTIFICACOES.md) ✅ concluída
   - [37.6 — Visão geral, aba Histórico e integração (dashboard, ficha do cliente, Meta/Google)](docs/etapa-37-monitoramento/37.6-VISAO-GERAL-E-INTEGRACAO.md) ✅ concluída
   - [Filtro de objetivo da campanha (vários, salvo por pessoa)](docs/etapa-37-monitoramento/37.8-FILTRO-DE-OBJETIVO.md) ✅ concluído
-  - [Correção: só alertas críticos, só itens ativos e janela do alerta no celular](docs/etapa-37-monitoramento/37.9-CORRECAO-SO-CRITICOS-E-CELULAR.md) ✅ concluída
+  - [Correção: só alertas críticos, só itens ativos e janela do alerta e painéis dos sininhos no celular](docs/etapa-37-monitoramento/37.9-CORRECAO-SO-CRITICOS-E-CELULAR.md) ✅ concluída
 
 ## Estrutura
 

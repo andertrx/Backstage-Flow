@@ -89,7 +89,7 @@
 - **37.5:** o Monitoramento ganhou **ícone de avisos próprio** (o sino da Central não mudou), para os dois módulos continuarem independentes. WhatsApp só "preparado".
 - **37.6:** faixa curta no dashboard e nas visões Meta/Google, bloco na ficha do cliente, aba Histórico. Tudo de leitura; nada é pausado nas plataformas.
 - **03/10 (pedido extra):** filtro de objetivo com vários objetivos, salvo por pessoa, em todas as abas. "End form" é evento personalizado e conta como **Leads**; "engajamento" = conversas.
-- **04/10:** Ander pediu **só alertas críticos** e nada de campanha desativada; e a janela do alerta estava cortada no celular. Padrão virou "só críticos" (configurável pelo admin); abas de comparação só com ativos.
+- **04/10:** Ander pediu **só alertas críticos** e nada de campanha desativada; e a janela do alerta estava cortada no celular. Padrão virou "só críticos" (configurável pelo admin); abas de comparação só com ativos. Depois, com prints, "continua cortando": eram os painéis dos sininhos do topo (alinhados ao sininho, vazavam pela esquerda); passaram a abrir na largura da tela no celular.
 - **Relatório final:** `docs/etapa-37-monitoramento/37.7-RELATORIO-FINAL.md`.
 
 ## 5. Aprendizados técnicos (armadilhas que já custaram tempo)

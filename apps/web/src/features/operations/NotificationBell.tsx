@@ -58,7 +58,7 @@ export function NotificationBell() {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 top-11 z-50 w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-200"
+        <div className="fixed inset-x-2 top-[4.5rem] z-50 overflow-hidden rounded-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[22rem] bg-white shadow-xl ring-1 ring-slate-200"
           role="dialog" aria-label="Notificações" data-testid="ops-bell-panel">
           <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
             <p className="text-sm font-semibold text-slate-900">Notificações</p>
@@ -66,7 +66,7 @@ export function NotificationBell() {
               <button type="button" className="text-xs font-medium text-blue-700 hover:underline" onClick={() => mark.mutate(null)}>Marcar todas como lidas</button>
             )}
           </div>
-          <div className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
+          <div className="max-h-[min(24rem,calc(100dvh-12rem))] divide-y divide-slate-100 overflow-y-auto">
             {list.isLoading && <p className="px-3 py-4 text-sm text-slate-500">Carregando…</p>}
             {list.data && list.data.items.length === 0 && <p className="px-3 py-6 text-center text-sm text-slate-500">Nenhuma notificação por aqui.</p>}
             {list.data?.items.map((n) => <NotificationItem key={n.id} n={n} onOpen={openItem} compact />)}
