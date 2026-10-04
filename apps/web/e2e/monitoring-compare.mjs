@@ -131,8 +131,8 @@ async function waitRows(page, n) {
 
   // Período personalizado
   await page.getByLabel("Período").selectOption("custom");
-  await page.getByLabel("De").fill(day(-3));
-  await page.getByLabel("Até").fill(day(-1));
+  await page.getByLabel("De", { exact: true }).fill(day(-3));
+  await page.getByLabel("Até", { exact: true }).fill(day(-1));
   await page.waitForFunction((t) => document.querySelector("[data-testid=periodos]")?.textContent.includes(t), `${br(day(-3))} a ${br(day(-1))}`, { timeout: 5000 }).catch(() => {});
   const cp = clean(await page.getByTestId("periodos").innerText());
   check(cp.includes(`${br(day(-6))} a ${br(day(-4))}`) && cp.includes("3 dias cada"), `personalizado compara com os 3 dias anteriores (${cp})`);
