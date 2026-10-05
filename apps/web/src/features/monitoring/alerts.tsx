@@ -1,5 +1,5 @@
 import { can, type ComparedMetric, matchesObjectives, PLATFORM_OPTIONS } from "@backstage/shared";
-import { BellRing, ClipboardList, ImageOff, Play, Repeat, UserRound } from "lucide-react";
+import { BellRing, CheckCircle2, ClipboardList, ImageOff, Play, Repeat, UserRound } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -22,6 +22,7 @@ import {
   useEvaluateNow,
   useMonitorAlerts,
   useMonitorStatus,
+  useResolveAlert,
   useSaveMinSeverity,
   useSaveMonitorSettings,
 } from "./api.ts";
@@ -144,7 +145,36 @@ function AlertThumb({ url, name }: { url: string | null; name: string }) {
   return <img src={url} alt={`Miniatura de ${name}`} referrerPolicy="no-referrer" loading="lazy" onError={() => setFailed(true)} className="size-14 shrink-0 rounded-lg bg-slate-100 object-cover" />;
 }
 
-function AlertCard({ a, now, onOpen }: { a: MonitorAlertRow; now: Date; onOpen: () => void }) {
+/** Botão "Resolvido" da lista: pede confirmação (não dá para reabrir) e o alerta sai da lista de abertos. */
+function QuickResolve({ a }: { a: MonitorAlertRow }) {
+  const resolve = useResolveAlert();
+  const [confirm, setConfirm] = useState(false);
+  if (!confirm) {
+    return (
+      <button type="button" onClick={() => setConfirm(true)} data-testid="resolver-rapido"
+        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
+        <CheckCircle2 className="size-4" aria-hidden /> Resolvido
+      </button>
+    );
+  }
+  return (
+    <div className="flex flex-col items-end gap-1" data-testid="confirmar-resolvido">
+      <span className="text-xs text-slate-600">Marcar como resolvido?</span>
+      <div className="flex gap-1">
+        <Button type="button" className="px-2 py-1 text-xs" loading={resolve.isPending}
+          onClick={() => resolve.mutate({ id: a.id, note: "", version: a.version }, { onSuccess: () => setConfirm(false) })}>
+          Sim
+        </Button>
+        <button type="button" onClick={() => setConfirm(false)} className="rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100">
+          Não
+        </button>
+      </div>
+      {resolve.error && <span className="max-w-[12rem] text-right text-xs text-red-700">{errorMessage(resolve.error)}</span>}
+    </div>
+  );
+}
+
+function AlertCard({ a, now, onOpen, canHandle }: { a: MonitorAlertRow; now: Date; onOpen: () => void; canHandle: boolean }) {
   const entity = (a.level === "ad" ? a.ad_name : a.campaign_name) ?? "—";
   const metric = a.metric as ComparedMetric;
   return (
@@ -210,10 +240,11 @@ function AlertCard({ a, now, onOpen }: { a: MonitorAlertRow; now: Date; onOpen: 
           </div>
         )}
       </div>
-      <div className="shrink-0">
+      <div className="flex shrink-0 flex-col items-end gap-1">
         <button type="button" onClick={onOpen} className="rounded-md px-2 py-1 text-sm font-medium text-brand-700 hover:bg-brand-50" data-testid="abrir-alerta">
           Abrir
         </button>
+        {canHandle && !a.resolved_at && <QuickResolve a={a} />}
       </div>
     </Card>
   );
@@ -248,7 +279,7 @@ export function AlertsTab() {
     <div className="space-y-4">
       <Alert tone="info">
         Os alertas são gerados sozinhos, comparando os <strong>últimos 7 dias completos</strong> com os 7 anteriores (e o dia de ontem com os 28 dias antes dele).
-        Cada alerta explica a conta feita; clique em <strong>Abrir</strong> para tratar (estado, responsável, comentários, providências, tarefa). <strong>Só alertas críticos, e só de campanhas, conjuntos e anúncios ativos</strong> (o administrador muda a gravidade em Configurações): quando um item é desativado, o alerta dele é encerrado (fica no histórico). Nada é pausado nem alterado nas plataformas.
+        Cada alerta explica a conta feita; clique em <strong>Abrir</strong> para tratar (estado, responsável, comentários, providências, tarefa) ou em <strong>Resolvido</strong> para tirá-lo da lista (ele vai para Resolvidos, no histórico). <strong>Só alertas críticos, e só de campanhas, conjuntos e anúncios ativos</strong> (o administrador muda a gravidade em Configurações): quando um item é desativado, o alerta dele é encerrado (fica no histórico). Nada é pausado nem alterado nas plataformas.
       </Alert>
       <Card className="flex flex-wrap items-end gap-3 p-3">
         <div className="inline-flex rounded-lg bg-slate-100 p-1" role="group" aria-label="Quais alertas">
@@ -311,7 +342,7 @@ export function AlertsTab() {
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-slate-500" data-testid="total-alertas">{shown.length} alerta(s)</p>
-          {shown.map((a) => <AlertCard key={a.id} a={a} now={now} onOpen={() => setOpenId(a.id)} />)}
+          {shown.map((a) => <AlertCard key={a.id} a={a} now={now} onOpen={() => setOpenId(a.id)} canHandle={can(profile?.role, "monitor.handle")} />)}
         </div>
       )}
       {openId && <AlertDetailModal id={openId} onClose={() => setOpenId(null)} />}
