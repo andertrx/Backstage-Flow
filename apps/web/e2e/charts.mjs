@@ -104,7 +104,8 @@ const reader = (page) => page.getByRole("region", { name: "Evolução" }).locato
   await page.getByRole("group", { name: "Agrupar por" }).getByRole("button", { name: "Semanal" }).click();
   await page.waitForFunction(() => location.search.includes("agrupar=week"));
   check(await waitSeries(db, (c) => c.p_granularity === "week"), "semanal consulta o banco por semana");
-  await page.getByTestId("line-total").waitFor();
+  // Numa segunda-feira, os últimos 7 dias caem numa semana só: a linha vira um ponto (sem comprimento, "invisível").
+  await page.getByTestId("line-total").waitFor({ state: "attached" });
   await reader(page).focus();
   check((await tooltipWith(page, "Semana de")).startsWith("Semana de"), "tooltip mostra a semana (segunda a domingo)");
   await reader(page).blur();
