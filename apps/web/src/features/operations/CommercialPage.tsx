@@ -1,5 +1,5 @@
 import { OPS_PRIORITIES, OPS_PRIORITY_LABELS, opsCan, opsSumByCurrency, opsToday } from "@backstage/shared";
-import { CalendarClock, Handshake, Plus, Search, Settings, Trophy, Workflow } from "lucide-react";
+import { CalendarClock, Handshake, Plus, Rocket, Search, Settings, Trophy, Workflow } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -26,8 +26,9 @@ import { useTasksContext } from "./tasksContext.tsx";
 const totalsText = (items: OpsLeadCard[]) =>
   Object.entries(opsSumByCurrency(items)).map(([cur, v]) => formatMoney(v, cur)).join(" · ");
 
-function LeadCard({ l, onOpen }: { l: OpsLeadCard; onOpen: () => void }) {
+function LeadCard({ l, onOpen, onRelease }: { l: OpsLeadCard; onOpen: () => void; onRelease?: () => void }) {
   return (
+    <div className="space-y-2">
     <button type="button" onClick={onOpen} data-testid="ops-lead-card"
       className="block w-full space-y-2 rounded-xl bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:ring-blue-400 focus-visible:outline-2 focus-visible:outline-blue-600">
       <div className="flex items-start justify-between gap-2">
@@ -49,15 +50,23 @@ function LeadCard({ l, onOpen }: { l: OpsLeadCard; onOpen: () => void }) {
       {l.next_action && <p className="truncate text-xs text-slate-600">Próxima: {l.next_action}</p>}
       <p className="text-[11px] text-slate-400">Entrada {formatDate(l.entered_at)}{l.last_interaction_at ? ` · última interação ${formatDate(l.last_interaction_at.slice(0, 10))}` : ""}</p>
     </button>
+    {onRelease && (
+      <button type="button" onClick={onRelease} data-testid="ops-lead-release"
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+        <Rocket className="size-4" aria-hidden /> Liberar para a operação
+      </button>
+    )}
+    </div>
   );
 }
 
 function useOpenLead() {
   const [params, update] = useSearchParamsUpdater();
   const openId = params.get("lead");
-  const open = useCallback((id: string) => update((p) => { p.set("lead", id); return p; }), [update]);
-  const close = useCallback(() => update((p) => { p.delete("lead"); return p; }), [update]);
-  return { openId, open, close };
+  const release = params.get("liberar") === "1";
+  const open = useCallback((id: string, toRelease = false) => update((p) => { p.set("lead", id); if (toRelease) p.set("liberar", "1"); else p.delete("liberar"); return p; }), [update]);
+  const close = useCallback(() => update((p) => { p.delete("lead"); p.delete("liberar"); return p; }), [update]);
+  return { openId, open, close, release };
 }
 
 type CommercialView = "funil" | "resultados" | "config";
@@ -127,7 +136,7 @@ export function CommercialPage() {
   const asked = params.get("ver") as CommercialView | null;
   const sub: CommercialView = asked === "resultados" || (asked === "config" && isAdmin) ? asked : "funil";
   const setSub = (v: CommercialView) => updateParams((p) => { if (v === "funil") p.delete("ver"); else p.set("ver", v); return p; });
-  const { openId, open, close } = useOpenLead();
+  const { openId, open, close, release } = useOpenLead();
   const stages = useLeadStages();
   const reasons = useLossReasons();
   const move = useMoveLead();
@@ -155,7 +164,7 @@ export function CommercialPage() {
     const total = totalsText(leads.filter((l) => l.stage_id === s.id));
     const rules = [s.require_previous && "só da anterior", s.require_next_action && "exige próxima ação"].filter(Boolean).join(" · ");
     if (s.category === "perdido") return { id: s.id, name: s.name, color: s.color, hint: "Solte aqui para marcar como perdido (pede o motivo)", empty: "Os perdidos ficam em “Ganhos e perdidos”" };
-    const won = s.category === "ganho" ? "Pronto para liberar para a Operação" : "";
+    const won = s.category === "ganho" ? "Use “Liberar para a operação” no cartão" : "";
     return { id: s.id, name: s.name, color: s.color, hint: [total, rules, won].filter(Boolean).join(" · ") || undefined };
   });
   const openTotal = totalsText(leads.filter((l) => stageList.find((s) => s.id === l.stage_id)?.category === "aberto"));
@@ -246,7 +255,7 @@ export function CommercialPage() {
             if (stageList.find((s) => s.id === to)?.category === "perdido") { setLosing({ lead: l, stageId: to }); return; }
             await move.mutateAsync({ id: l.id, version: l.version, stageId: to });
           }}
-          renderCard={(l) => <LeadCard l={l} onOpen={() => open(l.id)} />} />
+          renderCard={(l) => <LeadCard l={l} onOpen={() => open(l.id)} onRelease={categoryOf(l) === "ganho" && !l.archived_at ? () => open(l.id, true) : undefined} />} />
       ) : (
         <Card className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm" data-testid="ops-lead-table">
@@ -279,7 +288,7 @@ export function CommercialPage() {
 
       {creating && stages.data && <LeadFormModal lead={null} stages={stages.data} ctx={ctx} onClose={() => setCreating(false)} onSaved={open} />}
       {losing && <LossModal reasons={reasons.data ?? []} busy={move.isPending} onCancel={() => setLosing(null)} onConfirm={confirmLoss} />}
-      {openId && <LeadDrawer key={openId} id={openId} ctx={ctx} onClose={close} />}
+      {openId && <LeadDrawer key={openId} id={openId} ctx={ctx} onClose={close} focusRelease={release} />}
     </div>
   );
 }

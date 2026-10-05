@@ -1,5 +1,5 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { Building2, CalendarDays, ClipboardList, Gauge, Handshake, Layers, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
+import { Building2, CalendarDays, ClipboardList, Gauge, Handshake, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, NavLink, Outlet } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -14,7 +14,7 @@ import { OpsSearch } from "./OpsSearch.tsx";
  * Abas da Central. Cada aba entrou quando a sua fase ficou pronta (nada de
  * botão que não funciona). O Painel (36.7) vem primeiro: é onde a Central abre
  * para quem tem "Ver o painel"; os demais abrem em Minhas tarefas.
- * "anyOf": basta uma das permissões (Operação: ficha operacional OU ser Account Manager).
+ * "anyOf": basta uma das permissões.
  * Etapa 38.1: Comercial (vendas) e Operação (clientes liberados) separados; Equipe e Configurações
  * ficam à parte, como administração.
  */
@@ -23,8 +23,8 @@ export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission
   { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
   { to: "/operacoes/tarefas", label: "Tarefas", icon: ClipboardList, permission: "ops.access" },
   { to: "/operacoes/comercial", label: "Comercial", icon: Handshake, permission: "ops.commercial" },
-  { to: "/operacoes/clientes", label: "Operação", icon: Building2, permission: "ops.clients.view", anyOf: ["ops.clients.view", "ops.am"] },
-  { to: "/operacoes/filas", label: "Filas", icon: Layers, permission: "ops.access" },
+  // 38.2: Operação = clientes (quem pode ver) + Filas dos setores (todos da Central).
+  { to: "/operacoes/clientes", label: "Operação", icon: Building2, permission: "ops.access" },
   { to: "/operacoes/reunioes", label: "Reuniões", icon: CalendarDays, permission: "ops.access" },
   { to: "/operacoes/equipe", label: "Equipe", icon: Users, permission: "ops.access", admin: true },
   { to: "/operacoes/configuracoes", label: "Configurações", icon: Settings, permission: "ops.admin", admin: true },

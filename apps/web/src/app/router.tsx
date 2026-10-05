@@ -27,7 +27,6 @@ const OpsTeamPage = lazy(() => import("@/features/operations/TeamPage.tsx").then
 const OpsTasksPage = lazy(() => import("@/features/operations/TasksPage.tsx").then((m) => ({ default: m.TasksPage })));
 const OpsMyTasksPage = lazy(() => import("@/features/operations/MyTasksPage.tsx").then((m) => ({ default: m.MyTasksPage })));
 const OpsClientsRoute = lazy(() => import("@/features/operations/ClientsPage.tsx").then((m) => ({ default: m.ClientsRoute })));
-const OpsQueuesPage = lazy(() => import("@/features/operations/QueuesPage.tsx").then((m) => ({ default: m.QueuesPage })));
 const OpsCommercialRoute = lazy(() => import("@/features/operations/CommercialPage.tsx").then((m) => ({ default: m.CommercialRoute })));
 const OpsMeetingsRoute = lazy(() => import("@/features/operations/MeetingsPage.tsx").then((m) => ({ default: m.MeetingsRoute })));
 const OpsNotificationsRoute = lazy(() => import("@/features/operations/NotificationsPage.tsx").then((m) => ({ default: m.NotificationsRoute })));
@@ -161,7 +160,8 @@ export const router = createBrowserRouter([
           { path: "reunioes", element: <OpsMeetingsRoute /> },
           { path: "notificacoes", element: <OpsNotificationsRoute /> },
           { path: "clientes", element: <OpsClientsRoute /> },
-          { path: "filas", element: <OpsQueuesPage /> },
+          // 38.2: as Filas ficam dentro de Operação (links antigos continuam funcionando).
+          { path: "filas", element: <Navigate to="/operacoes/clientes?ver=filas" replace /> },
           { path: "equipe", element: <OpsTeamPage /> },
           { path: "configuracoes", element: <OpsSettingsPage /> },
         ],

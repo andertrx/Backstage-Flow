@@ -1,9 +1,10 @@
-import { ArrowRight, Building2, Megaphone, Plus, Search } from "lucide-react";
+import { ArrowRight, Building2, Layers, Megaphone, Plus, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Input, Select } from "@/components/ui/field.tsx";
+import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDate } from "@/lib/format.ts";
 import { useDebouncedValue } from "@/lib/useDebouncedValue.ts";
@@ -14,7 +15,9 @@ import { type OpsBoardClient, useMoveClientStage, useOpsClientBoard, useOpsClien
 import { DemandReleaseModal } from "./DemandReleaseModal.tsx";
 import { DndBoard } from "./KanbanBoard.tsx";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
-import { RequireOps } from "./OpsLayout.tsx";
+import { useMyOpsPermissions } from "./api.ts";
+import { RequireOps, tabAllowed } from "./OpsLayout.tsx";
+import { QueuesPage } from "./QueuesPage.tsx";
 import { type TaskView, ViewToggle } from "./TasksPage.tsx";
 import { TaskDetailHost, type TasksContext, useTasksContext } from "./tasksContext.tsx";
 
@@ -151,10 +154,42 @@ export function ClientsPage() {
 }
 
 /** Só quem tem "ver a ficha operacional" ou é Account Manager de algum cliente. */
+const CLIENT_PERMS = { permission: "ops.clients.view", anyOf: ["ops.clients.view", "ops.am"] } as const;
+
+/**
+ * Etapa 38.2: aba Operação com duas partes — Clientes (onboarding e acompanhamento; ficha operacional ou Account Manager)
+ * e Filas dos setores (todos da Central). Quem não vê clientes (ex.: papel Equipe) vê só as Filas, como antes.
+ */
+function OperationPage() {
+  const perms = useMyOpsPermissions();
+  const canClients = tabAllowed(perms.data, { permission: CLIENT_PERMS.permission, anyOf: [...CLIENT_PERMS.anyOf] });
+  const [params, update] = useSearchParamsUpdater();
+  const sub = params.get("ver") === "filas" || !canClients ? "filas" : "clientes";
+  const setSub = (v: "clientes" | "filas") => update((p) => { if (v === "clientes") p.delete("ver"); else p.set("ver", v); p.delete("cliente"); return p; });
+  const parts = [
+    ...(canClients ? [{ id: "clientes" as const, label: "Clientes", icon: Building2 }] : []),
+    { id: "filas" as const, label: "Filas dos setores", icon: Layers },
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" role="tablist" aria-label="Partes da operação">
+        {parts.map(({ id, label, icon: Icon }) => (
+          <button key={id} type="button" role="tab" aria-selected={sub === id} onClick={() => setSub(id)} data-testid={`ops-operation-tab-${id}`}
+            className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium",
+              sub === id ? "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900")}>
+            <Icon className="size-4" aria-hidden /> {label}
+          </button>
+        ))}
+      </div>
+      {sub === "filas" ? <QueuesPage /> : <ClientsPage />}
+    </div>
+  );
+}
+
 export function ClientsRoute() {
   return (
-    <RequireOps permission="ops.clients.view" anyOf={["ops.clients.view", "ops.am"]}>
-      <ClientsPage />
+    <RequireOps permission="ops.access">
+      <OperationPage />
     </RequireOps>
   );
 }

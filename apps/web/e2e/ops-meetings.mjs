@@ -48,7 +48,7 @@ async function addItem(drawer, kind, text, { owner, sector, due } = {}) {
   await login(page, "/operacoes/reunioes");
   await page.getByTestId("ops-meetings-empty").waitFor();
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Operação", "Filas", "Reuniões", "Equipe", "Configurações"]),
+  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Operação", "Reuniões", "Equipe", "Configurações"]),
     `aba Reuniões na Central (${tabs.join(", ")})`);
 
   // Agendar a Daily do Design, com cliente e participante

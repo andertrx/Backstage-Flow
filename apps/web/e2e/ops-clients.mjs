@@ -46,7 +46,7 @@ const waitFor = async (page, fn, what) => {
   await login(page, "/operacoes/clientes");
   await page.getByTestId("ops-clients-empty").waitFor();
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Operação", "Filas", "Reuniões", "Equipe", "Configurações"]), `abas da Central (${tabs.join(", ")})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Operação", "Reuniões", "Equipe", "Configurações"]), `abas da Central (${tabs.join(", ")})`);
 
   // Colocar no fluxo
   await page.getByRole("button", { name: "Colocar cliente no fluxo" }).click();
@@ -133,8 +133,11 @@ const waitFor = async (page, fn, what) => {
   check(await page.getByTestId("ops-queue-row").count() === 5 && await page.getByTestId("ops-activity-type-row").count() === 7, "filas e tipos de atividade nas configurações");
 
   // Filas: Design e Copy entregam; o cliente avança sozinho
-  await page.getByRole("link", { name: "Filas" }).click();
+  await page.getByRole("link", { name: "Operação" }).click();
+  await page.getByTestId("ops-operation-tab-filas").click();
+  check(page.url().includes("/operacoes/clientes") && page.url().includes("ver=filas"), "38.2: Filas dentro de Operação");
   await page.getByTestId("ops-queues").waitFor();
+  await page.screenshot({ path: `${SHOTS}/38.2-filas.png` });
   await page.getByLabel("Setor").selectOption({ label: "Design" });
   const dcol = (name) => page.getByTestId("ops-kanban-column").filter({ has: page.getByRole("heading", { name, exact: true }) });
   await dcol("Criativos pendentes").getByText("Lançamento — Design").waitFor();
@@ -201,14 +204,17 @@ const waitFor = async (page, fn, what) => {
   seed(db);
   db.opsMembers[USER_ID] = { primary: sectorId(db, "Design"), secondary: [], job_title: "Designer", active: true, joins_meetings: true,
     permissions: ["ops.access", "ops.kanban.view"] };
-  await login(page, "/operacoes/clientes");
-  await page.waitForURL("**/operacoes/minhas-tarefas");
+  await login(page, "/operacoes/minhas-tarefas");
   await page.getByTestId("ops-my-tasks").waitFor();
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(!tabs.includes("Operação") && tabs.includes("Filas"), `designer sem a aba Operação (${tabs.join(", ")})`);
-  await page.getByRole("link", { name: "Filas" }).click();
+  check(tabs.includes("Operação") && !tabs.includes("Filas"), `38.2: designer com a aba Operação e sem a aba Filas separada (${tabs.join(", ")})`);
+  // 38.2: o designer vê a aba Operação só com as Filas dos setores (sem os clientes).
+  await page.getByRole("link", { name: "Operação" }).click();
   await page.getByTestId("ops-queues").waitFor();
+  check(await page.getByTestId("ops-operation-tab-clientes").count() === 0 && await page.getByTestId("ops-operation-tab-filas").count() === 1,
+    "38.2: designer vê só a parte Filas dentro de Operação");
   check((await page.getByLabel("Setor").inputValue()) === sectorId(db, "Design"), "fila abre no setor da pessoa");
+  check(await page.getByTestId("ops-clients").count() === 0, "38.2: designer não vê os clientes da Operação");
   check(errors.length === 0, `sem erros (equipe) ${errors.join(" | ")}`);
   await browser.close();
 }
