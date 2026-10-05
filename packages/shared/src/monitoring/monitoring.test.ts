@@ -49,6 +49,13 @@ describe("resultado por objetivo", () => {
     expect(resultKindForObjective(null)).toBe("mixed");
     expect(resultKindForObjective("SEARCH")).toBe("conversions");
   });
+  it("entende o objetivo efetivo que o banco manda (meta de otimização do conjunto, correção de 05/10)", () => {
+    // Conjunto otimizado para Conversas → "MESSAGES"; Cliques → "LINK_CLICKS"; meta que não guardamos → "REACH"; mistura → "".
+    expect(resultKindForObjective("MESSAGES")).toBe("messages");
+    expect(resultKindForObjective("LINK_CLICKS")).toBe("link_clicks");
+    expect(resultKindForObjective("REACH")).toBe("none");
+    expect(resultKindForObjective("")).toBe("mixed");
+  });
   it("soma leads + mensagens + conversões no nível da conta", () => {
     expect(resultsFor(T({ leads: 3, messages: 2, conversions: null }), "mixed")).toBe(5);
     expect(resultsFor(T({}), "mixed")).toBeNull();

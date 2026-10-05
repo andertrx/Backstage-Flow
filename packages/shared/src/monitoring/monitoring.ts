@@ -63,6 +63,9 @@ export const RESULT_KIND_LABELS: Record<ResultKind, string> = {
  * Qual número é o "resultado" de uma campanha, pelo objetivo informado pela plataforma.
  * Sem objetivo (ou nível de conta/cliente) = soma de leads + mensagens + conversões,
  * a mesma regra do dashboard executivo.
+ * Desde 05/10/2026 o banco (monitor_compare) já manda o objetivo "efetivo", pela meta de otimização do conjunto
+ * (igual ao Gerenciador): Conversas → "MESSAGES", Cliques no link → "LINK_CLICKS", metas que não guardamos → "REACH",
+ * campanha com conjuntos de metas diferentes → "" (soma).
  */
 export function resultKindForObjective(objective: string | null | undefined): ResultKind {
   const o = (objective ?? "").toUpperCase();
