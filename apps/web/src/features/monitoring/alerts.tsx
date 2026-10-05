@@ -1,5 +1,5 @@
 import { can, type ComparedMetric, matchesObjectives, PLATFORM_OPTIONS } from "@backstage/shared";
-import { BellRing, CheckCircle2, ClipboardList, ImageOff, Play, Repeat, UserRound } from "lucide-react";
+import { BellRing, Check, CheckCircle2, ClipboardList, Eye, ImageOff, Loader2, Play, Repeat, UserRound } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -145,31 +145,33 @@ function AlertThumb({ url, name }: { url: string | null; name: string }) {
   return <img src={url} alt={`Miniatura de ${name}`} referrerPolicy="no-referrer" loading="lazy" onError={() => setFailed(true)} className="size-14 shrink-0 rounded-lg bg-slate-100 object-cover" />;
 }
 
-/** Botão "Resolvido" da lista: pede confirmação (não dá para reabrir) e o alerta sai da lista de abertos. */
+/** Botão "Resolver" da lista: pede confirmação (não dá para reabrir) e o alerta sai da lista de abertos. */
 function QuickResolve({ a }: { a: MonitorAlertRow }) {
   const resolve = useResolveAlert();
   const [confirm, setConfirm] = useState(false);
   if (!confirm) {
     return (
       <button type="button" onClick={() => setConfirm(true)} data-testid="resolver-rapido"
-        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
-        <CheckCircle2 className="size-4" aria-hidden /> Resolvido
+        className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:flex-none">
+        <CheckCircle2 className="size-4" aria-hidden /> Resolver
       </button>
     );
   }
   return (
-    <div className="flex flex-col items-end gap-1" data-testid="confirmar-resolvido">
-      <span className="text-xs text-slate-600">Marcar como resolvido?</span>
-      <div className="flex gap-1">
-        <Button type="button" className="px-2 py-1 text-xs" loading={resolve.isPending}
-          onClick={() => resolve.mutate({ id: a.id, note: "", version: a.version }, { onSuccess: () => setConfirm(false) })}>
-          Sim
-        </Button>
-        <button type="button" onClick={() => setConfirm(false)} className="rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100">
+    <div className="flex flex-1 flex-col gap-1.5 rounded-lg bg-emerald-50 p-2 ring-1 ring-emerald-200 sm:flex-none" data-testid="confirmar-resolvido">
+      <span className="text-center text-xs font-medium text-emerald-900">Resolver este alerta?</span>
+      <div className="flex gap-1.5">
+        <button type="button" disabled={resolve.isPending}
+          onClick={() => resolve.mutate({ id: a.id, note: "", version: a.version }, { onSuccess: () => setConfirm(false) })}
+          className="inline-flex flex-1 items-center justify-center gap-1 rounded-md bg-emerald-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+          {resolve.isPending ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Check className="size-3.5" aria-hidden />} Sim
+        </button>
+        <button type="button" onClick={() => setConfirm(false)} disabled={resolve.isPending}
+          className="flex-1 rounded-md bg-white px-2 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
           Não
         </button>
       </div>
-      {resolve.error && <span className="max-w-[12rem] text-right text-xs text-red-700">{errorMessage(resolve.error)}</span>}
+      {resolve.error && <span className="text-center text-xs text-red-700">{errorMessage(resolve.error)}</span>}
     </div>
   );
 }
@@ -178,7 +180,8 @@ function AlertCard({ a, now, onOpen, canHandle }: { a: MonitorAlertRow; now: Dat
   const entity = (a.level === "ad" ? a.ad_name : a.campaign_name) ?? "—";
   const metric = a.metric as ComparedMetric;
   return (
-    <Card className={cn("flex gap-3 border-l-4 p-4", SEVERITY_LOOK[a.severity].border)} data-testid="alerta" data-severity={a.severity} data-kind={a.kind}>
+    <Card className={cn("flex flex-col gap-3 border-l-4 p-4 sm:flex-row", SEVERITY_LOOK[a.severity].border)} data-testid="alerta" data-severity={a.severity} data-kind={a.kind}>
+      <div className="flex min-w-0 flex-1 gap-3">
       {a.level === "ad" && <AlertThumb url={a.thumbnail_url} name={entity} />}
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2">
@@ -240,9 +243,11 @@ function AlertCard({ a, now, onOpen, canHandle }: { a: MonitorAlertRow; now: Dat
           </div>
         )}
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <button type="button" onClick={onOpen} className="rounded-md px-2 py-1 text-sm font-medium text-brand-700 hover:bg-brand-50" data-testid="abrir-alerta">
-          Abrir
+      </div>
+      <div className="flex shrink-0 items-start gap-2 sm:w-36 sm:flex-col sm:items-stretch">
+        <button type="button" onClick={onOpen} data-testid="abrir-alerta"
+          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-sm font-medium text-brand-700 ring-1 ring-inset ring-slate-300 hover:bg-brand-50 sm:flex-none">
+          <Eye className="size-4" aria-hidden /> Abrir
         </button>
         {canHandle && !a.resolved_at && <QuickResolve a={a} />}
       </div>
@@ -279,7 +284,7 @@ export function AlertsTab() {
     <div className="space-y-4">
       <Alert tone="info">
         Os alertas são gerados sozinhos, comparando os <strong>últimos 7 dias completos</strong> com os 7 anteriores (e o dia de ontem com os 28 dias antes dele).
-        Cada alerta explica a conta feita; clique em <strong>Abrir</strong> para tratar (estado, responsável, comentários, providências, tarefa) ou em <strong>Resolvido</strong> para tirá-lo da lista (ele vai para Resolvidos, no histórico). <strong>Só alertas críticos, e só de campanhas, conjuntos e anúncios ativos</strong> (o administrador muda a gravidade em Configurações): quando um item é desativado, o alerta dele é encerrado (fica no histórico). Nada é pausado nem alterado nas plataformas.
+        Cada alerta explica a conta feita; clique em <strong>Abrir</strong> para tratar (estado, responsável, comentários, providências, tarefa) ou em <strong>Resolver</strong> para tirá-lo da lista (ele vai para Resolvidos, no histórico). <strong>Só alertas críticos, e só de campanhas, conjuntos e anúncios ativos</strong> (o administrador muda a gravidade em Configurações): quando um item é desativado, o alerta dele é encerrado (fica no histórico). Nada é pausado nem alterado nas plataformas.
       </Alert>
       <Card className="flex flex-wrap items-end gap-3 p-3">
         <div className="inline-flex rounded-lg bg-slate-100 p-1" role="group" aria-label="Quais alertas">

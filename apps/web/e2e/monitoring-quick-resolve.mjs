@@ -1,5 +1,5 @@
 /**
- * Teste de navegador — pedido de 05/10: botão "Resolvido" direto na lista de alertas (com confirmação);
+ * Teste de navegador — pedido de 05/10: botão "Resolver" direto na lista de alertas (com confirmação);
  * o alerta sai dos abertos e vai para Resolvidos (histórico). Supabase SIMULADO.
  */
 import { check, launch, login, mockSupabase, SHOTS, USER_ID } from "./support.mjs";
@@ -46,13 +46,19 @@ for (const [w, h] of [[1366, 820], [360, 640]]) {
   await login(page, "/monitoramento?aba=alertas");
   await until(page, async () => (await cards(page).count()) === 2);
   check(await cards(page).count() === 2, `${w}px: 2 alertas abertos`);
-  check(await page.getByTestId("resolver-rapido").count() === 2, `${w}px: botão "Resolvido" em cada alerta`);
+  check(await page.getByTestId("resolver-rapido").count() === 2, `${w}px: botão "Resolver" em cada alerta`);
+  check((await text(page.getByTestId("resolver-rapido").first())) === "Resolver", `${w}px: o botão se chama "Resolver"`);
+  {
+    const card = await cards(page).first().boundingBox();
+    const btn = await page.getByTestId("resolver-rapido").first().boundingBox();
+    check(btn.x >= card.x && btn.x + btn.width <= card.x + card.width + 0.5 && btn.x + btn.width <= w + 0.5, `${w}px: botão inteiro dentro do cartão`);
+  }
 
   // Não: cancela sem mudar nada.
   const leads = cards(page).filter({ hasText: "Leads Setembro" });
   await leads.getByTestId("resolver-rapido").click();
   await leads.getByTestId("confirmar-resolvido").waitFor();
-  check((await text(leads.getByTestId("confirmar-resolvido"))).includes("Marcar como resolvido?"), `${w}px: pede confirmação`);
+  check((await text(leads.getByTestId("confirmar-resolvido"))).includes("Resolver este alerta?"), `${w}px: pede confirmação`);
   await leads.getByRole("button", { name: "Não" }).click();
   check(await leads.getByTestId("resolver-rapido").count() === 1 && db.monitorAlerts[0].status === "novo", `${w}px: "Não" cancela sem mudar nada`);
   if (w < 1000) {
@@ -94,9 +100,9 @@ for (const [w, h] of [[1366, 820], [360, 640]]) {
   db.access.push({ user_id: USER_ID, client_id: EXC });
   await login(page, "/monitoramento?aba=alertas");
   await until(page, async () => (await cards(page).count()) === 2);
-  check(await cards(page).count() === 2 && await page.getByTestId("resolver-rapido").count() === 0, "visualizador não vê o botão Resolvido");
+  check(await cards(page).count() === 2 && await page.getByTestId("resolver-rapido").count() === 0, "visualizador não vê o botão Resolver");
   check(errors.length === 0, "sem erros (visualizador)");
   await browser.close();
 }
 
-console.log("Monitoramento — botão Resolvido na lista: tudo certo.");
+console.log("Monitoramento — botão Resolver na lista: tudo certo.");
