@@ -96,12 +96,12 @@ export function ClientsPage() {
 
   return (
     <div className="space-y-4" data-testid="ops-clients">
-      <OpsModuleHeader number="03" icon={Building2} title="Clientes: onboarding e operação"
-        description="Etapa de cada cliente, Account Manager e o andamento das demandas de todos os setores." />
+      <OpsModuleHeader number="03" icon={Building2} title="Operação: clientes liberados"
+        description="Clientes que o Comercial liberou: etapa de cada um, Account Manager e o andamento das demandas de todos os setores." />
       <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
-        <span>Comercial & Atendimento (Prospecção → Contrato Pago)</span>
+        <span>Comercial (Prospecção → Contrato Pago)</span>
         <ArrowRight className="size-4 text-blue-500" aria-hidden />
-        <span className="text-blue-700">Account Manager & Operacional (Onboarding → Execução paralela por setor)</span>
+        <span className="text-blue-700">Operação (Onboarding → execução por setor → acompanhamento)</span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-56 flex-1">

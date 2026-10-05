@@ -12,6 +12,8 @@ export interface BoardColumn {
   name: string;
   color: string;
   hint?: string;
+  /** Texto da coluna vazia (se diferente do padrão do quadro). */
+  empty?: string;
 }
 
 function DraggableCard({ id, label, children, disabled }: { id: string; label: string; children: ReactNode; disabled: boolean }) {
@@ -92,7 +94,7 @@ export function DndBoard<T>({ items, columns, getId, getLabel, columnOf, renderC
                     {renderCard(t)}
                   </DraggableCard>
                 ))}
-                {list.length === 0 && <p className="px-2 py-6 text-center text-xs text-slate-400">{empty}</p>}
+                {list.length === 0 && <p className="px-2 py-6 text-center text-xs text-slate-400">{c.empty ?? empty}</p>}
               </Column>
             );
           })}

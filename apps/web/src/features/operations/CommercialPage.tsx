@@ -1,5 +1,5 @@
-import { OPS_PRIORITIES, OPS_PRIORITY_LABELS, opsSumByCurrency, opsToday } from "@backstage/shared";
-import { CalendarClock, Handshake, Plus, Search } from "lucide-react";
+import { OPS_PRIORITIES, OPS_PRIORITY_LABELS, opsCan, opsSumByCurrency, opsToday } from "@backstage/shared";
+import { CalendarClock, Handshake, Plus, Search, Settings, Trophy, Workflow } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -11,6 +11,8 @@ import { formatDate, formatMoney } from "@/lib/format.ts";
 import { useDebouncedValue } from "@/lib/useDebouncedValue.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
+import { useMyOpsPermissions } from "./api.ts";
+import { LeadStagesSettings, LossReasonsSettings } from "./CommercialSettings.tsx";
 import { SavedViews } from "./SavedViews.tsx";
 import { type OpsLeadCard, useLeadBoard, useLeadStages, useLossReasons, useMoveLead } from "./commercialApi.ts";
 import { DndBoard } from "./KanbanBoard.tsx";
@@ -58,9 +60,73 @@ function useOpenLead() {
   return { openId, open, close };
 }
 
+type CommercialView = "funil" | "resultados" | "config";
+const SUB_VIEWS: { id: CommercialView; label: string; icon: typeof Workflow; adminOnly?: boolean }[] = [
+  { id: "funil", label: "Funil de vendas", icon: Workflow },
+  { id: "resultados", label: "Ganhos e perdidos", icon: Trophy },
+  { id: "config", label: "Configurações do comercial", icon: Settings, adminOnly: true },
+];
+
+/** Etapa 38.1: lista dos que já saíram do funil — viraram cliente (ganhos) ou foram perdidos. */
+function ResultsList({ leads, stageOf, onOpen }: { leads: OpsLeadCard[]; stageOf: (l: OpsLeadCard) => string | undefined; onOpen: (id: string) => void }) {
+  const [kind, setKind] = usePersistentState<"ganhos" | "perdidos">("ops.commercial.results", "ganhos");
+  const won = leads.filter((l) => l.client_id);
+  const lost = leads.filter((l) => !l.client_id && stageOf(l) === "perdido");
+  const list = kind === "ganhos" ? won : lost;
+  const total = totalsText(list);
+  return (
+    <div className="space-y-3" data-testid="ops-commercial-results">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-lg bg-slate-100 p-1" role="group" aria-label="Ganhos ou perdidos">
+          {([["ganhos", `Ganhos (${won.length})`], ["perdidos", `Perdidos (${lost.length})`]] as const).map(([k, label]) => (
+            <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}
+              className={cn("rounded-md px-3 py-1.5 text-sm font-medium", kind === k ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900")}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {total && <span className="ml-auto text-sm text-slate-600">{kind === "ganhos" ? "Valor fechado" : "Valor perdido"}: <b>{total}</b></span>}
+      </div>
+      <p className="text-xs text-slate-500">
+        {kind === "ganhos" ? "Leads que viraram cliente: saem do funil e seguem na aba Operação." : "Leads marcados como perdidos, com o motivo. Para reativar, abra o lead e mude a coluna."}
+      </p>
+      {list.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-slate-500" data-testid="ops-results-empty">{kind === "ganhos" ? "Nenhum lead virou cliente ainda." : "Nenhum lead perdido."}</Card>
+      ) : (
+        <Card className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200 text-sm" data-testid="ops-results-table">
+            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr><th className="px-4 py-3">Lead</th><th className="px-4 py-3">{kind === "ganhos" ? "Situação" : "Motivo"}</th>
+                <th className="px-4 py-3">Responsável</th><th className="px-4 py-3">Valor</th><th className="px-4 py-3">Entrada</th></tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {list.map((l) => (
+                <tr key={l.id} className="cursor-pointer hover:bg-blue-50/40" onClick={() => onOpen(l.id)} data-testid="ops-result-row">
+                  <td className="px-4 py-3"><span className="text-xs font-semibold text-slate-400">#{l.number} </span><span className="font-semibold text-slate-900">{l.company_name}</span>
+                    <span className="block text-xs text-slate-500">{[l.segment, l.origin].filter(Boolean).join(" · ") || "—"}</span></td>
+                  <td className="px-4 py-3">{kind === "ganhos" ? <span className="text-xs font-semibold text-emerald-700">Virou cliente</span> : <span className="text-xs text-red-700">{l.loss_reason ?? "—"}</span>}</td>
+                  <td className="px-4 py-3 text-slate-600">{l.owner_name ?? "—"}</td>
+                  <td className="px-4 py-3 text-slate-600">{l.potential_value != null ? formatMoney(Number(l.potential_value), l.currency) : "—"}</td>
+                  <td className="px-4 py-3 text-slate-600">{formatDate(l.entered_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 /** Comercial: leads da prospecção ao fechamento (separado do fluxo operacional). */
 export function CommercialPage() {
   const ctx = useTasksContext();
+  const perms = useMyOpsPermissions();
+  const isAdmin = opsCan(perms.data, "ops.admin");
+  const [params, updateParams] = useSearchParamsUpdater();
+  const asked = params.get("ver") as CommercialView | null;
+  const sub: CommercialView = asked === "resultados" || (asked === "config" && isAdmin) ? asked : "funil";
+  const setSub = (v: CommercialView) => updateParams((p) => { if (v === "funil") p.delete("ver"); else p.set("ver", v); return p; });
   const { openId, open, close } = useOpenLead();
   const stages = useLeadStages();
   const reasons = useLossReasons();
@@ -79,12 +145,18 @@ export function CommercialPage() {
   const f = useMemo(() => ({ q: debounced || undefined, owner_id: owner || undefined, origin: origin || undefined, priority: priority || undefined,
     overdue: overdue || undefined, archived: archived || undefined }), [debounced, owner, origin, priority, overdue, archived]);
   const board = useLeadBoard(f);
-  const leads = board.data?.leads ?? [];
+  const allLeads = board.data?.leads ?? [];
   const stageList = stages.data ?? [];
+  const categoryOf = (l: OpsLeadCard) => stageList.find((s) => s.id === l.stage_id)?.category;
+  // Funil (38.1): só quem ainda está em negociação ou ganhou e espera a liberação. Quem virou cliente ou foi perdido
+  // fica em "Ganhos e perdidos". A coluna Perdido continua no funil só para soltar o cartão (pede o motivo).
+  const leads = allLeads.filter((l) => !l.client_id && categoryOf(l) !== "perdido");
   const columns = stageList.filter((s) => s.active || leads.some((l) => l.stage_id === s.id)).map((s) => {
     const total = totalsText(leads.filter((l) => l.stage_id === s.id));
     const rules = [s.require_previous && "só da anterior", s.require_next_action && "exige próxima ação"].filter(Boolean).join(" · ");
-    return { id: s.id, name: s.name, color: s.color, hint: [total, rules].filter(Boolean).join(" · ") || undefined };
+    if (s.category === "perdido") return { id: s.id, name: s.name, color: s.color, hint: "Solte aqui para marcar como perdido (pede o motivo)", empty: "Os perdidos ficam em “Ganhos e perdidos”" };
+    const won = s.category === "ganho" ? "Pronto para liberar para a Operação" : "";
+    return { id: s.id, name: s.name, color: s.color, hint: [total, rules, won].filter(Boolean).join(" · ") || undefined };
   });
   const openTotal = totalsText(leads.filter((l) => stageList.find((s) => s.id === l.stage_id)?.category === "aberto"));
   const viewFilters = { owner_id: owner, origin, priority, overdue, archived };
@@ -111,13 +183,28 @@ export function CommercialPage() {
 
   return (
     <div className="space-y-4" data-testid="ops-commercial">
-      <OpsModuleHeader icon={Handshake} title="Comercial" description="Leads da prospecção ao contrato pago. No Contrato Pago, o lead vira cliente sem duplicar o cadastro." />
+      <OpsModuleHeader icon={Handshake} title="Comercial" description="Vendas, separadas da operação: leads da prospecção ao contrato pago. Quem fecha contrato é liberado para a aba Operação." />
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" role="tablist" aria-label="Partes do comercial">
+        {SUB_VIEWS.filter((v) => !v.adminOnly || isAdmin).map(({ id, label, icon: Icon }) => (
+          <button key={id} type="button" role="tab" aria-selected={sub === id} onClick={() => setSub(id)} data-testid={`ops-commercial-tab-${id}`}
+            className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium",
+              sub === id ? "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900")}>
+            <Icon className="size-4" aria-hidden /> {label}
+          </button>
+        ))}
+      </div>
+      {sub === "config" ? (
+        <div className="space-y-8" data-testid="ops-commercial-config">
+          <LeadStagesSettings />
+          <LossReasonsSettings />
+        </div>
+      ) : (<>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-56 flex-1">
           <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden />
           <Input aria-label="Buscar lead" placeholder="Buscar por empresa, contato, segmento ou #número" className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <ViewToggle view={view} onChange={setView} canKanban />
+        {sub === "funil" && <ViewToggle view={view} onChange={setView} canKanban />}
         <Button onClick={() => setCreating(true)} disabled={!stages.data}><Plus className="size-4" aria-hidden /> Novo lead</Button>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -144,10 +231,12 @@ export function CommercialPage() {
       {board.error || stages.error ? <Alert tone="error">{errorMessage(board.error ?? stages.error)}</Alert> : null}
       {board.isLoading || stages.isLoading ? (
         <div className="h-64 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+      ) : sub === "resultados" ? (
+        <ResultsList leads={allLeads} stageOf={categoryOf} onOpen={open} />
       ) : leads.length === 0 ? (
         <Card className="space-y-2 p-8 text-center" data-testid="ops-commercial-empty">
           <Handshake className="mx-auto size-8 text-slate-300" aria-hidden />
-          <p className="font-medium text-slate-900">{active ? "Nenhum lead com esses filtros." : "Nenhum lead ainda."}</p>
+          <p className="font-medium text-slate-900">{active ? "Nenhum lead com esses filtros." : "Nenhum lead em negociação."}</p>
           {!active && <p className="text-sm text-slate-500">Use "Novo lead" para cadastrar o primeiro.</p>}
         </Card>
       ) : view === "kanban" ? (
@@ -186,6 +275,7 @@ export function CommercialPage() {
         </Card>
       )}
       <p className="text-xs text-slate-500">Totais somados só dentro da mesma moeda. Hoje: {formatDate(opsToday())}.</p>
+      </>)}
 
       {creating && stages.data && <LeadFormModal lead={null} stages={stages.data} ctx={ctx} onClose={() => setCreating(false)} onSaved={open} />}
       {losing && <LossModal reasons={reasons.data ?? []} busy={move.isPending} onCancel={() => setLosing(null)} onConfirm={confirmLoss} />}

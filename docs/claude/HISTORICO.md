@@ -90,6 +90,7 @@
 - **37.6:** faixa curta no dashboard e nas visões Meta/Google, bloco na ficha do cliente, aba Histórico. Tudo de leitura; nada é pausado nas plataformas.
 - **03/10 (pedido extra):** filtro de objetivo com vários objetivos, salvo por pessoa, em todas as abas. "End form" é evento personalizado e conta como **Leads**; "engajamento" = conversas.
 - **04/10:** Ander pediu **só alertas críticos** e nada de campanha desativada; e a janela do alerta estava cortada no celular. Padrão virou "só críticos" (configurável pelo admin); abas de comparação só com ativos. Depois, com prints, "continua cortando": eram os painéis dos sininhos do topo (alinhados ao sininho, vazavam pela esquerda); passaram a abrir na largura da tela no celular. Em seguida pediu menos abas: Campanhas, Conjuntos, Anúncios, Criativos e Contas viraram níveis dentro de Alertas, com filtro de gravidade; o Monitoramento ficou com 4 abas. Em 05/10 apontou resultados diferentes do Gerenciador (Shineray: 2 conversas mostradas como "—"): o resultado passou a seguir a meta de otimização do conjunto; Vonks estava certo (a 2ª venda era de outro anúncio do conjunto).
+- **05/10 (Etapa 38):** Ander achou a Central confusa e pediu o comercial separado da operação, com o cliente passando para a operação quando liberado; a aba "Clientes" virou "Operação". Plano em 2 fases (38.1 telas; 38.2 botão de liberar).
 - **Relatório final:** `docs/etapa-37-monitoramento/37.7-RELATORIO-FINAL.md`.
 
 ## 5. Aprendizados técnicos (armadilhas que já custaram tempo)

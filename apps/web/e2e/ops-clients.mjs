@@ -46,7 +46,7 @@ const waitFor = async (page, fn, what) => {
   await login(page, "/operacoes/clientes");
   await page.getByTestId("ops-clients-empty").waitFor();
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Clientes", "Filas", "Reuniões", "Equipe", "Configurações"]), `abas da Central (${tabs.join(", ")})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Operação", "Filas", "Reuniões", "Equipe", "Configurações"]), `abas da Central (${tabs.join(", ")})`);
 
   // Colocar no fluxo
   await page.getByRole("button", { name: "Colocar cliente no fluxo" }).click();
@@ -205,7 +205,7 @@ const waitFor = async (page, fn, what) => {
   await page.waitForURL("**/operacoes/minhas-tarefas");
   await page.getByTestId("ops-my-tasks").waitFor();
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(!tabs.includes("Clientes") && tabs.includes("Filas"), `designer sem a aba Clientes (${tabs.join(", ")})`);
+  check(!tabs.includes("Operação") && tabs.includes("Filas"), `designer sem a aba Operação (${tabs.join(", ")})`);
   await page.getByRole("link", { name: "Filas" }).click();
   await page.getByTestId("ops-queues").waitFor();
   check((await page.getByLabel("Setor").inputValue()) === sectorId(db, "Design"), "fila abre no setor da pessoa");

@@ -76,6 +76,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [Correção: Campanhas, Conjuntos, Anúncios, Criativos e Contas como níveis dentro de Alertas](docs/etapa-37-monitoramento/37.10-NIVEIS-DENTRO-DE-ALERTAS.md) ✅ concluída
   - [Correção: resultado pela meta de otimização do conjunto (igual ao Gerenciador)](docs/etapa-37-monitoramento/37.11-RESULTADO-PELA-META.md) ✅ concluída
   - [Botão "Resolver" direto na lista de alertas](docs/etapa-37-monitoramento/37.12-BOTAO-RESOLVIDO.md) ✅ concluída
+- **Etapa 38 — Comercial separado da Operação** ([plano](docs/etapa-38-comercial-e-operacao/38.0-PLANO.md))
+  - [38.1 — Abas reorganizadas: Comercial (funil, ganhos e perdidos) e Operação](docs/etapa-38-comercial-e-operacao/38.1-ABAS-E-COMERCIAL.md) ✅ concluída
 
 ## Estrutura
 

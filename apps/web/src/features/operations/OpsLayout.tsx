@@ -14,18 +14,20 @@ import { OpsSearch } from "./OpsSearch.tsx";
  * Abas da Central. Cada aba entrou quando a sua fase ficou pronta (nada de
  * botão que não funciona). O Painel (36.7) vem primeiro: é onde a Central abre
  * para quem tem "Ver o painel"; os demais abrem em Minhas tarefas.
- * "anyOf": basta uma das permissões (Clientes: ficha operacional OU ser Account Manager).
+ * "anyOf": basta uma das permissões (Operação: ficha operacional OU ser Account Manager).
+ * Etapa 38.1: Comercial (vendas) e Operação (clientes liberados) separados; Equipe e Configurações
+ * ficam à parte, como administração.
  */
-export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission: OpsPermission; anyOf?: OpsPermission[] }[] = [
+export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission: OpsPermission; anyOf?: OpsPermission[]; admin?: boolean }[] = [
   { to: "/operacoes/painel", label: "Painel", icon: Gauge, permission: "ops.dashboard.view" },
   { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
   { to: "/operacoes/tarefas", label: "Tarefas", icon: ClipboardList, permission: "ops.access" },
   { to: "/operacoes/comercial", label: "Comercial", icon: Handshake, permission: "ops.commercial" },
-  { to: "/operacoes/clientes", label: "Clientes", icon: Building2, permission: "ops.clients.view", anyOf: ["ops.clients.view", "ops.am"] },
+  { to: "/operacoes/clientes", label: "Operação", icon: Building2, permission: "ops.clients.view", anyOf: ["ops.clients.view", "ops.am"] },
   { to: "/operacoes/filas", label: "Filas", icon: Layers, permission: "ops.access" },
   { to: "/operacoes/reunioes", label: "Reuniões", icon: CalendarDays, permission: "ops.access" },
-  { to: "/operacoes/equipe", label: "Equipe", icon: Users, permission: "ops.access" },
-  { to: "/operacoes/configuracoes", label: "Configurações", icon: Settings, permission: "ops.admin" },
+  { to: "/operacoes/equipe", label: "Equipe", icon: Users, permission: "ops.access", admin: true },
+  { to: "/operacoes/configuracoes", label: "Configurações", icon: Settings, permission: "ops.admin", admin: true },
 ];
 
 export const tabAllowed = (granted: readonly string[] | undefined, t: { permission: OpsPermission; anyOf?: OpsPermission[] }) =>
@@ -69,23 +71,29 @@ export function OpsLayout() {
           <OpsSearch />
         </div>
         {/* Abas em "pílula", no padrão da referência visual (tema claro). */}
-        <nav className="flex flex-wrap gap-2" aria-label="Central de Operações">
-          {tabs.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  "inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all",
-                  isActive
-                    ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
-                    : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400",
-                )
-              }
-            >
-              <Icon className="size-4" aria-hidden />
-              {label}
-            </NavLink>
+        <nav className="flex flex-wrap items-center gap-x-6 gap-y-2" aria-label="Central de Operações">
+          {[tabs.filter((t) => !t.admin), tabs.filter((t) => t.admin)].map((group, gi) => group.length > 0 && (
+            <div key={gi} className={cn("flex flex-wrap gap-2", gi === 1 && "sm:ml-auto")} data-testid={gi === 1 ? "ops-tabs-admin" : "ops-tabs-main"}>
+              {group.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    cn(
+                      "inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all",
+                      isActive
+                        ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
+                        : gi === 1
+                          ? "bg-slate-50 text-slate-500 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400"
+                          : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400",
+                    )
+                  }
+                >
+                  <Icon className="size-4" aria-hidden />
+                  {label}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
         <Outlet />

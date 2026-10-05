@@ -47,7 +47,7 @@ async function newLead(page, fields) {
   await login(page, "/operacoes/comercial");
   await page.getByTestId("ops-commercial-empty").waitFor();
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Clientes", "Filas", "Reuniões", "Equipe", "Configurações"]), `abas (${tabs.join(", ")})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Operação", "Filas", "Reuniões", "Equipe", "Configurações"]), `abas (${tabs.join(", ")})`);
 
   // Cadastro com valores em moedas diferentes
   await newLead(page, { "Nome da empresa": "Padaria Sol", "Nome do contato": "Ana", Telefone: "(45) 99999-8888", "E-mail": "ana@sol.com",
@@ -93,12 +93,23 @@ async function newLead(page, fields) {
   await dialog.getByLabel("Observação").fill("Achou caro");
   await dialog.getByRole("button", { name: "Marcar como perdido" }).click();
   await dialog.waitFor({ state: "detached" });
-  await col(page, "perdido").getByText("Motivo: Valor incompatível").waitFor();
+  await waitFor(page, () => l2.stage_id === "perdido", "lead perdido");
   check(l2.stage_id === "perdido" && l2.loss_reason_id === "valor", "perdido com motivo");
+  // 38.1: o perdido sai do funil e vai para "Ganhos e perdidos".
+  await col(page, "perdido").getByText("Os perdidos ficam em “Ganhos e perdidos”").waitFor();
+  check(await col(page, "perdido").getByTestId("ops-lead-card").count() === 0, "38.1: o perdido sai do funil");
+  await page.getByTestId("ops-commercial-tab-resultados").click();
+  await page.getByTestId("ops-commercial-results").waitFor();
+  await page.getByRole("button", { name: /^Perdidos \(1\)/ }).click();
+  await page.getByTestId("ops-result-row").filter({ hasText: "Tech USA" }).getByText("Valor incompatível").waitFor();
+  check(true, "38.1: o perdido aparece em Ganhos e perdidos, com o motivo");
+  await page.getByTestId("ops-commercial-tab-funil").click();
+  await page.getByTestId("ops-kanban").waitFor();
 
-  // Regra de transição configurável
-  await page.getByRole("link", { name: "Configurações" }).last().click();
+  // Regra de transição configurável (38.1: dentro do Comercial, em "Configurações do comercial")
+  await page.getByTestId("ops-commercial-tab-config").click();
   await page.getByTestId("ops-lead-stages").waitFor();
+  check(page.url().includes("ver=config"), "38.1: configurações do comercial dentro do Comercial");
   await page.getByRole("button", { name: "Editar coluna comercial Negociação" }).click();
   dialog = page.getByRole("dialog", { name: "Editar coluna comercial" });
   await dialog.getByLabel("Exige próxima ação com data para entrar").check();
@@ -106,7 +117,7 @@ async function newLead(page, fields) {
   await dialog.waitFor({ state: "detached" });
   check(db.opsLeadStages.find((s) => s.id === "negociacao").require_next_action, "regra salva");
   check(await page.getByTestId("ops-loss-reason-row").count() === 5, "5 motivos de perda");
-  await page.getByRole("link", { name: "Comercial" }).click();
+  await page.getByTestId("ops-commercial-tab-funil").click();
   await card(page, l1.number).click();
   await page.getByTestId("ops-lead-drawer").getByLabel("Coluna do lead").selectOption("negociacao");
   await page.getByText('Para entrar em "Negociação", preencha a próxima ação e a data dela.').waitFor();
@@ -158,6 +169,14 @@ async function newLead(page, fields) {
   await drawer.getByRole("button", { name: "Vincular a Loja Existente" }).click();
   await drawer.getByText("Lead vinculado ao cliente.").waitFor();
   check(l3.client_id === EXISTENTE, "lead vinculado ao cliente existente");
+  await drawer.getByRole("button", { name: "Fechar lead" }).click();
+  // 38.1: quem virou cliente sai do funil e fica em "Ganhos".
+  check(await page.getByTestId("ops-lead-card").filter({ hasText: "Padaria Sol" }).count() === 0, "38.1: quem virou cliente sai do funil");
+  await page.getByTestId("ops-commercial-tab-resultados").click();
+  await page.getByRole("button", { name: /^Ganhos \(2\)/ }).click();
+  const won = await page.getByTestId("ops-result-row").allInnerTexts();
+  check(won.length === 2 && won.some((t) => t.includes("Padaria Sol")) && won.some((t) => t.includes("Loja Existente")), `38.1: Ganhos lista os 2 que viraram cliente (${won.length})`);
+  await page.screenshot({ path: `${SHOTS}/38.1-ganhos.png`, fullPage: true });
   check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
   await browser.close();
 }
@@ -170,6 +189,8 @@ async function newLead(page, fields) {
     permissions: ["ops.access", "ops.commercial"] };
   await login(page, "/operacoes/comercial");
   await page.getByTestId("ops-commercial").waitFor();
+  check(await page.getByTestId("ops-commercial-tab-config").count() === 0 && await page.getByTestId("ops-commercial-tab-resultados").count() === 1,
+    "38.1: vendedor vê Funil e Ganhos e perdidos, sem as configurações do comercial");
   await newLead(page, { "Nome da empresa": "Studio Nova" });
   const drawer = page.getByTestId("ops-lead-drawer");
   await drawer.getByLabel("Coluna do lead").selectOption("contrato_pago");
