@@ -51,6 +51,15 @@
    - tabelas internas (`history.tracking_events_*`, `private.rate_limits`, `private.track_limits`) sem regra de leitura, de propósito;
    - "proteção contra senhas vazadas" desligada: é item do Ander, no painel.
 
+6. **EM ABERTO (pedido de 12/10/2026, aprovado pelo Ander): saldo PIX da conta "CA - Estilo de Ser Kids" (act_920458724035388).**
+   - A conta tem cartão cadastrado (Mastercard *2039), mas as campanhas rodam com saldo carregado via PIX. O Meta informa "cartão" como forma de pagamento em uso, então o CRM mostra R$ 0,00 "Pago no cartão".
+   - Pedido: **só nessa conta**, mostrar o saldo PIX como valor disponível. As outras contas não mudam.
+   - Plano aprovado:
+     1. Ler as últimas fotografias da conta em `account_snapshots` (`raw`, `funding_description`) e confirmar se o Meta envia o saldo PIX em algum campo.
+     2. Criar uma marcação por conta (ex.: `ad_accounts.payment_mode_override = 'prepaid'`), ligada só nessa conta, que o admin liga e desliga; com ela, a regra trata a conta como pré-paga (saldo, previsão de duração e alertas de saldo). Aplicar no gatilho `account_snapshots_meta_payment`, em `account_balances()` e em `funding.ts`.
+     3. Se a API **não** trouxer o saldo, não inventar: perguntar ao Ander se prefere (a) digitar o valor a cada recarga (o sistema desconta o gasto depois) ou (b) mostrar "Saldo PIX não informado pela API". Ele ainda não respondeu.
+   - Bloqueio em 12/10: o conector do Supabase recusou todas as consultas ("sem permissão"). Nada foi alterado.
+
 ## 4. Pendências do Ander
 A lista completa está em [`docs/PENDENCIAS.md`](../PENDENCIAS.md). Lembre nos relatórios:
 - **Google Cloud:** URIs de redirecionamento do domínio novo, quando for conectar o Google Ads.
