@@ -8,6 +8,7 @@ import { InfoTooltip } from "@/components/ui/tooltip.tsx";
 import { AccountStatusBadge } from "@/features/ad-accounts/AccountStatusBadge.tsx";
 import { cn } from "@/lib/cn.ts";
 import { formatMoney } from "@/lib/format.ts";
+import { ManualPixPanel } from "./ManualPixPanel.tsx";
 import { PaymentBadge } from "./PaymentBadge.tsx";
 import type { AccountBalance } from "./types.ts";
 
@@ -16,6 +17,7 @@ const BASIS = {
   meta_prepaid_balance: "Saldo pré-pago (recargas por PIX ou boleto), exatamente como o Meta informa.",
   meta_card: "Conta paga no cartão de crédito: não há dinheiro na conta. O limite do cartão ou de gastos não é saldo.",
   google_account_budget: "Orçamento da conta − valor já veiculado.",
+  manual_prepaid: "Saldo PIX informado no CRM (o Meta não informa): recargas registradas − gasto que o Meta informa depois delas.",
 };
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
@@ -77,7 +79,8 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
         ]
       : []),
   ];
-  const missing = [...(available == null ? ["Valor disponível"] : []), ...rows.filter((r) => r.value == null).map((r) => r.label)];
+  const manual = b.available_basis === "manual_prepaid";
+  const missing = [...(available == null && !manual ? ["Valor disponível"] : []), ...rows.filter((r) => r.value == null).map((r) => r.label)];
 
   return (
     <Card
@@ -128,6 +131,7 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
                 {available == null ? "—" : formatMoney(available / 1_000_000, currency)}
               </p>
               {kind === "cartao" && <p className="text-xs text-slate-500">Pago no cartão: sem saldo em conta.</p>}
+              {manual && <p className="text-xs text-slate-500">{available == null ? "Informe a última recarga PIX." : "Saldo PIX informado no CRM."}</p>}
             </div>
             <div>
               <p className="flex items-center gap-1 text-xs text-slate-500">
@@ -139,7 +143,7 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
               </p>
               {a.forecastDays == null && (
                 <p className="text-xs text-slate-400">
-                  {kind === "cartao" ? "Pago no cartão: não se aplica." : b.available_micros == null ? "Sem valor disponível para calcular." : "Sem gasto recente para calcular."}
+                  {kind === "cartao" ? "Pago no cartão: não se aplica." : b.available_micros == null ? (manual ? "Sem recarga informada." : "Sem valor disponível para calcular.") : "Sem gasto recente para calcular."}
                 </p>
               )}
             </div>
@@ -157,6 +161,7 @@ export function BalanceAccountCard({ balance: b, canManage, refreshing, onRefres
               {a.stale && <span className="block text-xs font-normal text-amber-700">há mais de 24 horas</span>}
             </Row>
           </dl>
+          {manual && <ManualPixPanel balance={b} canManage={canManage} />}
           {missing.length > 0 && (
             <p className="text-xs text-slate-400" data-testid="balance-missing">
               {joinPt(missing)}: {NOT_AVAILABLE}

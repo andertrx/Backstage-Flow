@@ -85,9 +85,9 @@ export function assessBalance(b: BalanceInput, now: Date = new Date()): BalanceA
 // O limite de gastos ou o limite do cartão NUNCA é mostrado como disponível.
 // -----------------------------------------------------------------------------
 
-export type AvailableBasis = "meta_prepaid_balance" | "meta_card" | "google_account_budget";
+export type AvailableBasis = "meta_prepaid_balance" | "meta_card" | "google_account_budget" | "manual_prepaid";
 
-export type PaymentKind = "pre_pago" | "cartao" | "cartao_pre_pago" | "orcamento" | "nao_informado";
+export type PaymentKind = "pre_pago" | "pre_pago_informado" | "cartao" | "cartao_pre_pago" | "orcamento" | "nao_informado";
 
 export interface PaymentInput {
   available_basis: string | null;
@@ -98,6 +98,7 @@ export interface PaymentInput {
 
 export const PAYMENT_LABELS: Record<PaymentKind, string> = {
   pre_pago: "Saldo pré-pago (PIX/boleto)",
+  pre_pago_informado: "Saldo PIX informado no CRM",
   cartao: "Cartão de crédito",
   cartao_pre_pago: "Cartão + saldo pré-pago",
   orcamento: "Orçamento da conta",
@@ -110,9 +111,12 @@ export const PAYMENT_LABELS: Record<PaymentKind, string> = {
  * - Cartão: não há dinheiro na conta; o disponível é R$ 0,00.
  * - Cartão numa conta marcada como pré-paga: as duas formas; o saldo real só
  *   aparece se a plataforma informar (nunca o limite do cartão).
+ * - Saldo PIX informado no CRM (correção de 13/10/2026, só contas marcadas):
+ *   recargas que a API não informa; o disponível desconta o gasto depois delas.
  */
 export function paymentKind(b: PaymentInput): PaymentKind {
   if (b.available_basis === "meta_prepaid_balance") return "pre_pago";
+  if (b.available_basis === "manual_prepaid") return "pre_pago_informado";
   if (b.available_basis === "meta_card") return b.is_prepay ? "cartao_pre_pago" : "cartao";
   if (b.available_basis === "google_account_budget") return "orcamento";
   return "nao_informado";

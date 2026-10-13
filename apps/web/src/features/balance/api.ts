@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { callAdAccounts } from "@/features/ad-accounts/api.ts";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
-import type { AccountBalance } from "./types.ts";
+import type { AccountBalance, ManualBalanceStatus } from "./types.ts";
 
 const BALANCES_KEY = ["balances"] as const;
 
@@ -73,6 +73,55 @@ export function useBalanceSettings() {
   return useMutation({
     mutationFn: (input: { adAccountId: string; lowBalanceDays: number; lowBalanceAmount: number | null }) =>
       callAdAccounts<{ adAccountId: string }>({ action: "balance_settings", ...input }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: BALANCES_KEY }),
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Saldo PIX informado no CRM (correção de 13/10/2026): só contas marcadas.
+// -----------------------------------------------------------------------------
+const num = (v: unknown) => (v == null ? null : Number(v));
+
+export function useManualBalance(adAccountId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...BALANCES_KEY, "manual", adAccountId],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("manual_balance_status", { p_ad_account_id: adAccountId });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o saldo informado."));
+      const d = data as Record<string, unknown>;
+      return {
+        ...d,
+        available_micros: num(d.available_micros),
+        base_micros: num(d.base_micros),
+        topups_micros: num(d.topups_micros),
+        spent_micros: num(d.spent_micros),
+        entries: ((d.entries as Record<string, unknown>[] | null) ?? []).map((e) => ({ ...e, id: Number(e.id), amount_micros: Number(e.amount_micros) })),
+      } as unknown as ManualBalanceStatus;
+    },
+  });
+}
+
+export function useAddManualBalance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { adAccountId: string; kind: "recarga" | "saldo"; amountMicros: number; note: string | null }) => {
+      const { error } = await supabase.rpc("manual_balance_add", {
+        p_ad_account_id: input.adAccountId, p_kind: input.kind, p_amount_micros: input.amountMicros, p_note: input.note,
+      });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos registrar."));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: BALANCES_KEY }),
+  });
+}
+
+export function useVoidManualBalance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { entryId: number; reason: string | null }) => {
+      const { error } = await supabase.rpc("manual_balance_void", { p_entry_id: input.entryId, p_reason: input.reason });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos cancelar o registro."));
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: BALANCES_KEY }),
   });
 }

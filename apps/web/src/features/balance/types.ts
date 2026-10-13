@@ -13,7 +13,7 @@ export interface AccountBalance {
   low_balance_amount_micros: number | null;
   captured_at: string | null;
   available_micros: number | null;
-  available_basis: "meta_prepaid_balance" | "meta_card" | "google_account_budget" | null;
+  available_basis: "meta_prepaid_balance" | "meta_card" | "google_account_budget" | "manual_prepaid" | null;
   amount_spent_micros: number | null;
   amount_due_micros: number | null;
   spend_cap_micros: number | null;
@@ -23,4 +23,30 @@ export interface AccountBalance {
   issues: string[];
   spend_last_7_days_micros: number | null;
   spend_days: number;
+}
+
+/** Um registro de saldo informado no CRM (recarga PIX ou saldo atual conferido no Meta). */
+export interface ManualBalanceEntry {
+  id: number;
+  kind: "recarga" | "saldo";
+  amount_micros: number;
+  entered_at: string;
+  note: string | null;
+  created_by_name: string | null;
+  voided_at: string | null;
+  void_reason: string | null;
+}
+
+/** public.manual_balance_status: como o disponível informado no CRM foi calculado. */
+export interface ManualBalanceStatus {
+  enabled: boolean;
+  currency: string | null;
+  available_micros: number | null;
+  base_micros: number | null;
+  topups_micros: number | null;
+  spent_micros: number | null;
+  anchor_at: string | null;
+  anchor_kind: "recarga" | "saldo" | null;
+  can_edit: boolean;
+  entries: ManualBalanceEntry[];
 }

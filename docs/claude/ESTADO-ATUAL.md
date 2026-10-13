@@ -3,6 +3,7 @@
 > Atualize este arquivo ao fim de cada fase: o que ficou pronto, o que ficou pendente e a próxima decisão do Ander.
 
 ## 1. Última entrega
+- **Correção do saldo PIX (13/10/2026):** a conta "CA - Estilo de Ser Kids" (cartão cadastrado, campanhas rodando com PIX) usa saldo **informado no CRM**: recargas registradas − gasto que o Meta informa depois. Só contas com `ad_accounts.manual_prepaid` (ligado só nela). Tabela `account_manual_balance_entries`. Documento: `docs/etapa-07-verificacao-saldo/CORRECAO-2026-10-13-SALDO-PIX-INFORMADO.md`.
 - **Correção do saldo (28/09/2026):**
   - disponível = dinheiro real;
   - cartão = R$ 0,00;
@@ -51,14 +52,7 @@
    - tabelas internas (`history.tracking_events_*`, `private.rate_limits`, `private.track_limits`) sem regra de leitura, de propósito;
    - "proteção contra senhas vazadas" desligada: é item do Ander, no painel.
 
-6. **EM ABERTO (pedido de 12/10/2026, aprovado pelo Ander): saldo PIX da conta "CA - Estilo de Ser Kids" (act_920458724035388).**
-   - A conta tem cartão cadastrado (Mastercard *2039), mas as campanhas rodam com saldo carregado via PIX. O Meta informa "cartão" como forma de pagamento em uso, então o CRM mostra R$ 0,00 "Pago no cartão".
-   - Pedido: **só nessa conta**, mostrar o saldo PIX como valor disponível. As outras contas não mudam.
-   - Plano aprovado:
-     1. Ler as últimas fotografias da conta em `account_snapshots` (`raw`, `funding_description`) e confirmar se o Meta envia o saldo PIX em algum campo.
-     2. Criar uma marcação por conta (ex.: `ad_accounts.payment_mode_override = 'prepaid'`), ligada só nessa conta, que o admin liga e desliga; com ela, a regra trata a conta como pré-paga (saldo, previsão de duração e alertas de saldo). Aplicar no gatilho `account_snapshots_meta_payment`, em `account_balances()` e em `funding.ts`.
-     3. Se a API **não** trouxer o saldo, não inventar: perguntar ao Ander se prefere (a) digitar o valor a cada recarga (o sistema desconta o gasto depois) ou (b) mostrar "Saldo PIX não informado pela API". Ele ainda não respondeu.
-   - Bloqueio em 12/10: o conector do Supabase recusou todas as consultas ("sem permissão"). Nada foi alterado.
+6. **Saldo PIX da Estilo de Ser Kids:** resolvido em 13/10/2026 (ver Última entrega). O Meta não informa esse saldo pela API (conferido no dado bruto): o Ander registra as recargas no CRM.
 
 ## 4. Pendências do Ander
 A lista completa está em [`docs/PENDENCIAS.md`](../PENDENCIAS.md). Lembre nos relatórios:

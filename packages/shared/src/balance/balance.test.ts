@@ -84,6 +84,13 @@ describe("forma de pagamento e valor disponível", () => {
     expect(PAYMENT_LABELS[paymentKind(b)]).toBe("Cartão + saldo pré-pago");
     expect(shownAvailableMicros(b)).toBeNull();
   });
+  it("saldo PIX informado no CRM (conta com cartão cadastrado): mostra o saldo, nunca R$ 0,00 do cartão", () => {
+    const b = { ...base, available_basis: "manual_prepaid", available_micros: 470_000_000, funding_description: "Mastercard *2039" };
+    expect(paymentKind(b)).toBe("pre_pago_informado");
+    expect(PAYMENT_LABELS[paymentKind(b)]).toBe("Saldo PIX informado no CRM");
+    expect(shownAvailableMicros(b)).toBe(470_000_000);
+    expect(shownAvailableMicros({ ...b, available_micros: null })).toBeNull();
+  });
   it("sem informação e orçamento do Google", () => {
     expect(paymentKind({ ...base, available_basis: null })).toBe("nao_informado");
     expect(shownAvailableMicros({ ...base, available_basis: null })).toBeNull();

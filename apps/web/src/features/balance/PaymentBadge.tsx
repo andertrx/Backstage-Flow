@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn.ts";
  */
 export function PaymentBadge({ b, className }: { b: PaymentInput; className?: string }) {
   const kind = paymentKind(b);
-  const tone = kind === "pre_pago" ? "bg-emerald-50 text-emerald-800 ring-emerald-200"
+  const tone = kind === "pre_pago" || kind === "pre_pago_informado" ? "bg-emerald-50 text-emerald-800 ring-emerald-200"
     : kind === "cartao" ? "bg-slate-100 text-slate-700 ring-slate-200"
     : kind === "cartao_pre_pago" ? "bg-blue-50 text-blue-800 ring-blue-200"
     : kind === "orcamento" ? "bg-sky-50 text-sky-800 ring-sky-200"
@@ -20,7 +20,7 @@ export function PaymentBadge({ b, className }: { b: PaymentInput; className?: st
     <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset", tone, className)}
       data-testid="payment-badge" data-kind={kind}>
       {(kind === "cartao" || kind === "cartao_pre_pago") && <CreditCard className="size-3.5" aria-hidden />}
-      {(kind === "pre_pago" || kind === "cartao_pre_pago") && <Wallet className="size-3.5" aria-hidden />}
+      {(kind === "pre_pago" || kind === "pre_pago_informado" || kind === "cartao_pre_pago") && <Wallet className="size-3.5" aria-hidden />}
       {kind === "orcamento" && <Landmark className="size-3.5" aria-hidden />}
       {kind === "nao_informado" && <HelpCircle className="size-3.5" aria-hidden />}
       {PAYMENT_LABELS[kind]}

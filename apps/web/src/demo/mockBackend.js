@@ -146,6 +146,22 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
   const jwt = `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: userId, role: "authenticated", aud: "authenticated", exp: now + 3600 })}.sig`;
   const user = { id: userId, aud: "authenticated", role: "authenticated", email, app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() };
 
+  /** Saldo PIX informado no CRM (mesma regra de private.manual_prepaid_state). */
+  function manualState(accountId) {
+    const e = (db.manualBalance ??= []).filter((x) => x.ad_account_id === accountId && !x.voided_at);
+    const byTime = (x, y) => x.entered_at.localeCompare(y.entered_at) || x.id - y.id;
+    const saldo = e.filter((x) => x.kind === "saldo").sort(byTime).at(-1);
+    const anchor = saldo ?? e.filter((x) => x.kind === "recarga").sort(byTime)[0];
+    if (!anchor) return { available_micros: null, base_micros: null, topups_micros: null, spent_micros: null, anchor_at: null, anchor_kind: null };
+    const base = anchor.kind === "saldo" ? anchor.amount_micros : 0;
+    const topups = e.filter((x) => x.kind === "recarga" && byTime(x, anchor) >= 0).reduce((t, x) => t + x.amount_micros, 0);
+    const spentAll = db.metrics.filter((m) => m.ad_account_id === accountId && m.level === "account" && m.date >= anchor.account_day)
+      .reduce((t, m) => t + m.spend_micros, 0);
+    const spent = Math.max(spentAll - anchor.day_spend_before_micros, 0);
+    return { available_micros: Math.max(base + topups - spent, 0), base_micros: base, topups_micros: topups, spent_micros: spent,
+      anchor_at: anchor.entered_at, anchor_kind: anchor.kind };
+  }
+
   /** Saldo de cada conta vinculada (mesma regra de public.account_balances). */
   function balanceRows(p) {
       const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
@@ -155,15 +171,19 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           (!p.p_platforms || p.p_platforms.includes(a.platform_id)) && (!p.p_ad_account_ids || p.p_ad_account_ids.includes(a.id)))
         .map((a) => {
           const s = db.snapshots[a.id] ?? {};
+          const manual = a.manual_prepaid ? manualState(a.id) : null;
           const spend = db.metrics.filter((m) => m.ad_account_id === a.id && m.level === "account" && m.date >= shift(-2) && m.date <= shift(-1));
           return {
             ad_account_id: a.id, client_id: a.client_id, client_name: db.clients.find((c) => c.id === a.client_id)?.name ?? "",
             platform_id: a.platform_id, external_id: a.external_id, name: a.name, currency: s.currency ?? a.currency, status: a.status ?? "ativa",
             is_prepay: a.is_prepay ?? null, low_balance_days: a.low_balance_days ?? 3, low_balance_amount_micros: a.low_balance_amount_micros ?? null,
-            captured_at: s.captured_at ?? null, available_micros: s.available_micros ?? null, available_basis: s.available_basis ?? null,
+            captured_at: s.captured_at ?? null,
+            available_micros: a.manual_prepaid ? manual.available_micros : s.available_micros ?? null,
+            available_basis: a.manual_prepaid ? "manual_prepaid" : s.available_basis ?? null,
             amount_spent_micros: s.amount_spent_micros ?? null, amount_due_micros: s.amount_due_micros ?? null,
             spend_cap_micros: s.spend_cap_micros ?? null, budget_micros: s.budget_micros ?? null, budget_end_at: s.budget_end_at ?? null,
-            funding_description: s.funding_description ?? null, issues: s.issues ?? [],
+            funding_description: s.funding_description ?? null,
+            issues: a.manual_prepaid ? [...(s.issues ?? []).filter((i) => i !== "sem_saldo"), ...(manual.available_micros === 0 ? ["sem_saldo"] : [])] : s.issues ?? [],
             spend_last_7_days_micros: spend.length ? spend.reduce((t, m) => t + m.spend_micros, 0) : null, spend_days: spend.length,
           };
         });
@@ -1204,6 +1224,41 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
 
     // --- Saldo das contas (mesma regra de public.account_balances)
     if (url.includes("/rest/v1/rpc/account_balances")) return res(200, balanceRows(parse()));
+    // --- Saldo PIX informado no CRM (só contas marcadas)
+    if (url.includes("/rest/v1/rpc/manual_balance_")) {
+      const p = parse();
+      const canEdit = role === "admin" || role === "gestor";
+      const list = (db.manualBalance ??= []);
+      if (url.includes("/rpc/manual_balance_status")) {
+        const a = db.adAccounts.find((x) => x.id === p.p_ad_account_id);
+        if (!a || role === "cliente") return res(403, { code: "42501", message: "Conta não encontrada." });
+        const entries = list.filter((x) => x.ad_account_id === a.id).sort((x, y) => y.entered_at.localeCompare(x.entered_at) || y.id - x.id).slice(0, 50)
+          .map((x) => ({ ...x, created_by_name: x.created_by === userId ? fullName : null }));
+        return res(200, { enabled: !!a.manual_prepaid, currency: a.currency, ...manualState(a.id), can_edit: canEdit, entries });
+      }
+      if (url.includes("/rpc/manual_balance_add")) {
+        const a = db.adAccounts.find((x) => x.id === p.p_ad_account_id);
+        if (!a || !canEdit) return res(403, { code: "42501", message: "Sem permissão para informar saldo desta conta." });
+        if (!a.manual_prepaid) return res(400, { code: "22023", message: "Esta conta não usa saldo informado no CRM." });
+        if (!["recarga", "saldo"].includes(p.p_kind) || !(p.p_amount_micros >= 0) || (p.p_kind === "recarga" && p.p_amount_micros === 0)) {
+          return res(400, { code: "22023", message: "Valor inválido." });
+        }
+        const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+        const before = db.metrics.filter((m) => m.ad_account_id === a.id && m.level === "account" && m.date === today).reduce((t, m) => t + m.spend_micros, 0);
+        const id = list.length + 1;
+        list.push({ id, ad_account_id: a.id, kind: p.p_kind, amount_micros: p.p_amount_micros, entered_at: new Date().toISOString(),
+          account_day: today, day_spend_before_micros: before, note: p.p_note ?? null, created_by: userId, voided_at: null, void_reason: null });
+        return res(200, id);
+      }
+      if (url.includes("/rpc/manual_balance_void")) {
+        const e = list.find((x) => x.id === p.p_entry_id);
+        if (!e || !canEdit) return res(403, { code: "42501", message: "Registro não encontrado." });
+        if (e.voided_at) return res(400, { code: "22023", message: "Este registro já foi cancelado." });
+        e.voided_at = new Date().toISOString();
+        e.void_reason = p.p_reason ?? null;
+        return res(204);
+      }
+    }
 
     // --- Saúde das contas (mesma regra de public.account_health)
     if (url.includes("/rest/v1/rpc/account_health")) {
