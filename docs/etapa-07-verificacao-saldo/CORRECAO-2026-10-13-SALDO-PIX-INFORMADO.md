@@ -55,3 +55,18 @@ O card de saldo da conta mostra:
 
 ## Para ligar em outra conta
 Hoje só por pedido, com uma linha no banco: `update ad_accounts set manual_prepaid = true where …`. Não há botão na tela porque o pedido foi só para esta conta.
+
+## Testes
+- **Banco:** `correcao_saldo_pix_informado.sql`, 20 verificações, todas passaram. O teste confere:
+  - recarga, gasto, saldo atual e cancelamento;
+  - "Sem saldo" e o alerta;
+  - permissões do operador e do cliente;
+  - registro nos Logs;
+  - que a outra conta continua no cartão.
+- **Regra compartilhada:** 199 testes, todos passaram.
+- **Navegador:** `e2e/balance-pix.mjs`, 16 verificações, todas passaram.
+- **Conjunto completo de testes do site:** 52 roteiros, todos passaram.
+  - O `ops-team.mjs` (Central, sem relação com o saldo) falhou uma vez porque lia a tela antes de a lista carregar. O teste passou a esperar a lista e passou 3 vezes seguidas, com 35 verificações.
+  - Total: 1.594 verificações.
+- **Avisos de segurança do Supabase:** só os antigos.
+- **Não conferido:** no site publicado e no celular real.

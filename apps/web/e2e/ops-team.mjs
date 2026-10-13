@@ -32,6 +32,8 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Operação", "Reuniões", "Equipe", "Configurações"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
   await page.getByRole("link", { name: "Equipe" }).last().click();
   await page.getByTestId("ops-team").waitFor();
+  // Espera a lista carregar antes de ler o texto (sem isso, às vezes lia a tela ainda vazia).
+  await page.getByTestId("ops-team").getByText("Maria Gestora").first().waitFor();
   const teamText = await page.getByTestId("ops-team").innerText();
   check(teamText.includes("Maria Gestora") && teamText.includes("Fora da Central") && !teamText.includes("cliente@excalibur.com"),
     "admin vê a equipe e quem ainda está fora (papel Cliente nunca aparece)");
