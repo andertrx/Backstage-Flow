@@ -102,6 +102,8 @@ async function sendForClient(db: SupabaseClient, sender: Sender, clientId: strin
     })),
     button: emailButton(cfg?.button ?? "login", linkToken, Boolean(portal?.login_enabled)),
     agencyNote: settings.sections.notes ? settings.agency_notes : null,
+    showSummary: settings.sections.summary,
+    summaryTemplate: settings.summary_template,
   });
   if (!email) {
     await log(db, { ...base, status: "pulado", detail: "Sem dados de anúncios nesta semana: nada foi enviado." });

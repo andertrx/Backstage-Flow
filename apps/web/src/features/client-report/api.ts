@@ -159,6 +159,7 @@ export function useSaveReportSettings(clientId: string) {
         default_period: s.default_period,
         agency_notes: s.agency_notes?.trim() || null,
         next_steps: s.next_steps?.trim() || null,
+        summary_template: s.summary_template?.trim() || null,
         updated_by: auth.user?.id ?? null,
       };
       const { error } = await supabase.from("client_report_settings").upsert(row, { onConflict: "client_id" });

@@ -30,6 +30,31 @@ describe("e-mail semanal", () => {
     expect(formatPercentChange(-5.26)).toBe("−5,3%");
   });
 
+  it("nome personalizado do resultado fica como foi escrito (sem \"28 lead (end form)\")", () => {
+    const main = { source: "action" as const, action_type: "offsite_conversion.fb_pixel_custom", label: "Lead (End Form)" };
+    expect(clean(summarySentence({ spend: 348.42, result: 28, costPerResult: 12.44, resultChange: null, costChange: null }, main, "BRL")))
+      .toBe("Foram investidos R$ 348,42 e gerados 28 Lead (End Form), a R$ 12,44 cada.");
+  });
+
+  it("frase editável: marcadores viram os números reais; sem número vira —; comparação some sem base", () => {
+    const parts = { spend: 348.42, result: 28, costPerResult: 12.44, resultChange: 40, costChange: null };
+    const main = { source: "leads" as const, label: "Leads" };
+    expect(clean(summarySentence(parts, main, "BRL", "Investimos {investimento} e recebemos {resultados} contatos, a {custo_por_resultado} cada. {comparacao}")))
+      .toBe("Investimos R$ 348,42 e recebemos 28 contatos, a R$ 12,44 cada. Comparado ao período anterior: 40,0% mais leads.");
+    expect(clean(summarySentence({ ...parts, costPerResult: null, resultChange: null }, main, "BRL", "{nome_resultado}: {resultados} ({custo_por_resultado}). {comparacao} {outro}")))
+      .toBe("Leads: 28 (—). {outro}");
+    expect(summarySentence({ ...parts, spend: null }, main, "BRL", "Investimos {investimento}")).toBe("Sem investimento registrado neste período.");
+    expect(clean(summarySentence(parts, main, "BRL", "   "))).toContain("Foram investidos");
+  });
+
+  it("resumo desligado em Personalizar não vai no e-mail; frase editável vai", () => {
+    const off = buildWeeklyEmail({ ...base, showSummary: false })!;
+    expect(off.text).not.toContain("Foram investidos");
+    expect(off.html).not.toContain("Foram investidos");
+    const custom = weeklyEmailBlocks({ ...base, summaryTemplate: "Semana: {resultados} {nome_resultado}." });
+    expect(custom[0].summary).toBe("Semana: 20 Leads.");
+  });
+
   it("uma parte por conta com dados; 4 métricas do modelo que existem; Google usa Conversões", () => {
     const blocks = weeklyEmailBlocks(base);
     expect(blocks.map((b) => b.heading)).toEqual(["Meta Ads · Conta Meta", "Google Ads · Conta Google"]);

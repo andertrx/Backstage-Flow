@@ -147,7 +147,7 @@ const section = (page, name) => page.getByRole("region", { name: `Conta ${name}`
   check(clean(await page.getByTestId("report-title").innerText()) === "Resultados Excalibur", "título do modelo");
   check((await page.getByTestId("report-period").innerText()).startsWith("Últimos 14 dias"), "abre no período padrão do modelo");
   const meta2 = section(page, "Excalibur Meta");
-  check(clean(await meta2.getByTestId("report-summary").innerText()).includes("e gerados 3 vendas, a R$ 110,00 cada"), "resumo usa o resultado escolhido");
+  check(clean(await meta2.getByTestId("report-summary").innerText()).includes("e gerados 3 Vendas, a R$ 110,00 cada"), "resumo usa o resultado escolhido, com o nome como foi escrito");
   check(await meta2.getByTestId("report-funnel").count() === 0, "funil desligado não aparece");
   check(await meta2.locator("[data-kpi=cpm]").count() === 0, "métrica tirada não aparece");
   check((await page.getByTestId("report-notes").innerText()).includes("Testar dois criativos novos."), "análise e próximos passos aparecem");
@@ -162,6 +162,34 @@ const section = (page, name) => page.getByRole("region", { name: `Conta ${name}`
   await page.evaluate(() => document.documentElement.classList.remove("pdf-mode"));
   await writeFile(`${SHOTS}/client-report.pdf`, pdf);
   check(pdf.length > 20_000 && pdf.subarray(0, 4).toString() === "%PDF", `PDF gerado (${Math.round(pdf.length / 1024)} KB)`);
+
+  // Frase do resumo editável (pedido de 13/10/2026) e resumo desligado
+  await page.getByRole("button", { name: "Personalizar" }).click();
+  const tpl = page.getByTestId("summary-template");
+  await tpl.getByRole("button", { name: "{investimento}" }).waitFor();
+  await tpl.getByLabel("Frase do resumo").fill("Investimos ");
+  await tpl.getByRole("button", { name: "{investimento}" }).click();
+  await tpl.getByLabel("Frase do resumo").press("End");
+  await tpl.getByLabel("Frase do resumo").pressSequentially(" e vieram {resultados} {nome_resultado}. {comparacao}");
+  await tpl.getByTestId("summary-preview").waitFor();
+  check(clean(await tpl.getByTestId("summary-preview").innerText()).includes("Investimos R$ "), "prévia usa a frase editável");
+  check((await tpl.getByLabel("Frase do resumo").inputValue()) === "Investimos {investimento} e vieram {resultados} {nome_resultado}. {comparacao}", "marcador entra no texto pelo botão");
+  check(!clean(await tpl.getByTestId("summary-preview").innerText()).includes("{"), "prévia com os números reais (sem marcadores sobrando)");
+  await page.screenshot({ path: `${SHOTS}/frase-do-resumo.png` });
+  await page.getByTestId("report-settings-form").getByRole("button", { name: "Salvar modelo" }).click();
+  await page.getByTestId("report-settings-form").waitFor({ state: "detached" });
+  check(db.reportSettings[0].summary_template === "Investimos {investimento} e vieram {resultados} {nome_resultado}. {comparacao}", "frase editável salva no modelo");
+  const meta3 = section(page, "Excalibur Meta");
+  await meta3.getByTestId("report-summary").getByText(/^Investimos R\$/).waitFor();
+  check(clean(await meta3.getByTestId("report-summary").innerText()).includes("e vieram 3 Vendas."), "dashboard usa a frase editável com os números reais");
+
+  await page.getByRole("button", { name: "Personalizar" }).click();
+  await page.getByTestId("report-settings-form").getByLabel("Resumo em uma frase").uncheck();
+  check(await page.getByTestId("summary-template").count() === 0, "com o resumo desligado, o campo da frase some");
+  await page.getByTestId("report-settings-form").getByRole("button", { name: "Salvar modelo" }).click();
+  await page.getByTestId("report-settings-form").waitFor({ state: "detached" });
+  await page.getByTestId("report-account").first().waitFor();
+  check(await page.getByTestId("report-summary").count() === 0 && db.reportSettings[0].sections.summary === false, "resumo desligado não aparece no relatório");
 
   // Celular: sem rolagem lateral da página
   await page.setViewportSize({ width: 390, height: 844 });

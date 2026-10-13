@@ -35,6 +35,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - [Etapa 19.2 — Acesso do cliente (login e link secreto)](docs/etapa-19-dashboard-cliente/19.2-ACESSO-DO-CLIENTE.md) ✅ concluída
 - [Etapa 19.3 — Quem viu e onde (idade, gênero, horário, aparelho, plataforma, localização)](docs/etapa-19-dashboard-cliente/19.3-DIVISOES.md) ✅ concluída
 - [Etapa 19.4 — Logo do cliente e e-mail semanal (Resend)](docs/etapa-19-dashboard-cliente/19.4-LOGO-EMAIL.md) ✅ concluída (falta verificar o domínio no Resend e colar a chave no CRM)
+  - [Correção de 13/10/2026 — frase do resumo editável ou opcional](docs/etapa-19-dashboard-cliente/CORRECAO-2026-10-13-FRASE-DO-RESUMO.md) ✅
 - [Etapa 20 — Permissões](docs/etapa-20-permissoes/README.md) ✅ concluída
 - [Etapa 21 — Design](docs/etapa-21-design/README.md) ✅ concluída
 - [Etapa 22 — Busca global](docs/etapa-22-busca-global/README.md) ✅ concluída

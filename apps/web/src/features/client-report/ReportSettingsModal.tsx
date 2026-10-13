@@ -1,6 +1,7 @@
 import {
   actionResultOptions, addDays, type ClientReportSettings, type MainResultSource, PERIOD_LABELS, REPORT_KPI_KEYS, REPORT_PERIODS,
-  REPORT_SECTION_LABELS, REPORT_SECTIONS, type ReportKpiKey, type ReportPeriod, reportKpiLabel, todayIn,
+  mainResultFor, REPORT_SECTION_LABELS, REPORT_SECTIONS, type ReportKpiKey, type ReportPeriod, reportKpiLabel, SUMMARY_MARKERS, summaryParts,
+  summarySentence, todayIn,
 } from "@backstage/shared";
 import { ArrowDown, ArrowUp, ImagePlus, Trash2 } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useMemo, useRef, useState } from "react";
@@ -61,6 +62,52 @@ function LogoField({ clientId, clientName, logoPath, hasRow }: { clientId: strin
       </div>
       <p className="text-xs text-slate-500">PNG, JPG ou WebP, até 1 MB (de preferência com fundo transparente). Aparece no dashboard, no PDF, no link e no e-mail.</p>
       {error && <Alert tone="error">{error}</Alert>}
+    </fieldset>
+  );
+}
+
+/**
+ * Frase do resumo editável (pedido de 13/10/2026). Os marcadores viram os números reais do período;
+ * vazio = frase automática. Para tirar a frase, desmarque "Resumo em uma frase" em Partes do dashboard.
+ */
+function SummaryTemplateField({ value, onChange, preview }: {
+  value: string;
+  onChange: (v: string) => void;
+  preview: { account: string; text: string } | null;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const insert = (marker: string) => {
+    const el = ref.current;
+    const at = el?.selectionStart ?? value.length;
+    const next = `${value.slice(0, at)}${marker}${value.slice(el?.selectionEnd ?? at)}`.slice(0, 500);
+    onChange(next);
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(at + marker.length, at + marker.length); });
+  };
+  return (
+    <fieldset className="space-y-2" data-testid="summary-template">
+      <legend className="text-sm font-medium text-slate-700">Frase do resumo</legend>
+      <p className="text-xs text-slate-500">
+        Deixe vazio para usar a frase automática. Para escrever a sua, use os marcadores: o sistema troca cada um pelo número real do período
+        (nada é digitado à mão).
+      </p>
+      <Textarea ref={ref} value={value} maxLength={500} rows={2} aria-label="Frase do resumo"
+        placeholder="Ex.: Investimos {investimento} e recebemos {resultados} contatos pelo formulário, a {custo_por_resultado} cada. {comparacao}"
+        onChange={(e) => onChange(e.target.value)} />
+      <div className="flex flex-wrap gap-1.5">
+        {SUMMARY_MARKERS.map((m) => (
+          <button key={m.key} type="button" title={m.hint} onClick={() => insert(m.key)}
+            className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700 hover:bg-slate-200">{m.key}</button>
+        ))}
+        {value && (
+          <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => onChange("")}>Voltar para a frase automática</button>
+        )}
+      </div>
+      {preview && (
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700" data-testid="summary-preview">
+          <span className="block text-xs text-slate-500">Prévia com os números reais dos últimos 90 dias ({preview.account}):</span>
+          {preview.text}
+        </p>
+      )}
     </fieldset>
   );
 }
@@ -198,6 +245,19 @@ export function ReportSettingsModal({ clientId, clientName, timezone, initial, l
             </label>
           ))}
         </fieldset>
+
+        {s.sections.summary && (
+          <SummaryTemplateField
+            value={s.summary_template ?? ""}
+            onChange={(v) => setS({ ...s, summary_template: v })}
+            preview={(() => {
+              const a = accounts.find((x) => x.cur);
+              if (!a) return null;
+              const main = mainResultFor(s.main_result, a.platform_id);
+              return { account: a.name, text: summarySentence(summaryParts(a.cur, a.prev, main), main, a.currency, s.summary_template) };
+            })()}
+          />
+        )}
 
         <Field label="Análise da agência (o cliente vê)">
           {(id) => <Textarea id={id} value={s.agency_notes ?? ""} maxLength={4000} onChange={(e) => setS({ ...s, agency_notes: e.target.value })} />}

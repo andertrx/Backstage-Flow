@@ -62,6 +62,8 @@ export interface ClientReportSettings {
   default_period: ReportPeriod;
   agency_notes: string | null;
   next_steps: string | null;
+  /** Frase do resumo editável (marcadores trocados pelos números reais). null = frase automática. */
+  summary_template: string | null;
 }
 
 export const DEFAULT_REPORT_KPIS: ReportKpiKey[] = ["spend", "main_result", "cost_per_result", "impressions", "reach", "clicks", "ctr", "cpc", "cpm"];
@@ -77,6 +79,7 @@ export function defaultReportSettings(clientName: string): ClientReportSettings 
     default_period: "last_7_days",
     agency_notes: null,
     next_steps: null,
+    summary_template: null,
   };
 }
 
@@ -99,6 +102,7 @@ export function normalizeReportSettings(row: Partial<ClientReportSettings> | nul
     default_period: (REPORT_PERIODS as readonly string[]).includes(row.default_period ?? "") ? row.default_period! : base.default_period,
     agency_notes: row.agency_notes ?? null,
     next_steps: row.next_steps ?? null,
+    summary_template: row.summary_template?.trim() ? row.summary_template : null,
   };
 }
 

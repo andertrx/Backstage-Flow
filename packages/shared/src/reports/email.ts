@@ -23,23 +23,21 @@ export function formatPercentChange(percent: number): string {
   return percent > 0 ? `+${abs}%` : percent < 0 ? `−${abs}%` : `${abs}%`;
 }
 
-const lower = (label: string) => (label === label.toUpperCase() ? label : label.toLowerCase());
+/** Nomes padrão do resultado viram minúsculas na frase ("50 leads"); nome personalizado fica como foi escrito. */
+const DEFAULT_RESULT_NAMES = new Set(["Leads", "Conversas iniciadas", "Conversões"]);
+const resultName = (label: string) => (DEFAULT_RESULT_NAMES.has(label) ? label.toLowerCase() : label);
 
-/**
- * Frase de resumo, só com fatos do período:
- * "Foram investidos R$ 700,00 e gerados 50 leads, a R$ 14,00 cada. Comparado ao período anterior: 25,0% mais leads e custo por resultado 20,0% menor."
- */
-export function summarySentence(s: SummaryParts, main: MainResult, currency: string): string {
-  if (s.spend == null) return "Sem investimento registrado neste período.";
-  const money = (v: number) => formatReportValue(v, "money", currency);
-  const name = lower(main.label);
-  let text = `Foram investidos ${money(s.spend)}`;
-  if (s.result == null) text += ".";
-  else if (s.result === 0) text += `, sem ${name} no período.`;
-  else {
-    text += ` e gerados ${formatReportValue(s.result, "decimal", currency)} ${name}`;
-    text += s.costPerResult != null ? `, a ${money(s.costPerResult)} cada.` : ".";
-  }
+/** Marcadores aceitos na frase editável (Personalizar → Frase do resumo). */
+export const SUMMARY_MARKERS = [
+  { key: "{investimento}", hint: "valor investido no período" },
+  { key: "{resultados}", hint: "quantidade do resultado principal" },
+  { key: "{custo_por_resultado}", hint: "custo por resultado" },
+  { key: "{nome_resultado}", hint: "nome do resultado principal" },
+  { key: "{comparacao}", hint: "comparação com o período anterior (fica vazio quando não há base)" },
+] as const;
+
+/** "Comparado ao período anterior: 25,0% mais leads e custo por resultado 20,0% menor." ou "". */
+function comparisonText(s: SummaryParts, name: string): string {
   const parts: string[] = [];
   if (s.resultChange != null && Math.abs(s.resultChange) >= 0.05) {
     parts.push(`${formatPercentChange(Math.abs(s.resultChange)).replace("+", "")} ${s.resultChange > 0 ? "mais" : "menos"} ${name}`);
@@ -47,7 +45,40 @@ export function summarySentence(s: SummaryParts, main: MainResult, currency: str
   if (s.costChange != null && Math.abs(s.costChange) >= 0.05) {
     parts.push(`custo por resultado ${formatPercentChange(Math.abs(s.costChange)).replace("+", "")} ${s.costChange > 0 ? "maior" : "menor"}`);
   }
-  if (parts.length) text += ` Comparado ao período anterior: ${parts.join(" e ")}.`;
+  return parts.length ? `Comparado ao período anterior: ${parts.join(" e ")}.` : "";
+}
+
+/**
+ * Frase de resumo, só com fatos do período:
+ * "Foram investidos R$ 700,00 e gerados 50 leads, a R$ 14,00 cada. Comparado ao período anterior: 25,0% mais leads e custo por resultado 20,0% menor."
+ * Com frase editável (template), os marcadores viram os números reais; número sem informação vira "—".
+ */
+export function summarySentence(s: SummaryParts, main: MainResult, currency: string, template?: string | null): string {
+  if (s.spend == null) return "Sem investimento registrado neste período.";
+  const money = (v: number) => formatReportValue(v, "money", currency);
+  const name = resultName(main.label);
+  const comparison = comparisonText(s, name);
+  if (template?.trim()) {
+    const values: Record<string, string> = {
+      "{investimento}": money(s.spend),
+      "{resultados}": s.result == null ? "—" : formatReportValue(s.result, "decimal", currency),
+      "{custo_por_resultado}": s.costPerResult == null ? "—" : money(s.costPerResult),
+      "{nome_resultado}": main.label,
+      "{comparacao}": comparison,
+    };
+    return template.trim()
+      .replace(/\{(investimento|resultados|custo_por_resultado|nome_resultado|comparacao)\}/g, (m) => values[m] ?? m)
+      .replace(/[ \t]{2,}/g, " ")
+      .trim();
+  }
+  let text = `Foram investidos ${money(s.spend)}`;
+  if (s.result == null) text += ".";
+  else if (s.result === 0) text += `, sem ${name} no período.`;
+  else {
+    text += ` e gerados ${formatReportValue(s.result, "decimal", currency)} ${name}`;
+    text += s.costPerResult != null ? `, a ${money(s.costPerResult)} cada.` : ".";
+  }
+  if (comparison) text += ` ${comparison}`;
   return text;
 }
 
@@ -76,6 +107,10 @@ export interface WeeklyEmailInput {
   accounts: EmailAccountInput[];
   button: { url: string; label: string } | null;
   agencyNote: string | null;
+  /** Resumo em uma frase ligado em Personalizar (padrão: sim). */
+  showSummary?: boolean;
+  /** Frase editável do cliente (null = automática). */
+  summaryTemplate?: string | null;
 }
 
 export interface EmailKpi {
@@ -87,7 +122,8 @@ export interface EmailKpi {
 
 export interface EmailAccountBlock {
   heading: string;
-  summary: string;
+  /** null = resumo desligado em Personalizar. */
+  summary: string | null;
   kpis: EmailKpi[];
 }
 
@@ -103,7 +139,7 @@ export function weeklyEmailBlocks(input: WeeklyEmailInput): EmailAccountBlock[] 
     const keys = input.kpis.filter((k) => cur[k] != null).slice(0, 4);
     blocks.push({
       heading: `${a.platformLabel} · ${a.name}`,
-      summary: summarySentence(summaryParts(a.cur, a.prev, main), main, a.currency),
+      summary: input.showSummary === false ? null : summarySentence(summaryParts(a.cur, a.prev, main), main, a.currency, input.summaryTemplate),
       kpis: keys.map((k) => {
         const d = defs[k];
         const v = kpiVariation(cur[k], prev[k], d.direction);
@@ -137,7 +173,7 @@ export function buildWeeklyEmail(input: WeeklyEmailInput): { subject: string; ht
   const accountHtml = blocks.map((b) => `
     <tr><td style="padding:16px 24px 0">
       <div style="font-size:15px;font-weight:600;color:#0f172a">${esc(b.heading)}</div>
-      <div style="font-size:14px;line-height:1.5;color:#1e293b;margin:8px 0 12px;padding:10px 12px;border-left:4px solid #4f46e5;background:#f8fafc">${esc(b.summary)}</div>
+      ${b.summary ? `<div style="font-size:14px;line-height:1.5;color:#1e293b;margin:8px 0 12px;padding:10px 12px;border-left:4px solid #4f46e5;background:#f8fafc">${esc(b.summary)}</div>` : `<div style="height:8px"></div>`}
       ${b.kpis.length ? `<table role="presentation" width="100%" cellspacing="6" cellpadding="0"><tr>${kpiCells(b)}</tr></table>` : ""}
     </td></tr>`).join("");
   const logo = input.logoUrl && /^https:\/\//.test(input.logoUrl)
@@ -166,7 +202,7 @@ export function buildWeeklyEmail(input: WeeklyEmailInput): { subject: string; ht
 
   const text = [
     input.title, `Semana de ${input.periodText}`, "",
-    ...blocks.flatMap((b) => [b.heading, b.summary, ...b.kpis.map((k) => `- ${k.label}: ${k.value}${k.change ? ` (${k.change} vs. semana anterior)` : ""}`), ""]),
+    ...blocks.flatMap((b) => [b.heading, ...(b.summary ? [b.summary] : []), ...b.kpis.map((k) => `- ${k.label}: ${k.value}${k.change ? ` (${k.change} vs. semana anterior)` : ""}`), ""]),
     ...(input.agencyNote?.trim() ? ["Análise da agência:", input.agencyNote.trim().slice(0, 1500), ""] : []),
     ...(input.button ? [`${input.button.label}: ${input.button.url}`, ""] : []),
     "Números informados pelas próprias plataformas de anúncios. Moedas diferentes nunca são somadas.",

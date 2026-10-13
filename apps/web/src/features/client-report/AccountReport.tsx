@@ -89,7 +89,7 @@ export function AccountReport({ account, daily, campaigns, settings, days, break
           {on.summary && (
             <Card className="print-avoid-break border-l-4 border-l-brand-600 p-4">
               <p className="text-base leading-relaxed text-slate-800" data-testid="report-summary">
-                {summarySentence(summaryParts(account.cur, account.prev, main), main, currency)}
+                {summarySentence(summaryParts(account.cur, account.prev, main), main, currency, settings.summary_template)}
               </p>
             </Card>
           )}
