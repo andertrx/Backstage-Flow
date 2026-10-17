@@ -5,10 +5,10 @@
  */
 import { BASE, check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
 
-const MENU = ["Dashboard", "Clientes", "Contas", "Central de Operações", "Meta Ads", "Google Ads", "Campanhas", "Relatórios", "Monitoramento", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações"];
+const MENU = ["Dashboard", "Clientes", "Contas", "Central de Operações", "Meta Ads", "Google Ads", "Campanhas", "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações"];
 const PAGES = [
   ["/", "Dashboard"], ["/clientes", "Clientes"], ["/contas", "Contas"], ["/operacoes/equipe", "Central de Operações"], ["/meta-ads", "Meta Ads"], ["/google-ads", "Google Ads"],
-  ["/campanhas", "Campanhas"], ["/relatorios", "Relatórios"], ["/monitoramento", "Monitoramento"], ["/alertas", "Alertas"], ["/tracking", "Tracking (em construção)"], ["/sincronizacao", "Sincronização"],
+  ["/campanhas", "Campanhas"], ["/relatorios", "Relatórios"], ["/monitoramento", "Monitoramento"], ["/inteligencia-resultados", "Inteligência de Resultados"], ["/alertas", "Alertas"], ["/tracking", "Tracking (em construção)"], ["/sincronizacao", "Sincronização"],
   ["/logs", "Logs"], ["/configuracoes/usuarios", "Configurações"],
 ];
 const sidebar = (page) => page.getByTestId("sidebar");
