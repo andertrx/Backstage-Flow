@@ -11,16 +11,19 @@ import { useClients } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { type RiSource, useRiSources, useSheetsSettings } from "./api.ts";
+import { ReadStatusCard } from "./ReadStatusCard.tsx";
 import { rulesSummary, SourceSetup } from "./SourceSetup.tsx";
 
 /**
  * Etapa 39 — Inteligência de Resultados. Nesta fase (39.1): escolher o cliente e
  * conectar a planilha do Google Sheets dele (aba, colunas e regras dos perfis).
- * A leitura automática (8h, 12h e 16h) e os rankings chegam nas próximas fases.
+ * 39.2: leitura automática (8h, 12h e 16h) e o botão "Atualizar agora". Os rankings chegam na próxima fase.
  */
 export function ResultsPage() {
   const { profile } = useAuth();
   const canManage = can(profile?.role, "results.manage");
+  // "Atualizar agora": admin, gestor e operador (o servidor confere de novo).
+  const canRead = ["admin", "gestor", "operador"].includes(profile?.role ?? "");
   const [params, setParams] = useSearchParams();
   const clientId = params.get("cliente");
   const clients = useClients();
@@ -71,16 +74,17 @@ export function ResultsPage() {
       ) : !source ? (
         <Alert tone="info">{client?.name ?? "Este cliente"} ainda não tem planilha conectada. Peça a um administrador ou gestor para conectar.</Alert>
       ) : (
-        <SourceSummary source={source} canManage={canManage} onEdit={() => setEditing(true)} />
+        <SourceSummary source={source} canManage={canManage} canRead={canRead} onEdit={() => setEditing(true)} />
       )}
     </div>
   );
 }
 
-function SourceSummary({ source, canManage, onEdit }: { source: RiSource; canManage: boolean; onEdit: () => void }) {
+function SourceSummary({ source, canManage, canRead, onEdit }: { source: RiSource; canManage: boolean; canRead: boolean; onEdit: () => void }) {
   const mapped = RI_FIELDS.filter((f) => source.mapping[f]);
   return (
     <div className="space-y-4">
+      <ReadStatusCard source={source} canRead={canRead} canManage={canManage} />
       <Card className="space-y-4 p-5" data-testid="ri-source-summary">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex gap-3">
@@ -109,7 +113,7 @@ function SourceSummary({ source, canManage, onEdit }: { source: RiSource; canMan
         <p className="text-sm text-slate-600" data-testid="ri-rules-summary"><span className="text-slate-500">Perfis:</span> {rulesSummary(source.profile_rules)}</p>
       </Card>
       <Alert tone="info">
-        Planilha configurada. A leitura automática (8h, 12h e 16h, horário de Brasília), o botão "Atualizar agora" e os rankings por perfil chegam nas próximas fases desta etapa.
+        Os rankings de campanhas, conjuntos e anúncios por perfil (lojista, sacoleiro e consumidor final) chegam na próxima fase desta etapa, usando a última leitura da planilha.
       </Alert>
     </div>
   );

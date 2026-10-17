@@ -1,4 +1,4 @@
-import type { RiMapping, RiProfile } from "@backstage/shared";
+import type { RiMapping, RiProfile, RiReadStats } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
@@ -29,6 +29,20 @@ export interface RiSource {
   profile_rules: Record<string, RiProfile>;
   enabled: boolean;
   updated_at: string;
+  /** Etapa 39.2: situação da leitura da planilha. */
+  read_status: "nunca" | "lendo" | "ok" | "erro";
+  last_attempt_at: string | null;
+  last_success_at: string | null;
+  last_error: string | null;
+  consecutive_failures: number;
+}
+
+/** Números da última leitura boa (sem as linhas; elas ficam no servidor). */
+export interface RiReadInfo {
+  read_at: string;
+  trigger: "agendada" | "manual";
+  row_count: number;
+  stats: Partial<RiReadStats> & { missingColumns?: string[] };
 }
 
 export interface SheetTab { title: string; rowCount: number; columnCount: number }
@@ -38,7 +52,8 @@ type SheetsAction =
   | { action: "test_settings" }
   | { action: "inspect"; clientId: string; url: string }
   | { action: "preview"; clientId: string; spreadsheetId: string; sheet: string; headerRow: number }
-  | { action: "column_values"; clientId: string; spreadsheetId: string; sheet: string; headerRow: number; column: string };
+  | { action: "column_values"; clientId: string; spreadsheetId: string; sheet: string; headerRow: number; column: string }
+  | { action: "read_now"; sourceId: string };
 
 export async function callSheets<T>(body: SheetsAction): Promise<T> {
   const { data, error } = await supabase.functions.invoke("sheets", { body });
@@ -103,11 +118,45 @@ export function useRiSources(clientId: string | null) {
     enabled: Boolean(clientId),
     queryFn: async () => {
       const { data, error } = await supabase.from("ri_sources")
-        .select("id, client_id, spreadsheet_id, spreadsheet_title, sheet_name, header_row, mapping, profile_rules, enabled, updated_at")
+        .select("id, client_id, spreadsheet_id, spreadsheet_title, sheet_name, header_row, mapping, profile_rules, enabled, updated_at, read_status, last_attempt_at, last_success_at, last_error, consecutive_failures")
         .eq("client_id", clientId!).order("created_at");
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos ler a planilha do cliente."));
       return (data ?? []) as RiSource[];
     },
+    // Enquanto uma leitura está em andamento, confere de novo a cada 5 s (consulta leve, sem as linhas).
+    refetchInterval: (q) => ((q.state.data as RiSource[] | undefined)?.some((s) => s.read_status === "lendo") ? 5000 : false),
+  });
+}
+
+/** Números da última leitura boa de uma planilha. */
+export function useRiReadInfo(sourceId: string | null, updatedAt: string | null) {
+  return useQuery({
+    queryKey: ["ri-read", sourceId, updatedAt],
+    enabled: Boolean(sourceId),
+    queryFn: async () => {
+      const { data, error } = await supabase.from("ri_snapshots").select("read_at, trigger, row_count, stats").eq("source_id", sourceId!).maybeSingle();
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos ler a última leitura da planilha."));
+      return data as RiReadInfo | null;
+    },
+  });
+}
+
+export function useReadNow(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sourceId: string) => callSheets<{ status: "ok"; rows: number }>({ action: "read_now", sourceId }),
+    onSettled: () => qc.invalidateQueries({ queryKey: SOURCES_KEY(clientId) }),
+  });
+}
+
+export function useSetSourceEnabled(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; enabled: boolean }) => {
+      const { error } = await supabase.rpc("ri_source_set_enabled", { p_id: input.id, p_enabled: input.enabled });
+      if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos mudar a leitura automática."));
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: SOURCES_KEY(clientId) }),
   });
 }
 

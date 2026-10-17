@@ -116,6 +116,8 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     sheetsDemo: {},
     /** Planilhas que o Google recusa (não compartilhadas com a conta do CRM). */
     sheetsNotShared: [],
+    /** Etapa 39.2: última leitura de cada planilha (id da planilha conectada → leitura). */
+    riSnapshots: {},
     /** Acesso do cliente (Etapa 19.2): por cliente, e código do link → cliente (só no servidor). */
     portals: {},
     portalTokens: {},
@@ -320,6 +322,21 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       Object.assign(db.sheetsSettings, { has_key: false, key_updated_at: new Date().toISOString(), last_test_at: null, last_test_ok: null, last_test_error: null });
       return res(204);
     }
+    if (url.includes("/rest/v1/ri_snapshots")) {
+      const sourceId = eqParam(url, "source_id");
+      const src = db.riSources.find((r) => r.id === sourceId);
+      const visible = src && role !== "cliente" && role !== "equipe" && (role === "admin" || db.access.some((x) => x.user_id === userId && x.client_id === src.client_id));
+      const snap = visible ? db.riSnapshots[sourceId] : null;
+      return res(200, snap ? { read_at: snap.read_at, trigger: snap.trigger, row_count: snap.row_count, stats: snap.stats } : null);
+    }
+    if (url.includes("/rest/v1/rpc/ri_source_set_enabled")) {
+      const p = parse();
+      const src = db.riSources.find((r) => r.id === p.p_id);
+      const canEdit = src && (role === "admin" || (role === "gestor" && db.access.some((x) => x.user_id === userId && x.client_id === src.client_id)));
+      if (!canEdit) return res(403, { code: "42501", message: "Sem permissão para configurar a planilha deste cliente." });
+      src.enabled = Boolean(p.p_enabled);
+      return res(204);
+    }
     if (url.includes("/rest/v1/ri_sources")) {
       const clientId = eqParam(url, "client_id");
       const visible = role !== "cliente" && role !== "equipe" && (role === "admin" || db.access.some((x) => x.user_id === userId && x.client_id === clientId));
@@ -336,7 +353,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         return res(409, { code: "23505", message: "Esta aba desta planilha já está conectada a este cliente." });
       }
       const row = { client_id: clientId, spreadsheet_id: p.p_spreadsheet_id, spreadsheet_title: p.p_spreadsheet_title, sheet_name: p.p_sheet_name,
-        header_row: p.p_header_row, mapping: p.p_mapping, profile_rules: p.p_profile_rules, enabled: true, updated_at: new Date().toISOString() };
+        header_row: p.p_header_row, mapping: p.p_mapping, profile_rules: p.p_profile_rules, enabled: old?.enabled ?? true, updated_at: new Date().toISOString(),
+        ...(old ? {} : { read_status: "nunca", last_attempt_at: null, last_success_at: null, last_error: null, consecutive_failures: 0 }) };
       if (old) Object.assign(old, row);
       else db.riSources.push({ id: `51ee0000-0000-4000-8000-${String(db.riSources.length + 1).padStart(12, "0")}`, created_at: row.updated_at, ...row });
       return res(200, old?.id ?? db.riSources.at(-1).id);
@@ -345,11 +363,38 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       const b = parse();
       db.rpcCalls.push({ fn: "sheets", ...b });
       const fail = (status, code, message) => res(status, { error: { code, message } });
-      if (b.action === "test_settings" ? role !== "admin" : !["admin", "gestor"].includes(role)) return fail(403, "FORBIDDEN", "Você não tem permissão para esta ação.");
+      const allowed = b.action === "test_settings" ? ["admin"] : b.action === "read_now" ? ["admin", "gestor", "operador"] : ["admin", "gestor"];
+      if (!allowed.includes(role)) return fail(403, "FORBIDDEN", "Você não tem permissão para esta ação.");
       if (!db.sheetsKey) return fail(400, "SHEETS_NOT_CONFIGURED", "A conta do Google ainda não foi configurada (Configurações → Integrações → Google Sheets).");
       if (b.action === "test_settings") {
         Object.assign(db.sheetsSettings, { last_test_at: new Date().toISOString(), last_test_ok: true, last_test_error: null });
         return res(200, { data: { ok: true, serviceAccountEmail: db.sheetsSettings.service_account_email } });
+      }
+      if (b.action === "read_now") {
+        const src = db.riSources.find((r) => r.id === b.sourceId);
+        if (!src || (role !== "admin" && !db.access.some((x) => x.user_id === userId && x.client_id === src.client_id))) return fail(404, "NOT_FOUND", "Planilha não encontrada.");
+        const now = new Date().toISOString();
+        src.last_attempt_at = now;
+        const error = db.sheetsNotShared.includes(src.spreadsheet_id)
+          ? `A planilha não está compartilhada com o CRM. No Google Sheets, clique em Compartilhar e adicione ${db.sheetsSettings.service_account_email} como Leitor.`
+          : !db.sheetsDemo[src.spreadsheet_id]?.tabs[src.sheet_name] ? "A aba escolhida não existe mais na planilha (pode ter sido renomeada). Escolha a aba de novo." : null;
+        if (error) {
+          Object.assign(src, { read_status: "erro", last_error: error, consecutive_failures: (src.consecutive_failures ?? 0) + 1 });
+          return fail(400, "SHEETS_READ_FAILED", error);
+        }
+        const [head = [], ...rest] = db.sheetsDemo[src.spreadsheet_id].tabs[src.sheet_name].slice(src.header_row - 1);
+        const body = rest.filter((r) => r.some((c) => String(c).trim()));
+        const col = (f) => (src.mapping[f] ? head.map((h) => h.trim()).indexOf(src.mapping[f]) : -1);
+        const cell = (r, f) => (col(f) >= 0 ? String(r[col(f)] ?? "").trim() : "");
+        const stats = {
+          total: body.length, stored: body.length, duplicates: 0, noDate: body.filter((r) => !cell(r, "contact_date")).length, invalidDates: 0,
+          noProfile: body.filter((r) => !cell(r, "profile")).length,
+          noOrigin: body.filter((r) => ["campaign_id", "campaign_name", "adset_id", "adset_name", "ad_id", "ad_name"].every((f) => !cell(r, f))).length,
+          invalidIds: 0, noContact: 0, missingColumns: Object.values(src.mapping).filter((h) => !head.map((x) => x.trim()).includes(h)),
+        };
+        db.riSnapshots[src.id] = { read_at: now, trigger: "manual", row_count: body.length, stats };
+        Object.assign(src, { read_status: "ok", last_success_at: now, last_error: null, consecutive_failures: 0 });
+        return res(200, { data: { sourceId: src.id, status: "ok", rows: body.length } });
       }
       const id = b.action === "inspect" ? (/\/spreadsheets\/d\/([A-Za-z0-9_-]{20,100})/.exec(b.url)?.[1] ?? (/^[A-Za-z0-9_-]{20,100}$/.test(b.url.trim()) ? b.url.trim() : null)) : b.spreadsheetId;
       if (!id) return fail(400, "INVALID_INPUT", "Link da planilha não reconhecido. Copie o endereço da planilha aberta no navegador.");
