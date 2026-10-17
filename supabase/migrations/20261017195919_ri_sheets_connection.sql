@@ -57,7 +57,7 @@ begin
   v_email := lower(v_json ->> 'client_email');
   if v_json ->> 'type' is distinct from 'service_account'
      or v_email is null or v_email !~ '^[^@\s]+@[^@\s]+\.iam\.gserviceaccount\.com$'
-     or coalesce(v_json ->> 'private_key', '') !~ '-----BEGIN PRIVATE KEY-----' then
+     or coalesce(v_json ->> 'private_key', '') !~ 'BEGIN PRIVATE KEY' then
     raise exception 'Esta não é uma chave de conta de serviço do Google (faltam "type", "client_email" ou "private_key").' using errcode = '22023';
   end if;
   select id into v_secret from vault.secrets where name = 'google_sheets_key';
