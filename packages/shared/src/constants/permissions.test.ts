@@ -41,6 +41,11 @@ describe("permissões", () => {
     expect(ROLES.filter((role) => can(role, "monitor.admin"))).toEqual(["admin"]);
   });
 
+  it("Inteligência de Resultados (Etapa 39): mesma matriz que o banco confere", () => {
+    expect(ROLES.filter((role) => can(role, "results.view"))).toEqual(["admin", "gestor", "operador", "visualizador"]);
+    expect(ROLES.filter((role) => can(role, "results.manage"))).toEqual(["admin", "gestor"]);
+  });
+
   it("sem papel, sem permissão", () => {
     expect(can(null, "clients.view")).toBe(false);
   });

@@ -3,6 +3,7 @@
 > Atualize este arquivo ao fim de cada fase: o que ficou pronto, o que ficou pendente e a próxima decisão do Ander.
 
 ## 1. Última entrega
+- **Etapa 39 (Inteligência de Resultados, Google Sheets):** plano `docs/etapa-39-inteligencia-de-resultados/39.0-PLANO.md`, aprovado com mudanças (planilha é o banco; leitura 8h/12h/16h + botão; sem guardar contatos). **39.1 pronta** (17/10): chave da conta de serviço no Vault (`google_sheets_key`, `sheets_settings`), planilha por cliente (`ri_sources`), Edge Function `sheets` publicada (verify_jwt true), menu e assistente. Falta a chave real do Ander. Próxima: 39.2 (leitura 3x/dia + botão).
 - **Frase do resumo dos relatórios (13/10/2026):** editável por cliente com marcadores (`client_report_settings.summary_template`), desligável também no e-mail semanal; nome do resultado como foi escrito. Edge Function `client-report-email` publicada (versão 2). Documento: `docs/etapa-19-dashboard-cliente/CORRECAO-2026-10-13-FRASE-DO-RESUMO.md`.
 - **Correção do saldo PIX (13/10/2026):** a conta "CA - Estilo de Ser Kids" (cartão cadastrado, campanhas rodando com PIX) usa saldo **informado no CRM**: recargas registradas − gasto que o Meta informa depois. Só contas com `ad_accounts.manual_prepaid` (ligado só nela). Tabela `account_manual_balance_entries`. Documento: `docs/etapa-07-verificacao-saldo/CORRECAO-2026-10-13-SALDO-PIX-INFORMADO.md`.
 - **Correção do saldo (28/09/2026):**

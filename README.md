@@ -81,7 +81,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - **Etapa 38 — Comercial separado da Operação** ([plano](docs/etapa-38-comercial-e-operacao/38.0-PLANO.md))
   - [38.1 — Abas reorganizadas: Comercial (funil, ganhos e perdidos) e Operação](docs/etapa-38-comercial-e-operacao/38.1-ABAS-E-COMERCIAL.md) ✅ concluída
   - [38.2 — "Liberar para a operação", Operação começando em Onboarding Pendente e Filas dentro da Operação](docs/etapa-38-comercial-e-operacao/38.2-LIBERAR-E-OPERACAO.md) ✅ concluída
-- [Etapa 39 — Inteligência de Resultados (Google Sheets): plano](docs/etapa-39-inteligencia-de-resultados/39.0-PLANO.md) ⏳ aguardando aprovação
+- **Etapa 39 — Inteligência de Resultados (Google Sheets)** ([plano](docs/etapa-39-inteligencia-de-resultados/39.0-PLANO.md))
+  - [39.1 — Conexão com a planilha (conta de serviço do Google, assistente de colunas e perfis)](docs/etapa-39-inteligencia-de-resultados/39.1-CONEXAO-COM-A-PLANILHA.md) ✅ concluída (falta a chave do Google)
 
 ## Estrutura
 

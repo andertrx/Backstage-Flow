@@ -24,6 +24,8 @@ export const PERMISSIONS = [
   "monitor.handle",
   "monitor.rules",
   "monitor.admin",
+  "results.view",
+  "results.manage",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -44,9 +46,11 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "monitor.view",
     "monitor.handle",
     "monitor.rules",
+    "results.view",
+    "results.manage",
   ],
-  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view", "tracking.whatsapp", "monitor.view", "monitor.handle"],
-  visualizador: ["clients.view", "internal.view", "tracking.view", "monitor.view"],
+  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view", "tracking.whatsapp", "monitor.view", "monitor.handle", "results.view"],
+  visualizador: ["clients.view", "internal.view", "tracking.view", "monitor.view", "results.view"],
   // Etapa 36: só a Central de Operações (permissões próprias, por pessoa).
   equipe: [],
   cliente: [],
@@ -76,6 +80,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "monitor.handle": "Tratar alertas de desempenho (atribuir, comentar, registrar providência, resolver, virar tarefa)",
   "monitor.rules": "Gerenciar as regras e os limites do monitoramento (as que valem para todos: só o administrador)",
   "monitor.admin": "Administrar o Monitoramento (regras globais e notificações de outras pessoas)",
+  "results.view": "Ver a Inteligência de Resultados (perfis comerciais por campanha, conjunto e anúncio, vindos da planilha do cliente)",
+  "results.manage": "Conectar e configurar a planilha do Google Sheets de cada cliente (colunas e regras dos perfis)",
 };
 
 /** Quais clientes cada papel enxerga (a regra que o banco aplica em toda consulta). */

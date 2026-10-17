@@ -20,6 +20,7 @@ export const RATE_LIMITS = {
   "tracking.manage": { max: 30, windowSeconds: 600 },
   "tracking.whatsapp": { max: 120, windowSeconds: 600 },
   "reports.email": { max: 20, windowSeconds: 600 },
+  "sheets.read": { max: 60, windowSeconds: 600 },
 } as const satisfies Record<string, RateRule>;
 
 export type RateBucket = keyof typeof RATE_LIMITS;

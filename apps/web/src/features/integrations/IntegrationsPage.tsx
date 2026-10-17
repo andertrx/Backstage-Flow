@@ -2,6 +2,7 @@ import { PLATFORMS } from "@backstage/shared";
 import type { ComponentType } from "react";
 import { EmailSettingsCard } from "./EmailSettingsCard.tsx";
 import { GoogleIntegrationCard } from "./GoogleIntegrationCard.tsx";
+import { GoogleSheetsCard } from "./GoogleSheetsCard.tsx";
 import { MetaIntegrationCard } from "./MetaIntegrationCard.tsx";
 
 /**
@@ -18,13 +19,14 @@ export function IntegrationsPage() {
     <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Integrações</h1>
-        <p className="mt-1 text-sm text-slate-500">Conexões oficiais com as plataformas de anúncio e o envio de e-mails.</p>
+        <p className="mt-1 text-sm text-slate-500">Conexões oficiais com as plataformas de anúncio, o envio de e-mails e o Google Sheets.</p>
       </div>
       {PLATFORMS.map((p) => {
         const Card = INTEGRATION_CARDS[p.id];
         return Card ? <Card key={p.id} /> : null;
       })}
       <EmailSettingsCard />
+      <GoogleSheetsCard />
     </div>
   );
 }

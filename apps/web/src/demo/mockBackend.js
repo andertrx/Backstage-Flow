@@ -108,6 +108,14 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     trackingQuality: [],
     /** Dashboard do cliente (Etapa 19): modelo por cliente (como public.client_report_settings). */
     reportSettings: [],
+    /** Inteligência de Resultados (Etapa 39.1): conta do Google (a chave fica só aqui), planilhas por cliente
+     *  e as planilhas "do Google" simuladas (id → título e abas com as linhas). */
+    sheetsSettings: { service_account_email: null, has_key: false, key_updated_at: null, last_test_at: null, last_test_ok: null, last_test_error: null },
+    sheetsKey: null,
+    riSources: [],
+    sheetsDemo: {},
+    /** Planilhas que o Google recusa (não compartilhadas com a conta do CRM). */
+    sheetsNotShared: [],
     /** Acesso do cliente (Etapa 19.2): por cliente, e código do link → cliente (só no servidor). */
     portals: {},
     portalTokens: {},
@@ -290,6 +298,87 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/profiles")) {
       const id = eqParam(url, "id");
       return id ? res(200, db.profiles.find((p) => p.id === id)) : res(200, db.profiles);
+    }
+
+    // --- Inteligência de Resultados (Etapa 39.1): conta do Google, planilhas por cliente e leitura simulada
+    if (url.includes("/rest/v1/sheets_settings")) return res(200, role === "cliente" || role === "equipe" ? null : db.sheetsSettings);
+    if (url.includes("/rest/v1/rpc/sheets_settings_save")) {
+      if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador configura o Google Sheets." });
+      let key;
+      try { key = JSON.parse(parse().p_key); } catch { key = null; }
+      if (key?.type !== "service_account" || !/@.+\.iam\.gserviceaccount\.com$/.test(key?.client_email ?? "") || !String(key?.private_key ?? "").includes("BEGIN PRIVATE KEY")) {
+        return res(400, { code: "22023", message: "Esta não é uma chave de conta de serviço do Google (faltam \"type\", \"client_email\" ou \"private_key\")." });
+      }
+      db.sheetsKey = key;
+      Object.assign(db.sheetsSettings, { service_account_email: key.client_email.toLowerCase(), has_key: true, key_updated_at: new Date().toISOString(),
+        last_test_at: null, last_test_ok: null, last_test_error: null });
+      return res(200, key.client_email.toLowerCase());
+    }
+    if (url.includes("/rest/v1/rpc/sheets_settings_remove_key")) {
+      if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador configura o Google Sheets." });
+      db.sheetsKey = null;
+      Object.assign(db.sheetsSettings, { has_key: false, key_updated_at: new Date().toISOString(), last_test_at: null, last_test_ok: null, last_test_error: null });
+      return res(204);
+    }
+    if (url.includes("/rest/v1/ri_sources")) {
+      const clientId = eqParam(url, "client_id");
+      const visible = role !== "cliente" && role !== "equipe" && (role === "admin" || db.access.some((x) => x.user_id === userId && x.client_id === clientId));
+      return res(200, visible ? db.riSources.filter((r) => r.client_id === clientId) : []);
+    }
+    if (url.includes("/rest/v1/rpc/ri_source_save")) {
+      const p = parse();
+      const old = db.riSources.find((r) => r.id === p.p_id);
+      const clientId = old?.client_id ?? p.p_client_id;
+      const canEdit = role === "admin" || (role === "gestor" && db.access.some((x) => x.user_id === userId && x.client_id === clientId));
+      if (!canEdit) return res(403, { code: "42501", message: "Sem permissão para configurar a planilha deste cliente." });
+      if (!p.p_mapping?.profile) return res(400, { code: "22023", message: "Escolha a coluna do perfil comercial." });
+      if (!old && db.riSources.some((r) => r.client_id === clientId && r.spreadsheet_id === p.p_spreadsheet_id && r.sheet_name === p.p_sheet_name)) {
+        return res(409, { code: "23505", message: "Esta aba desta planilha já está conectada a este cliente." });
+      }
+      const row = { client_id: clientId, spreadsheet_id: p.p_spreadsheet_id, spreadsheet_title: p.p_spreadsheet_title, sheet_name: p.p_sheet_name,
+        header_row: p.p_header_row, mapping: p.p_mapping, profile_rules: p.p_profile_rules, enabled: true, updated_at: new Date().toISOString() };
+      if (old) Object.assign(old, row);
+      else db.riSources.push({ id: `51ee0000-0000-4000-8000-${String(db.riSources.length + 1).padStart(12, "0")}`, created_at: row.updated_at, ...row });
+      return res(200, old?.id ?? db.riSources.at(-1).id);
+    }
+    if (url.includes("/functions/v1/sheets")) {
+      const b = parse();
+      db.rpcCalls.push({ fn: "sheets", ...b });
+      const fail = (status, code, message) => res(status, { error: { code, message } });
+      if (b.action === "test_settings" ? role !== "admin" : !["admin", "gestor"].includes(role)) return fail(403, "FORBIDDEN", "Você não tem permissão para esta ação.");
+      if (!db.sheetsKey) return fail(400, "SHEETS_NOT_CONFIGURED", "A conta do Google ainda não foi configurada (Configurações → Integrações → Google Sheets).");
+      if (b.action === "test_settings") {
+        Object.assign(db.sheetsSettings, { last_test_at: new Date().toISOString(), last_test_ok: true, last_test_error: null });
+        return res(200, { data: { ok: true, serviceAccountEmail: db.sheetsSettings.service_account_email } });
+      }
+      const id = b.action === "inspect" ? (/\/spreadsheets\/d\/([A-Za-z0-9_-]{20,100})/.exec(b.url)?.[1] ?? (/^[A-Za-z0-9_-]{20,100}$/.test(b.url.trim()) ? b.url.trim() : null)) : b.spreadsheetId;
+      if (!id) return fail(400, "INVALID_INPUT", "Link da planilha não reconhecido. Copie o endereço da planilha aberta no navegador.");
+      if (db.sheetsNotShared.includes(id)) {
+        return fail(400, "SHEETS_NOT_SHARED", `A planilha não está compartilhada com o CRM. No Google Sheets, clique em Compartilhar e adicione ${db.sheetsSettings.service_account_email} como Leitor.`);
+      }
+      const book = db.sheetsDemo[id];
+      if (!book) return fail(404, "SHEETS_NOT_FOUND", "Planilha não encontrada. Confira o link.");
+      if (b.action === "inspect") {
+        return res(200, { data: { spreadsheetId: id, title: book.title,
+          tabs: Object.entries(book.tabs).map(([title, rows]) => ({ title, rowCount: Math.max(rows.length, 1000), columnCount: 26 })) } });
+      }
+      const rows = book.tabs[b.sheet];
+      if (!rows) return fail(400, "SHEETS_TAB_NOT_FOUND", "A aba escolhida não existe mais na planilha (pode ter sido renomeada). Escolha a aba de novo.");
+      const [head = [], ...rest] = rows.slice(b.headerRow - 1);
+      const body = rest.filter((r) => r.some((c) => String(c).trim()));
+      if (b.action === "preview") return res(200, { data: { headers: head.map((h) => h.trim()), rows: body.slice(0, 20) } });
+      const idx = head.map((h) => h.trim()).indexOf(b.column);
+      if (idx < 0) return fail(400, "SHEETS_COLUMN_NOT_FOUND", `A coluna "${b.column}" não existe no cabeçalho da planilha.`);
+      const norm = (v) => String(v ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
+      const map = new Map();
+      for (const r of body) {
+        const raw = String(r[idx] ?? "").trim();
+        const k = norm(raw);
+        const it = map.get(k) ?? { value: k, example: raw, count: 0 };
+        it.count++;
+        map.set(k, it);
+      }
+      return res(200, { data: { totalRows: body.length, values: [...map.values()].sort((x, y) => y.count - x.count || x.value.localeCompare(y.value)) } });
     }
 
     // --- Dashboard do cliente (Etapa 19; mesmas regras das funções client_report_*)
