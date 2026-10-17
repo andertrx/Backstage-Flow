@@ -84,6 +84,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
 - **Etapa 39 — Inteligência de Resultados (Google Sheets)** ([plano](docs/etapa-39-inteligencia-de-resultados/39.0-PLANO.md))
   - [39.1 — Conexão com a planilha (conta de serviço do Google, assistente de colunas e perfis)](docs/etapa-39-inteligencia-de-resultados/39.1-CONEXAO-COM-A-PLANILHA.md) ✅ concluída (falta a chave do Google)
   - [39.2 — Leitura da planilha (8h, 12h e 16h + botão "Atualizar agora", qualidade, falhas)](docs/etapa-39-inteligencia-de-resultados/39.2-LEITURA-DA-PLANILHA.md) ✅ concluída (falta a chave do Google)
+  - [39.3 — Perfis e origem (classificação, ligação por ID ou nome único, contatos únicos, rankings no banco)](docs/etapa-39-inteligencia-de-resultados/39.3-PERFIS-E-ORIGEM.md) ✅ concluída (falta a chave do Google)
 
 ## Estrutura
 
