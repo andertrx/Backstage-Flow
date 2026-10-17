@@ -151,6 +151,50 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
  * Servidor simulado: recebe { url, method, body } e devolve { status, body }.
  * password = null aceita qualquer senha (modo demonstração); os testes informam a senha certa.
  */
+/**
+ * Etapa 39.3/39.4 — mesma regra do banco (private.ri_rows): perfil pelas regras do cliente;
+ * origem pelo ID (anúncio → conjunto → campanha) ou pelo nome quando é único.
+ */
+function riRows(db, clientId) {
+  const nm = (v) => (v ? String(v).toLowerCase().replace(/\s+/g, " ").trim() || null : null);
+  const camps = db.campaigns.filter((c) => c.client_id === clientId);
+  const sets = db.adGroups.filter((g) => g.client_id === clientId);
+  const ads = db.ads.filter((a) => a.client_id === clientId);
+  const byName = (list, name, f = () => true) => list.filter((x) => nm(x.name) === name && f(x));
+  const out = [];
+  for (const src of db.riSources.filter((x) => x.client_id === clientId)) {
+    const snap = db.riSnapshots[src.id];
+    for (const e of snap?.rows ?? []) {
+      const [cn, sn, an] = [nm(e.cn), nm(e.sn), nm(e.an)];
+      const ai = e.aid ? ads.find((a) => a.external_id === e.aid) : null;
+      const si = e.sid ? sets.find((g) => g.external_id === e.sid) : null;
+      const ci = e.cid ? camps.find((c) => c.external_id === e.cid) : null;
+      let amb = false;
+      let c = ai?.campaign_id ?? si?.campaign_id ?? ci?.id ?? null;
+      if (!c && cn) { const m = byName(camps, cn); if (m.length === 1) c = m[0].id; else if (m.length > 1) amb = true; }
+      let g = ai?.ad_group_id ?? si?.id ?? null;
+      if (!g && sn) { const m = byName(sets, sn, (x) => !c || x.campaign_id === c); if (m.length === 1) { g = m[0].id; c = c ?? m[0].campaign_id; } else if (m.length > 1) amb = true; }
+      let a = ai?.id ?? null;
+      if (!a && an) {
+        const m = byName(ads, an, (x) => (g ? x.ad_group_id === g : c ? x.campaign_id === c : true));
+        if (m.length === 1) { a = m[0].id; g = g ?? m[0].ad_group_id; c = c ?? m[0].campaign_id; } else if (m.length > 1) amb = true;
+      }
+      const hasOrigin = Boolean(e.aid || e.sid || e.cid || cn || sn || an);
+      const profile = ["lojista", "sacoleiro", "consumidor_final"].includes(src.profile_rules?.[e.p]) ? src.profile_rules[e.p] : "nao_identificado";
+      out.push({
+        source_id: src.id, row_number: e.n, record_key: e.k, contact: e.h || `${src.id}:${e.k}`, contact_date: e.d ?? null,
+        profile_value: e.p || null, profile, sheet_campaign: e.cn ?? null, sheet_adset: e.sn ?? null, sheet_ad: e.an ?? null,
+        campaign_id: c, ad_group_id: g, ad_id: a,
+        match_level: a ? "anuncio" : g ? "conjunto" : c ? "campanha" : null,
+        match_method: !a && !g && !c ? null : (ai || si || ci) ? "id" : "nome",
+        match_issue: !hasOrigin ? "sem_origem" : !a && !g && !c ? (amb ? "nome_ambiguo" : "nao_encontrada") : amb ? "nome_ambiguo" : null,
+        sale_status: null, sale_date: null, sale_value: null,
+      });
+    }
+  }
+  return out;
+}
+
 export function createMockBackend(db, { role = "admin", password = null, userId = USER_ID, email = "ander@teste.local", fullName = "Ander Rodrigues" } = {}) {
   const now = Math.floor(Date.now() / 1000);
   const jwt = `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: userId, role: "authenticated", aud: "authenticated", exp: now + 3600 })}.sig`;
@@ -329,6 +373,73 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       const snap = visible ? db.riSnapshots[sourceId] : null;
       return res(200, snap ? { read_at: snap.read_at, trigger: snap.trigger, row_count: snap.row_count, stats: snap.stats } : null);
     }
+    if (url.includes("/rest/v1/rpc/ri_results") || url.includes("/rest/v1/rpc/ri_daily") || url.includes("/rest/v1/rpc/ri_records")) {
+      const p = parse();
+      const canView = ["admin", "gestor", "operador", "visualizador"].includes(role)
+        && (role === "admin" || db.access.some((x) => x.user_id === userId && x.client_id === p.p_client_id));
+      if (!canView) return res(403, { code: "42501", message: "Sem permissão para ver os resultados deste cliente." });
+      const all = riRows(db, p.p_client_id);
+      const inPeriod = (r) => r.contact_date && r.contact_date >= p.p_from && r.contact_date <= p.p_to;
+      const uniq = (list, f = () => true) => new Set(list.filter(f).map((r) => r.contact)).size;
+      const PROFILES = ["lojista", "sacoleiro", "consumidor_final", "nao_identificado"];
+      if (url.includes("/rpc/ri_daily")) {
+        const list = all.filter((r) => inPeriod(r) && (!p.p_campaign_id || r.campaign_id === p.p_campaign_id) && (!p.p_ad_group_id || r.ad_group_id === p.p_ad_group_id));
+        const days = [...new Set(list.map((r) => r.contact_date))].sort();
+        return res(200, days.map((day) => {
+          const d = list.filter((r) => r.contact_date === day);
+          return { day, contacts: uniq(d), ...Object.fromEntries(PROFILES.map((pr) => [pr, uniq(d, (r) => r.profile === pr)])) };
+        }));
+      }
+      if (url.includes("/rpc/ri_records")) {
+        const list = all.filter((r) => (p.p_issue === "sem_data" ? !r.contact_date : inPeriod(r))
+          && (!p.p_profile || r.profile === p.p_profile) && (!p.p_campaign_id || r.campaign_id === p.p_campaign_id)
+          && (!p.p_ad_group_id || r.ad_group_id === p.p_ad_group_id) && (!p.p_ad_id || r.ad_id === p.p_ad_id)
+          && (!p.p_issue || p.p_issue === "sem_data" || r.match_issue === p.p_issue))
+          .sort((a, b) => (b.contact_date ?? "").localeCompare(a.contact_date ?? "") || b.row_number - a.row_number);
+        const name = (list2, id) => list2.find((x) => x.id === id)?.name ?? null;
+        return res(200, list.slice(p.p_offset, p.p_offset + p.p_limit).map(({ contact, source_id, ...r }) => ({
+          ...r, campaign_name: name(db.campaigns, r.campaign_id), ad_group_name: name(db.adGroups, r.ad_group_id), ad_name: name(db.ads, r.ad_id), total_count: list.length,
+        })));
+      }
+      const pr = all.filter(inPeriod);
+      const scope = pr.filter((r) => (!p.p_campaign_id || r.campaign_id === p.p_campaign_id) && (!p.p_ad_group_id || r.ad_group_id === p.p_ad_group_id));
+      const entKey = { campaign: "campaign_id", ad_group: "ad_group_id", ad: "ad_id" }[p.p_level];
+      const ids = [...new Set(scope.map((r) => r[entKey]).filter(Boolean))];
+      const items = ids.map((id) => {
+        const rows = scope.filter((r) => r[entKey] === id);
+        const e = p.p_level === "campaign" ? db.campaigns.find((c) => c.id === id) : p.p_level === "ad_group" ? db.adGroups.find((g) => g.id === id) : db.ads.find((a) => a.id === id);
+        const campaignId = p.p_level === "campaign" ? id : e?.campaign_id;
+        const groupId = p.p_level === "ad_group" ? id : p.p_level === "ad" ? e?.ad_group_id : null;
+        const spend = {};
+        for (const m of db.metrics) {
+          if (m.client_id === p.p_client_id && m.level === p.p_level && m[entKey] === id && m.date >= p.p_from && m.date <= p.p_to && !m.superseded) {
+            spend[m.currency] = (spend[m.currency] ?? 0) + m.spend_micros;
+          }
+        }
+        return {
+          id, name: e?.name ?? "—", status: e?.status ?? null, platform_id: e?.platform_id ?? null,
+          campaign_id: campaignId ?? null, campaign_name: db.campaigns.find((c) => c.id === campaignId)?.name ?? null,
+          ad_group_id: groupId ?? null, ad_group_name: db.adGroups.find((g) => g.id === groupId)?.name ?? null, thumbnail_url: e?.thumbnail_url ?? null,
+          contacts: uniq(rows), ...Object.fromEntries(PROFILES.map((x) => [x, uniq(rows, (r) => r.profile === x)])),
+          by_name: rows.filter((r) => r.match_method === "nome").length,
+          spend: Object.keys(spend).sort().map((currency) => ({ currency, spend_micros: spend[currency] })),
+        };
+      }).sort((a, b) => b.contacts - a.contacts);
+      const withEnt = uniq(scope, (r) => r[entKey]);
+      const snaps = db.riSources.filter((x) => x.client_id === p.p_client_id).map((x) => db.riSnapshots[x.id]).filter(Boolean);
+      return res(200, {
+        read_at: snaps.map((x) => x.read_at).sort().at(-1) ?? null, sources: snaps.length, level: p.p_level,
+        totals: {
+          rows: pr.length, contacts: uniq(pr), ...Object.fromEntries(PROFILES.map((x) => [x, uniq(pr, (r) => r.profile === x)])),
+          with_origin: uniq(pr, (r) => r.match_level), origin_ad: pr.filter((r) => r.match_level === "anuncio").length,
+          origin_ad_group: pr.filter((r) => r.match_level === "conjunto").length, origin_campaign: pr.filter((r) => r.match_level === "campanha").length,
+          origin_by_name: pr.filter((r) => r.match_method === "nome").length, no_origin: pr.filter((r) => r.match_issue === "sem_origem").length,
+          not_found: pr.filter((r) => r.match_issue === "nao_encontrada").length, ambiguous: pr.filter((r) => r.match_issue === "nome_ambiguo").length,
+        },
+        outside: { no_date: all.filter((r) => !r.contact_date).length, all_rows: all.length },
+        scope_contacts: uniq(scope), scope_without_level: uniq(scope) - withEnt, items,
+      });
+    }
     if (url.includes("/rest/v1/rpc/ri_source_set_enabled")) {
       const p = parse();
       const src = db.riSources.find((r) => r.id === p.p_id);
@@ -392,7 +503,16 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           noOrigin: body.filter((r) => ["campaign_id", "campaign_name", "adset_id", "adset_name", "ad_id", "ad_name"].every((f) => !cell(r, f))).length,
           invalidIds: 0, noContact: 0, missingColumns: Object.values(src.mapping).filter((h) => !head.map((x) => x.trim()).includes(h)),
         };
-        db.riSnapshots[src.id] = { read_at: now, trigger: "manual", row_count: body.length, stats };
+        const dmy = (v) => { const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v); return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null); };
+        const norm = (v) => v.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
+        const rows = body.map((r, i) => {
+          const contact = cell(r, "contact_key").replace(/\D/g, "");
+          return { n: src.header_row + 1 + i, k: cell(r, "record_id") ? `id:${cell(r, "record_id")}` : `L${src.header_row + 1 + i}`,
+            h: contact ? `hash-${contact}` : null, d: dmy(cell(r, "contact_date")), p: norm(cell(r, "profile")),
+            cid: cell(r, "campaign_id") || null, cn: cell(r, "campaign_name") || null, sid: cell(r, "adset_id") || null, sn: cell(r, "adset_name") || null,
+            aid: cell(r, "ad_id") || null, an: cell(r, "ad_name") || null };
+        });
+        db.riSnapshots[src.id] = { read_at: now, trigger: "manual", row_count: body.length, stats, rows };
         Object.assign(src, { read_status: "ok", last_success_at: now, last_error: null, consecutive_failures: 0 });
         return res(200, { data: { sourceId: src.id, status: "ok", rows: body.length } });
       }

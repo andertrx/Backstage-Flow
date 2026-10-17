@@ -153,7 +153,7 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   const db = await mockSupabase(page, { role: "visualizador" });
   seed(db, { withKey: true, withSource: true });
   db.access.push({ user_id: USER_ID, client_id: EXC, created_at: "" }, { user_id: USER_ID, client_id: LOJA, created_at: "" });
-  await login(page, `/inteligencia-resultados?cliente=${EXC}`);
+  await login(page, `/inteligencia-resultados?cliente=${EXC}&aba=planilha`);
   await page.getByTestId("ri-source-summary").waitFor();
   check(await page.getByRole("button", { name: "Editar configuração" }).count() === 0, "visualizador vê a configuração, sem editar");
   await page.getByLabel("Cliente", { exact: true }).selectOption({ label: "Loja Sem Planilha" });

@@ -1,7 +1,7 @@
-import { can, RI_FIELD_LABELS, RI_FIELDS } from "@backstage/shared";
+import { can, RI_FIELD_LABELS, RI_FIELDS, type RiRankMetric } from "@backstage/shared";
 import { ChartPie, ExternalLink, FileSpreadsheet, Pencil } from "lucide-react";
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
@@ -9,23 +9,66 @@ import { Field, Select } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useClients } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
+import { type DashboardFilters, FILTER_PARAMS, parseFilters, resolveFilterPeriod, serializeFilters, updateFilters } from "@/features/dashboard/filters.ts";
+import { cn } from "@/lib/cn.ts";
 import { formatDateTime } from "@/lib/format.ts";
+import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { type RiSource, useRiSources, useSheetsSettings } from "./api.ts";
+import { PROFILE_LOOK, RANKED_PROFILES } from "./look.ts";
 import { ReadStatusCard } from "./ReadStatusCard.tsx";
+import { ResultsDashboard, type ResultsView } from "./ResultsDashboard.tsx";
 import { rulesSummary, SourceSetup } from "./SourceSetup.tsx";
 
+type Tab = ResultsView["tab"] | "planilha";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "visao", label: "Visão geral" },
+  ...RANKED_PROFILES.map((p) => ({ id: p as Tab, label: PROFILE_LOOK[p].plural })),
+  { id: "planilha", label: "Planilha" },
+];
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const uuidParam = (v: string | null) => (v && UUID_RE.test(v) ? v.toLowerCase() : null);
+
 /**
- * Etapa 39 — Inteligência de Resultados. Nesta fase (39.1): escolher o cliente e
- * conectar a planilha do Google Sheets dele (aba, colunas e regras dos perfis).
- * 39.2: leitura automática (8h, 12h e 16h) e o botão "Atualizar agora". Os rankings chegam na próxima fase.
+ * Etapa 39 — Inteligência de Resultados: escolher o cliente, conectar a planilha dele
+ * (39.1), ler 3 vezes por dia ou pelo botão (39.2) e ver os números por perfil (39.4).
+ * Tudo fica no endereço da página (cliente, aba, período, campanha/conjunto abertos, ordem, busca).
  */
 export function ResultsPage() {
   const { profile } = useAuth();
   const canManage = can(profile?.role, "results.manage");
   // "Atualizar agora": admin, gestor e operador (o servidor confere de novo).
   const canRead = ["admin", "gestor", "operador"].includes(profile?.role ?? "");
-  const [params, setParams] = useSearchParams();
-  const clientId = params.get("cliente");
+  const [params, update] = useSearchParamsUpdater();
+  const clientId = uuidParam(params.get("cliente"));
+  const tab: Tab = (TABS.find((t) => t.id === params.get("aba"))?.id) ?? "visao";
+  const filters = parseFilters(params);
+  const setParam = (patch: Record<string, string | null>) => update((latest) => {
+    for (const [k, v] of Object.entries(patch)) { if (v) latest.set(k, v); else latest.delete(k); }
+    return latest;
+  });
+  const view: ResultsView = {
+    filters: { ...filters, clientId },
+    period: resolveFilterPeriod(filters),
+    onPeriod: (patch: Partial<DashboardFilters>) => update((latest) => {
+      const next = serializeFilters(updateFilters(parseFilters(latest), patch));
+      for (const key of ["period", "from", "to"] as const) {
+        const name = FILTER_PARAMS[key];
+        if (next.get(name)) latest.set(name, next.get(name)!); else latest.delete(name);
+      }
+      return latest;
+    }),
+    tab: tab === "planilha" ? "visao" : tab,
+    campaignId: uuidParam(params.get("campanha")),
+    adGroupId: uuidParam(params.get("conjunto")),
+    metric: (["count", "share", "cost"] as const).find((m) => m === params.get("ordem")) ?? "count",
+    search: params.get("busca") ?? "",
+    onChange: (patch) => setParam({
+      ...("campanha" in patch ? { campanha: patch.campanha ?? null } : {}),
+      ...("conjunto" in patch ? { conjunto: patch.conjunto ?? null } : {}),
+      ...("ordem" in patch ? { ordem: patch.ordem === "count" ? null : (patch.ordem as RiRankMetric) } : {}),
+      ...("busca" in patch ? { busca: patch.busca || null } : {}),
+    }),
+  };
   const clients = useClients();
   const settings = useSheetsSettings();
   const sources = useRiSources(clientId);
@@ -47,7 +90,7 @@ export function ResultsPage() {
       <Card className="p-4">
         <Field label="Cliente">
           {(id) => (
-            <Select id={id} className="sm:w-96" value={clientId ?? ""} onChange={(e) => { setEditing(false); setParams(e.target.value ? { cliente: e.target.value } : {}); }}>
+            <Select id={id} className="sm:w-96" value={clientId ?? ""} onChange={(e) => { setEditing(false); setParam({ cliente: e.target.value || null, campanha: null, conjunto: null, busca: null }); }}>
               <option value="">Escolha um cliente</option>
               {(clients.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
@@ -70,21 +113,36 @@ export function ResultsPage() {
       ) : sources.isLoading ? (
         <div className="h-32 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
       ) : editing || (!source && canManage) ? (
-        <SourceSetup key={`${clientId}-${source?.id ?? "nova"}`} clientId={clientId} source={source} onDone={() => setEditing(false)} />
+        <SourceSetup key={`${clientId}-${source?.id ?? "nova"}`} clientId={clientId} source={source} onDone={() => { setEditing(false); setParam({ aba: "planilha" }); }} />
       ) : !source ? (
         <Alert tone="info">{client?.name ?? "Este cliente"} ainda não tem planilha conectada. Peça a um administrador ou gestor para conectar.</Alert>
       ) : (
-        <SourceSummary source={source} canManage={canManage} canRead={canRead} onEdit={() => setEditing(true)} />
+        <div className="space-y-4">
+          <ReadStatusCard source={source} canRead={canRead} canManage={canManage} />
+          <nav className="flex flex-wrap gap-2" aria-label="Abas da Inteligência de Resultados">
+            {TABS.map((t) => (
+              <button key={t.id} type="button" aria-pressed={tab === t.id}
+                onClick={() => setParam({ aba: t.id === "visao" ? null : t.id, campanha: null, conjunto: null, busca: null })}
+                className={cn("rounded-lg px-4 py-2 text-sm font-semibold transition-all",
+                  tab === t.id ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
+                    : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400")}>
+                {t.label}
+              </button>
+            ))}
+          </nav>
+          {tab === "planilha"
+            ? <SourceSummary source={source} canManage={canManage} onEdit={() => setEditing(true)} />
+            : <ResultsDashboard source={source} view={view} />}
+        </div>
       )}
     </div>
   );
 }
 
-function SourceSummary({ source, canManage, canRead, onEdit }: { source: RiSource; canManage: boolean; canRead: boolean; onEdit: () => void }) {
+function SourceSummary({ source, canManage, onEdit }: { source: RiSource; canManage: boolean; onEdit: () => void }) {
   const mapped = RI_FIELDS.filter((f) => source.mapping[f]);
   return (
     <div className="space-y-4">
-      <ReadStatusCard source={source} canRead={canRead} canManage={canManage} />
       <Card className="space-y-4 p-5" data-testid="ri-source-summary">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex gap-3">
@@ -112,9 +170,6 @@ function SourceSummary({ source, canManage, canRead, onEdit }: { source: RiSourc
         </dl>
         <p className="text-sm text-slate-600" data-testid="ri-rules-summary"><span className="text-slate-500">Perfis:</span> {rulesSummary(source.profile_rules)}</p>
       </Card>
-      <Alert tone="info">
-        Os rankings de campanhas, conjuntos e anúncios por perfil (lojista, sacoleiro e consumidor final) chegam na próxima fase desta etapa, usando a última leitura da planilha.
-      </Alert>
     </div>
   );
 }

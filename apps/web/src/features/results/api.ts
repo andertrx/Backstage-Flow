@@ -1,4 +1,4 @@
-import type { RiMapping, RiProfile, RiReadStats } from "@backstage/shared";
+import type { DateRange, RiLevel, RiMapping, RiProfile, RiReadStats, RiResults } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
@@ -183,5 +183,90 @@ export function useSaveRiSource() {
       return data as string;
     },
     onSuccess: (_d, s) => qc.invalidateQueries({ queryKey: SOURCES_KEY(s.clientId) }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Etapa 39.4 — resultados (cards, ranking, contatos por dia e registros).
+// Os números vêm prontos do banco (ri_results, ri_daily, ri_records).
+// ---------------------------------------------------------------------------
+
+export interface RiDailyRow { day: string; contacts: number; lojista: number; sacoleiro: number; consumidor_final: number; nao_identificado: number }
+
+export type RiIssue = "sem_origem" | "nao_encontrada" | "nome_ambiguo" | "sem_data";
+
+export interface RiRecord {
+  row_number: number;
+  record_key: string;
+  contact_date: string | null;
+  profile_value: string | null;
+  profile: RiProfile;
+  sheet_campaign: string | null;
+  sheet_adset: string | null;
+  sheet_ad: string | null;
+  campaign_name: string | null;
+  ad_group_name: string | null;
+  ad_name: string | null;
+  match_level: "anuncio" | "conjunto" | "campanha" | null;
+  match_method: "id" | "nome" | null;
+  match_issue: "sem_origem" | "nao_encontrada" | "nome_ambiguo" | null;
+  total_count: number;
+}
+
+export interface RiRecordsQuery {
+  clientId: string;
+  range: DateRange;
+  profile?: RiProfile | null;
+  campaignId?: string | null;
+  adGroupId?: string | null;
+  adId?: string | null;
+  issue?: RiIssue | null;
+}
+
+const RESULTS_ERROR = "Não conseguimos calcular os resultados da planilha.";
+
+export function useRiResults(clientId: string | null, range: DateRange, level: RiLevel, campaignId: string | null = null, adGroupId: string | null = null, enabled = true) {
+  return useQuery({
+    queryKey: ["ri-results", clientId, range.from, range.to, level, campaignId, adGroupId],
+    enabled: Boolean(clientId) && enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("ri_results", {
+        p_client_id: clientId, p_from: range.from, p_to: range.to, p_level: level, p_campaign_id: campaignId, p_ad_group_id: adGroupId,
+      });
+      if (error) throw new FriendlyError(ownDbError(error, RESULTS_ERROR));
+      return data as RiResults;
+    },
+  });
+}
+
+export function useRiDaily(clientId: string | null, range: DateRange, campaignId: string | null = null, adGroupId: string | null = null) {
+  return useQuery({
+    queryKey: ["ri-daily", clientId, range.from, range.to, campaignId, adGroupId],
+    enabled: Boolean(clientId),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("ri_daily", {
+        p_client_id: clientId, p_from: range.from, p_to: range.to, p_campaign_id: campaignId, p_ad_group_id: adGroupId,
+      });
+      if (error) throw new FriendlyError(ownDbError(error, RESULTS_ERROR));
+      return (data ?? []) as RiDailyRow[];
+    },
+  });
+}
+
+export const RECORDS_PAGE = 50;
+
+export function useRiRecords(q: RiRecordsQuery, page: number, enabled = true) {
+  return useQuery({
+    queryKey: ["ri-records", q, page],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("ri_records", {
+        p_client_id: q.clientId, p_from: q.issue === "sem_data" ? null : q.range.from, p_to: q.issue === "sem_data" ? null : q.range.to,
+        p_profile: q.profile ?? null, p_campaign_id: q.campaignId ?? null, p_ad_group_id: q.adGroupId ?? null, p_ad_id: q.adId ?? null,
+        p_issue: q.issue ?? null, p_limit: RECORDS_PAGE, p_offset: page * RECORDS_PAGE,
+      });
+      if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos ler os registros."));
+      return (data ?? []) as RiRecord[];
+    },
   });
 }
