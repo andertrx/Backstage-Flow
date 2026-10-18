@@ -1,4 +1,4 @@
-# Estado atual do projeto (03/10/2026)
+# Estado atual do projeto (18/10/2026)
 
 > Atualize este arquivo ao fim de cada fase: o que ficou pronto, o que ficou pendente e a próxima decisão do Ander.
 
@@ -26,6 +26,8 @@
 | 35 — Campaign Builder do Meta | ⏸️ **em espera**: o pedido foi enviado por engano; a auditoria está guardada |
 | 36 — Central de Operações | ✅ concluída |
 | 37 — Monitoramento de Desempenho | ✅ concluída (37.1 a 37.6) |
+| 38 — Comercial separado da Operação | ✅ concluída (38.1 e 38.2) |
+| 39 — Inteligência de Resultados (Google Sheets) | ✅ concluída no código (39.1 a 39.5); falta a primeira leitura real com a chave do Google do Ander |
 
 ### Próximas fases possíveis (Etapa 34, ver `docs/etapa-34-tracking/ANALISE-E-PLANO.md`)
 | Fase | O que entrega | Depende do Ander? |
