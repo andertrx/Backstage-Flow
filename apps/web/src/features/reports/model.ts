@@ -28,7 +28,7 @@ export interface Cell {
   value: string | number | null;
   format: CellFormat;
 }
-export type SheetName = "Resumo" | "Campanhas" | "Dia a dia";
+export type SheetName = "Resumo" | "Campanhas" | "Dia a dia" | "Conjuntos" | "Anúncios" | "Qualidade";
 
 export interface ReportTable {
   title: string;

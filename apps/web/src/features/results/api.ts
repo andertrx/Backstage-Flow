@@ -215,7 +215,8 @@ export interface RiRecord {
 
 export interface RiRecordsQuery {
   clientId: string;
-  range: DateRange;
+  /** null = todas as datas (aba Qualidade dos dados). */
+  range: DateRange | null;
   profile?: RiProfile | null;
   campaignId?: string | null;
   adGroupId?: string | null;
@@ -261,12 +262,44 @@ export function useRiRecords(q: RiRecordsQuery, page: number, enabled = true) {
     enabled,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("ri_records", {
-        p_client_id: q.clientId, p_from: q.issue === "sem_data" ? null : q.range.from, p_to: q.issue === "sem_data" ? null : q.range.to,
+        p_client_id: q.clientId, p_from: q.issue === "sem_data" || !q.range ? null : q.range.from, p_to: q.issue === "sem_data" || !q.range ? null : q.range.to,
         p_profile: q.profile ?? null, p_campaign_id: q.campaignId ?? null, p_ad_group_id: q.adGroupId ?? null, p_ad_id: q.adId ?? null,
         p_issue: q.issue ?? null, p_limit: RECORDS_PAGE, p_offset: page * RECORDS_PAGE,
       });
       if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos ler os registros."));
       return (data ?? []) as RiRecord[];
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Etapa 39.5 — qualidade dos dados da última leitura inteira (sem período).
+// ---------------------------------------------------------------------------
+
+export interface RiQuality {
+  rows: number;
+  contacts: number;
+  origin_ad: number;
+  origin_ad_group: number;
+  origin_campaign: number;
+  origin_by_name: number;
+  no_origin: number;
+  not_found: number;
+  ambiguous: number;
+  no_date: number;
+  empty_profile: number;
+  unknown_profiles: { value: string; rows: number }[];
+  unmatched_names: { campaign: string | null; adset: string | null; ad: string | null; issue: "nao_encontrada" | "nome_ambiguo"; rows: number }[];
+  sources: { source_id: string; read_at: string; trigger: string; row_count: number; stats: RiReadInfo["stats"] }[];
+}
+
+export function useRiQuality(clientId: string, readAt: string | null) {
+  return useQuery({
+    queryKey: ["ri-quality", clientId, readAt],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("ri_quality", { p_client_id: clientId });
+      if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos ler a qualidade dos dados."));
+      return data as RiQuality;
     },
   });
 }

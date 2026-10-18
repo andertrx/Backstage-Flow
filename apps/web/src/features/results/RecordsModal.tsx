@@ -33,7 +33,7 @@ function how(r: RiRecord): string {
  * Etapa 39.4 — as linhas da planilha que formam um número (sem telefone, e-mail ou nome).
  * A "linha" é o número da linha na planilha, para achar o contato lá.
  */
-export function RecordsModal({ clientId, range, target, onClose }: { clientId: string; range: DateRange; target: RecordsTarget; onClose: () => void }) {
+export function RecordsModal({ clientId, range, target, onClose }: { clientId: string; range: DateRange | null; target: RecordsTarget; onClose: () => void }) {
   const [page, setPage] = useState(0);
   const q = useRiRecords({ clientId, range, ...target }, page);
   const rows = q.data ?? [];
@@ -45,7 +45,7 @@ export function RecordsModal({ clientId, range, target, onClose }: { clientId: s
         <div>
           <h2 className="text-lg font-semibold text-slate-900">{target.title}</h2>
           <p className="text-xs text-slate-500">
-            {target.issue === "sem_data" ? "Todas as leituras" : `${formatDate(range.from)} a ${formatDate(range.to)}`} · sem dados pessoais (veja o contato na planilha pela linha).
+            {target.issue === "sem_data" || !range ? "Todas as datas da última leitura" : `${formatDate(range.from)} a ${formatDate(range.to)}`} · sem dados pessoais (veja o contato na planilha pela linha).
           </p>
         </div>
         {q.error && <Alert tone="error">{errorMessage(q.error)}</Alert>}

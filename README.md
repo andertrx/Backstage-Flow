@@ -86,6 +86,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [39.2 — Leitura da planilha (8h, 12h e 16h + botão "Atualizar agora", qualidade, falhas)](docs/etapa-39-inteligencia-de-resultados/39.2-LEITURA-DA-PLANILHA.md) ✅ concluída (falta a chave do Google)
   - [39.3 — Perfis e origem (classificação, ligação por ID ou nome único, contatos únicos, rankings no banco)](docs/etapa-39-inteligencia-de-resultados/39.3-PERFIS-E-ORIGEM.md) ✅ concluída (falta a chave do Google)
   - [39.4 — Tela dos resultados (cards, perfis por dia, rankings campanha → conjunto → anúncio, registros)](docs/etapa-39-inteligencia-de-resultados/39.4-TELA-DOS-RESULTADOS.md) ✅ concluída (falta a chave do Google)
+  - [39.5 — Qualidade dos dados, exportação CSV/Excel e fechamento](docs/etapa-39-inteligencia-de-resultados/39.5-QUALIDADE-E-EXPORTACAO.md) ✅ concluída (falta a leitura real com a chave do Google)
 
 ## Estrutura
 

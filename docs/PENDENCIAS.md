@@ -49,3 +49,4 @@
 ## Inteligência de Resultados (Etapa 39) — conta de serviço do Google
 - [ ] Criar a conta de serviço no Google Cloud, colar a chave JSON em **Configurações → Integrações → Google Sheets** e clicar em **Testar conexão**. Passo a passo em `docs/etapa-39-inteligencia-de-resultados/39.1-CONEXAO-COM-A-PLANILHA.md`. **Nunca mande a chave por chat.**
 - [ ] Compartilhar cada planilha de cliente com o e-mail que o CRM mostra, como **Leitor**.
+- [ ] Em **Inteligência de Resultados**, escolher o cliente, conectar a planilha dele e clicar em **Atualizar agora**. Essa primeira leitura real é o teste final da Etapa 39 (depois disso, conferir a aba **Qualidade dos dados**).

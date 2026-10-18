@@ -373,7 +373,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       const snap = visible ? db.riSnapshots[sourceId] : null;
       return res(200, snap ? { read_at: snap.read_at, trigger: snap.trigger, row_count: snap.row_count, stats: snap.stats } : null);
     }
-    if (url.includes("/rest/v1/rpc/ri_results") || url.includes("/rest/v1/rpc/ri_daily") || url.includes("/rest/v1/rpc/ri_records")) {
+    if (url.includes("/rest/v1/rpc/ri_results") || url.includes("/rest/v1/rpc/ri_daily") || url.includes("/rest/v1/rpc/ri_records") || url.includes("/rest/v1/rpc/ri_quality")) {
       const p = parse();
       const canView = ["admin", "gestor", "operador", "visualizador"].includes(role)
         && (role === "admin" || db.access.some((x) => x.user_id === userId && x.client_id === p.p_client_id));
@@ -390,8 +390,31 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           return { day, contacts: uniq(d), ...Object.fromEntries(PROFILES.map((pr) => [pr, uniq(d, (r) => r.profile === pr)])) };
         }));
       }
+      if (url.includes("/rpc/ri_quality")) {
+        const count = (f) => all.filter(f).length;
+        const group = (list, key) => Object.values(list.reduce((acc, r) => {
+          const k = key(r);
+          (acc[k] ??= { r, rows: 0 }).rows++;
+          return acc;
+        }, {})).sort((a, b) => b.rows - a.rows);
+        const rulesOf = (r) => db.riSources.find((x) => x.id === r.source_id)?.profile_rules ?? {};
+        return res(200, {
+          rows: all.length, contacts: uniq(all),
+          origin_ad: count((r) => r.match_level === "anuncio"), origin_ad_group: count((r) => r.match_level === "conjunto"),
+          origin_campaign: count((r) => r.match_level === "campanha"), origin_by_name: count((r) => r.match_method === "nome"),
+          no_origin: count((r) => r.match_issue === "sem_origem"), not_found: count((r) => r.match_issue === "nao_encontrada"),
+          ambiguous: count((r) => r.match_issue === "nome_ambiguo"), no_date: count((r) => !r.contact_date), empty_profile: count((r) => !r.profile_value),
+          unknown_profiles: group(all.filter((r) => r.profile_value && !(r.profile_value in rulesOf(r))), (r) => r.profile_value)
+            .map((g) => ({ value: g.r.profile_value, rows: g.rows })),
+          unmatched_names: group(all.filter((r) => r.match_issue === "nao_encontrada" || r.match_issue === "nome_ambiguo"),
+            (r) => [r.sheet_campaign, r.sheet_adset, r.sheet_ad, r.match_issue].join("|"))
+            .map((g) => ({ campaign: g.r.sheet_campaign, adset: g.r.sheet_adset, ad: g.r.sheet_ad, issue: g.r.match_issue, rows: g.rows })),
+          sources: db.riSources.filter((x) => x.client_id === p.p_client_id && db.riSnapshots[x.id])
+            .map((x) => ({ source_id: x.id, read_at: db.riSnapshots[x.id].read_at, trigger: db.riSnapshots[x.id].trigger, row_count: db.riSnapshots[x.id].row_count, stats: db.riSnapshots[x.id].stats })),
+        });
+      }
       if (url.includes("/rpc/ri_records")) {
-        const list = all.filter((r) => (p.p_issue === "sem_data" ? !r.contact_date : inPeriod(r))
+        const list = all.filter((r) => (p.p_issue === "sem_data" ? !r.contact_date : !p.p_from || inPeriod(r))
           && (!p.p_profile || r.profile === p.p_profile) && (!p.p_campaign_id || r.campaign_id === p.p_campaign_id)
           && (!p.p_ad_group_id || r.ad_group_id === p.p_ad_group_id) && (!p.p_ad_id || r.ad_id === p.p_ad_id)
           && (!p.p_issue || p.p_issue === "sem_data" || r.match_issue === p.p_issue))

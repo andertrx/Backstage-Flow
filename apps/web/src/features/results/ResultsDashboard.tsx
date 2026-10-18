@@ -15,6 +15,7 @@ import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatChange, formatDate, formatDateTime, formatMoney } from "@/lib/format.ts";
 import { type RiDailyRow, type RiSource, useRiDaily, useRiResults } from "./api.ts";
+import { ExportBar } from "./ExportBar.tsx";
 import { PROFILE_LOOK, PROFILES, RANKED_PROFILES } from "./look.ts";
 import { RecordsModal, type RecordsTarget } from "./RecordsModal.tsx";
 
@@ -44,7 +45,7 @@ export interface ResultsView {
  * Etapa 39.4 — números da planilha do cliente no período: cards, perfis por dia,
  * campanhas e, em cada aba de perfil, o ranking de campanhas → conjuntos → anúncios.
  */
-export function ResultsDashboard({ source, view }: { source: RiSource; view: ResultsView }) {
+export function ResultsDashboard({ source, view, clientName }: { source: RiSource; view: ResultsView; clientName: string }) {
   const clientId = source.client_id;
   const range = view.period.current;
   const [records, setRecords] = useState<RecordsTarget | null>(null);
@@ -54,11 +55,15 @@ export function ResultsDashboard({ source, view }: { source: RiSource; view: Res
       <PeriodPicker filters={view.filters} period={view.period} onChange={view.onPeriod} />
       {!source.last_success_at ? (
         <Alert tone="info">A planilha ainda não foi lida. Use "Atualizar agora" acima ou espere a próxima leitura automática.</Alert>
-      ) : view.tab === "visao" ? (
+      ) : (<>
+        <ExportBar clientId={clientId} clientName={clientName} range={range} profile={view.tab === "visao" ? "todos" : view.tab}
+          label={view.tab === "visao" ? "todos os perfis" : PROFILE_LOOK[view.tab].plural.toLowerCase()} />
+        {view.tab === "visao" ? (
         <Overview clientId={clientId} period={view.period} onRecords={setRecords} />
       ) : (
         <ProfileTab key={view.tab} clientId={clientId} profile={view.tab} period={view.period} view={view} onRecords={setRecords} />
-      )}
+        )}
+      </>)}
       {records && <RecordsModal clientId={clientId} range={range} target={records} onClose={() => setRecords(null)} />}
     </div>
   );

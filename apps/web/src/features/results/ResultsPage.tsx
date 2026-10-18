@@ -15,14 +15,16 @@ import { formatDateTime } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { type RiSource, useRiSources, useSheetsSettings } from "./api.ts";
 import { PROFILE_LOOK, RANKED_PROFILES } from "./look.ts";
+import { QualityTab } from "./QualityTab.tsx";
 import { ReadStatusCard } from "./ReadStatusCard.tsx";
 import { ResultsDashboard, type ResultsView } from "./ResultsDashboard.tsx";
 import { rulesSummary, SourceSetup } from "./SourceSetup.tsx";
 
-type Tab = ResultsView["tab"] | "planilha";
+type Tab = ResultsView["tab"] | "qualidade" | "planilha";
 const TABS: { id: Tab; label: string }[] = [
   { id: "visao", label: "Visão geral" },
   ...RANKED_PROFILES.map((p) => ({ id: p as Tab, label: PROFILE_LOOK[p].plural })),
+  { id: "qualidade", label: "Qualidade dos dados" },
   { id: "planilha", label: "Planilha" },
 ];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -57,7 +59,7 @@ export function ResultsPage() {
       }
       return latest;
     }),
-    tab: tab === "planilha" ? "visao" : tab,
+    tab: tab === "planilha" || tab === "qualidade" ? "visao" : tab,
     campaignId: uuidParam(params.get("campanha")),
     adGroupId: uuidParam(params.get("conjunto")),
     metric: (["count", "share", "cost"] as const).find((m) => m === params.get("ordem")) ?? "count",
@@ -132,7 +134,9 @@ export function ResultsPage() {
           </nav>
           {tab === "planilha"
             ? <SourceSummary source={source} canManage={canManage} onEdit={() => setEditing(true)} />
-            : <ResultsDashboard source={source} view={view} />}
+            : tab === "qualidade"
+              ? <QualityTab source={source} canManage={canManage} onEditRules={() => setEditing(true)} />
+              : <ResultsDashboard source={source} view={view} clientName={client?.name ?? "cliente"} />}
         </div>
       )}
     </div>

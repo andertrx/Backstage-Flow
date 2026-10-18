@@ -81,10 +81,9 @@ function sheetXml(rows: XCell[][], widths: number[]): string {
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${cols ? `<cols>${cols}</cols>` : ""}<sheetData>${body}</sheetData></worksheet>`;
 }
 
-/** Um arquivo .xlsx com uma aba por parte (Resumo, Campanhas, Dia a dia). */
-export function reportXlsx(report: Report): Uint8Array {
+/** Um arquivo .xlsx com uma aba por parte (Resumo, Campanhas, Dia a dia — ou as abas pedidas em `order`). */
+export function reportXlsx(report: Report, order: SheetName[] = ["Resumo", "Campanhas", "Dia a dia"]): Uint8Array {
   const sheets: { name: SheetName; rows: XCell[][]; widths: number[] }[] = [];
-  const order: SheetName[] = ["Resumo", "Campanhas", "Dia a dia"];
   for (const name of order) {
     const tables = report.tables.filter((t) => t.sheet === name);
     if (!tables.length && name !== "Resumo") continue;
