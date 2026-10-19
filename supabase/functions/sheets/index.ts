@@ -69,7 +69,7 @@ async function readSource(db: SupabaseClient, client: SheetsClient, source: Sour
     const { headers, rows } = splitHeader(values);
     const missing = Object.values(source.mapping).filter((h) => h && !headers.includes(h));
     if (!source.mapping.profile || !headers.includes(source.mapping.profile)) {
-      throw new AppError(400, "SHEETS_COLUMN_NOT_FOUND", `A coluna de perfil "${source.mapping.profile ?? ""}" não existe mais na planilha. Confira a configuração.`);
+      throw new AppError(400, "SHEETS_COLUMN_NOT_FOUND", `A coluna SQL "${source.mapping.profile ?? ""}" não existe mais na planilha. Confira a configuração.`);
     }
     // Contato vira impressão digital por cliente (o mesmo telefone em clientes diferentes não se cruza).
     const read = await buildRead(headers, rows, source.mapping, source.header_row, (c) => sha256Hex(`${source.client_id}:${c}`));

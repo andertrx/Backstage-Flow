@@ -373,6 +373,16 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       const snap = visible ? db.riSnapshots[sourceId] : null;
       return res(200, snap ? { read_at: snap.read_at, trigger: snap.trigger, row_count: snap.row_count, stats: snap.stats } : null);
     }
+    if (url.includes("/rest/v1/rpc/ri_records_extra")) {
+      const p = parse();
+      const canView = ["admin", "gestor", "operador", "visualizador"].includes(role)
+        && (role === "admin" || db.access.some((x) => x.user_id === userId && x.client_id === p.p_client_id));
+      if (!canView) return res(403, { code: "42501", message: "Sem permissão para ver os resultados deste cliente." });
+      const rows = db.riSources.filter((x) => x.client_id === p.p_client_id).flatMap((x) => db.riSnapshots[x.id]?.rows ?? []);
+      return res(200, rows.filter((e) => p.p_rows.includes(e.n)).map((e) => ({
+        row_number: e.n, utm_source: e.us ?? null, utm_medium: e.um ?? null, click: e.gc ? "google" : e.fb ? "meta" : null, custom: e.x ?? {},
+      })));
+    }
     if (url.includes("/rest/v1/rpc/ri_results") || url.includes("/rest/v1/rpc/ri_daily") || url.includes("/rest/v1/rpc/ri_records") || url.includes("/rest/v1/rpc/ri_quality")) {
       const p = parse();
       const canView = ["admin", "gestor", "operador", "visualizador"].includes(role)
@@ -531,9 +541,17 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         const rows = body.map((r, i) => {
           const contact = cell(r, "contact_key").replace(/\D/g, "");
           return { n: src.header_row + 1 + i, k: cell(r, "record_id") ? `id:${cell(r, "record_id")}` : `L${src.header_row + 1 + i}`,
-            h: contact ? `hash-${contact}` : null, d: dmy(cell(r, "contact_date")), p: norm(cell(r, "profile")),
+            h: contact ? `hash-${[...contact].reduce((a, ch) => (Math.imul(a, 31) + ch.charCodeAt(0)) >>> 0, 7).toString(16)}` : null, d: dmy(cell(r, "contact_date")), p: norm(cell(r, "profile")),
             cid: cell(r, "campaign_id") || null, cn: cell(r, "campaign_name") || null, sid: cell(r, "adset_id") || null, sn: cell(r, "adset_name") || null,
-            aid: cell(r, "ad_id") || null, an: cell(r, "ad_name") || null };
+            aid: cell(r, "ad_id") || null, an: cell(r, "ad_name") || null,
+            ...(cell(r, "utm_source") ? { us: cell(r, "utm_source") } : {}), ...(cell(r, "utm_medium") ? { um: cell(r, "utm_medium") } : {}),
+            ...(cell(r, "gclid") ? { gc: true } : {}), ...(cell(r, "fbclid") ? { fb: true } : {}),
+            ...(() => {
+              // parâmetros personalizados ("x:<nome>" → coluna); o Nome nunca é guardado
+              const x = Object.fromEntries(Object.entries(src.mapping).filter(([k]) => k.startsWith("x:"))
+                .map(([k, col]) => [k.slice(2), String(r[head.map((h) => h.trim()).indexOf(col)] ?? "").trim()]).filter(([, v]) => v));
+              return Object.keys(x).length ? { x } : {};
+            })() };
         });
         db.riSnapshots[src.id] = { read_at: now, trigger: "manual", row_count: body.length, stats, rows };
         Object.assign(src, { read_status: "ok", last_success_at: now, last_error: null, consecutive_failures: 0 });

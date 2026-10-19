@@ -1,4 +1,4 @@
-import { can, RI_FIELD_LABELS, RI_FIELDS, type RiRankMetric } from "@backstage/shared";
+import { can, customParams, RI_FIELD_LABELS, RI_FIELDS, type RiRankMetric } from "@backstage/shared";
 import { ChartPie, ExternalLink, FileSpreadsheet, Pencil } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
@@ -169,6 +169,12 @@ function SourceSummary({ source, canManage, onEdit }: { source: RiSource; canMan
             <div key={f} className="flex justify-between gap-3 border-b border-slate-100 py-1">
               <dt className="text-slate-500">{RI_FIELD_LABELS[f].label}</dt>
               <dd className="truncate font-medium text-slate-900">{source.mapping[f]}</dd>
+            </div>
+          ))}
+          {customParams(source.mapping).map((c) => (
+            <div key={c.key} className="flex justify-between gap-3 border-b border-slate-100 py-1">
+              <dt className="text-slate-500">{c.label} <span className="text-xs">(personalizado)</span></dt>
+              <dd className="truncate font-medium text-slate-900">{c.column}</dd>
             </div>
           ))}
         </dl>

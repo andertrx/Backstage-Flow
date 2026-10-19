@@ -53,4 +53,19 @@ describe("leitura da planilha (Etapa 39.2)", () => {
     expect(nextScheduledRead(new Date("2026-10-17T11:00:00Z")).toISOString()).toBe("2026-10-17T15:00:00.000Z");
     expect(nextScheduledRead(new Date("2026-10-17T20:00:00Z")).toISOString()).toBe("2026-10-18T11:00:00.000Z");
   });
+
+  it("parâmetros novos (19/10): utm_source/medium, clique Google/Meta e personalizados; o nome nunca é guardado", async () => {
+    const headers = ["Nome", "Número", "SQL", "Data", "utm_source", "utm_medium", "gclid", "fbclid", "Cidade"];
+    const mapping = { contact_name: "Nome", contact_key: "Número", profile: "SQL", contact_date: "Data", utm_source: "utm_source",
+      utm_medium: "utm_medium", gclid: "gclid", fbclid: "fbclid", "x:Cidade": "Cidade" } as const;
+    const { rows } = await buildRead(headers, [
+      ["Maria Silva", "(11) 98765-4321", "Lojista", "10/10/2026", "facebook", "paid_social", "", "IwAR123", "São Paulo"],
+      ["João", "", "", "", "", "", "Cj0K", "", ""],
+    ], mapping, 1, fakeHash);
+    expect(rows[0]).toMatchObject({ us: "facebook", um: "paid_social", fb: true, x: { Cidade: "São Paulo" } });
+    expect(rows[0].gc).toBeUndefined();
+    expect(rows[1]).toMatchObject({ gc: true });
+    expect(rows[1].x).toBeUndefined();
+    expect(JSON.stringify(rows)).not.toMatch(/Maria|João|IwAR123|Cj0K/);
+  });
 });

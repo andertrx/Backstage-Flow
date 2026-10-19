@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyProfile, distinctValues, normalizeText, parseSpreadsheetId, suggestMapping, suggestProfile } from "./sheets.ts";
+import { classifyProfile, customKey, customParams, distinctValues, normalizeText, parseSpreadsheetId, suggestMapping, suggestProfile } from "./sheets.ts";
 
 const ID = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789";
 
@@ -49,5 +49,20 @@ describe("planilha (Etapa 39)", () => {
       { value: "lojista", example: "Lojista", count: 2 },
       { value: "sacoleira", example: "Sacoleira", count: 1 },
     ]);
+  });
+
+  it("reconhece os parâmetros novos pelo nome da coluna (19/10)", () => {
+    const m = suggestMapping(["Nome", "Número", "Perfil de Lojista (SQL)", "Data", "utm_source", "utm_medium", "utm_campaign", "utm_content",
+      "utm_term", "campaign_id", "adset_id", "ad_id", "gclid", "fbclid"]);
+    expect(m).toEqual({ contact_name: "Nome", contact_key: "Número", profile: "Perfil de Lojista (SQL)", contact_date: "Data",
+      utm_source: "utm_source", utm_medium: "utm_medium", campaign_name: "utm_campaign", ad_name: "utm_content", adset_name: "utm_term",
+      campaign_id: "campaign_id", adset_id: "adset_id", ad_id: "ad_id", gclid: "gclid", fbclid: "fbclid" });
+  });
+
+  it("parâmetros personalizados", () => {
+    expect(customKey("  Cidade  do   cliente ")).toBe("x:Cidade do cliente");
+    expect(customKey("")).toBeNull();
+    expect(customKey("x".repeat(41))).toBeNull();
+    expect(customParams({ profile: "SQL", "x:Cidade": "Cidade", "x:Vazio": "" })).toEqual([{ key: "x:Cidade", label: "Cidade", column: "Cidade" }]);
   });
 });

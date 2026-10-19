@@ -1,6 +1,6 @@
 // Etapa 39.2 — Inteligência de Resultados: transformar as linhas da planilha na
 // "última leitura" (sem nome nem telefone legíveis). Usado pelo servidor; testado aqui.
-import { normalizeText, type RiMapping } from "./sheets.ts";
+import { customParams, normalizeText, type RiField, type RiMapping } from "./sheets.ts";
 
 /** Uma linha da última leitura (chaves curtas para caber bem no banco). */
 export interface RiRow {
@@ -24,6 +24,14 @@ export interface RiRow {
   st: string | null;
   sd: string | null;
   sv: number | null;
+  /** utm_source e utm_medium (texto). */
+  us?: string | null;
+  um?: string | null;
+  /** A linha tem clique do Google (gclid) / do Meta (fbclid). Só a marcação; o código do clique não é guardado. */
+  gc?: true;
+  fb?: true;
+  /** Parâmetros personalizados: nome → valor. */
+  x?: Record<string, string>;
 }
 
 export interface RiReadStats {
@@ -93,9 +101,12 @@ export async function buildRead(
   headers: string[], rows: string[][], mapping: RiMapping, headerRow: number,
   hash: (contact: string) => Promise<string>,
 ): Promise<{ rows: RiRow[]; stats: RiReadStats }> {
-  const col = (field: keyof RiMapping) => (mapping[field] ? headers.indexOf(mapping[field]!) : -1);
+  const col = (field: RiField) => (mapping[field] ? headers.indexOf(mapping[field]!) : -1);
+  // O Nome (contact_name) nunca é lido: o CRM não guarda dados pessoais.
   const idx = Object.fromEntries((["record_id", "contact_date", "contact_key", "profile", "account_id", "campaign_id", "campaign_name",
-    "adset_id", "adset_name", "ad_id", "ad_name", "status", "sale_date", "sale_value"] as const).map((f) => [f, col(f)]));
+    "adset_id", "adset_name", "ad_id", "ad_name", "status", "sale_date", "sale_value", "utm_source", "utm_medium", "gclid", "fbclid"] as const)
+    .map((f) => [f, col(f)]));
+  const custom = customParams(mapping).map((c) => ({ label: c.label, index: headers.indexOf(c.column) })).filter((c) => c.index >= 0);
   const stats: RiReadStats = { total: 0, stored: 0, duplicates: 0, noDate: 0, invalidDates: 0, noProfile: 0, noOrigin: 0, invalidIds: 0, noContact: 0 };
   const out: RiRow[] = [];
   const seen = new Set<string>();
@@ -137,6 +148,13 @@ export async function buildRead(
       aid: id("ad_id"), an: text("ad_name"), st: text("status"),
       sd: cell("sale_date") ? parseSheetDate(cell("sale_date")) : null, sv: cell("sale_value") ? parseMoney(cell("sale_value")) : null,
     };
+    const us = text("utm_source"), um = text("utm_medium");
+    if (us) row.us = us;
+    if (um) row.um = um;
+    if (cell("gclid")) row.gc = true;
+    if (cell("fbclid")) row.fb = true;
+    const extra = Object.fromEntries(custom.map((c) => [c.label, String(r[c.index] ?? "").trim().slice(0, 300)]).filter(([, v]) => v));
+    if (Object.keys(extra).length) row.x = extra;
     if (!row.cid && !row.cn && !row.sid && !row.sn && !row.aid && !row.an) stats.noOrigin++;
     out.push(row);
   }

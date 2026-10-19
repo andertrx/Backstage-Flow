@@ -303,3 +303,23 @@ export function useRiQuality(clientId: string, readAt: string | null) {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Parâmetros refeitos (19/10/2026): utm_source, utm_medium, clique Google/Meta e
+// personalizados de cada linha, para a janela de registros. Sem dados pessoais.
+// ---------------------------------------------------------------------------
+
+export interface RiRecordExtra { row_number: number; utm_source: string | null; utm_medium: string | null; /** Plataforma do clique (id do catálogo de plataformas), pelo gclid ou fbclid. */
+  click: string | null; custom: Record<string, string> }
+
+export function useRiRecordsExtra(clientId: string, rows: number[]) {
+  return useQuery({
+    queryKey: ["ri-records-extra", clientId, rows],
+    enabled: rows.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("ri_records_extra", { p_client_id: clientId, p_rows: rows });
+      if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos ler os parâmetros dos registros."));
+      return new Map(((data ?? []) as RiRecordExtra[]).map((x) => [x.row_number, x]));
+    },
+  });
+}

@@ -95,14 +95,14 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   check(prev.includes("Tipo de Cliente") && prev.includes("Atacado SP"), "prévia com cabeçalho e linhas");
 
   const mapping = page.getByTestId("ri-mapping");
-  check(await mapping.getByLabel("Perfil comercial (obrigatório)").inputValue() === "Tipo de Cliente", "sugestão: coluna do perfil");
-  check(await mapping.getByLabel("Nome da campanha").inputValue() === "Campaign Name" && await mapping.getByLabel("ID do anúncio").inputValue() === "Ad ID"
+  check(await mapping.getByLabel("SQL (obrigatório)", { exact: true }).inputValue() === "Tipo de Cliente", "sugestão: coluna do perfil");
+  check(await mapping.getByLabel("utm_campaign", { exact: true }).inputValue() === "Campaign Name" && await mapping.getByLabel("ad_id", { exact: true }).inputValue() === "Ad ID"
     && await mapping.getByLabel("ID do contato").inputValue() === "ID", "sugestão: campanha, anúncio e ID");
-  check(await mapping.getByLabel("ID da campanha").inputValue() === "", "o que não existe na planilha fica \"não usar\"");
-  await mapping.getByLabel("Telefone ou e-mail").selectOption("");
+  check(await mapping.getByLabel("campaign_id", { exact: true }).inputValue() === "", "o que não existe na planilha fica \"não usar\"");
+  await mapping.getByLabel("Número", { exact: true }).selectOption("");
 
   const step3 = page.getByTestId("ri-step-3");
-  await step3.getByRole("button", { name: "Ler os valores da coluna de perfil" }).click();
+  await step3.getByRole("button", { name: "Ler os valores da coluna SQL" }).click();
   await page.getByTestId("ri-rules").waitFor();
   check(clean(await page.getByTestId("ri-values-total").innerText()).startsWith("5 linhas"), "lê todas as linhas da coluna de perfil");
   check(await step3.getByLabel("Perfil de Lojista").inputValue() === "lojista" && await step3.getByLabel("Perfil de Consumidor final").inputValue() === "consumidor_final",

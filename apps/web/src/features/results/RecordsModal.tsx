@@ -1,11 +1,11 @@
-import type { DateRange, RiProfile } from "@backstage/shared";
+import { type DateRange, PLATFORM_LABELS, type RiProfile } from "@backstage/shared";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDate } from "@/lib/format.ts";
-import { RECORDS_PAGE, type RiIssue, type RiRecord, useRiRecords } from "./api.ts";
+import { RECORDS_PAGE, type RiIssue, type RiRecord, type RiRecordExtra, useRiRecords, useRiRecordsExtra } from "./api.ts";
 import { PROFILE_LOOK } from "./look.ts";
 
 export interface RecordsTarget {
@@ -23,6 +23,18 @@ const ISSUE_TEXT: Record<NonNullable<RiRecord["match_issue"]>, string> = {
   nome_ambiguo: "Nome ambíguo (mais de um item)",
 };
 
+/** utm_source, utm_medium, clique do Google/Meta e os parâmetros personalizados da linha. */
+function params(x: RiRecordExtra | undefined): string {
+  if (!x) return "—";
+  const parts = [
+    x.utm_source && `utm_source: ${x.utm_source}`,
+    x.utm_medium && `utm_medium: ${x.utm_medium}`,
+    x.click ? `Clique do ${PLATFORM_LABELS[x.click] ?? x.click}` : null,
+    ...Object.entries(x.custom ?? {}).map(([k, v]) => `${k}: ${v}`),
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "—";
+}
+
 function how(r: RiRecord): string {
   if (r.match_issue && !r.match_level) return ISSUE_TEXT[r.match_issue];
   const level = r.match_level === "anuncio" ? "anúncio" : r.match_level === "conjunto" ? "conjunto" : "campanha";
@@ -36,6 +48,7 @@ function how(r: RiRecord): string {
 export function RecordsModal({ clientId, range, target, onClose }: { clientId: string; range: DateRange | null; target: RecordsTarget; onClose: () => void }) {
   const [page, setPage] = useState(0);
   const q = useRiRecords({ clientId, range, ...target }, page);
+  const extra = useRiRecordsExtra(clientId, (q.data ?? []).map((r) => r.row_number));
   const rows = q.data ?? [];
   const total = rows[0]?.total_count ?? 0;
 
@@ -53,14 +66,15 @@ export function RecordsModal({ clientId, range, target, onClose }: { clientId: s
           : rows.length === 0 ? <p className="text-sm text-slate-500">Nenhuma linha.</p>
           : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-sm">
+              <table className="w-full min-w-[720px] text-sm">
                 <thead className="text-left text-xs text-slate-500">
                   <tr>
                     <th className="py-1.5 pr-2 font-medium">Linha</th>
                     <th className="px-2 py-1.5 font-medium">Data</th>
                     <th className="px-2 py-1.5 font-medium">Perfil</th>
                     <th className="px-2 py-1.5 font-medium">Origem no CRM</th>
-                    <th className="py-1.5 pl-2 font-medium">Como foi ligada</th>
+                    <th className="px-2 py-1.5 font-medium">Como foi ligada</th>
+                    <th className="py-1.5 pl-2 font-medium">Parâmetros</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100" data-testid="ri-records-rows">
@@ -81,7 +95,8 @@ export function RecordsModal({ clientId, range, target, onClose }: { clientId: s
                           <span className="block truncate text-xs text-slate-500">na planilha: “{r.sheet_ad ?? r.sheet_adset ?? r.sheet_campaign}”</span>
                         )}
                       </td>
-                      <td className="py-1.5 pl-2 text-xs text-slate-600">{how(r)}</td>
+                      <td className="px-2 py-1.5 text-xs text-slate-600">{how(r)}</td>
+                      <td className="py-1.5 pl-2 text-xs text-slate-600" data-testid="ri-record-params">{params(extra.data?.get(r.row_number))}</td>
                     </tr>
                   ))}
                 </tbody>
