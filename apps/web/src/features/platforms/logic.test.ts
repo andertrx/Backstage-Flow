@@ -4,7 +4,7 @@ import type { FilterAccount } from "@/features/dashboard/types.ts";
 import { PLATFORM_VIEWS, platformKpiLabel, REACH_REASONS, reachScope, summarizeStructure } from "./logic.ts";
 
 const f = (patch: Partial<DashboardFilters> = {}): DashboardFilters => ({
-  period: "last_7_days", from: null, to: null, clientId: null, platform: null, accountId: null, campaignId: null, status: null, currency: null, ...patch,
+  period: "last_7_days", from: null, to: null, clientId: null, platform: null, accountId: null, campaignId: null, campaignIds: [], status: null, currency: null, ...patch,
 });
 const acc = (id: string, client_id: string, platform_id = "meta"): FilterAccount =>
   ({ id, client_id, platform_id, external_id: `x${id}`, name: id, currency: "BRL" });

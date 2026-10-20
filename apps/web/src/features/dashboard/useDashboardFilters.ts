@@ -26,7 +26,7 @@ export function useDashboardFilters() {
 
   /** Limpa cliente, plataforma, conta, campanha e status (mantém o período). */
   const clear = useCallback(
-    () => apply({ ...latest.current, clientId: null, platform: null, accountId: null, campaignId: null, status: null, currency: null }),
+    () => apply({ ...latest.current, clientId: null, platform: null, accountId: null, campaignId: null, campaignIds: [], status: null, currency: null }),
     [apply],
   );
 

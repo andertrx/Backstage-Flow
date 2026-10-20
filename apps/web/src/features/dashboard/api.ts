@@ -45,7 +45,7 @@ async function fetchSummary(range: DateRange, f: DashboardFilters): Promise<Summ
     p_client_ids: f.clientId ? [f.clientId] : null,
     p_platforms: f.platform ? [f.platform] : null,
     p_ad_account_ids: f.accountId ? [f.accountId] : null,
-    p_campaign_ids: f.campaignId ? [f.campaignId] : null,
+    p_campaign_ids: campaignFilter(f),
     p_campaign_statuses: f.status ? [f.status] : null,
   });
   if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o resumo."));
@@ -98,7 +98,7 @@ export function useDashboardTimeseries(range: DateRange, f: DashboardFilters, gr
         p_client_ids: f.clientId ? [f.clientId] : null,
         p_platforms: f.platform ? [f.platform] : null,
         p_ad_account_ids: f.accountId ? [f.accountId] : null,
-        p_campaign_ids: f.campaignId ? [f.campaignId] : null,
+        p_campaign_ids: campaignFilter(f),
         p_campaign_statuses: f.status ? [f.status] : null,
         p_by_platform: byPlatform,
       });
@@ -119,4 +119,9 @@ export function useDashboardTimeseries(range: DateRange, f: DashboardFilters, gr
       }));
     },
   });
+}
+
+/** Campanhas escolhidas: várias (Relatórios) ou uma (demais telas). null = todas. */
+export function campaignFilter(f: Pick<DashboardFilters, "campaignId" | "campaignIds">): string[] | null {
+  return f.campaignIds.length ? f.campaignIds : f.campaignId ? [f.campaignId] : null;
 }

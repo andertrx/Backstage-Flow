@@ -8,6 +8,7 @@ import { Field, Input, Select } from "@/components/ui/field.tsx";
 import type { Client } from "@/features/clients/types.ts";
 import { formatDate } from "@/lib/format.ts";
 import { useFilterAccounts, useFilterCampaigns } from "./api.ts";
+import { CampaignMultiSelect } from "./CampaignMultiSelect.tsx";
 import {
   CAMPAIGN_STATUS_OPTIONS,
   type DashboardFilters,
@@ -30,11 +31,13 @@ interface FiltersBarProps {
   lockedPlatform?: boolean;
   /** Esconde o campo Conta (ex.: visão executiva, que é por cliente e plataforma). */
   accountField?: boolean;
+  /** Permite marcar várias campanhas (Relatórios). */
+  multiCampaign?: boolean;
 }
 
 const range = (r: { from: string; to: string }) => (r.from === r.to ? formatDate(r.from) : `${formatDate(r.from)} a ${formatDate(r.to)}`);
 
-export function FiltersBar({ filters, period, clients, onChange, onClear, campaignFields = true, lockedPlatform = false, accountField = true }: FiltersBarProps) {
+export function FiltersBar({ filters, period, clients, onChange, onClear, campaignFields = true, lockedPlatform = false, accountField = true, multiCampaign = false }: FiltersBarProps) {
   const { data: accounts = [] } = useFilterAccounts();
   const { data: campaigns = [], isFetching: loadingCampaigns } = useFilterCampaigns(
     campaignFields ? filters.clientId : null,
@@ -56,7 +59,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
     filters.clientId,
     lockedPlatform ? null : filters.platform,
     accountField ? filters.accountId : null,
-    campaignFields ? filters.campaignId : null,
+    campaignFields ? filters.campaignId || (filters.campaignIds.length ? "x" : null) : null,
     campaignFields ? filters.status : null,
   ].filter(Boolean).length;
 
@@ -127,7 +130,21 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
           )}
         </Field>
         )}
-        {campaignFields && (
+        {campaignFields && multiCampaign && (
+        <Field label="Campanhas">
+          {(id) => (
+            <CampaignMultiSelect
+              id={id}
+              options={campaigns}
+              value={filters.campaignIds}
+              disabled={!campaignsReady}
+              placeholder={!campaignsReady ? "Escolha um cliente ou conta" : loadingCampaigns ? "Carregando..." : campaigns.length ? "Todas as campanhas" : "Nenhuma campanha"}
+              onChange={(ids) => onChange({ campaignIds: ids, campaignId: null })}
+            />
+          )}
+        </Field>
+        )}
+        {campaignFields && !multiCampaign && (
         <Field label="Campanha">
           {(id) => (
             <Select
@@ -183,7 +200,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
         </p>
         {hasActiveFilters({
           ...filters,
-          ...(campaignFields ? {} : { campaignId: null, status: null }),
+          ...(campaignFields ? {} : { campaignId: null, campaignIds: [], status: null }),
           ...(lockedPlatform ? { platform: null } : {}),
           ...(accountField ? {} : { accountId: null }),
         }) && (

@@ -87,9 +87,24 @@ async function download(page, name) {
   await page.getByLabel("Cliente", { exact: true }).selectOption(EXC);
   const exc = ["Resumo (BRL)", "Campanhas (BRL)", "Dia a dia (BRL)"];
   check(JSON.stringify(await waitTitles(page, exc)) === JSON.stringify(exc), "filtro por cliente: só a moeda dele");
-  await page.getByLabel("Campanha", { exact: true }).selectOption(cid(1));
+  // Várias campanhas (lista com caixas de marcar e busca)
+  await page.getByTestId("campaign-multi").click();
+  const panel = page.getByTestId("campaign-multi-panel");
+  await panel.getByRole("option", { name: "Leads Setembro" }).click();
   await page.waitForFunction(() => document.querySelectorAll("[data-testid=report-table][data-title='Campanhas (BRL)'] tbody tr").length === 1, null, { timeout: 5000 }).catch(() => {});
-  check(await table(page, "Campanhas (BRL)").locator("tbody tr").count() === 1, "filtro por campanha");
+  check(await table(page, "Campanhas (BRL)").locator("tbody tr").count() === 1, "filtro por uma campanha");
+  await panel.getByLabel("Buscar campanha").fill("pesq");
+  check(await panel.getByRole("option").count() === 1, "busca dentro da lista de campanhas");
+  await panel.getByRole("option", { name: "Pesquisa Marca" }).click();
+  await panel.getByLabel("Buscar campanha").fill("");
+  await page.screenshot({ path: `${SHOTS}/relatorios-varias-campanhas.png` });
+  await page.keyboard.press("Escape");
+  check(clean(await page.getByTestId("campaign-multi").innerText()) === "2 campanhas", "botão mostra quantas campanhas");
+  await page.waitForFunction(() => [...document.querySelectorAll("[data-testid=report-table][data-title^='Campanhas'] tbody tr")].length === 2, null, { timeout: 5000 }).catch(() => {});
+  const two = await page.locator("[data-testid=report-table][data-title^='Campanhas'] tbody tr td:first-child").allInnerTexts();
+  check(two.length === 2 && two.includes("Leads Setembro") && two.includes("Pesquisa Marca"), `relatório só com as 2 campanhas escolhidas (${two})`);
+  check(page.url().includes(`campanhas=${cid(1)}`) && page.url().includes(cid(3)), "campanhas escolhidas ficam no endereço");
+  check((await page.locator("main").innerText()).includes("Campanhas (2): Leads Setembro, Pesquisa Marca"), "cabeçalho do relatório lista as campanhas");
   await page.getByLabel("Plataforma", { exact: true }).selectOption("google");
   await page.getByLabel("Plataforma", { exact: true }).selectOption("");
 

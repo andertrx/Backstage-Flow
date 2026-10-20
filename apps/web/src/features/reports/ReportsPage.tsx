@@ -6,7 +6,7 @@ import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { useClients } from "@/features/clients/api.ts";
-import { useDashboardSummary, useDashboardTimeseries, useFilterAccounts, useFilterCampaigns } from "@/features/dashboard/api.ts";
+import { campaignFilter, useDashboardSummary, useDashboardTimeseries, useFilterAccounts, useFilterCampaigns } from "@/features/dashboard/api.ts";
 import { FiltersBar } from "@/features/dashboard/FiltersBar.tsx";
 import { PERIOD_OPTIONS, resolveFilterPeriod } from "@/features/dashboard/filters.ts";
 import { useDashboardFilters } from "@/features/dashboard/useDashboardFilters.ts";
@@ -40,7 +40,13 @@ export function ReportsPage() {
 
   const clientName = clients.find((c) => c.id === filters.clientId)?.name ?? null;
   const accountName = accounts.find((a) => a.id === filters.accountId)?.name ?? null;
-  const campaignName = campaignOptions.find((c) => c.id === filters.campaignId)?.name ?? null;
+  // Uma ou várias campanhas escolhidas (nomes no cabeçalho do relatório e no nome do arquivo).
+  const chosenIds = campaignFilter(filters) ?? [];
+  const chosenNames = chosenIds.map((id) => campaignOptions.find((c) => c.id === id)?.name).filter((n): n is string => Boolean(n));
+  const campaignName = chosenIds.length === 1 ? chosenNames[0] ?? null : chosenIds.length > 1 ? `${chosenIds.length}-campanhas` : null;
+  const campaignHeader = chosenIds.length === 0 ? "Campanha: Todas"
+    : chosenIds.length === 1 ? `Campanha: ${chosenNames[0] ?? "1 campanha"}`
+    : `Campanhas (${chosenIds.length}): ${chosenNames.join(", ")}`;
   const periodLabel = PERIOD_OPTIONS.find((o) => o.value === filters.period)?.label ?? "";
 
   const report = useMemo(() => {
@@ -50,14 +56,14 @@ export function ReportsPage() {
         `Cliente: ${clientName ?? "Todos os clientes"}`,
         `Plataforma: ${filters.platform ? PLATFORM_LABELS[filters.platform] ?? filters.platform : "Todas"}`,
         ...(accountName ? [`Conta: ${accountName}`] : []),
-        `Campanha: ${campaignName ?? "Todas"}${filters.status ? ` (status: ${ENTITY_STATUS_LABELS[filters.status as EntityStatus] ?? filters.status})` : ""}`,
+        `${campaignHeader}${filters.status ? ` (status: ${ENTITY_STATUS_LABELS[filters.status as EntityStatus] ?? filters.status})` : ""}`,
         `Período: ${dates(period.current)} (${periodLabel}) · comparado com ${dates(period.previous)}`,
       ],
       summary: summary.data,
       campaigns: campaigns.data,
       daily: daily.data,
     });
-  }, [summary.data, daily.data, campaigns.data, clientName, accountName, campaignName, filters.platform, filters.status, period, periodLabel]);
+  }, [summary.data, daily.data, campaigns.data, clientName, accountName, campaignHeader, filters.platform, filters.status, period, periodLabel]);
 
   const baseName = [clientName ?? "todos-os-clientes", filters.platform, campaignName, period.current.from, "a", period.current.to];
   const empty = report !== null && report.tables.length === 0;
@@ -86,7 +92,7 @@ export function ReportsPage() {
         </p>
       </div>
 
-      <FiltersBar filters={filters} period={period} clients={clients} onChange={setFilters} onClear={clear} />
+      <FiltersBar filters={filters} period={period} clients={clients} onChange={setFilters} onClear={clear} multiCampaign />
       <DataFreshness clientId={filters.clientId} platform={filters.platform} accountId={filters.accountId} />
 
       <Card className="flex flex-wrap items-center justify-between gap-3 border-l-4 border-l-brand-600 p-4" data-testid="client-dashboard-cta">

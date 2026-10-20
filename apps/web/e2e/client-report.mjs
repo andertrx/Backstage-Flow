@@ -130,7 +130,20 @@ const section = (page, name) => page.getByRole("region", { name: `Conta ${name}`
   check((await form.getByLabel("Nome do resultado").inputValue()) === "Compras", "resultado vindo das ações do Meta dos últimos 90 dias");
   await form.getByLabel("Nome do resultado").fill("Vendas");
   await form.getByLabel("Tirar CPM", { exact: true }).click();
-  await form.getByLabel("Subir Alcance", { exact: true }).click();
+  // Arrastar "Alcance" para cima de "Impressões" (ordem por arrastar, sem setas).
+  check(await form.getByLabel(/^Subir|^Descer/).count() === 0, "ordem das métricas sem setas");
+  {
+    const handle = await form.getByLabel("Arrastar Alcance", { exact: true }).boundingBox();
+    const target = await form.locator("[data-sortable-item=impressions]").boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y - 6, { steps: 4 });
+    await page.mouse.move(handle.x + handle.width / 2, target.y + target.height / 2, { steps: 10 });
+    await page.mouse.up();
+  }
+  const order = (await form.getByTestId("kpi-order").locator("[data-sortable-item]").evaluateAll((els) => els.map((e) => e.getAttribute("data-sortable-item"))));
+  await form.getByTestId("kpi-order").screenshot({ path: `${SHOTS}/personalizar-arrastar.png` });
+  check(order.indexOf("reach") === order.indexOf("impressions") - 1, `arrastou Alcance para antes de Impressões (${order})`);
   await form.getByLabel("Período ao abrir").selectOption("last_14_days");
   await form.getByLabel(/^Funil/).uncheck();
   await form.getByLabel("Análise da agência (o cliente vê)").fill("Semana com custo maior por causa do novo público.");

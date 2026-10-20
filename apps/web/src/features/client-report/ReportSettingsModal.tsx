@@ -3,12 +3,13 @@ import {
   mainResultFor, REPORT_SECTION_LABELS, REPORT_SECTIONS, type ReportKpiKey, type ReportPeriod, reportKpiLabel, SUMMARY_MARKERS, summaryParts,
   summarySentence, todayIn,
 } from "@backstage/shared";
-import { ArrowDown, ArrowUp, ImagePlus, Trash2 } from "lucide-react";
+import { ImagePlus, Trash2 } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
+import { SortableList } from "@/components/ui/sortable-list.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { logoFileProblem, logoPublicUrl, useReportAccounts, useSaveLogo, useSaveReportSettings } from "./api.ts";
 
@@ -151,11 +152,6 @@ export function ReportSettingsModal({ clientId, clientName, timezone, initial, l
   };
 
   const unused = REPORT_KPI_KEYS.filter((k) => !s.kpis.includes(k));
-  const move = (i: number, d: -1 | 1) => {
-    const k = [...s.kpis];
-    [k[i], k[i + d]] = [k[i + d], k[i]];
-    setS({ ...s, kpis: k });
-  };
   const toggleKpi = (key: ReportKpiKey) =>
     setS({ ...s, kpis: s.kpis.includes(key) ? s.kpis.filter((k) => k !== key) : [...s.kpis, key] });
 
@@ -209,21 +205,15 @@ export function ReportSettingsModal({ clientId, clientName, timezone, initial, l
         </Field>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-slate-700">Métricas dos cartões (na ordem)</legend>
-          <ul className="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200" data-testid="kpi-order">
-            {s.kpis.map((k, i) => (
-              <li key={k} className="flex items-center gap-2 px-3 py-1.5 text-sm">
+          <legend className="text-sm font-medium text-slate-700">Métricas dos cartões (arraste ⠿ para pôr na ordem)</legend>
+          <SortableList items={s.kpis} onReorder={(kpis) => setS({ ...s, kpis })} label={(k) => reportKpiLabel(k, s.main_result)} testId="kpi-order">
+            {(k) => (
+              <>
                 <input type="checkbox" checked onChange={() => toggleKpi(k)} aria-label={`Tirar ${reportKpiLabel(k, s.main_result)}`} />
                 <span className="flex-1">{reportKpiLabel(k, s.main_result)}</span>
-                <button type="button" className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Subir ${reportKpiLabel(k, s.main_result)}`}>
-                  <ArrowUp className="size-4" aria-hidden />
-                </button>
-                <button type="button" className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30" disabled={i === s.kpis.length - 1} onClick={() => move(i, 1)} aria-label={`Descer ${reportKpiLabel(k, s.main_result)}`}>
-                  <ArrowDown className="size-4" aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
+              </>
+            )}
+          </SortableList>
           {unused.length > 0 && (
             <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
               {unused.map((k) => (

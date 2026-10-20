@@ -39,6 +39,8 @@ export interface DashboardFilters {
   platform: string | null;
   accountId: string | null;
   campaignId: string | null;
+  /** Várias campanhas (só no Relatórios): ?campanhas=id1,id2. Vazio = todas. */
+  campaignIds: string[];
   status: string | null;
   currency: string | null;
 }
@@ -51,11 +53,14 @@ export const FILTER_PARAMS: Record<keyof DashboardFilters, string> = {
   platform: "plataforma",
   accountId: "conta",
   campaignId: "campanha",
+  campaignIds: "campanhas",
   status: "status",
   currency: "moeda",
 };
 
 export const DEFAULT_PERIOD: PeriodChoice = "last_7_days";
+/** Máximo de campanhas escolhidas de uma vez no Relatórios. */
+export const MAX_CAMPAIGN_IDS = 100;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const pick = <T extends string>(value: string | null, allowed: readonly T[]) =>
@@ -77,6 +82,7 @@ export function parseFilters(params: URLSearchParams): DashboardFilters {
     platform: pick(params.get(FILTER_PARAMS.platform), PLATFORM_OPTIONS.map((o) => o.value)),
     accountId: uuid(params.get(FILTER_PARAMS.accountId)),
     campaignId: uuid(params.get(FILTER_PARAMS.campaignId)),
+    campaignIds: [...new Set((params.get(FILTER_PARAMS.campaignIds) ?? "").split(",").map(uuid).filter((v): v is string => Boolean(v)))].slice(0, MAX_CAMPAIGN_IDS),
     status: pick(params.get(FILTER_PARAMS.status), CAMPAIGN_STATUS_OPTIONS.map((o) => o.value)),
     currency: currencyCode(params.get(FILTER_PARAMS.currency)),
   };
@@ -86,7 +92,8 @@ export function parseFilters(params: URLSearchParams): DashboardFilters {
 export function serializeFilters(filters: DashboardFilters): URLSearchParams {
   const params = new URLSearchParams();
   for (const key of Object.keys(FILTER_PARAMS) as (keyof DashboardFilters)[]) {
-    const value = filters[key];
+    const raw = filters[key];
+    const value = Array.isArray(raw) ? raw.join(",") : raw;
     if (!value || (key === "period" && value === DEFAULT_PERIOD)) continue;
     if ((key === "from" || key === "to") && filters.period !== "custom") continue;
     params.set(FILTER_PARAMS[key], value);
@@ -103,9 +110,11 @@ export function updateFilters(current: DashboardFilters, patch: Partial<Dashboar
   if ("clientId" in patch && patch.clientId !== current.clientId) {
     next.accountId = null;
     next.campaignId = null;
+    next.campaignIds = [];
   }
   if (("platform" in patch && patch.platform !== current.platform) || ("accountId" in patch && patch.accountId !== current.accountId)) {
     next.campaignId = null;
+    next.campaignIds = [];
   }
   if ("period" in patch && patch.period !== "custom") {
     next.from = null;
@@ -129,7 +138,7 @@ export function resolveFilterPeriod(filters: DashboardFilters, timezone = DEFAUL
 }
 
 export function hasActiveFilters(filters: DashboardFilters): boolean {
-  return Boolean(filters.clientId || filters.platform || filters.accountId || filters.campaignId || filters.status);
+  return Boolean(filters.clientId || filters.platform || filters.accountId || filters.campaignId || filters.campaignIds.length || filters.status);
 }
 
 /**

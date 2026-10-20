@@ -70,7 +70,7 @@ export function HistoryPage() {
   const previous = previousRange(range, ym);
 
   const filters: DashboardFilters = {
-    period: "custom", from: range.from, to: range.to, clientId, platform, accountId, campaignId: null, status: null, currency: null,
+    period: "custom", from: range.from, to: range.to, clientId, platform, accountId, campaignId: null, campaignIds: [], status: null, currency: null,
   };
   const summary = useDashboardSummary(range, previous, filters);
   const yearRange = { from: months.at(-1)?.range.from ?? range.from, to: today };

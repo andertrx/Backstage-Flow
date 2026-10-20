@@ -1,6 +1,7 @@
 import type { DateRange } from "@backstage/shared";
 import { useQuery } from "@tanstack/react-query";
 import type { CampaignRow } from "@/features/campaigns/types.ts";
+import { campaignFilter } from "@/features/dashboard/api.ts";
 import type { DashboardFilters } from "@/features/dashboard/filters.ts";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
@@ -16,7 +17,7 @@ export const MAX_CAMPAIGNS = 2000;
 /** Todas as campanhas do período (com os filtros), da que mais investiu para a que menos investiu. */
 export function useReportCampaigns(range: DateRange, f: DashboardFilters) {
   return useQuery({
-    queryKey: ["reports", "campaigns", range, f.clientId, f.platform, f.accountId, f.campaignId, f.status],
+    queryKey: ["reports", "campaigns", range, f.clientId, f.platform, f.accountId, f.campaignId, f.campaignIds, f.status],
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const rows: CampaignRow[] = [];
@@ -43,7 +44,8 @@ export function useReportCampaigns(range: DateRange, f: DashboardFilters) {
         rows.push(...page);
         if (page.length < PAGE || rows.length >= (page[0]?.total_count ?? 0)) break;
       }
-      const filtered = f.campaignId ? rows.filter((r) => r.campaign_id === f.campaignId) : rows;
+      const chosen = campaignFilter(f);
+      const filtered = chosen ? rows.filter((r) => chosen.includes(r.campaign_id)) : rows;
       // Campanhas sem nenhum dado no período não entram (nada de linha zerada inventada).
       return filtered.filter((r) => r.has_data);
     },
