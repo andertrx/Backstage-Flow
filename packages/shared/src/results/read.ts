@@ -110,6 +110,7 @@ export async function buildRead(
   const stats: RiReadStats = { total: 0, stored: 0, duplicates: 0, noDate: 0, invalidDates: 0, noProfile: 0, noOrigin: 0, invalidIds: 0, noContact: 0 };
   const out: RiRow[] = [];
   const seen = new Set<string>();
+  const usedIds = new Set<string>();
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
@@ -126,10 +127,15 @@ export async function buildRead(
     };
 
     const rowNumber = headerRow + 1 + i;
+    const contact = normalizeContact(cell("contact_key"));
+    // ID repetido só é cópia quando o contato também é o mesmo. Se a coluna "ID" se repete com
+    // contatos diferentes (ex.: ID do formulário, igual em todas as linhas), a linha conta normalmente.
     const recordId = cell("record_id").slice(0, 200);
-    const key = recordId ? `id:${recordId}` : `L${rowNumber}`;
-    if (seen.has(key)) { stats.duplicates++; continue; }
-    seen.add(key);
+    const same = recordId ? `${recordId}\u0000${contact ?? ""}` : "";
+    if (same && seen.has(same)) { stats.duplicates++; continue; }
+    if (same) seen.add(same);
+    const key = recordId && !usedIds.has(recordId) ? `id:${recordId}` : `L${rowNumber}`;
+    if (recordId) usedIds.add(recordId);
 
     const rawDate = cell("contact_date");
     const d = rawDate ? parseSheetDate(rawDate) : null;
@@ -139,7 +145,6 @@ export async function buildRead(
     const p = normalizeText(cell("profile")).slice(0, 200);
     if (!p) stats.noProfile++;
 
-    const contact = normalizeContact(cell("contact_key"));
     if (!contact) stats.noContact++;
 
     const row: RiRow = {

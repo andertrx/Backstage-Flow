@@ -46,6 +46,8 @@ export interface RiResults {
   sources: number;
   level: RiLevel;
   totals: RiResultTotals;
+  /** Por perfil: contatos sem campanha preenchida na planilha e com campanha preenchida que o CRM não achou. */
+  gaps?: Partial<Record<RiProfile, { no_campaign: number; not_linked: number }>>;
   outside: { no_date: number; all_rows: number };
   scope_contacts: number;
   scope_without_level: number;

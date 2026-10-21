@@ -48,6 +48,21 @@ describe("leitura da planilha (Etapa 39.2)", () => {
     expect(stats).toEqual({ total: 4, stored: 3, duplicates: 1, noDate: 1, invalidDates: 1, noProfile: 1, noOrigin: 1, invalidIds: 1, noContact: 1 });
   });
 
+  it("ID repetido com contatos diferentes (ID do formulário) não apaga linhas (correção 21/10/2026)", async () => {
+    const headers = ["ID", "Data", "Tipo", "Telefone"];
+    const mapping = { record_id: "ID", contact_date: "Data", profile: "Tipo", contact_key: "Telefone" };
+    const rows = [
+      ["form1", "10/10/2026", "Lojista", "11900000001"],
+      ["form1", "10/10/2026", "Lojista", "11900000002"],
+      ["form1", "11/10/2026", "Sacoleira", "11900000003"],
+      ["form1", "11/10/2026", "Sacoleira", "11900000003"],
+    ];
+    const { rows: out, stats } = await buildRead(headers, rows, mapping, 1, fakeHash);
+    expect(out.map((r) => r.k)).toEqual(["id:form1", "L3", "L4"]);
+    expect(stats.duplicates).toBe(1);
+    expect(stats.stored).toBe(3);
+  });
+
   it("próxima leitura: 8h, 12h e 16h de Brasília", () => {
     expect(nextScheduledRead(new Date("2026-10-17T10:00:00Z")).toISOString()).toBe("2026-10-17T11:00:00.000Z");
     expect(nextScheduledRead(new Date("2026-10-17T11:00:00Z")).toISOString()).toBe("2026-10-17T15:00:00.000Z");

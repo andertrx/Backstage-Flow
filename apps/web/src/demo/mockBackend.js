@@ -165,13 +165,16 @@ function riRows(db, clientId) {
   for (const src of db.riSources.filter((x) => x.client_id === clientId)) {
     const snap = db.riSnapshots[src.id];
     for (const e of snap?.rows ?? []) {
-      const [cn, sn, an] = [nm(e.cn), nm(e.sn), nm(e.an)];
-      const ai = e.aid ? ads.find((a) => a.external_id === e.aid) : null;
-      const si = e.sid ? sets.find((g) => g.external_id === e.sid) : null;
-      const ci = e.cid ? camps.find((c) => c.external_id === e.cid) : null;
-      let amb = false;
+      // ID colado na coluna do nome (utm_campaign={{campaign.id}}) vale como ID (correção 21/10/2026).
+      const isId = (v) => /^[0-9]{6,}$/.test(String(v ?? "").trim());
+      const [cn, sn, an] = [isId(e.cn) ? null : nm(e.cn), isId(e.sn) ? null : nm(e.sn), isId(e.an) ? null : nm(e.an)];
+      const [aid, sid, cid] = [e.aid || (isId(e.an) ? e.an.trim() : null), e.sid || (isId(e.sn) ? e.sn.trim() : null), e.cid || (isId(e.cn) ? e.cn.trim() : null)];
+      const ai = aid ? ads.find((a) => a.external_id === aid) : null;
+      const si = sid ? sets.find((g) => g.external_id === sid) : null;
+      const ci = cid ? camps.find((c) => c.external_id === cid) : null;
+      let amb = false, campAmb = false;
       let c = ai?.campaign_id ?? si?.campaign_id ?? ci?.id ?? null;
-      if (!c && cn) { const m = byName(camps, cn); if (m.length === 1) c = m[0].id; else if (m.length > 1) amb = true; }
+      if (!c && cn) { const m = byName(camps, cn); if (m.length === 1) c = m[0].id; else if (m.length > 1) amb = campAmb = true; }
       let g = ai?.ad_group_id ?? si?.id ?? null;
       if (!g && sn) { const m = byName(sets, sn, (x) => !c || x.campaign_id === c); if (m.length === 1) { g = m[0].id; c = c ?? m[0].campaign_id; } else if (m.length > 1) amb = true; }
       let a = ai?.id ?? null;
@@ -179,15 +182,16 @@ function riRows(db, clientId) {
         const m = byName(ads, an, (x) => (g ? x.ad_group_id === g : c ? x.campaign_id === c : true));
         if (m.length === 1) { a = m[0].id; g = g ?? m[0].ad_group_id; c = c ?? m[0].campaign_id; } else if (m.length > 1) amb = true;
       }
-      const hasOrigin = Boolean(e.aid || e.sid || e.cid || cn || sn || an);
+      const hasOrigin = Boolean(aid || sid || cid || cn || sn || an);
       const profile = ["lojista", "sacoleiro", "consumidor_final"].includes(src.profile_rules?.[e.p]) ? src.profile_rules[e.p] : "nao_identificado";
       out.push({
         source_id: src.id, row_number: e.n, record_key: e.k, contact: e.h || `${src.id}:${e.k}`, contact_date: e.d ?? null,
-        profile_value: e.p || null, profile, sheet_campaign: e.cn ?? null, sheet_adset: e.sn ?? null, sheet_ad: e.an ?? null,
+        profile_value: e.p || null, profile, sheet_campaign: e.cn?.trim() || e.cid || null, sheet_adset: e.sn?.trim() || e.sid || null, sheet_ad: e.an?.trim() || e.aid || null,
         campaign_id: c, ad_group_id: g, ad_id: a,
         match_level: a ? "anuncio" : g ? "conjunto" : c ? "campanha" : null,
         match_method: !a && !g && !c ? null : (ai || si || ci) ? "id" : "nome",
-        match_issue: !hasOrigin ? "sem_origem" : !a && !g && !c ? (amb ? "nome_ambiguo" : "nao_encontrada") : amb ? "nome_ambiguo" : null,
+        match_issue: !hasOrigin ? "sem_origem" : !a && !g && !c ? ((cid || cn) && !campAmb ? "nao_encontrada" : amb ? "nome_ambiguo" : "nao_encontrada")
+          : amb ? "nome_ambiguo" : null,
         sale_status: null, sale_date: null, sale_value: null,
       });
     }
@@ -427,7 +431,9 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         const list = all.filter((r) => (p.p_issue === "sem_data" ? !r.contact_date : !p.p_from || inPeriod(r))
           && (!p.p_profile || r.profile === p.p_profile) && (!p.p_campaign_id || r.campaign_id === p.p_campaign_id)
           && (!p.p_ad_group_id || r.ad_group_id === p.p_ad_group_id) && (!p.p_ad_id || r.ad_id === p.p_ad_id)
-          && (!p.p_issue || p.p_issue === "sem_data" || r.match_issue === p.p_issue))
+          && (!p.p_issue || p.p_issue === "sem_data"
+            || (p.p_issue === "sem_campanha" ? !r.sheet_campaign && !r.campaign_id
+              : p.p_issue === "campanha_nao_ligada" ? Boolean(r.sheet_campaign) && !r.campaign_id : r.match_issue === p.p_issue)))
           .sort((a, b) => (b.contact_date ?? "").localeCompare(a.contact_date ?? "") || b.row_number - a.row_number);
         const name = (list2, id) => list2.find((x) => x.id === id)?.name ?? null;
         return res(200, list.slice(p.p_offset, p.p_offset + p.p_limit).map(({ contact, source_id, ...r }) => ({
@@ -473,6 +479,10 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           origin_by_name: pr.filter((r) => r.match_method === "nome").length, no_origin: pr.filter((r) => r.match_issue === "sem_origem").length,
           not_found: pr.filter((r) => r.match_issue === "nao_encontrada").length, ambiguous: pr.filter((r) => r.match_issue === "nome_ambiguo").length,
         },
+        gaps: Object.fromEntries(PROFILES.map((x) => [x, {
+          no_campaign: uniq(pr, (r) => r.profile === x && !r.sheet_campaign && !r.campaign_id),
+          not_linked: uniq(pr, (r) => r.profile === x && Boolean(r.sheet_campaign) && !r.campaign_id),
+        }])),
         outside: { no_date: all.filter((r) => !r.contact_date).length, all_rows: all.length },
         scope_contacts: uniq(scope), scope_without_level: uniq(scope) - withEnt, items,
       });

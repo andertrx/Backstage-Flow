@@ -1,3 +1,20 @@
+# Ponto de restauração — antes da correção da conta da Inteligência de Resultados (21/10/2026, noite)
+
+Criado antes de ligar os IDs do Meta que estão nas colunas de nome da planilha e de mostrar o aviso "sem campanha".
+
+| Parte | Identificação desta versão |
+|---|---|
+| **Código** (branch `claude/meta-google-ads-dashboard-8g4wfg`) | commit **`cf9a853`** |
+| **Banco** (Supabase) | última migração **`20261021192656 ri_meta_counts`** |
+| **Leitor da planilha** (Edge Function `sheets`) | versão 3 (a correção é a versão 4) |
+
+## Como voltar
+1. **Banco:** rodar `supabase/rollback/voltar_ri_conta_2026_10_21.sql` (troca o nome das funções de volta; não apaga nada).
+2. **Código e site:** pedir "volte a conta da Inteligência de Resultados" — eu reverto os commits dessa correção em cima da branch.
+3. **Leitor da planilha:** publicar de novo o `supabase/functions/sheets` do commit `cf9a853`.
+
+---
+
 # Ponto de restauração — antes da nova apresentação da Inteligência de Resultados (21/10/2026)
 
 Criado antes de mudar as abas por perfil (Lojistas, Sacoleiros, Consumidores finais) para mostrar campanhas, conjuntos e criativos de uma vez.

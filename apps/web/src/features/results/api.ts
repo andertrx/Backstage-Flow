@@ -193,7 +193,7 @@ export function useSaveRiSource() {
 
 export interface RiDailyRow { day: string; contacts: number; lojista: number; sacoleiro: number; consumidor_final: number; nao_identificado: number }
 
-export type RiIssue = "sem_origem" | "nao_encontrada" | "nome_ambiguo" | "sem_data";
+export type RiIssue = "sem_origem" | "nao_encontrada" | "nome_ambiguo" | "sem_data" | "sem_campanha" | "campanha_nao_ligada";
 
 export interface RiRecord {
   row_number: number;

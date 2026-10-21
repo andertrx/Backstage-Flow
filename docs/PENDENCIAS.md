@@ -3,6 +3,9 @@
 > Lista do que ficou para depois. Eu (Claude) confiro e lembro esta lista nos relatórios.
 > Quando fizer um item, me avise que eu marco como feito.
 
+## Planilhas da Inteligência de Resultados (21/10/2026)
+- [ ] **Armored:** 441 linhas têm na coluna `utm_campaign` um nome de campanha que não existe no Meta como está escrito (ex.: "CP-36 … [LP]" na planilha; no Meta o CP-36 é "[FORM]" e o CP-37 é "[LP]"). O melhor é trocar a UTM para o ID (`utm_campaign={{campaign.id}}`, `utm_term={{adset.id}}`, `utm_content={{ad.id}}`), como a Vonks já faz. As linhas aparecem no aviso amarelo com "Ver linhas".
+
 ## Domínio backstageflow.com.br
 - [x] 1. Vercel: domínio adicionado (27/09/2026)
 - [x] 2. Registro.br: DNS apontado (27/09/2026)

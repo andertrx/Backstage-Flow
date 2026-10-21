@@ -3,7 +3,7 @@ import {
   type RiRankMetric, type RiResultItem, type RiResults, topFor,
 } from "@backstage/shared";
 import { ListChecks, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -92,6 +92,7 @@ function Overview({ clientId, period, onRecords }: { clientId: string; period: R
         <Kpi label="Com origem identificada" value={pct(t.contacts ? (t.with_origin / t.contacts) * 100 : null)} sub={`${int(t.with_origin)} de ${int(t.contacts)} contatos`} testid="ri-card-origin" />
         <Kpi label="Linhas no período" value={int(t.rows)} sub={`${int(cur.data.outside.no_date)} linha(s) sem data ficam fora`} testid="ri-card-rows" />
       </div>
+      <CampaignGaps results={cur.data} profiles={RANKED_PROFILES} onRecords={onRecords} />
 
       <Card className="space-y-3 p-5">
         <h2 className="text-base font-semibold text-slate-900">Distribuição dos perfis</h2>
@@ -180,6 +181,42 @@ function ProfileBar({ totals }: { totals: RiResults["totals"] }) {
         ))}
       </ul>
       <p className="text-xs text-slate-500">Um mesmo contato pode aparecer em mais de um perfil se a planilha tiver linhas diferentes para ele.</p>
+    </div>
+  );
+}
+
+/**
+ * Aviso pedido pelo Ander (21/10/2026): quantos contatos de cada perfil estão sem campanha
+ * preenchida na planilha, e quantos têm campanha preenchida que o CRM não achou. Eles contam
+ * no total do perfil, mas não aparecem nas tabelas de campanha.
+ */
+function CampaignGaps({ results, profiles, onRecords }: {
+  results: RiResults; profiles: readonly (typeof RANKED_PROFILES)[number][]; onRecords: (t: RecordsTarget) => void;
+}) {
+  const lines: { key: string; text: ReactNode; target: RecordsTarget }[] = [];
+  for (const pr of profiles) {
+    const g = results.gaps?.[pr];
+    const plural = PROFILE_LOOK[pr].plural.toLowerCase();
+    if (g && g.no_campaign > 0) lines.push({ key: `${pr}-blank`, text: <><strong>{int(g.no_campaign)} {plural}</strong> sem campanha preenchida na planilha.</>,
+      target: { issue: "sem_campanha", profile: pr, title: `${PROFILE_LOOK[pr].plural} sem campanha na planilha` } });
+    if (g && g.not_linked > 0) lines.push({ key: `${pr}-missing`,
+      text: <><strong>{int(g.not_linked)} {plural}</strong> com campanha preenchida, mas que o CRM não conseguiu ligar (nome diferente do Meta/Google, nome repetido em mais de uma campanha ou conta não ligada a este cliente).</>,
+      target: { issue: "campanha_nao_ligada", profile: pr, title: `${PROFILE_LOOK[pr].plural} com campanha não encontrada` } });
+  }
+  if (lines.length === 0) return null;
+  return (
+    <div data-testid="ri-campaign-gaps">
+      <Alert tone="warning">
+        <ul className="space-y-1">
+          {lines.map((l) => (
+            <li key={l.key} className="flex flex-wrap items-center gap-x-2">
+              <span>{l.text}</span>
+              <button type="button" className="text-xs font-medium text-amber-900 underline" onClick={() => onRecords(l.target)}>Ver linhas</button>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-1 text-xs">Eles contam no total, mas não aparecem nas tabelas de campanhas, conjuntos e criativos.</p>
+      </Alert>
     </div>
   );
 }
@@ -298,6 +335,7 @@ function ProfileTab({ clientId, profile, period, view, onRecords }: {
         <Kpi small label={`Conjunto com mais ${look.plural.toLowerCase()}`} value={best(setsAll.data)} testid="ri-best-adset" />
         <Kpi small label={`Criativo com mais ${look.plural.toLowerCase()}`} value={best(adsAll.data)} testid="ri-best-ad" />
       </div>
+      <CampaignGaps results={camps.data} profiles={[profile]} onRecords={onRecords} />
 
       <Card className="flex flex-wrap items-end gap-3 p-4">
         <div className="w-full sm:w-64">
