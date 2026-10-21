@@ -1,3 +1,19 @@
+# Ponto de restauração — antes da nova apresentação da Inteligência de Resultados (21/10/2026)
+
+Criado antes de mudar as abas por perfil (Lojistas, Sacoleiros, Consumidores finais) para mostrar campanhas, conjuntos e criativos de uma vez.
+
+| Parte | Identificação desta versão |
+|---|---|
+| **Código** (branch `claude/meta-google-ads-dashboard-8g4wfg`) | commit **`d65b324`** |
+| **Banco** (Supabase) | última migração **`20261019201248 ri_params`** |
+
+## Como voltar
+1. **Site:** no painel da Vercel (projeto `web` → Deployments), promover o deploy do commit `d65b324` ("Relatórios: várias campanhas…") com **Promote to Production / Instant Rollback**.
+2. **Banco:** rodar `supabase/rollback/voltar_ri_apresentacao_2026_10_21.sql` (devolve a função de resultados à versão anterior; não apaga nada).
+3. **Código:** pedir "volte a Inteligência de Resultados para o ponto de volta de 21/10" — eu reverto os commits dessa mudança em cima da branch, sem apagar histórico.
+
+---
+
 # Ponto de restauração — CRM antes do Agente de IA
 
 Criado em 26/09/2026, antes de qualquer desenvolvimento da **Etapa 33 (Agente de IA)**.
