@@ -30,20 +30,20 @@ function levelTable(l: Level, profile: ExportProfile): ReportTable {
   if (profile === "todos") {
     return {
       title: l.title, sheet: l.sheet, currency: null,
-      columns: [...parentCols, l.title.replace(/s$/, ""), "Contatos", ...ALL.map((p) => PLURAL[p]), "Investimento", "Moeda", "Linhas ligadas pelo nome"],
+      columns: [...parentCols, l.title.replace(/s$/, ""), "Contatos", ...ALL.map((p) => PLURAL[p]), "Leads (Meta)", "Mensagens (Meta)", "Investimento", "Moeda", "Linhas ligadas pelo nome"],
       rows: [...l.data.items].sort((a, b) => b.contacts - a.contacts || a.name.localeCompare(b.name, "pt-BR"))
-        .map((i) => [...parentCells(i), t(i.name), n(i.contacts), ...ALL.map((p) => n(i[p])), ...spendCells(i), n(i.by_name)]),
+        .map((i) => [...parentCells(i), t(i.name), n(i.contacts), ...ALL.map((p) => n(i[p])), n(i.leads ?? null), n(i.messages ?? null), ...spendCells(i), n(i.by_name)]),
     };
   }
   const label = RI_PROFILE_LABELS[profile].toLowerCase();
   return {
     title: l.title, sheet: l.sheet, currency: null,
     columns: ["Posição", "Empate", ...parentCols, l.title.replace(/s$/, ""), PLURAL[profile], `% de ${PLURAL[profile].toLowerCase()} no item`, "Contatos",
-      "Investimento", "Moeda", `Custo por ${label}`, "Linhas ligadas pelo nome"],
+      "Leads (Meta)", "Mensagens (Meta)", "Investimento", "Moeda", `Custo por ${label}`, "Linhas ligadas pelo nome"],
     rows: rankItems(l.data.items, profile, "count").map((r) => {
       const cost = costPerContact(r.spend, r[profile]);
       return [n(r.position), t(r.tied ? "sim" : "não"), ...parentCells(r), t(r.name), n(r[profile]), pct(profileShare(r, profile)), n(r.contacts),
-        ...spendCells(r), money(cost ? cost.micros / 1e6 : null), n(r.by_name)];
+        n(r.leads ?? null), n(r.messages ?? null), ...spendCells(r), money(cost ? cost.micros / 1e6 : null), n(r.by_name)];
     }),
   };
 }

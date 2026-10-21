@@ -2,7 +2,7 @@ import {
   addDays, classifiedShare, costPerContact, type DateRange, profileShare, rankItems, type RiLevel, type RiProfile,
   type RiRankMetric, type RiResultItem, type RiResults, type RiSpend, topFor,
 } from "@backstage/shared";
-import { ChevronRight, ListChecks, Search } from "lucide-react";
+import { ListChecks, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -114,12 +114,14 @@ function Overview({ clientId, period, onRecords }: { clientId: string; period: R
           <p className="text-sm text-slate-500">Nenhum contato do período foi ligado a uma campanha.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm" data-testid="ri-overview-campaigns">
+            <table className="w-full min-w-[800px] text-sm" data-testid="ri-overview-campaigns">
               <thead className="text-left text-xs text-slate-500">
                 <tr>
                   <th className="py-2 pr-3 font-medium">Campanha</th>
                   <th className="px-2 py-2 text-right font-medium">Contatos</th>
                   {PROFILES.map((pr) => <th key={pr} className="px-2 py-2 text-right font-medium">{PROFILE_LOOK[pr].plural}</th>)}
+                  <th className="px-2 py-2 text-right font-medium">Leads (Meta)</th>
+                  <th className="px-2 py-2 text-right font-medium">Mensagens (Meta)</th>
                   <th className="py-2 pl-2 text-right font-medium">Investimento</th>
                 </tr>
               </thead>
@@ -129,6 +131,8 @@ function Overview({ clientId, period, onRecords }: { clientId: string; period: R
                     <td className="max-w-64 truncate py-2 pr-3 font-medium text-slate-900" title={i.name}>{i.name}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{int(i.contacts)}</td>
                     {PROFILES.map((pr) => <td key={pr} className="px-2 py-2 text-right tabular-nums">{int(i[pr])}</td>)}
+                    <td className="px-2 py-2 text-right tabular-nums">{metaNumber(i.leads)}</td>
+                    <td className="px-2 py-2 text-right tabular-nums">{metaNumber(i.messages)}</td>
                     <td className="py-2 pl-2 text-right tabular-nums">{spendText(i.spend)}</td>
                   </tr>
                 ))}
@@ -263,18 +267,24 @@ function DailyChart({ range, rows, error, profiles }: { range: DateRange; rows: 
 
 // ---------------------------------------------------------------- Abas por perfil
 
+/**
+ * Aba de um perfil (pedido do Ander, 21/10/2026): campanhas, conjuntos e criativos
+ * aparecem juntos, cada um com a quantidade do perfil (planilha) e os leads/mensagens
+ * do Meta. Clicar numa campanha ou conjunto filtra as tabelas de baixo (sem trocar de tela).
+ */
 function ProfileTab({ clientId, profile, period, view, onRecords }: {
   clientId: string; profile: (typeof RANKED_PROFILES)[number]; period: ResolvedPeriod; view: ResultsView; onRecords: (t: RecordsTarget) => void;
 }) {
   const look = PROFILE_LOOK[profile];
-  const level: RiLevel = view.adGroupId ? "ad" : view.campaignId ? "ad_group" : "campaign";
   const camps = useRiResults(clientId, period.current, "campaign");
   const prev = useRiResults(clientId, period.previous, "campaign");
-  const sets = useRiResults(clientId, period.current, "ad_group");
-  const ads = useRiResults(clientId, period.current, "ad");
-  const drilled = useRiResults(clientId, period.current, level, view.campaignId, view.adGroupId, level !== "campaign");
+  const setsAll = useRiResults(clientId, period.current, "ad_group");
+  const adsAll = useRiResults(clientId, period.current, "ad");
+  const sets = useRiResults(clientId, period.current, "ad_group", view.campaignId, null, Boolean(view.campaignId));
+  const ads = useRiResults(clientId, period.current, "ad", view.campaignId, view.adGroupId, Boolean(view.campaignId || view.adGroupId));
   const daily = useRiDaily(clientId, period.current, view.campaignId, view.adGroupId);
-  const ranking = level === "campaign" ? camps : drilled;
+  const setsShown = view.campaignId ? sets : setsAll;
+  const adsShown = view.campaignId || view.adGroupId ? ads : adsAll;
 
   if (camps.error) return <Alert tone="error">{errorMessage(camps.error)}</Alert>;
   if (!camps.data) return <div className="h-40 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />;
@@ -283,10 +293,8 @@ function ProfileTab({ clientId, profile, period, view, onRecords }: {
     const top = r ? topFor(r.items, profile) : [];
     return top.length === 0 ? "—" : top.length === 1 ? `${top[0].name} (${int(top[0][profile])})` : `${top.length} empatados com ${int(top[0][profile])}`;
   };
-  const campaignName = sets.data?.items.find((i) => i.campaign_id === view.campaignId)?.campaign_name
-    ?? camps.data.items.find((i) => i.id === view.campaignId)?.name ?? "Campanha";
-  const adGroupName = ads.data?.items.find((i) => i.ad_group_id === view.adGroupId)?.ad_group_name
-    ?? sets.data?.items.find((i) => i.id === view.adGroupId)?.name ?? "Conjunto";
+  const campaignName = camps.data.items.find((i) => i.id === view.campaignId)?.name ?? "Campanha";
+  const adGroupName = setsAll.data?.items.find((i) => i.id === view.adGroupId)?.name ?? "Conjunto";
 
   return (
     <div className="space-y-4" data-testid={`ri-tab-${profile}`}>
@@ -294,130 +302,185 @@ function ProfileTab({ clientId, profile, period, view, onRecords }: {
         <Kpi label={look.plural} value={int(t[profile])} sub={`${pct(t.contacts ? (t[profile] / t.contacts) * 100 : null)} dos ${int(t.contacts)} contatos`}
           previous={prev.data?.totals[profile]} current={t[profile]} color={look.color} testid="ri-profile-total" />
         <Kpi small label={`Campanha com mais ${look.plural.toLowerCase()}`} value={best(camps.data)} testid="ri-best-campaign" />
-        <Kpi small label={`Conjunto com mais ${look.plural.toLowerCase()}`} value={best(sets.data)} testid="ri-best-adset" />
-        <Kpi small label={`Anúncio com mais ${look.plural.toLowerCase()}`} value={best(ads.data)} testid="ri-best-ad" />
+        <Kpi small label={`Conjunto com mais ${look.plural.toLowerCase()}`} value={best(setsAll.data)} testid="ri-best-adset" />
+        <Kpi small label={`Criativo com mais ${look.plural.toLowerCase()}`} value={best(adsAll.data)} testid="ri-best-ad" />
       </div>
 
-      <Card className="space-y-3 p-5">
-        <h2 className="text-base font-semibold text-slate-900">{look.plural} por dia{view.campaignId && <span className="font-normal text-slate-500"> · {level === "ad" ? adGroupName : campaignName}</span>}</h2>
-        <DailyChart range={period.current} rows={daily.data} error={daily.error} profiles={[profile]} />
+      <Card className="flex flex-wrap items-end gap-3 p-4">
+        <div className="w-full sm:w-64">
+          <Field label="Ordenar por">
+            {(id) => (
+              <Select id={id} value={view.metric} onChange={(e) => view.onChange({ ordem: e.target.value as RiRankMetric })}>
+                <option value="count">Quantidade de {look.plural.toLowerCase()}</option>
+                <option value="share">% de {look.plural.toLowerCase()} no item</option>
+                <option value="cost">Custo por {look.label.toLowerCase()} (menor primeiro)</option>
+              </Select>
+            )}
+          </Field>
+        </div>
+        <div className="w-full sm:w-64">
+          <Field label="Buscar pelo nome">
+            {(id) => (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+                <Input id={id} className="pl-8" value={view.search} onChange={(e) => view.onChange({ busca: e.target.value })} placeholder="Campanha, conjunto ou criativo" />
+              </div>
+            )}
+          </Field>
+        </div>
+        {(view.campaignId || view.adGroupId) && (
+          <div className="flex flex-wrap items-center gap-2 pb-1 text-sm" data-testid="ri-active-filters">
+            <span className="text-slate-500">Mostrando só:</span>
+            {view.campaignId && <FilterChip label={`Campanha: ${campaignName}`} onClear={() => view.onChange({ campanha: null, conjunto: null })} />}
+            {view.adGroupId && <FilterChip label={`Conjunto: ${adGroupName}`} onClear={() => view.onChange({ conjunto: null })} />}
+          </div>
+        )}
       </Card>
 
+      <LevelSection title="Campanhas" level="campaign" query={camps} profile={profile} view={view} onRecords={onRecords}
+        selectedId={view.campaignId} onOpen={(r) => view.onChange(view.campaignId === r.id ? { campanha: null, conjunto: null } : { campanha: r.id, conjunto: null })}
+        openHint="Clique na campanha para ver só os conjuntos e criativos dela." />
+      <LevelSection title={view.campaignId ? `Conjuntos de ${campaignName}` : "Conjuntos de anúncios"} level="ad_group" query={setsShown} profile={profile} view={view} onRecords={onRecords}
+        selectedId={view.adGroupId} onOpen={(r) => view.onChange(view.adGroupId === r.id ? { conjunto: null } : { campanha: r.campaign_id, conjunto: r.id })}
+        openHint="Clique no conjunto para ver só os criativos dele." />
+      <LevelSection title={view.adGroupId ? `Criativos de ${adGroupName}` : view.campaignId ? `Criativos de ${campaignName}` : "Criativos (anúncios)"} level="ad"
+        query={adsShown} profile={profile} view={view} onRecords={onRecords} />
+
       <Card className="space-y-3 p-5">
-        <nav className="flex flex-wrap items-center gap-1 text-sm" aria-label="Nível do ranking" data-testid="ri-breadcrumb">
-          <button type="button" className={cn("font-medium", level === "campaign" ? "text-slate-900" : "text-blue-700 hover:underline")}
-            onClick={() => view.onChange({ campanha: null, conjunto: null, busca: "" })}>Campanhas</button>
-          {view.campaignId && <><ChevronRight className="size-4 text-slate-400" aria-hidden />
-            <button type="button" className={cn("max-w-56 truncate font-medium", level === "ad_group" ? "text-slate-900" : "text-blue-700 hover:underline")}
-              onClick={() => view.onChange({ conjunto: null, busca: "" })}>{campaignName}</button></>}
-          {view.adGroupId && <><ChevronRight className="size-4 text-slate-400" aria-hidden /><span className="max-w-56 truncate font-medium text-slate-900">{adGroupName}</span></>}
-        </nav>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-full sm:w-64">
-            <Field label="Ordenar por">
-              {(id) => (
-                <Select id={id} value={view.metric} onChange={(e) => view.onChange({ ordem: e.target.value as RiRankMetric })}>
-                  <option value="count">Quantidade de {look.plural.toLowerCase()}</option>
-                  <option value="share">% de {look.plural.toLowerCase()} no item</option>
-                  <option value="cost">Custo por {look.label.toLowerCase()} (menor primeiro)</option>
-                </Select>
-              )}
-            </Field>
-          </div>
-          <div className="w-full sm:w-64">
-            <Field label="Buscar pelo nome">
-              {(id) => (
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
-                  <Input id={id} className="pl-8" value={view.search} onChange={(e) => view.onChange({ busca: e.target.value })} placeholder={`Nome ${LEVEL_LABEL[level].of}`} />
-                </div>
-              )}
-            </Field>
-          </div>
-        </div>
-        {ranking.error ? <Alert tone="error">{errorMessage(ranking.error)}</Alert>
-          : !ranking.data ? <div className="h-24 animate-pulse rounded-lg bg-slate-100" aria-label="Carregando" />
-          : <RankingTable results={ranking.data} level={level} profile={profile} view={view} onRecords={onRecords} />}
+        <h2 className="text-base font-semibold text-slate-900">{look.plural} por dia{view.campaignId && <span className="font-normal text-slate-500"> · {view.adGroupId ? adGroupName : campaignName}</span>}</h2>
+        <DailyChart range={period.current} rows={daily.data} error={daily.error} profiles={[profile]} />
       </Card>
+      <p className="text-xs text-slate-500">
+        <strong>{look.plural}</strong> e contatos: contados na planilha (data do contato). <strong>Leads, mensagens e investimento</strong>: informados pelo Meta/Google no mesmo período.
+      </p>
       <ReadNote results={camps.data} />
     </div>
   );
 }
 
-function RankingTable({ results, level, profile, view, onRecords }: {
-  results: RiResults; level: RiLevel; profile: (typeof RANKED_PROFILES)[number]; view: ResultsView; onRecords: (t: RecordsTarget) => void;
-}) {
-  const look = PROFILE_LOOK[profile];
-  const term = view.search.trim().toLocaleLowerCase("pt-BR");
-  const ranked = rankItems(results.items, profile, view.metric).filter((r) => !term || r.name.toLocaleLowerCase("pt-BR").includes(term));
-  const open = (r: RiResultItem) =>
-    level === "campaign" ? view.onChange({ campanha: r.id, conjunto: null, busca: "" }) : level === "ad_group" ? view.onChange({ conjunto: r.id, busca: "" }) : null;
-  const without = results.items.filter((i) => i[profile] === 0).length;
-
+function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <div className="space-y-2">
-      {ranked.length === 0 ? (
-        <p className="text-sm text-slate-500" data-testid="ri-ranking-empty">
-          {term ? "Nenhum item com esse nome." : `Nenhum(a) ${LEVEL_LABEL[level].one} trouxe ${look.plural.toLowerCase()} neste período.`}
-        </p>
-      ) : (
-        // relative: o texto só para leitor de tela (sr-only) fica preso aqui e não alarga a página no celular.
-        <div className="relative overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm" data-testid="ri-ranking">
-            <thead className="text-left text-xs text-slate-500">
-              <tr>
-                <th className="py-2 pr-2 font-medium">#</th>
-                <th className="py-2 pr-3 font-medium">{LEVEL_LABEL[level].many.replace(/s$/, "")}</th>
-                <th className="px-2 py-2 text-right font-medium">{look.plural}</th>
-                <th className="px-2 py-2 text-right font-medium">% no item</th>
-                <th className="px-2 py-2 text-right font-medium">Contatos</th>
-                <th className="px-2 py-2 text-right font-medium">Investimento</th>
-                <th className="px-2 py-2 text-right font-medium">Custo por {look.label.toLowerCase()}</th>
-                <th className="py-2 pl-2"><span className="sr-only">Ações</span></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {ranked.map((r) => {
-                const cost = costPerContact(r.spend, r[profile]);
-                return (
-                  <tr key={r.id} data-testid="ri-ranking-row">
-                    <td className="py-2 pr-2 tabular-nums text-slate-500">{r.position}{r.tied && <span className="ml-1.5 rounded bg-slate-100 px-1 text-[10px] font-medium text-slate-600">empate</span>}</td>
-                    <td className="max-w-72 py-2 pr-3">
-                      {level === "ad" ? (
-                        <span className="block truncate font-medium text-slate-900" title={r.name}>{r.name}</span>
-                      ) : (
-                        <button type="button" className="block max-w-full truncate text-left font-medium text-blue-700 hover:underline" title={`Abrir ${r.name}`} onClick={() => open(r)}>{r.name}</button>
-                      )}
-                      {level !== "campaign" && <span className="block truncate text-xs text-slate-500">{level === "ad" ? r.ad_group_name : r.campaign_name}</span>}
-                      {r.by_name > 0 && <span className="text-[11px] text-amber-700">{int(r.by_name)} linha(s) ligadas pelo nome</span>}
-                    </td>
-                    <td className="px-2 py-2 text-right font-semibold tabular-nums text-slate-900">{int(r[profile])}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">{pct(profileShare(r, profile))}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">{int(r.contacts)}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">{spendText(r.spend)}</td>
-                    <td className="px-2 py-2 text-right tabular-nums" title={cost ? undefined : "Sem investimento informado no período (ou em mais de uma moeda)"}>
-                      {cost ? formatMoney(cost.micros / 1e6, cost.currency) : "—"}
-                    </td>
-                    <td className="py-2 pl-2 text-right">
-                      <Button type="button" variant="ghost" className="px-2 py-1 text-xs" onClick={() => onRecords({
-                        title: `${look.plural} · ${r.name}`, profile,
-                        campaignId: level === "campaign" ? r.id : null, adGroupId: level === "ad_group" ? r.id : null, adId: level === "ad" ? r.id : null,
-                      })}>
-                        <ListChecks className="size-3.5" aria-hidden /> Registros
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <p className="text-xs text-slate-500" data-testid="ri-ranking-note">
-        Ordem pela {view.metric === "count" ? "quantidade" : view.metric === "share" ? "% do perfil" : "custo por contato"}; itens empatados ficam na mesma posição.
-        {without > 0 && <> {int(without)} {LEVEL_LABEL[level].one}(s) com contatos, mas nenhum {look.label.toLowerCase()}, não aparece(m).</>}
-        {results.scope_without_level > 0 && <> {int(results.scope_without_level)} contato(s) {level === "campaign" ? "sem campanha identificada" : `sem ${LEVEL_LABEL[level].one} identificado`} não entram aqui.</>}
-      </p>
-    </div>
+    <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-blue-800 ring-1 ring-inset ring-blue-200">
+      <span className="truncate">{label}</span>
+      <button type="button" onClick={onClear} aria-label={`Tirar o filtro ${label}`} className="rounded-full px-1 text-blue-700 hover:bg-blue-100">✕</button>
+    </span>
   );
 }
+
+const SHOW_FIRST = 10;
+
+/** Uma tabela do perfil (campanhas, conjuntos ou criativos) com as 10 primeiras e "Ver todos". */
+function LevelSection({ title, level, query, profile, view, onRecords, onOpen, selectedId, openHint }: {
+  title: string; level: RiLevel; query: { data?: RiResults; error: unknown }; profile: (typeof RANKED_PROFILES)[number]; view: ResultsView;
+  onRecords: (t: RecordsTarget) => void; onOpen?: (r: RiResultItem) => void; selectedId?: string | null; openHint?: string;
+}) {
+  const [all, setAll] = useState(false);
+  const look = PROFILE_LOOK[profile];
+  const term = view.search.trim().toLocaleLowerCase("pt-BR");
+  const data = query.data;
+  const ranked = data ? rankItems(data.items, profile, view.metric).filter((r) => !term
+    || [r.name, r.campaign_name, r.ad_group_name].some((n) => n?.toLocaleLowerCase("pt-BR").includes(term))) : [];
+  const total = ranked.reduce((sum, r) => sum + r[profile], 0);
+  const shown = all ? ranked : ranked.slice(0, SHOW_FIRST);
+  const without = data ? data.items.filter((i) => i[profile] === 0).length : 0;
+  const one = LEVEL_LABEL[level].one === "anúncio" ? "criativo" : LEVEL_LABEL[level].one;
+
+  return (
+    <Card className="space-y-3 p-5" data-testid={`ri-level-${level}`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        {data && ranked.length > 0 && (
+          <p className="text-sm text-slate-600" data-testid="ri-level-summary">
+            <strong className="text-slate-900">{int(total)}</strong> {look.plural.toLowerCase()} vieram de <strong className="text-slate-900">{int(ranked.length)}</strong> {one}(s)
+          </p>
+        )}
+      </div>
+      {query.error ? <Alert tone="error">{errorMessage(query.error)}</Alert>
+        : !data ? <div className="h-24 animate-pulse rounded-lg bg-slate-100" aria-label="Carregando" />
+        : ranked.length === 0 ? (
+          <p className="text-sm text-slate-500" data-testid="ri-ranking-empty">
+            {term ? "Nenhum item com esse nome." : `Nenhum(a) ${one} trouxe ${look.plural.toLowerCase()} neste período.`}
+          </p>
+        ) : (
+          // relative: o texto só para leitor de tela (sr-only) fica preso aqui e não alarga a página no celular.
+          <div className="relative overflow-x-auto">
+            <table className="w-full min-w-[860px] text-sm" data-testid="ri-ranking">
+              <thead className="text-left text-xs text-slate-500">
+                <tr>
+                  <th className="py-2 pr-2 font-medium">#</th>
+                  <th className="py-2 pr-3 font-medium">{one.charAt(0).toUpperCase() + one.slice(1)}</th>
+                  <th className="px-2 py-2 text-right font-medium">{look.plural}</th>
+                  <th className="px-2 py-2 text-right font-medium">% no item</th>
+                  <th className="px-2 py-2 text-right font-medium">Contatos</th>
+                  <th className="px-2 py-2 text-right font-medium">Leads (Meta)</th>
+                  <th className="px-2 py-2 text-right font-medium">Mensagens (Meta)</th>
+                  <th className="px-2 py-2 text-right font-medium">Investimento</th>
+                  <th className="px-2 py-2 text-right font-medium">Custo por {look.label.toLowerCase()}</th>
+                  <th className="py-2 pl-2"><span className="sr-only">Ações</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {shown.map((r) => {
+                  const cost = costPerContact(r.spend, r[profile]);
+                  const selected = selectedId === r.id;
+                  return (
+                    <tr key={r.id} data-testid="ri-ranking-row" className={cn(selected && "bg-blue-50")}>
+                      <td className="py-2 pr-2 tabular-nums text-slate-500">{r.position}{r.tied && <span className="ml-1.5 rounded bg-slate-100 px-1 text-[10px] font-medium text-slate-600">empate</span>}</td>
+                      <td className="max-w-80 py-2 pr-3">
+                        <div className="flex items-center gap-2">
+                          {level === "ad" && (r.thumbnail_url
+                            ? <img src={r.thumbnail_url} alt="" className="size-10 shrink-0 rounded object-cover ring-1 ring-slate-200" loading="lazy" />
+                            : <span className="grid size-10 shrink-0 place-items-center rounded bg-slate-100 text-[10px] text-slate-400" aria-hidden>sem imagem</span>)}
+                          <div className="min-w-0">
+                            {onOpen ? (
+                              <button type="button" className="block max-w-full truncate text-left font-medium text-blue-700 hover:underline" title={selected ? `Mostrar todos de novo` : openHint}
+                                onClick={() => onOpen(r)}>{r.name}</button>
+                            ) : <span className="block truncate font-medium text-slate-900" title={r.name}>{r.name}</span>}
+                            {level !== "campaign" && (
+                              <span className="block truncate text-xs text-slate-500">{level === "ad" ? [r.campaign_name, r.ad_group_name].filter(Boolean).join(" › ") : r.campaign_name}</span>
+                            )}
+                            {r.by_name > 0 && <span className="text-[11px] text-amber-700">{int(r.by_name)} linha(s) ligadas pelo nome</span>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-2 py-2 text-right text-base font-semibold tabular-nums text-slate-900">{int(r[profile])}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{pct(profileShare(r, profile))}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{int(r.contacts)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{metaNumber(r.leads)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{metaNumber(r.messages)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{spendText(r.spend)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums" title={cost ? undefined : "Sem investimento informado no período (ou em mais de uma moeda)"}>
+                        {cost ? formatMoney(cost.micros / 1e6, cost.currency) : "—"}
+                      </td>
+                      <td className="py-2 pl-2 text-right">
+                        <Button type="button" variant="ghost" className="px-2 py-1 text-xs" onClick={() => onRecords({
+                          title: `${look.plural} · ${r.name}`, profile,
+                          campaignId: level === "campaign" ? r.id : null, adGroupId: level === "ad_group" ? r.id : null, adId: level === "ad" ? r.id : null,
+                        })}>
+                          <ListChecks className="size-3.5" aria-hidden /> Registros
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      {ranked.length > SHOW_FIRST && (
+        <Button type="button" variant="secondary" onClick={() => setAll((a) => !a)} data-testid="ri-level-more">
+          {all ? "Mostrar só os 10 primeiros" : `Ver todos (${int(ranked.length)})`}
+        </Button>
+      )}
+      {data && (without > 0 || data.scope_without_level > 0) && (
+        <p className="text-xs text-slate-500" data-testid="ri-ranking-note">
+          {without > 0 && <>{int(without)} {one}(s) com contatos, mas nenhum {look.label.toLowerCase()}, não aparece(m). </>}
+          {data.scope_without_level > 0 && <>{int(data.scope_without_level)} contato(s) sem {one} {level === "campaign" ? "identificada" : "identificado"} não entram nesta tabela.</>}
+        </p>
+      )}
+    </Card>
+  );
+}
+
+/** Leads/mensagens do Meta: "—" quando a plataforma não informou nada no período. */
+const metaNumber = (n: number | null | undefined) => (n == null ? "—" : int(Math.round(Number(n))));

@@ -88,6 +88,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [39.4 — Tela dos resultados (cards, perfis por dia, rankings campanha → conjunto → anúncio, registros)](docs/etapa-39-inteligencia-de-resultados/39.4-TELA-DOS-RESULTADOS.md) ✅ concluída (falta a chave do Google)
   - [39.5 — Qualidade dos dados, exportação CSV/Excel e fechamento](docs/etapa-39-inteligencia-de-resultados/39.5-QUALIDADE-E-EXPORTACAO.md) ✅ concluída (falta a leitura real com a chave do Google)
   - [Parâmetros da planilha refeitos (Nome, Número, SQL, Data, UTMs, IDs, gclid/fbclid, personalizados)](docs/etapa-39-inteligencia-de-resultados/39.6-PARAMETROS-DA-PLANILHA.md) ✅ 19/10
+  - [Apresentação por perfil: campanhas, conjuntos e criativos de uma vez](docs/etapa-39-inteligencia-de-resultados/39.7-APRESENTACAO-POR-PERFIL.md) ✅ 21/10
 
 ## Estrutura
 

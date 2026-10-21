@@ -22,6 +22,9 @@ export interface RiResultItem extends Record<RiProfile, number> {
   contacts: number;
   /** Linhas ligadas pelo nome (e não pelo ID). */
   by_name: number;
+  /** Leads e mensagens que o Meta/Google informa para o item no período (null = sem dado da plataforma). */
+  leads?: number | null;
+  messages?: number | null;
   spend: RiSpend[];
 }
 

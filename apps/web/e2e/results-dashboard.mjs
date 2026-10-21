@@ -23,6 +23,9 @@ function seed(db) {
   db.ads.push(ad(21, 11, 1, "9021", "Video Vitrine"), ad(22, 12, 1, "9022", "Carrossel Kits"), ad(23, 13, 2, "9023", "Video Look"), ad(24, 14, 3, "9024", "Kit RJ"));
   const m = (date, c, reais) => ({ date, ad_account_id: ACC, level: "campaign", campaign_id: id(c), ad_group_id: null, ad_id: null, client_id: EXC, platform_id: "meta", currency: "BRL", spend_micros: reais * 1_000_000, impressions: 0, clicks: 0 });
   db.metrics.push(m(D2, 1, 100), m(D3, 3, 30), m(D10, 1, 999));
+  // Leads e mensagens que o Meta informa no criativo "Video Vitrine" (nível anúncio)
+  db.metrics.push({ date: D2, ad_account_id: ACC, level: "ad", campaign_id: id(1), ad_group_id: id(11), ad_id: id(21), client_id: EXC, platform_id: "meta",
+    currency: "BRL", spend_micros: 60_000_000, leads: 4, messages: 6, impressions: 0, clicks: 0 });
   db.sheetsKey = { type: "service_account", client_email: "crm-leitura@backstage-teste.iam.gserviceaccount.com" };
   Object.assign(db.sheetsSettings, { service_account_email: "crm-leitura@backstage-teste.iam.gserviceaccount.com", has_key: true });
   const now = new Date().toISOString();
@@ -86,47 +89,60 @@ const rankNames = async (page) => (await page.getByTestId("ri-ranking-row").allI
   check(!amb.includes("h7") && !/9000[0-9]-/.test(amb), "registros sem impressão digital nem telefone");
   await page.keyboard.press("Escape");
 
-  // Aba Lojistas
+  // Aba Lojistas: campanhas, conjuntos e criativos aparecem juntos (sem precisar abrir)
   await page.getByRole("button", { name: "Lojistas", exact: true }).click();
   await page.getByTestId("ri-tab-lojista").waitFor();
   check(page.url().includes("aba=lojista"), "aba no endereço");
   check(await kpi(page, "ri-profile-total") === "5", "aba Lojistas: total do perfil");
   check(clean(await page.getByTestId("ri-best-campaign").innerText()).includes("2 empatados com 2"), "melhor campanha: avisa o empate");
-  let rows = await rankNames(page);
-  check(rows.length === 2 && rows[0].startsWith("1empate Atacado SP") && rows[1].startsWith("1empate Revenda RJ"), `ranking com empate na mesma posição (${rows.join(" | ")})`);
-  check(clean(await page.getByTestId("ri-ranking-note").innerText()).includes("1 campanha(s) com contatos, mas nenhum lojista"), "avisa quem ficou fora do ranking");
+  const rowsIn = async (level) => (await page.getByTestId(`ri-level-${level}`).getByTestId("ri-ranking-row").allInnerTexts()).map((t) => clean(t));
+  await page.getByTestId("ri-level-ad").getByTestId("ri-ranking-row").first().waitFor();
+  check(await page.getByTestId("ri-level-campaign").isVisible() && await page.getByTestId("ri-level-ad_group").isVisible() && await page.getByTestId("ri-level-ad").isVisible(),
+    "campanhas, conjuntos e criativos na mesma tela");
+  let rows = await rowsIn("campaign");
+  check(rows.length === 2 && rows[0].startsWith("1empate Atacado SP") && rows[1].startsWith("1empate Revenda RJ"), `campanhas com empate na mesma posição (${rows.join(" | ")})`);
+  check(clean(await page.getByTestId("ri-level-campaign").getByTestId("ri-ranking-note").innerText()).includes("1 campanha(s) com contatos, mas nenhum lojista"), "avisa quem ficou fora");
+  check((await rowsIn("ad_group")).length === 2, "conjuntos que trouxeram lojistas (sem clicar)");
+  const ads = await rowsIn("ad");
+  check(clean(await page.getByTestId("ri-level-ad").getByTestId("ri-level-summary").innerText()) === "4 lojistas vieram de 2 criativo(s)", "resumo: quantos lojistas e de quantos criativos");
+  const vitrine = ads.find((t) => t.includes("Video Vitrine")) ?? "";
+  check(vitrine.includes("Atacado SP › Lojistas 25-45") && /Video Vitrine.* 2 100% 2 4 6 R\$ 60,00/.test(vitrine), `criativo com campanha › conjunto, lojistas, leads e mensagens do Meta (${vitrine})`);
+  check((ads.find((t) => t.includes("Kit RJ")) ?? "").includes("— —"), "criativo sem dado do Meta mostra —");
   await page.getByLabel("Ordenar por").selectOption("cost");
-  await page.waitForFunction(() => document.querySelector("[data-testid=ri-ranking-row]")?.textContent?.includes("Revenda RJ"));
-  rows = await rankNames(page);
+  await page.waitForFunction(() => document.querySelector("[data-testid=ri-level-campaign] [data-testid=ri-ranking-row]")?.textContent?.includes("Revenda RJ"));
+  rows = await rowsIn("campaign");
   check(rows[0].includes("Revenda RJ") && rows[0].includes("R$ 15,00") && rows[1].includes("R$ 50,00"), "custo por lojista: menor primeiro");
   check(page.url().includes("ordem=cost"), "ordem no endereço");
   await page.getByLabel("Ordenar por").selectOption("count");
   await page.getByLabel("Buscar pelo nome").fill("rj");
-  await page.waitForFunction(() => document.querySelectorAll("[data-testid=ri-ranking-row]").length === 1);
-  check((await rankNames(page))[0].includes("Revenda RJ"), "busca pelo nome");
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=ri-level-campaign] [data-testid=ri-ranking-row]").length === 1);
+  check((await rowsIn("campaign"))[0].includes("Revenda RJ") && (await rowsIn("ad")).length === 1 && (await rowsIn("ad"))[0].includes("Kit RJ"), "busca vale para campanhas, conjuntos e criativos");
   await page.getByLabel("Buscar pelo nome").fill("");
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=ri-level-ad] [data-testid=ri-ranking-row]").length === 2);
   await page.screenshot({ path: `${SHOTS}/39.4-lojistas.png`, fullPage: true });
 
-  // Abrir campanha → conjuntos → anúncios
-  await page.getByTestId("ri-ranking").getByRole("button", { name: "Atacado SP" }).click();
-  await page.waitForFunction(() => document.querySelector("[data-testid=ri-ranking-row]")?.textContent?.includes("Lojistas 25-45"));
-  check(page.url().includes(`campanha=${id(1)}`), "campanha aberta fica no endereço");
-  rows = await rankNames(page);
-  check(rows.length === 1 && rows[0].includes("Lojistas 25-45"), "conjuntos da campanha (só os que têm lojistas)");
-  await page.getByTestId("ri-ranking").getByRole("button", { name: "Lojistas 25-45" }).click();
-  await page.waitForFunction(() => document.querySelector("[data-testid=ri-ranking-row]")?.textContent?.includes("Video Vitrine"));
-  check(clean(await page.getByTestId("ri-breadcrumb").innerText()) === "Campanhas Atacado SP Lojistas 25-45", "caminho: campanha › conjunto");
-  await page.getByTestId("ri-ranking").getByRole("button", { name: "Registros" }).click();
+  // Clicar na campanha filtra conjuntos e criativos (as campanhas continuam na tela)
+  await page.getByTestId("ri-level-campaign").getByRole("button", { name: "Atacado SP" }).click();
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=ri-level-ad] [data-testid=ri-ranking-row]").length === 1);
+  check(page.url().includes(`campanha=${id(1)}`), "campanha escolhida fica no endereço");
+  check(clean(await page.getByTestId("ri-active-filters").innerText()).includes("Campanha: Atacado SP"), "mostra o filtro ativo");
+  check((await rowsIn("campaign")).length === 2, "as campanhas continuam todas visíveis");
+  check((await rowsIn("ad_group")).length === 1 && (await rowsIn("ad_group"))[0].includes("Lojistas 25-45"), "conjuntos só da campanha");
+  check((await rowsIn("ad"))[0].includes("Video Vitrine"), "criativos só da campanha");
+  await page.getByTestId("ri-level-ad_group").getByRole("button", { name: "Lojistas 25-45" }).click();
+  await page.getByRole("heading", { name: "Criativos de Lojistas 25-45" }).waitFor();
+  check(page.url().includes(`conjunto=${id(11)}`), "conjunto escolhido fica no endereço");
+  await page.getByTestId("ri-level-ad").getByRole("button", { name: "Registros" }).click();
   await page.getByTestId("ri-records-rows").waitFor();
-  check(clean(await page.getByTestId("ri-records-count").innerText()) === "1–2 de 2 linha(s)", "registros do anúncio: 2 linhas");
+  check(clean(await page.getByTestId("ri-records-count").innerText()) === "1–2 de 2 linha(s)", "registros do criativo: 2 linhas");
   await page.keyboard.press("Escape");
-  await page.getByTestId("ri-breadcrumb").getByRole("button", { name: "Campanhas" }).click();
-  await page.waitForFunction(() => document.querySelectorAll("[data-testid=ri-ranking-row]").length === 2);
-  check(!page.url().includes("campanha="), "voltar para campanhas");
+  await page.getByRole("button", { name: /Tirar o filtro Campanha/ }).click();
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=ri-level-ad] [data-testid=ri-ranking-row]").length === 2);
+  check(!page.url().includes("campanha=") && !page.url().includes("conjunto="), "tirar o filtro mostra tudo de novo");
 
   // Período e aba Planilha
   await page.getByLabel("Período").selectOption("yesterday");
-  await page.getByTestId("ri-ranking-empty").waitFor();
+  await page.getByTestId("ri-level-campaign").getByTestId("ri-ranking-empty").waitFor();
   check(page.url().includes("periodo=yesterday"), "período no endereço; sem lojistas ontem, sem lista inventada");
   await page.getByRole("button", { name: "Planilha", exact: true }).click();
   await page.getByTestId("ri-source-summary").waitFor();

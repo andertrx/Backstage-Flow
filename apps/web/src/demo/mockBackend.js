@@ -444,9 +444,12 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         const campaignId = p.p_level === "campaign" ? id : e?.campaign_id;
         const groupId = p.p_level === "ad_group" ? id : p.p_level === "ad" ? e?.ad_group_id : null;
         const spend = {};
+        let leads = null, messages = null;
         for (const m of db.metrics) {
           if (m.client_id === p.p_client_id && m.level === p.p_level && m[entKey] === id && m.date >= p.p_from && m.date <= p.p_to && !m.superseded) {
             spend[m.currency] = (spend[m.currency] ?? 0) + m.spend_micros;
+            if (m.leads != null) leads = (leads ?? 0) + m.leads;
+            if (m.messages != null) messages = (messages ?? 0) + m.messages;
           }
         }
         return {
@@ -455,6 +458,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           ad_group_id: groupId ?? null, ad_group_name: db.adGroups.find((g) => g.id === groupId)?.name ?? null, thumbnail_url: e?.thumbnail_url ?? null,
           contacts: uniq(rows), ...Object.fromEntries(PROFILES.map((x) => [x, uniq(rows, (r) => r.profile === x)])),
           by_name: rows.filter((r) => r.match_method === "nome").length,
+          leads, messages,
           spend: Object.keys(spend).sort().map((currency) => ({ currency, spend_micros: spend[currency] })),
         };
       }).sort((a, b) => b.contacts - a.contacts);
