@@ -1,14 +1,14 @@
 import {
   addDays, classifiedShare, type DateRange, orderRanked, profileShare, rankItems, type RiLevel, type RiProfile,
-  type RiRankDirection, type RiRankMetric, type RiResultItem, type RiResults, topFor,
+  type RiRankDirection, type RiResultItem, type RiResults, topFor,
 } from "@backstage/shared";
-import { ListChecks, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ListChecks, Search } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
-import { Field, Input, Select } from "@/components/ui/field.tsx";
+import { Field, Input } from "@/components/ui/field.tsx";
 import { type DashboardFilters, type ResolvedPeriod } from "@/features/dashboard/filters.ts";
 import { PeriodPicker } from "@/features/structure/PeriodPicker.tsx";
 import { cn } from "@/lib/cn.ts";
@@ -35,10 +35,8 @@ export interface ResultsView {
   tab: "visao" | (typeof RANKED_PROFILES)[number];
   campaignId: string | null;
   adGroupId: string | null;
-  metric: RiRankMetric;
-  direction: RiRankDirection;
   search: string;
-  onChange: (patch: { campanha?: string | null; conjunto?: string | null; ordem?: RiRankMetric; direcao?: RiRankDirection; busca?: string }) => void;
+  onChange: (patch: { campanha?: string | null; conjunto?: string | null; busca?: string }) => void;
 }
 
 /**
@@ -340,26 +338,6 @@ function ProfileTab({ clientId, profile, period, view, onRecords }: {
 
       <Card className="flex flex-wrap items-end gap-3 p-4">
         <div className="w-full sm:w-64">
-          <Field label="Ordenar por">
-            {(id) => (
-              <Select id={id} value={view.metric} onChange={(e) => view.onChange({ ordem: e.target.value as RiRankMetric })}>
-                <option value="count">Quantidade de {look.plural.toLowerCase()}</option>
-                <option value="share">% de {look.plural.toLowerCase()} no item</option>
-              </Select>
-            )}
-          </Field>
-        </div>
-        <div className="w-full sm:w-56">
-          <Field label="Direção">
-            {(id) => (
-              <Select id={id} value={view.direction} onChange={(e) => view.onChange({ direcao: e.target.value as RiRankDirection })}>
-                <option value="desc">Da maior para a menor</option>
-                <option value="asc">Da menor para a maior</option>
-              </Select>
-            )}
-          </Field>
-        </div>
-        <div className="w-full sm:w-64">
           <Field label="Buscar pelo nome">
             {(id) => (
               <div className="relative">
@@ -413,10 +391,12 @@ function LevelSection({ title, level, query, profile, view, onRecords, onOpen, s
   onRecords: (t: RecordsTarget) => void; onOpen?: (r: RiResultItem) => void; selectedId?: string | null; openHint?: string;
 }) {
   const [all, setAll] = useState(false);
+  // Ordem pela quantidade do perfil (coluna SQL da planilha): maior em cima; as setinhas viram (pedido do Ander, 21/10/2026).
+  const [direction, setDirection] = useState<RiRankDirection>("desc");
   const look = PROFILE_LOOK[profile];
   const term = view.search.trim().toLocaleLowerCase("pt-BR");
   const data = query.data;
-  const ranked = data ? orderRanked(rankItems(data.items, profile, view.metric), view.direction).filter((r) => !term
+  const ranked = data ? orderRanked(rankItems(data.items, profile, "count"), direction).filter((r) => !term
     || [r.name, r.campaign_name, r.ad_group_name].some((n) => n?.toLocaleLowerCase("pt-BR").includes(term))) : [];
   const total = ranked.reduce((sum, r) => sum + r[profile], 0);
   const shown = all ? ranked : ranked.slice(0, SHOW_FIRST);
@@ -447,7 +427,15 @@ function LevelSection({ title, level, query, profile, view, onRecords, onOpen, s
                 <tr>
                   <th className="py-2 pr-2 font-medium">#</th>
                   <th className="py-2 pr-3 font-medium">{one.charAt(0).toUpperCase() + one.slice(1)}</th>
-                  <th className="px-2 py-2 text-right font-medium">{look.plural}</th>
+                  <th className="px-2 py-2 text-right font-medium" aria-sort={direction === "desc" ? "descending" : "ascending"}>
+                    <button type="button" data-testid="ri-sort" onClick={() => setDirection((d) => (d === "desc" ? "asc" : "desc"))}
+                      title={direction === "desc" ? "Da maior para a menor quantidade. Clique para inverter." : "Da menor para a maior quantidade. Clique para inverter."}
+                      className="inline-flex items-center gap-1 rounded font-medium text-slate-900 hover:text-blue-700">
+                      {look.plural}
+                      {direction === "desc" ? <ArrowDown className="size-3.5" aria-hidden /> : <ArrowUp className="size-3.5" aria-hidden />}
+                      <span className="sr-only">{direction === "desc" ? "(maior primeiro)" : "(menor primeiro)"}</span>
+                    </button>
+                  </th>
                   <th className="px-2 py-2 text-right font-medium">% no item</th>
                   <th className="px-2 py-2 text-right font-medium">Contatos</th>
                   <th className="py-2 pl-2"><span className="sr-only">Ações</span></th>

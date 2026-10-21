@@ -56,18 +56,19 @@ await page.getByTestId("ri-level-ad").getByTestId("ri-ranking-row").first().wait
 const camp = (await page.getByTestId("ri-level-campaign").getByTestId("ri-ranking-row").allInnerTexts()).map(clean);
 check(camp.length === 2 && camp[0].includes("STG | CP-7.4 | FORM | SITE") && / 2 /.test(camp[0]) && camp[1].startsWith("2 STG | CP-7.5"),
   `ID na coluna utm_campaign liga à campanha; da maior para a menor (${camp.join(" | ")})`);
-// Direção: da menor para a maior (a posição continua a mesma)
-await page.getByLabel("Direção").selectOption("asc");
+// Setinha na coluna Lojistas (a quantidade da coluna SQL): padrão maior em cima; clique vira
+const campSort = page.getByTestId("ri-level-campaign").getByTestId("ri-sort");
+check(await page.getByTestId("ri-level-campaign").locator("th[aria-sort]").getAttribute("aria-sort") === "descending", "padrão: maior quantidade em cima");
+check(await page.getByTestId("ri-level-ad_group").getByTestId("ri-sort").count() === 1 && await page.getByTestId("ri-level-ad").getByTestId("ri-sort").count() === 1,
+  "setinhas em campanhas, conjuntos e criativos");
+await campSort.click();
 await page.waitForFunction(() => document.querySelector("[data-testid=ri-level-campaign] [data-testid=ri-ranking-row]")?.textContent?.includes("CP-7.5"));
 const asc = (await page.getByTestId("ri-level-campaign").getByTestId("ri-ranking-row").allInnerTexts()).map(clean);
-check(asc[0].startsWith("2 STG | CP-7.5") && asc[1].startsWith("1 STG | CP-7.4"), `da menor para a maior, posição mantida (${asc.join(" | ")})`);
-check(page.url().includes("direcao=menor"), "direção no endereço");
-await page.reload();
-await page.getByTestId("ri-level-campaign").getByTestId("ri-ranking-row").first().waitFor();
-check(await page.getByLabel("Direção").inputValue() === "asc", "direção continua depois de recarregar");
-await page.getByLabel("Direção").selectOption("desc");
+check(asc[0].startsWith("2 STG | CP-7.5") && asc[1].startsWith("1 STG | CP-7.4"), `clique: menor em cima, posição mantida (${asc.join(" | ")})`);
+check(await page.getByTestId("ri-level-campaign").locator("th[aria-sort]").getAttribute("aria-sort") === "ascending", "cabeçalho informa a ordem");
+await campSort.click();
 await page.waitForFunction(() => document.querySelector("[data-testid=ri-level-campaign] [data-testid=ri-ranking-row]")?.textContent?.includes("CP-7.4"));
-check(!page.url().includes("direcao="), "volta ao padrão (maior primeiro)");
+check(true, "segundo clique: volta para maior em cima");
 const set = clean(await page.getByTestId("ri-level-ad_group").getByTestId("ri-ranking-row").first().innerText());
 check(set.includes("CJ-01 | ATACADO"), "ID na coluna utm_term liga ao conjunto");
 const ad = clean(await page.getByTestId("ri-level-ad").getByTestId("ri-ranking-row").first().innerText());

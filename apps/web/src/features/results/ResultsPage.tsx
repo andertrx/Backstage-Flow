@@ -1,4 +1,4 @@
-import { can, customParams, RI_FIELD_LABELS, RI_FIELDS, type RiRankMetric } from "@backstage/shared";
+import { can, customParams, RI_FIELD_LABELS, RI_FIELDS } from "@backstage/shared";
 import { ChartPie, ExternalLink, FileSpreadsheet, Pencil } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
@@ -33,7 +33,7 @@ const uuidParam = (v: string | null) => (v && UUID_RE.test(v) ? v.toLowerCase() 
 /**
  * Etapa 39 — Inteligência de Resultados: escolher o cliente, conectar a planilha dele
  * (39.1), ler 3 vezes por dia ou pelo botão (39.2) e ver os números por perfil (39.4).
- * Tudo fica no endereço da página (cliente, aba, período, campanha/conjunto abertos, ordem, busca).
+ * Tudo fica no endereço da página (cliente, aba, período, campanha/conjunto abertos, busca).
  */
 export function ResultsPage() {
   const { profile } = useAuth();
@@ -62,15 +62,11 @@ export function ResultsPage() {
     tab: tab === "planilha" || tab === "qualidade" ? "visao" : tab,
     campaignId: uuidParam(params.get("campanha")),
     adGroupId: uuidParam(params.get("conjunto")),
-    metric: (["count", "share"] as const).find((m) => m === params.get("ordem")) ?? "count",
-    direction: params.get("direcao") === "menor" ? "asc" : "desc",
     search: params.get("busca") ?? "",
     onChange: (patch) => setParam({
       ...("campanha" in patch ? { campanha: patch.campanha ?? null } : {}),
       ...("conjunto" in patch ? { conjunto: patch.conjunto ?? null } : {}),
-      ...("ordem" in patch ? { ordem: patch.ordem === "count" ? null : (patch.ordem as RiRankMetric) } : {}),
       ...("busca" in patch ? { busca: patch.busca || null } : {}),
-      ...("direcao" in patch ? { direcao: patch.direcao === "asc" ? "menor" : null } : {}),
     }),
   };
   const clients = useClients();

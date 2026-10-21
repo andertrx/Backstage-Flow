@@ -109,10 +109,7 @@ const rankNames = async (page) => (await page.getByTestId("ri-ranking-row").allI
   check(vitrine.includes("Atacado SP › Lojistas 25-45") && /Video Vitrine.* 2 100% 2 Registros$/.test(vitrine), `criativo com campanha › conjunto e só números da planilha (${vitrine})`);
   const head = clean(await page.getByTestId("ri-level-ad").locator("thead").innerText());
   check(!/Leads|Mensagens|Investimento|Custo/.test(head), "sem colunas do gerenciador (leads, mensagens, investimento, custo)");
-  check((await page.getByLabel("Ordenar por").locator("option").allInnerTexts()).every((o) => !/Custo/.test(o)), "ordenar só por quantidade ou %");
-  await page.getByLabel("Ordenar por").selectOption("share");
-  check(page.url().includes("ordem=share"), "ordem no endereço");
-  await page.getByLabel("Ordenar por").selectOption("count");
+  check(await page.getByLabel("Ordenar por").count() === 0 && await page.getByLabel("Direção").count() === 0, "sem caixas de ordenar: só as setinhas da coluna");
   await page.getByLabel("Buscar pelo nome").fill("rj");
   await page.waitForFunction(() => document.querySelectorAll("[data-testid=ri-level-campaign] [data-testid=ri-ranking-row]").length === 1);
   check((await rowsIn("campaign"))[0].includes("Revenda RJ") && (await rowsIn("ad")).length === 1 && (await rowsIn("ad"))[0].includes("Kit RJ"), "busca vale para campanhas, conjuntos e criativos");
