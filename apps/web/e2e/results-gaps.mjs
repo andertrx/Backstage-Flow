@@ -19,6 +19,7 @@ const [CID, SID, AID] = ["120249035297520625", "120249035297560625", "1202490352
 function seed(db) {
   db.clients.push({ id: CLI, name: "Vonks Teste", company: null, cnpj: null, owner_name: null, phone: null, email: null, notes: null, status: "ativo", timezone: "America/Sao_Paulo", is_demo: false, created_at: "2026-01-01T00:00:00Z", updated_at: "", created_by: null });
   db.campaigns.push({ id: id(1), ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: CID, name: "STG | CP-7.4 | FORM | SITE", status: "ativa", objective: "OUTCOME_LEADS" });
+  db.campaigns.push({ id: id(2), ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "120249035297520699", name: "STG | CP-7.5 | FORM | SITE", status: "ativa", objective: "OUTCOME_LEADS" });
   db.adGroups.push({ id: id(11), campaign_id: id(1), ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: SID, name: "CJ-01 | ATACADO", status: "ativa" });
   db.ads.push({ id: id(21), ad_group_id: id(11), campaign_id: id(1), ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: AID, name: "[AD-04] Video", status: "ativa" });
   db.sheetsKey = { type: "service_account", client_email: "crm-leitura@backstage-teste.iam.gserviceaccount.com" };
@@ -37,6 +38,7 @@ function seed(db) {
     r(5, "h4", D3, "lojista", { an: "link_in_bio" }),
     r(6, "h5", D2, "lojista", { cn: "Campanha com nome antigo" }),
     r(7, "h6", D2, "sacoleiro", ids),
+    r(9, "h8", D2, "lojista", { cn: "120249035297520699" }),
     r(8, "h7", D3, "consumidor final", ids),
   ] };
 }
@@ -49,10 +51,23 @@ const db = await mockSupabase(page, { role: "admin" });
 seed(db);
 await login(page, `/inteligencia-resultados?cliente=${CLI}&aba=lojista`);
 await page.getByTestId("ri-tab-lojista").waitFor();
-check(await kpi(page, "ri-profile-total") === "5", "5 lojistas na planilha (a conta bate com as linhas)");
+check(await kpi(page, "ri-profile-total") === "6", "6 lojistas na planilha (a conta bate com as linhas)");
 await page.getByTestId("ri-level-ad").getByTestId("ri-ranking-row").first().waitFor();
 const camp = (await page.getByTestId("ri-level-campaign").getByTestId("ri-ranking-row").allInnerTexts()).map(clean);
-check(camp.length === 1 && camp[0].includes("STG | CP-7.4 | FORM | SITE") && / 2 /.test(camp[0]), `ID na coluna utm_campaign liga à campanha (${camp.join(" | ")})`);
+check(camp.length === 2 && camp[0].includes("STG | CP-7.4 | FORM | SITE") && / 2 /.test(camp[0]) && camp[1].startsWith("2 STG | CP-7.5"),
+  `ID na coluna utm_campaign liga à campanha; da maior para a menor (${camp.join(" | ")})`);
+// Direção: da menor para a maior (a posição continua a mesma)
+await page.getByLabel("Direção").selectOption("asc");
+await page.waitForFunction(() => document.querySelector("[data-testid=ri-level-campaign] [data-testid=ri-ranking-row]")?.textContent?.includes("CP-7.5"));
+const asc = (await page.getByTestId("ri-level-campaign").getByTestId("ri-ranking-row").allInnerTexts()).map(clean);
+check(asc[0].startsWith("2 STG | CP-7.5") && asc[1].startsWith("1 STG | CP-7.4"), `da menor para a maior, posição mantida (${asc.join(" | ")})`);
+check(page.url().includes("direcao=menor"), "direção no endereço");
+await page.reload();
+await page.getByTestId("ri-level-campaign").getByTestId("ri-ranking-row").first().waitFor();
+check(await page.getByLabel("Direção").inputValue() === "asc", "direção continua depois de recarregar");
+await page.getByLabel("Direção").selectOption("desc");
+await page.waitForFunction(() => document.querySelector("[data-testid=ri-level-campaign] [data-testid=ri-ranking-row]")?.textContent?.includes("CP-7.4"));
+check(!page.url().includes("direcao="), "volta ao padrão (maior primeiro)");
 const set = clean(await page.getByTestId("ri-level-ad_group").getByTestId("ri-ranking-row").first().innerText());
 check(set.includes("CJ-01 | ATACADO"), "ID na coluna utm_term liga ao conjunto");
 const ad = clean(await page.getByTestId("ri-level-ad").getByTestId("ri-ranking-row").first().innerText());

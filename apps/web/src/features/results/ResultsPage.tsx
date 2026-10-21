@@ -63,12 +63,14 @@ export function ResultsPage() {
     campaignId: uuidParam(params.get("campanha")),
     adGroupId: uuidParam(params.get("conjunto")),
     metric: (["count", "share"] as const).find((m) => m === params.get("ordem")) ?? "count",
+    direction: params.get("direcao") === "menor" ? "asc" : "desc",
     search: params.get("busca") ?? "",
     onChange: (patch) => setParam({
       ...("campanha" in patch ? { campanha: patch.campanha ?? null } : {}),
       ...("conjunto" in patch ? { conjunto: patch.conjunto ?? null } : {}),
       ...("ordem" in patch ? { ordem: patch.ordem === "count" ? null : (patch.ordem as RiRankMetric) } : {}),
       ...("busca" in patch ? { busca: patch.busca || null } : {}),
+      ...("direcao" in patch ? { direcao: patch.direcao === "asc" ? "menor" : null } : {}),
     }),
   };
   const clients = useClients();

@@ -105,6 +105,18 @@ export function rankItems(items: RiResultItem[], profile: RiProfile | "contacts"
   return out;
 }
 
+/** Direção da lista: maior primeiro (padrão) ou menor primeiro. */
+export type RiRankDirection = "desc" | "asc";
+
+/**
+ * Vira a lista para "da menor para a maior" sem mudar a posição: o 1º continua sendo
+ * quem mais trouxe (pedido do Ander, 21/10/2026). Empatados ficam em ordem de nome.
+ */
+export function orderRanked(rows: RiRanked[], direction: RiRankDirection = "desc"): RiRanked[] {
+  if (direction === "desc") return rows;
+  return [...rows].sort((a, b) => b.position - a.position || a.name.localeCompare(b.name, "pt-BR"));
+}
+
 /** O que mais trouxe o perfil (para os cards). Empate: devolve todos os empatados. */
 export function topFor(items: RiResultItem[], profile: RiProfile | "contacts"): RiRanked[] {
   return rankItems(items, profile, "count").filter((r) => r.position === 1);

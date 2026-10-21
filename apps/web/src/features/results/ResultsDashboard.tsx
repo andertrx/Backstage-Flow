@@ -1,6 +1,6 @@
 import {
-  addDays, classifiedShare, type DateRange, profileShare, rankItems, type RiLevel, type RiProfile,
-  type RiRankMetric, type RiResultItem, type RiResults, topFor,
+  addDays, classifiedShare, type DateRange, orderRanked, profileShare, rankItems, type RiLevel, type RiProfile,
+  type RiRankDirection, type RiRankMetric, type RiResultItem, type RiResults, topFor,
 } from "@backstage/shared";
 import { ListChecks, Search } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
@@ -36,8 +36,9 @@ export interface ResultsView {
   campaignId: string | null;
   adGroupId: string | null;
   metric: RiRankMetric;
+  direction: RiRankDirection;
   search: string;
-  onChange: (patch: { campanha?: string | null; conjunto?: string | null; ordem?: RiRankMetric; busca?: string }) => void;
+  onChange: (patch: { campanha?: string | null; conjunto?: string | null; ordem?: RiRankMetric; direcao?: RiRankDirection; busca?: string }) => void;
 }
 
 /**
@@ -348,6 +349,16 @@ function ProfileTab({ clientId, profile, period, view, onRecords }: {
             )}
           </Field>
         </div>
+        <div className="w-full sm:w-56">
+          <Field label="Direção">
+            {(id) => (
+              <Select id={id} value={view.direction} onChange={(e) => view.onChange({ direcao: e.target.value as RiRankDirection })}>
+                <option value="desc">Da maior para a menor</option>
+                <option value="asc">Da menor para a maior</option>
+              </Select>
+            )}
+          </Field>
+        </div>
         <div className="w-full sm:w-64">
           <Field label="Buscar pelo nome">
             {(id) => (
@@ -405,7 +416,7 @@ function LevelSection({ title, level, query, profile, view, onRecords, onOpen, s
   const look = PROFILE_LOOK[profile];
   const term = view.search.trim().toLocaleLowerCase("pt-BR");
   const data = query.data;
-  const ranked = data ? rankItems(data.items, profile, view.metric).filter((r) => !term
+  const ranked = data ? orderRanked(rankItems(data.items, profile, view.metric), view.direction).filter((r) => !term
     || [r.name, r.campaign_name, r.ad_group_name].some((n) => n?.toLocaleLowerCase("pt-BR").includes(term))) : [];
   const total = ranked.reduce((sum, r) => sum + r[profile], 0);
   const shown = all ? ranked : ranked.slice(0, SHOW_FIRST);

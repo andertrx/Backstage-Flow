@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifiedShare, costPerContact, profileShare, rankItems, type RiResultItem, topFor } from "./ranking.ts";
+import { classifiedShare, costPerContact, orderRanked, profileShare, rankItems, type RiResultItem, topFor } from "./ranking.ts";
 
 const item = (name: string, p: Partial<RiResultItem>): RiResultItem => ({
   id: name, name, status: null, platform_id: "meta", campaign_id: null, campaign_name: null, ad_group_id: null, ad_group_name: null,
@@ -19,6 +19,12 @@ describe("ranking por perfil (Etapa 39.3)", () => {
     const r = rankItems(items, "lojista");
     expect(r.map((x) => `${x.position}:${x.name}${x.tied ? "=" : ""}`)).toEqual(["1:Atacado RJ=", "1:Atacado SP=", "3:Duas moedas=", "3:Varejo="]);
     expect(topFor(items, "lojista").map((x) => x.name)).toEqual(["Atacado RJ", "Atacado SP"]);
+  });
+
+  it("da menor para a maior: lista virada, posição continua a mesma (21/10/2026)", () => {
+    const r = rankItems(items, "lojista");
+    expect(orderRanked(r, "asc").map((x) => `${x.position}:${x.name}`)).toEqual(["3:Duas moedas", "3:Varejo", "1:Atacado RJ", "1:Atacado SP"]);
+    expect(orderRanked(r, "desc")).toBe(r);
   });
 
   it("% do perfil no item", () => {
