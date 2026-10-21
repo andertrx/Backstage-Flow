@@ -69,7 +69,7 @@ const download = async (page, button) => {
   check(csv.name === `inteligencia-excalibur-moda-lojistas-${sp(7)}-a-${sp(1)}.csv`, `nome do arquivo (${csv.name})`);
   check(text.includes("Cliente: Excalibur Moda") && text.includes("Perfil: Lojistas"), "CSV: cliente, período e perfil no cabeçalho");
   check(text.includes("Posição;Empate;Campanha;Lojistas"), "CSV: ranking de campanhas com posição e empate");
-  check(/1;sim;Atacado SP;2;66,67;3;;;100,00;BRL;50,00/.test(text), "CSV: Atacado SP com %, investimento, moeda e custo por lojista");
+  check(/1;sim;Atacado SP;2;66,67;3;0\r?\n/.test(text) && !/Investimento|Custo por|Leads \(Meta\)/.test(text), "CSV: Atacado SP com %, sem investimento nem custo (só planilha)");
   check(text.includes("Conjunto") && text.includes("Lojistas 25-45") && text.includes("Video Vitrine"), "CSV: conjuntos e anúncios");
   check(!/h1|hash|90000/.test(text) && text.includes("Sem dados pessoais"), "CSV sem impressão digital, telefone ou nome");
 

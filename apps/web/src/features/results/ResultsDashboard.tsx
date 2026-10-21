@@ -1,6 +1,6 @@
 import {
-  addDays, classifiedShare, costPerContact, type DateRange, profileShare, rankItems, type RiLevel, type RiProfile,
-  type RiRankMetric, type RiResultItem, type RiResults, type RiSpend, topFor,
+  addDays, classifiedShare, type DateRange, profileShare, rankItems, type RiLevel, type RiProfile,
+  type RiRankMetric, type RiResultItem, type RiResults, topFor,
 } from "@backstage/shared";
 import { ListChecks, Search } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -13,7 +13,7 @@ import { type DashboardFilters, type ResolvedPeriod } from "@/features/dashboard
 import { PeriodPicker } from "@/features/structure/PeriodPicker.tsx";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
-import { formatChange, formatDate, formatDateTime, formatMoney } from "@/lib/format.ts";
+import { formatChange, formatDate, formatDateTime } from "@/lib/format.ts";
 import { type RiDailyRow, type RiSource, useRiDaily, useRiResults } from "./api.ts";
 import { ExportBar } from "./ExportBar.tsx";
 import { PROFILE_LOOK, PROFILES, RANKED_PROFILES } from "./look.ts";
@@ -27,7 +27,6 @@ const LEVEL_LABEL: Record<RiLevel, { one: string; many: string; of: string }> = 
 
 const int = (n: number) => n.toLocaleString("pt-BR");
 const pct = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`);
-const spendText = (spend: RiSpend[]) => (spend.length ? spend.map((s) => formatMoney(s.spend_micros / 1e6, s.currency)).join(" + ") : "—");
 
 export interface ResultsView {
   filters: DashboardFilters;
@@ -108,21 +107,18 @@ function Overview({ clientId, period, onRecords }: { clientId: string; period: R
       <Card className="space-y-3 p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-base font-semibold text-slate-900">Campanhas por perfil</h2>
-          <p className="text-xs text-slate-500">Contatos únicos de cada perfil · investimento do Meta/Google no mesmo período</p>
+          <p className="text-xs text-slate-500">Contatos únicos de cada perfil, contados na planilha</p>
         </div>
         {cur.data.items.length === 0 ? (
           <p className="text-sm text-slate-500">Nenhum contato do período foi ligado a uma campanha.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px] text-sm" data-testid="ri-overview-campaigns">
+            <table className="w-full min-w-[640px] text-sm" data-testid="ri-overview-campaigns">
               <thead className="text-left text-xs text-slate-500">
                 <tr>
                   <th className="py-2 pr-3 font-medium">Campanha</th>
                   <th className="px-2 py-2 text-right font-medium">Contatos</th>
                   {PROFILES.map((pr) => <th key={pr} className="px-2 py-2 text-right font-medium">{PROFILE_LOOK[pr].plural}</th>)}
-                  <th className="px-2 py-2 text-right font-medium">Leads (Meta)</th>
-                  <th className="px-2 py-2 text-right font-medium">Mensagens (Meta)</th>
-                  <th className="py-2 pl-2 text-right font-medium">Investimento</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -131,9 +127,6 @@ function Overview({ clientId, period, onRecords }: { clientId: string; period: R
                     <td className="max-w-64 truncate py-2 pr-3 font-medium text-slate-900" title={i.name}>{i.name}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{int(i.contacts)}</td>
                     {PROFILES.map((pr) => <td key={pr} className="px-2 py-2 text-right tabular-nums">{int(i[pr])}</td>)}
-                    <td className="px-2 py-2 text-right tabular-nums">{metaNumber(i.leads)}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">{metaNumber(i.messages)}</td>
-                    <td className="py-2 pl-2 text-right tabular-nums">{spendText(i.spend)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -229,7 +222,7 @@ function OriginNote({ results, onRecords }: { results: RiResults; onRecords: (t:
 function ReadNote({ results }: { results: RiResults }) {
   return (
     <p className="text-xs text-slate-500" data-testid="ri-read-note">
-      Contatos pela <strong>data do contato na planilha</strong>; investimento pela data de veiculação no Meta/Google.
+      Tudo aqui vem só da planilha (nada do gerenciador de anúncios), contado pela <strong>data do contato</strong>.
       {results.read_at && <> Dados da leitura de {formatDateTime(results.read_at)}.</>}
     </p>
   );
@@ -269,8 +262,8 @@ function DailyChart({ range, rows, error, profiles }: { range: DateRange; rows: 
 
 /**
  * Aba de um perfil (pedido do Ander, 21/10/2026): campanhas, conjuntos e criativos
- * aparecem juntos, cada um com a quantidade do perfil (planilha) e os leads/mensagens
- * do Meta. Clicar numa campanha ou conjunto filtra as tabelas de baixo (sem trocar de tela).
+ * aparecem juntos, cada um com a quantidade do perfil. Só números da planilha, nada do
+ * gerenciador de anúncios (correção do Ander, 21/10/2026). Clicar numa campanha ou conjunto filtra as tabelas de baixo (sem trocar de tela).
  */
 function ProfileTab({ clientId, profile, period, view, onRecords }: {
   clientId: string; profile: (typeof RANKED_PROFILES)[number]; period: ResolvedPeriod; view: ResultsView; onRecords: (t: RecordsTarget) => void;
@@ -313,7 +306,6 @@ function ProfileTab({ clientId, profile, period, view, onRecords }: {
               <Select id={id} value={view.metric} onChange={(e) => view.onChange({ ordem: e.target.value as RiRankMetric })}>
                 <option value="count">Quantidade de {look.plural.toLowerCase()}</option>
                 <option value="share">% de {look.plural.toLowerCase()} no item</option>
-                <option value="cost">Custo por {look.label.toLowerCase()} (menor primeiro)</option>
               </Select>
             )}
           </Field>
@@ -350,9 +342,6 @@ function ProfileTab({ clientId, profile, period, view, onRecords }: {
         <h2 className="text-base font-semibold text-slate-900">{look.plural} por dia{view.campaignId && <span className="font-normal text-slate-500"> · {view.adGroupId ? adGroupName : campaignName}</span>}</h2>
         <DailyChart range={period.current} rows={daily.data} error={daily.error} profiles={[profile]} />
       </Card>
-      <p className="text-xs text-slate-500">
-        <strong>{look.plural}</strong> e contatos: contados na planilha (data do contato). <strong>Leads, mensagens e investimento</strong>: informados pelo Meta/Google no mesmo período.
-      </p>
       <ReadNote results={camps.data} />
     </div>
   );
@@ -404,7 +393,7 @@ function LevelSection({ title, level, query, profile, view, onRecords, onOpen, s
         ) : (
           // relative: o texto só para leitor de tela (sr-only) fica preso aqui e não alarga a página no celular.
           <div className="relative overflow-x-auto">
-            <table className="w-full min-w-[860px] text-sm" data-testid="ri-ranking">
+            <table className="w-full min-w-[640px] text-sm" data-testid="ri-ranking">
               <thead className="text-left text-xs text-slate-500">
                 <tr>
                   <th className="py-2 pr-2 font-medium">#</th>
@@ -412,16 +401,11 @@ function LevelSection({ title, level, query, profile, view, onRecords, onOpen, s
                   <th className="px-2 py-2 text-right font-medium">{look.plural}</th>
                   <th className="px-2 py-2 text-right font-medium">% no item</th>
                   <th className="px-2 py-2 text-right font-medium">Contatos</th>
-                  <th className="px-2 py-2 text-right font-medium">Leads (Meta)</th>
-                  <th className="px-2 py-2 text-right font-medium">Mensagens (Meta)</th>
-                  <th className="px-2 py-2 text-right font-medium">Investimento</th>
-                  <th className="px-2 py-2 text-right font-medium">Custo por {look.label.toLowerCase()}</th>
                   <th className="py-2 pl-2"><span className="sr-only">Ações</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {shown.map((r) => {
-                  const cost = costPerContact(r.spend, r[profile]);
                   const selected = selectedId === r.id;
                   return (
                     <tr key={r.id} data-testid="ri-ranking-row" className={cn(selected && "bg-blue-50")}>
@@ -446,12 +430,6 @@ function LevelSection({ title, level, query, profile, view, onRecords, onOpen, s
                       <td className="px-2 py-2 text-right text-base font-semibold tabular-nums text-slate-900">{int(r[profile])}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{pct(profileShare(r, profile))}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{int(r.contacts)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{metaNumber(r.leads)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{metaNumber(r.messages)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{spendText(r.spend)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums" title={cost ? undefined : "Sem investimento informado no período (ou em mais de uma moeda)"}>
-                        {cost ? formatMoney(cost.micros / 1e6, cost.currency) : "—"}
-                      </td>
                       <td className="py-2 pl-2 text-right">
                         <Button type="button" variant="ghost" className="px-2 py-1 text-xs" onClick={() => onRecords({
                           title: `${look.plural} · ${r.name}`, profile,
@@ -481,6 +459,3 @@ function LevelSection({ title, level, query, profile, view, onRecords, onOpen, s
     </Card>
   );
 }
-
-/** Leads/mensagens do Meta: "—" quando a plataforma não informou nada no período. */
-const metaNumber = (n: number | null | undefined) => (n == null ? "—" : int(Math.round(Number(n))));

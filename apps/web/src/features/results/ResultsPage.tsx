@@ -62,7 +62,7 @@ export function ResultsPage() {
     tab: tab === "planilha" || tab === "qualidade" ? "visao" : tab,
     campaignId: uuidParam(params.get("campanha")),
     adGroupId: uuidParam(params.get("conjunto")),
-    metric: (["count", "share", "cost"] as const).find((m) => m === params.get("ordem")) ?? "count",
+    metric: (["count", "share"] as const).find((m) => m === params.get("ordem")) ?? "count",
     search: params.get("busca") ?? "",
     onChange: (patch) => setParam({
       ...("campanha" in patch ? { campanha: patch.campanha ?? null } : {}),

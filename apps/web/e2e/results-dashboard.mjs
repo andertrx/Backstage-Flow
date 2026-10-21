@@ -77,7 +77,7 @@ const rankNames = async (page) => (await page.getByTestId("ri-ranking-row").allI
   await page.getByTestId("ri-daily").locator("svg").waitFor();
   check(true, "gráfico de contatos por dia");
   const camps = clean(await page.getByTestId("ri-overview-campaigns").innerText());
-  check(camps.includes("Atacado SP") && camps.includes("R$ 100,00") && !camps.includes("999"), "campanhas com investimento só do período");
+  check(camps.includes("Atacado SP") && !/R\$|Investimento|Leads \(Meta\)|Mensagens/.test(camps), "campanhas só com números da planilha (nada do gerenciador)");
   await page.screenshot({ path: `${SHOTS}/39.4-visao-geral.png`, fullPage: true });
 
   // Registros das linhas ambíguas
@@ -106,13 +106,12 @@ const rankNames = async (page) => (await page.getByTestId("ri-ranking-row").allI
   const ads = await rowsIn("ad");
   check(clean(await page.getByTestId("ri-level-ad").getByTestId("ri-level-summary").innerText()) === "4 lojistas vieram de 2 criativo(s)", "resumo: quantos lojistas e de quantos criativos");
   const vitrine = ads.find((t) => t.includes("Video Vitrine")) ?? "";
-  check(vitrine.includes("Atacado SP › Lojistas 25-45") && /Video Vitrine.* 2 100% 2 4 6 R\$ 60,00/.test(vitrine), `criativo com campanha › conjunto, lojistas, leads e mensagens do Meta (${vitrine})`);
-  check((ads.find((t) => t.includes("Kit RJ")) ?? "").includes("— —"), "criativo sem dado do Meta mostra —");
-  await page.getByLabel("Ordenar por").selectOption("cost");
-  await page.waitForFunction(() => document.querySelector("[data-testid=ri-level-campaign] [data-testid=ri-ranking-row]")?.textContent?.includes("Revenda RJ"));
-  rows = await rowsIn("campaign");
-  check(rows[0].includes("Revenda RJ") && rows[0].includes("R$ 15,00") && rows[1].includes("R$ 50,00"), "custo por lojista: menor primeiro");
-  check(page.url().includes("ordem=cost"), "ordem no endereço");
+  check(vitrine.includes("Atacado SP › Lojistas 25-45") && /Video Vitrine.* 2 100% 2 Registros$/.test(vitrine), `criativo com campanha › conjunto e só números da planilha (${vitrine})`);
+  const head = clean(await page.getByTestId("ri-level-ad").locator("thead").innerText());
+  check(!/Leads|Mensagens|Investimento|Custo/.test(head), "sem colunas do gerenciador (leads, mensagens, investimento, custo)");
+  check((await page.getByLabel("Ordenar por").locator("option").allInnerTexts()).every((o) => !/Custo/.test(o)), "ordenar só por quantidade ou %");
+  await page.getByLabel("Ordenar por").selectOption("share");
+  check(page.url().includes("ordem=share"), "ordem no endereço");
   await page.getByLabel("Ordenar por").selectOption("count");
   await page.getByLabel("Buscar pelo nome").fill("rj");
   await page.waitForFunction(() => document.querySelectorAll("[data-testid=ri-level-campaign] [data-testid=ri-ranking-row]").length === 1);

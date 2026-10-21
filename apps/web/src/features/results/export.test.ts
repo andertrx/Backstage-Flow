@@ -22,19 +22,15 @@ const camps = results([
 const base = { clientName: "Excalibur Moda", range: { from: "2026-10-10", to: "2026-10-16" }, campaigns: camps, adGroups: results([]), ads: results([]), generatedAt: new Date("2026-10-18T12:00:00Z") };
 
 describe("exportação da Inteligência de Resultados (Etapa 39.5)", () => {
-  it("por perfil: ranking com posição, empate, custo e sem misturar moedas", () => {
+  it("por perfil: ranking com posição e empate; só números da planilha (nada do gerenciador)", () => {
     const r = resultsReport({ ...base, profile: "lojista" });
     const t = r.tables.find((x) => x.sheet === "Campanhas")!;
     expect(t.columns.slice(0, 4)).toEqual(["Posição", "Empate", "Campanha", "Lojistas"]);
     expect(t.rows.map((row) => [row[0].value, row[1].value, row[2].value, row[3].value])).toEqual([
       [1, "sim", "Atacado SP", 2], [1, "sim", "Revenda RJ", 2], [3, "não", "Global", 1],
     ]);
-    const custo = t.columns.indexOf("Custo por lojista");
-    expect(t.rows[1][custo].value).toBe(15);
-    const global = t.rows[2];
-    expect(global[t.columns.indexOf("Investimento")].value).toBeNull();
-    expect(global[t.columns.indexOf("Moeda")].value).toBe("BRL + USD");
-    expect(global[custo].value).toBeNull();
+    for (const col of ["Leads (Meta)", "Mensagens (Meta)", "Investimento", "Moeda", "Custo por lojista"]) expect(t.columns).not.toContain(col);
+    expect(r.filters.join(" ")).not.toMatch(/investimento/i);
     expect(t.rows.some((row) => row[2].value === "Varejo")).toBe(false);
   });
 
@@ -42,6 +38,7 @@ describe("exportação da Inteligência de Resultados (Etapa 39.5)", () => {
     const r = resultsReport({ ...base, profile: "todos" });
     const t = r.tables.find((x) => x.sheet === "Campanhas")!;
     expect(t.columns).toContain("Não identificados");
+    expect(t.columns).not.toContain("Investimento");
     expect(t.rows.map((row) => row[0].value)).toEqual(["Atacado SP", "Revenda RJ", "Global", "Varejo"]);
     const csv = reportCsvRows(r).map((l) => l.join(";")).join("\n");
     expect(csv).toContain("Cliente: Excalibur Moda");

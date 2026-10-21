@@ -1,7 +1,7 @@
 // Etapa 39.5 — exportação da Inteligência de Resultados (CSV e Excel), gerada no navegador
 // a partir dos mesmos números da tela. Sem dados pessoais: só campanhas, conjuntos, anúncios e contagens.
 import {
-  classifiedShare, costPerContact, type DateRange, profileShare, rankItems, RI_PROFILE_LABELS, type RiProfile, type RiResultItem, type RiResults,
+  classifiedShare, type DateRange, profileShare, rankItems, type RiProfile, type RiResultItem, type RiResults,
 } from "@backstage/shared";
 import type { Cell, Report, ReportTable, SheetName } from "@/features/reports/model.ts";
 import { formatDate, formatDateTime } from "@/lib/format.ts";
@@ -14,13 +14,6 @@ const ALL: RiProfile[] = ["lojista", "sacoleiro", "consumidor_final", "nao_ident
 const t = (v: string | null): Cell => ({ value: v, format: "text" });
 const n = (v: number | null): Cell => ({ value: v, format: "integer" });
 const pct = (v: number | null): Cell => ({ value: v, format: "percent" });
-const money = (v: number | null): Cell => ({ value: v, format: "money" });
-
-/** Investimento numa moeda só; com mais de uma moeda (nunca somamos) fica vazio e a coluna Moeda diz quais. */
-function spendCells(item: RiResultItem): [Cell, Cell] {
-  if (item.spend.length === 1) return [money(item.spend[0].spend_micros / 1e6), t(item.spend[0].currency)];
-  return [money(null), t(item.spend.length ? item.spend.map((s) => s.currency).join(" + ") : null)];
-}
 
 type Level = { sheet: SheetName; title: string; data: RiResults; parents: ("campaign" | "ad_group")[] };
 
@@ -30,21 +23,18 @@ function levelTable(l: Level, profile: ExportProfile): ReportTable {
   if (profile === "todos") {
     return {
       title: l.title, sheet: l.sheet, currency: null,
-      columns: [...parentCols, l.title.replace(/s$/, ""), "Contatos", ...ALL.map((p) => PLURAL[p]), "Leads (Meta)", "Mensagens (Meta)", "Investimento", "Moeda", "Linhas ligadas pelo nome"],
+      columns: [...parentCols, l.title.replace(/s$/, ""), "Contatos", ...ALL.map((p) => PLURAL[p]), "Linhas ligadas pelo nome"],
       rows: [...l.data.items].sort((a, b) => b.contacts - a.contacts || a.name.localeCompare(b.name, "pt-BR"))
-        .map((i) => [...parentCells(i), t(i.name), n(i.contacts), ...ALL.map((p) => n(i[p])), n(i.leads ?? null), n(i.messages ?? null), ...spendCells(i), n(i.by_name)]),
+        .map((i) => [...parentCells(i), t(i.name), n(i.contacts), ...ALL.map((p) => n(i[p])), n(i.by_name)]),
     };
   }
-  const label = RI_PROFILE_LABELS[profile].toLowerCase();
   return {
     title: l.title, sheet: l.sheet, currency: null,
     columns: ["Posição", "Empate", ...parentCols, l.title.replace(/s$/, ""), PLURAL[profile], `% de ${PLURAL[profile].toLowerCase()} no item`, "Contatos",
-      "Leads (Meta)", "Mensagens (Meta)", "Investimento", "Moeda", `Custo por ${label}`, "Linhas ligadas pelo nome"],
-    rows: rankItems(l.data.items, profile, "count").map((r) => {
-      const cost = costPerContact(r.spend, r[profile]);
-      return [n(r.position), t(r.tied ? "sim" : "não"), ...parentCells(r), t(r.name), n(r[profile]), pct(profileShare(r, profile)), n(r.contacts),
-        n(r.leads ?? null), n(r.messages ?? null), ...spendCells(r), money(cost ? cost.micros / 1e6 : null), n(r.by_name)];
-    }),
+      "Linhas ligadas pelo nome"],
+    rows: rankItems(l.data.items, profile, "count").map((r) => [
+      n(r.position), t(r.tied ? "sim" : "não"), ...parentCells(r), t(r.name), n(r[profile]), pct(profileShare(r, profile)), n(r.contacts), n(r.by_name),
+    ]),
   };
 }
 
@@ -91,7 +81,7 @@ export function resultsReport(input: ResultsExportInput): Report {
       `Período: ${formatDate(input.range.from)} a ${formatDate(input.range.to)} (data do contato na planilha)`,
       `Perfil: ${who}`,
       input.campaigns.read_at ? `Dados da leitura da planilha de ${formatDateTime(input.campaigns.read_at)}` : "Planilha ainda não lida",
-      "Investimento: Meta/Google no mesmo período, na moeda de cada conta (moedas nunca são somadas).",
+      "Só números da planilha (nada do gerenciador de anúncios).",
       "Sem dados pessoais: nenhum telefone, e-mail ou nome.",
     ],
     generatedAt: formatDateTime(input.generatedAt.toISOString()),
