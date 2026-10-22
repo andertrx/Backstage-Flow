@@ -78,4 +78,25 @@ await page.getByTestId("ri-source-summary").waitFor();
 check(JSON.stringify(db.riSources[0].profile_rules) === JSON.stringify({ __cnpj__: "lojista" }), "cancelar não muda nada");
 check(errors.length === 0, `sem erros no navegador ${errors.join(" | ")}`);
 await browser.close();
+
+// Correção (22/10/2026): planilha já configurada com a coluna CNPJ no SQL, mas com as regras antigas.
+// Ao editar, a opção já abre marcada; salvar grava a regra do CNPJ.
+{
+  const { browser: b2, page: p2, errors: e2 } = await launch();
+  const db2 = await mockSupabase(p2, { role: "admin" });
+  seed(db2);
+  const now = new Date().toISOString();
+  db2.riSources.push({ id: "51ee0000-0000-4000-8000-000000004102", client_id: CLI, spreadsheet_id: SHEET, spreadsheet_title: "Leads Atacado", sheet_name: "Leads",
+    header_row: 1, mapping: { profile: "CNPJ:", contact_date: "Data:", contact_key: "Número:" }, profile_rules: { lojista: "lojista", "sacoleiro(a)": "sacoleiro" },
+    enabled: true, read_status: "ok", last_attempt_at: now, last_success_at: now, last_error: null, consecutive_failures: 0, created_at: now, updated_at: now });
+  await login(p2, `/inteligencia-resultados?cliente=${CLI}&aba=planilha`);
+  await p2.getByRole("button", { name: "Editar configuração" }).click();
+  await p2.getByTestId("ri-setup").waitFor();
+  check(await p2.getByTestId("ri-step-3").getByTestId("ri-cnpj-mode").isChecked(), "planilha antiga com coluna CNPJ: ao editar, a opção já vem marcada");
+  await p2.getByRole("button", { name: "Salvar configuração" }).click();
+  await p2.getByTestId("ri-source-summary").waitFor();
+  check(JSON.stringify(db2.riSources[0].profile_rules) === JSON.stringify({ __cnpj__: "lojista" }), "salvar troca as regras antigas pela regra do CNPJ");
+  check(e2.length === 0, "sem erros no navegador (edição)");
+  await b2.close();
+}
 console.log("Modo CNPJ da Inteligência de Resultados: tudo certo.");

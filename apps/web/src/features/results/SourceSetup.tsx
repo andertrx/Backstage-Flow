@@ -43,7 +43,8 @@ export function SourceSetup({ clientId, source, onDone }: { clientId: string; so
   const [values, setValues] = useState<{ totalRows: number; values: ColumnValue[] } | null>(null);
   const [rules, setRules] = useState<Record<string, RiProfile | "">>(source?.profile_rules ?? {});
   // Caso específico (22/10/2026): a coluna SQL é um CNPJ. 14 números = Lojista; o resto = Não identificado.
-  const [cnpjMode, setCnpjMode] = useState(isCnpjRules(source?.profile_rules));
+  // Ao editar uma planilha que já usa a coluna CNPJ no SQL, a opção já abre marcada (correção de 22/10/2026).
+  const [cnpjMode, setCnpjMode] = useState(isCnpjRules(source?.profile_rules) || looksLikeCnpj(source?.mapping.profile));
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
