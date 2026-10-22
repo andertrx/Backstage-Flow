@@ -1,5 +1,5 @@
 import {
-  customKey, customParams, parseSpreadsheetId, RI_FIELD_LABELS, RI_FIELDS, RI_MAX_CUSTOM, RI_PROFILE_LABELS, RI_PROFILES, type RiCustomKey,
+  customKey, customParams, isCnpjRules, normalizeText, parseSpreadsheetId, RI_CNPJ_KEY, RI_FIELD_LABELS, RI_FIELDS, RI_MAX_CUSTOM, RI_PROFILE_LABELS, RI_PROFILES, type RiCustomKey,
   type RiField, type RiMapping, type RiProfile, suggestMapping, suggestProfile,
 } from "@backstage/shared";
 import { FileSpreadsheet, ListChecks, Plus, Search, Table2, Trash2 } from "lucide-react";
@@ -42,6 +42,8 @@ export function SourceSetup({ clientId, source, onDone }: { clientId: string; so
   const [mapping, setMapping] = useState<RiMapping>(source?.mapping ?? {});
   const [values, setValues] = useState<{ totalRows: number; values: ColumnValue[] } | null>(null);
   const [rules, setRules] = useState<Record<string, RiProfile | "">>(source?.profile_rules ?? {});
+  // Caso específico (22/10/2026): a coluna SQL é um CNPJ. 14 números = Lojista; o resto = Não identificado.
+  const [cnpjMode, setCnpjMode] = useState(isCnpjRules(source?.profile_rules));
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +77,9 @@ export function SourceSetup({ clientId, source, onDone }: { clientId: string; so
     setValues(null);
     // Mantém o que já estava ligado (se a coluna ainda existe) e sugere o resto.
     const kept = Object.fromEntries(Object.entries(mapping).filter(([, h]) => p.headers.includes(h ?? ""))) as RiMapping;
-    setMapping({ ...suggestMapping(p.headers.filter((h) => !Object.values(kept).includes(h))), ...kept });
+    const next = { ...suggestMapping(p.headers.filter((h) => !Object.values(kept).includes(h))), ...kept };
+    setMapping(next);
+    if (next.profile && next.profile !== mapping.profile) setCnpjMode(looksLikeCnpj(next.profile));
   }
 
   async function readProfiles() {
@@ -94,7 +98,8 @@ export function SourceSetup({ clientId, source, onDone }: { clientId: string; so
   async function submit() {
     if (!spreadsheetId || !sheet || !rowOk) return setError("Abra a planilha e escolha a aba.");
     if (!mapping.profile) return setError("Escolha a coluna SQL (perfil: lojista, sacoleiro ou consumidor final).");
-    const profileRules = Object.fromEntries(Object.entries(rules).filter(([k, v]) => k && v)) as Record<string, RiProfile>;
+    const profileRules = cnpjMode ? { [RI_CNPJ_KEY]: "lojista" as const }
+      : Object.fromEntries(Object.entries(rules).filter(([k, v]) => k && v && k !== RI_CNPJ_KEY)) as Record<string, RiProfile>;
     const ok = await step("save", () => save.mutateAsync({
       id: source?.id ?? null, clientId, spreadsheetId, spreadsheetTitle: title, sheetName: sheet, headerRow: row,
       mapping: Object.fromEntries(Object.entries(mapping).filter(([, h]) => h)) as RiMapping, profileRules,
@@ -103,6 +108,7 @@ export function SourceSetup({ clientId, source, onDone }: { clientId: string; so
   }
 
   const setField = (field: RiField, header: string) => setMapping((m) => {
+    if (field === "profile" && header !== m.profile) setCnpjMode(looksLikeCnpj(header));
     const next = { ...m };
     if (header) next[field] = header; else delete next[field];
     return next;
@@ -128,7 +134,7 @@ export function SourceSetup({ clientId, source, onDone }: { clientId: string; so
     return next;
   });
   const headers = preview?.headers.filter(Boolean) ?? [];
-  const ruleValues = values?.values ?? Object.keys(rules).map((v) => ({ value: v, example: v, count: 0 }));
+  const ruleValues = values?.values ?? Object.keys(rules).filter((v) => v !== RI_CNPJ_KEY).map((v) => ({ value: v, example: v, count: 0 }));
   const unclassified = values ? values.values.filter((v) => !rules[v.value] || rules[v.value] === "nao_identificado").reduce((t, v) => t + v.count, 0) : null;
 
   return (
@@ -241,6 +247,19 @@ export function SourceSetup({ clientId, source, onDone }: { clientId: string; so
 
       {(preview || source) && (
         <Step n={3} title="Perfis comerciais" icon={<ListChecks className="size-4 text-violet-600" aria-hidden />}>
+          <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700 ring-1 ring-slate-200">
+            <input type="checkbox" className="mt-0.5" checked={cnpjMode} onChange={(e) => setCnpjMode(e.target.checked)} data-testid="ri-cnpj-mode" />
+            <span>
+              <strong className="text-slate-900">Esta coluna é CNPJ</strong>: quem preencheu um CNPJ com 14 números é <strong>Lojista</strong>;
+              vazio ou qualquer outra coisa fica como <strong>Não identificado</strong>. O número do CNPJ não é guardado no CRM.
+              <span className="block text-xs text-slate-500">Use só para a planilha que pede o CNPJ em vez do perfil.</span>
+            </span>
+          </label>
+          {cnpjMode ? (
+            <p className="text-sm text-slate-600" data-testid="ri-cnpj-summary">
+              Coluna SQL: <strong>{mapping.profile ?? "ainda não escolhida"}</strong> · CNPJ com 14 números → Lojista. Pontos, barra e traço são ignorados.
+            </p>
+          ) : (<>
           <p className="text-sm text-slate-600">
             Diga a que perfil corresponde cada valor da coluna SQL (<strong>{mapping.profile ?? "ainda não escolhida"}</strong>). Só os nomes exatos
             (Lojista, Sacoleiro, Consumidor final) vêm marcados; variações como "Sacoleira" só contam se você escolher.
@@ -276,6 +295,7 @@ export function SourceSetup({ clientId, source, onDone }: { clientId: string; so
               {unclassified.toLocaleString("pt-BR")} linha(s) ficariam como Não identificado com estas regras.
             </p>
           )}
+          </>)}
         </Step>
       )}
 
@@ -290,8 +310,12 @@ export function SourceSetup({ clientId, source, onDone }: { clientId: string; so
   );
 }
 
+/** O nome da coluna sugere CNPJ? (só marca a opção; dá para desmarcar) */
+const looksLikeCnpj = (header: string | undefined) => normalizeText(header ?? "").includes("cnpj");
+
 /** Texto curto das regras: "lojista → Lojista · sacoleira → Sacoleiro". */
 export function rulesSummary(rules: Record<string, RiProfile>): string {
+  if (isCnpjRules(rules)) return "CNPJ com 14 números → Lojista (vazio ou inválido: Não identificado)";
   const list = Object.entries(rules).filter(([, p]) => p !== "nao_identificado");
   return list.length ? list.map(([v, p]) => `${v} → ${RI_PROFILE_LABELS[p]}`).join(" · ") : "Nenhuma regra";
 }

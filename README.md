@@ -90,6 +90,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [Parâmetros da planilha refeitos (Nome, Número, SQL, Data, UTMs, IDs, gclid/fbclid, personalizados)](docs/etapa-39-inteligencia-de-resultados/39.6-PARAMETROS-DA-PLANILHA.md) ✅ 19/10
   - [Apresentação por perfil: campanhas, conjuntos e criativos de uma vez](docs/etapa-39-inteligencia-de-resultados/39.7-APRESENTACAO-POR-PERFIL.md) ✅ 21/10
   - [Correção da conta: IDs da planilha e aviso "sem campanha"](docs/etapa-39-inteligencia-de-resultados/39.8-CORRECAO-DA-CONTA.md) ✅ 21/10
+  - [Modo CNPJ: planilha que só pede o CNPJ](docs/etapa-39-inteligencia-de-resultados/39.9-MODO-CNPJ.md) ✅ 22/10
 - [Política de Privacidade e Termos de Serviço (páginas públicas)](docs/POLITICA-E-TERMOS.md) ✅ 22/10
 
 ## Estrutura

@@ -1,4 +1,4 @@
-import { type DateRange, PLATFORM_LABELS, type RiProfile } from "@backstage/shared";
+import { type DateRange, PLATFORM_LABELS, RI_CNPJ_KEY, type RiProfile } from "@backstage/shared";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -84,7 +84,7 @@ export function RecordsModal({ clientId, range, target, onClose }: { clientId: s
                       <td className="px-2 py-1.5 tabular-nums">{r.contact_date ? formatDate(r.contact_date) : "—"}</td>
                       <td className="px-2 py-1.5">
                         <span className="block">{PROFILE_LOOK[r.profile].label}</span>
-                        {r.profile_value && <span className="block text-xs text-slate-500">na planilha: “{r.profile_value}”</span>}
+                        {r.profile_value && <span className="block text-xs text-slate-500">{r.profile_value === RI_CNPJ_KEY ? "na planilha: CNPJ válido" : `na planilha: “${r.profile_value}”`}</span>}
                       </td>
                       <td className="max-w-56 px-2 py-1.5">
                         <span className="block truncate" title={r.ad_name ?? r.ad_group_name ?? r.campaign_name ?? undefined}>

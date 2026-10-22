@@ -125,6 +125,24 @@ export function suggestMapping(headers: string[]): RiMapping {
  * (lojista, sacoleiro, consumidor final). Variações ("sacoleira", "loja física")
  * ficam para a pessoa confirmar — nada é juntado sozinho.
  */
+/**
+ * Caso específico (pedido do Ander, 22/10/2026): planilha que só pede o CNPJ. Com a opção ligada,
+ * a coluna SQL é lida como CNPJ: 14 números (pontos, barra, traço e espaços são ignorados) = Lojista;
+ * vazio ou qualquer outra coisa = Não identificado. O número nunca é guardado: a leitura grava só
+ * esta marca, e a regra `{ [RI_CNPJ_KEY]: "lojista" }` faz a classificação.
+ */
+export const RI_CNPJ_KEY = "__cnpj__";
+
+export function isCnpj(value: unknown): boolean {
+  const raw = String(value ?? "").trim();
+  return /^[\d.\-/\s]+$/.test(raw) && raw.replace(/\D/g, "").length === 14;
+}
+
+/** A planilha está no modo CNPJ? (a regra especial existe e aponta para Lojista) */
+export function isCnpjRules(rules: Record<string, string> | null | undefined): boolean {
+  return rules?.[RI_CNPJ_KEY] === "lojista";
+}
+
 export function suggestProfile(value: string): RiProfile | null {
   const v = normalizeText(value);
   if (v === "lojista") return "lojista";

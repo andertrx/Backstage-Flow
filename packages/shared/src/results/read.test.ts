@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildRead, nextScheduledRead, normalizeContact, parseMoney, parseSheetDate } from "./read.ts";
+import { isCnpj, isCnpjRules, RI_CNPJ_KEY } from "./sheets.ts";
 
 const fakeHash = async (c: string) => `h(${c})`;
 
@@ -61,6 +62,28 @@ describe("leitura da planilha (Etapa 39.2)", () => {
     expect(out.map((r) => r.k)).toEqual(["id:form1", "L3", "L4"]);
     expect(stats.duplicates).toBe(1);
     expect(stats.stored).toBe(3);
+  });
+
+  it("modo CNPJ (22/10/2026): 14 números = marca de CNPJ; vazio ou outra coisa = sem perfil; o número nunca é guardado", async () => {
+    const headers = ["CNPJ", "Data", "Telefone"];
+    const mapping = { profile: "CNPJ", contact_date: "Data", contact_key: "Telefone" };
+    const rows = [
+      ["12.345.678/0001-90", "10/10/2026", "11900000001"],
+      ["12345678000190", "10/10/2026", "11900000002"],
+      ["", "10/10/2026", "11900000003"],
+      ["123.456.789-01", "10/10/2026", "11900000004"],
+      ["não tenho", "10/10/2026", "11900000005"],
+      ["000", "10/10/2026", "11900000006"],
+    ];
+    const { rows: out, stats } = await buildRead(headers, rows, mapping, 1, fakeHash, { cnpjProfile: true });
+    expect(out.map((r) => r.p)).toEqual([RI_CNPJ_KEY, RI_CNPJ_KEY, "", "", "", ""]);
+    expect(JSON.stringify(out)).not.toMatch(/12\.345\.678|12345678000190|não tenho|456\.789/);
+    expect(stats.noProfile).toBe(4);
+    // Sem a opção, continua como antes (o valor da coluna, normalizado).
+    const normal = await buildRead(headers, rows.slice(0, 1), mapping, 1, fakeHash);
+    expect(normal.rows[0].p).toBe("12.345.678/0001-90");
+    expect(isCnpj("12.345.678/0001-90") && !isCnpj("1234567800019") && !isCnpj("12345678000190x")).toBe(true);
+    expect(isCnpjRules({ [RI_CNPJ_KEY]: "lojista" }) && !isCnpjRules({ lojista: "lojista" })).toBe(true);
   });
 
   it("próxima leitura: 8h, 12h e 16h de Brasília", () => {

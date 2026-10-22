@@ -23,7 +23,7 @@
 import { z } from "npm:zod@4";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { buildRead } from "../../../packages/shared/src/results/read.ts";
-import { distinctValues, parseSpreadsheetId, type RiMapping } from "../../../packages/shared/src/results/sheets.ts";
+import { distinctValues, isCnpjRules, parseSpreadsheetId, type RiMapping } from "../../../packages/shared/src/results/sheets.ts";
 import { adminClient, requireRole, userClient } from "../_shared/auth.ts";
 import { accessToken, parseServiceAccount, quoteSheet, type ServiceAccount, SheetsClient, SheetsError, splitHeader } from "../_shared/google/sheets.ts";
 import { recordError } from "../_shared/errorlog.ts";
@@ -49,8 +49,9 @@ interface SourceRow {
   sheet_name: string;
   header_row: number;
   mapping: RiMapping;
+  profile_rules: Record<string, string> | null;
 }
-const SOURCE_COLUMNS = "id, client_id, spreadsheet_id, sheet_name, header_row, mapping";
+const SOURCE_COLUMNS = "id, client_id, spreadsheet_id, sheet_name, header_row, mapping, profile_rules";
 
 async function sha256Hex(text: string): Promise<string> {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
@@ -72,7 +73,8 @@ async function readSource(db: SupabaseClient, client: SheetsClient, source: Sour
       throw new AppError(400, "SHEETS_COLUMN_NOT_FOUND", `A coluna SQL "${source.mapping.profile ?? ""}" não existe mais na planilha. Confira a configuração.`);
     }
     // Contato vira impressão digital por cliente (o mesmo telefone em clientes diferentes não se cruza).
-    const read = await buildRead(headers, rows, source.mapping, source.header_row, (c) => sha256Hex(`${source.client_id}:${c}`));
+    const read = await buildRead(headers, rows, source.mapping, source.header_row, (c) => sha256Hex(`${source.client_id}:${c}`),
+      { cnpjProfile: isCnpjRules(source.profile_rules) });
     const { error } = await db.rpc("ri_read_store", {
       p_source_id: source.id, p_trigger: trigger, p_rows: read.rows, p_stats: { ...read.stats, missingColumns: missing },
     });

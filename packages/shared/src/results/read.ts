@@ -1,6 +1,6 @@
 // Etapa 39.2 — Inteligência de Resultados: transformar as linhas da planilha na
 // "última leitura" (sem nome nem telefone legíveis). Usado pelo servidor; testado aqui.
-import { customParams, normalizeText, type RiField, type RiMapping } from "./sheets.ts";
+import { customParams, isCnpj, normalizeText, RI_CNPJ_KEY, type RiField, type RiMapping } from "./sheets.ts";
 
 /** Uma linha da última leitura (chaves curtas para caber bem no banco). */
 export interface RiRow {
@@ -100,6 +100,7 @@ export function normalizeContact(value: string): string | null {
 export async function buildRead(
   headers: string[], rows: string[][], mapping: RiMapping, headerRow: number,
   hash: (contact: string) => Promise<string>,
+  options: { cnpjProfile?: boolean } = {},
 ): Promise<{ rows: RiRow[]; stats: RiReadStats }> {
   const col = (field: RiField) => (mapping[field] ? headers.indexOf(mapping[field]!) : -1);
   // O Nome (contact_name) nunca é lido: o CRM não guarda dados pessoais.
@@ -142,7 +143,8 @@ export async function buildRead(
     if (!rawDate) stats.noDate++;
     else if (!d) stats.invalidDates++;
 
-    const p = normalizeText(cell("profile")).slice(0, 200);
+    // Modo CNPJ: guarda só a marca de "CNPJ válido", nunca o número.
+    const p = options.cnpjProfile ? (isCnpj(cell("profile")) ? RI_CNPJ_KEY : "") : normalizeText(cell("profile")).slice(0, 200);
     if (!p) stats.noProfile++;
 
     if (!contact) stats.noContact++;

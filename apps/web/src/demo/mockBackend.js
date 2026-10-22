@@ -552,10 +552,13 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         };
         const dmy = (v) => { const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v); return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null); };
         const norm = (v) => v.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
+        // Modo CNPJ (22/10/2026): 14 números = "__cnpj__"; o resto fica vazio (o número nunca é guardado).
+        const cnpjMode = src.profile_rules?.__cnpj__ === "lojista";
+        const profileOf = (v) => (cnpjMode ? (/^[\d.\-/\s]+$/.test(v) && v.replace(/\D/g, "").length === 14 ? "__cnpj__" : "") : norm(v));
         const rows = body.map((r, i) => {
           const contact = cell(r, "contact_key").replace(/\D/g, "");
           return { n: src.header_row + 1 + i, k: cell(r, "record_id") ? `id:${cell(r, "record_id")}` : `L${src.header_row + 1 + i}`,
-            h: contact ? `hash-${[...contact].reduce((a, ch) => (Math.imul(a, 31) + ch.charCodeAt(0)) >>> 0, 7).toString(16)}` : null, d: dmy(cell(r, "contact_date")), p: norm(cell(r, "profile")),
+            h: contact ? `hash-${[...contact].reduce((a, ch) => (Math.imul(a, 31) + ch.charCodeAt(0)) >>> 0, 7).toString(16)}` : null, d: dmy(cell(r, "contact_date")), p: profileOf(cell(r, "profile")),
             cid: cell(r, "campaign_id") || null, cn: cell(r, "campaign_name") || null, sid: cell(r, "adset_id") || null, sn: cell(r, "adset_name") || null,
             aid: cell(r, "ad_id") || null, an: cell(r, "ad_name") || null,
             ...(cell(r, "utm_source") ? { us: cell(r, "utm_source") } : {}), ...(cell(r, "utm_medium") ? { um: cell(r, "utm_medium") } : {}),
