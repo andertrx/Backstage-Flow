@@ -68,7 +68,7 @@ export function createGoogleAdapter(fetchImpl: typeof fetch = fetch): PlatformAd
           customer = await getCustomer(token, id, id);
         } catch (err) {
           // Token de desenvolvedor sem aprovação afeta tudo: avisa o usuário.
-          if (err instanceof AppError && ["DEVELOPER_TOKEN_LIMITED", "CONFIG_ERROR", "AUTH_EXPIRED"].includes(err.code)) throw err;
+          if (err instanceof AppError && ["DEVELOPER_TOKEN_LIMITED", "CONFIG_ERROR", "API_DISABLED", "AUTH_EXPIRED"].includes(err.code)) throw err;
           // Conta cancelada/sem acesso: pula e segue com as outras.
           console.error(JSON.stringify({ code: "GOOGLE_CUSTOMER_SKIPPED", customerId: id, reason: err instanceof AppError ? err.code : String(err) }));
           continue;
@@ -105,7 +105,7 @@ export function createGoogleAdapter(fetchImpl: typeof fetch = fetch): PlatformAd
         try {
           return await search<T>(externalId, query, options);
         } catch (err) {
-          if (err instanceof AppError && ["AUTH_EXPIRED", "DEVELOPER_TOKEN_LIMITED", "CONFIG_ERROR", "RATE_LIMITED"].includes(err.code)) throw err;
+          if (err instanceof AppError && ["AUTH_EXPIRED", "DEVELOPER_TOKEN_LIMITED", "CONFIG_ERROR", "API_DISABLED", "RATE_LIMITED"].includes(err.code)) throw err;
           console.error(JSON.stringify({ code: "GOOGLE_BILLING_UNREADABLE", customerId: externalId, reason: err instanceof AppError ? err.code : String(err) }));
           return null;
         }

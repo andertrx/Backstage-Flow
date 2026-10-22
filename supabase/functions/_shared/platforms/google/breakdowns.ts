@@ -121,7 +121,7 @@ async function nameCities(rows: BreakdownMetric[], customerId: string, options: 
   return [...merged.values()];
 }
 
-const FATAL = new Set(["AUTH_EXPIRED", "CONNECTION_REVOKED", "RATE_LIMITED", "PLATFORM_UNAVAILABLE", "CONFIG_ERROR", "ACCOUNT_NOT_ENABLED"]);
+const FATAL = new Set(["AUTH_EXPIRED", "CONNECTION_REVOKED", "RATE_LIMITED", "PLATFORM_UNAVAILABLE", "CONFIG_ERROR", "API_DISABLED", "ACCOUNT_NOT_ENABLED"]);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function fetchGoogleBreakdowns(customerId: string, range: DateRange, options: AdsCallOptions): Promise<BreakdownResult> {

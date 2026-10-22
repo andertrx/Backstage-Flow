@@ -144,7 +144,7 @@ async function callPlatform<T>(ctx: Ctx, connectionId: string, fn: () => Promise
       .neq("status", "revogada");
     return result;
   } catch (err) {
-    if (err instanceof AppError && (err.code === "AUTH_EXPIRED" || err.code === "PERMISSION_DENIED")) {
+    if (err instanceof AppError && ["AUTH_EXPIRED", "PERMISSION_DENIED", "API_DISABLED"].includes(err.code)) {
       await ctx.db
         .from("platform_connections")
         .update({ status: "erro", last_checked_at: new Date().toISOString(), last_error: err.userMessage, updated_by: ctx.caller.id })

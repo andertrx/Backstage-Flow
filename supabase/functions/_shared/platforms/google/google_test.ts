@@ -54,6 +54,10 @@ Deno.test("erros: códigos do Google viram mensagens amigáveis", () => {
   assert(dev.userMessage.includes("contas de teste"));
   assertEquals(classifyGoogleError(403, { error: { details: [{ errors: [{ errorCode: { authorizationError: "USER_PERMISSION_DENIED" } }] }] } }).code, "PERMISSION_DENIED");
   assertEquals(classifyGoogleError(403, { error: { message: "CUSTOMER_NOT_ENABLED" } }).code, "ACCOUNT_NOT_ENABLED");
+  const off = classifyGoogleError(403, { error: { code: 403, status: "PERMISSION_DENIED", details: [{ reason: "SERVICE_DISABLED" }],
+    message: "Google Ads API has not been used in project 123 before or it is disabled." } });
+  assertEquals(off.code, "API_DISABLED");
+  assert(off.userMessage.includes("Ative"));
   assertEquals(classifyGoogleError(429, {}).code, "RATE_LIMITED");
   assertEquals(classifyGoogleError(401, {}).code, "AUTH_EXPIRED");
   assertEquals(classifyGoogleError(503, {}).code, "PLATFORM_UNAVAILABLE");

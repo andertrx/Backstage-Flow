@@ -24,6 +24,15 @@ export function classifyGoogleError(status: number, body: unknown): AppError {
   if (has("DEVELOPER_TOKEN_INVALID") || has("DEVELOPER_TOKEN_PARAMETER_MISSING") || has("invalid_client") || has("unauthorized_client")) {
     return new AppError(500, "CONFIG_ERROR", "As chaves do Google Ads configuradas no servidor estão incorretas. Confira os segredos no Supabase.", technical);
   }
+  // A Google Ads API desligada no projeto do Google Cloud também volta como 403 (correção de 22/10/2026).
+  if (has("SERVICE_DISABLED") || has("has not been used in project")) {
+    return new AppError(
+      400,
+      "API_DISABLED",
+      "A Google Ads API está desligada no projeto do Google Cloud. Ative \"Google Ads API\" (APIs e serviços → Biblioteca) e tente de novo em alguns minutos.",
+      technical,
+    );
+  }
   if (has("CUSTOMER_NOT_ENABLED")) {
     return new AppError(400, "ACCOUNT_NOT_ENABLED", "Esta conta do Google Ads não está ativa (cancelada ou ainda em configuração).", technical);
   }

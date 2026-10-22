@@ -87,6 +87,7 @@ CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome node e2e/balanc
      - `sync`, `track`, `capi-sender`, `whatsapp-webhook`, `client-report-*` usam `false`, porque conferem o acesso por conta própria.
   4. **Confira:** `get_edge_function` e compare com o arquivo local.
 - **Atenção:** `sync` e `ad-accounts` estão **mais novas no GitHub** do que as publicadas (correção do saldo, 28/09/2026). O banco já aplica a regra, então nada quebra, mas publique as duas na próxima mudança de servidor.
+  - 22/10/2026: também a mensagem "Google Ads API desligada" (código `API_DISABLED`, antes aparecia como "não tem acesso a esta conta"). Só muda a mensagem; publicar junto.
 
 ## 6. Documentação e relatório (a cada fase)
 1. **Documento da fase** em `docs/etapa-XX-.../`, seguindo o formato das anteriores:
