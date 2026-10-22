@@ -61,6 +61,11 @@ export function LoginPage() {
         {/* Página inteira: a demonstração cria um "servidor" fictício só nesta aba. */}
         <a href="/demo" className="font-medium text-amber-700 hover:text-amber-800">Ver demonstração com dados fictícios</a>
       </p>
+      <p className="mt-3 flex justify-center gap-3 text-xs" data-testid="legal-links">
+        <Link to="/privacidade" className="text-slate-500 hover:text-slate-700 hover:underline">Política de Privacidade</Link>
+        <span aria-hidden className="text-slate-300">·</span>
+        <Link to="/termos" className="text-slate-500 hover:text-slate-700 hover:underline">Termos de Serviço</Link>
+      </p>
     </AuthLayout>
   );
 }

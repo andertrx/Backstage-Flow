@@ -46,12 +46,17 @@ const GoogleCallbackPage = lazy(() => import("@/features/integrations/GoogleCall
 const IntegrationsPage = lazy(() => import("@/features/integrations/IntegrationsPage.tsx").then((m) => ({ default: m.IntegrationsPage })));
 const PermissionsPage = lazy(() => import("@/features/settings/PermissionsPage.tsx").then((m) => ({ default: m.PermissionsPage })));
 const HistoryPage = lazy(() => import("@/features/history/HistoryPage.tsx").then((m) => ({ default: m.HistoryPage })));
+const PrivacyPage = lazy(() => import("@/features/legal/LegalPages.tsx").then((m) => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => import("@/features/legal/LegalPages.tsx").then((m) => ({ default: m.TermsPage })));
 const UsersPage = lazy(() => import("@/features/users/UsersPage.tsx").then((m) => ({ default: m.UsersPage })));
 
 export const router = createBrowserRouter([
   { path: "/login", errorElement: <RouteError />, element: <RedirectIfAuthenticated><LoginPage /></RedirectIfAuthenticated> },
   { path: "/recuperar-senha", errorElement: <RouteError />, element: <RedirectIfAuthenticated><ForgotPasswordPage /></RedirectIfAuthenticated> },
   { path: "/redefinir-senha", errorElement: <RouteError />, element: <ResetPasswordPage /> },
+  // Páginas públicas (sem login) exigidas pelo Google na tela de autorização.
+  { path: "/privacidade", errorElement: <RouteError />, element: <Suspense fallback={<FullPageSpinner />}><PrivacyPage /></Suspense> },
+  { path: "/termos", errorElement: <RouteError />, element: <Suspense fallback={<FullPageSpinner />}><TermsPage /></Suspense> },
   // Etapa 19.2: dashboard pelo link secreto (sem login).
   {
     path: "/r/:token",
