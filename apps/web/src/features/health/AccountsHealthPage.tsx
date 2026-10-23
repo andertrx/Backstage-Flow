@@ -3,10 +3,12 @@ import { RefreshCw, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
+import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Input, Select } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
+import { useClients } from "@/features/clients/api.ts";
 import { describeVerify, type RefreshResult, useRefreshBalances } from "@/features/balance/api.ts";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
@@ -62,6 +64,10 @@ function AccountName({ item }: { item: HealthItem }) {
   );
 }
 
+function OffBadge() {
+  return <span data-testid="health-off"><Badge>Cliente desativado — não sincroniza</Badge></span>;
+}
+
 export function AccountsHealthPage() {
   const { profile } = useAuth();
   const canManage = can(profile?.role, "clients.edit");
@@ -73,14 +79,22 @@ export function AccountsHealthPage() {
   const [platform, setPlatform] = useState<string | null>(null);
   const [status, setStatus] = useState<HealthStatus | null>(null);
 
-  const items = useMemo(() => buildHealthItems(rows), [rows]);
-  const visible = useMemo(() => filterHealthItems(items, { query, clientId, platform, status }), [items, query, clientId, platform, status]);
-  const counts = useMemo(() => countByStatus(items), [items]);
+  // Contas de clientes desativados ficam numa aba à parte (23/10/2026): não sincronizam e não entram na verificação.
+  const { data: allClients = [] } = useClients();
+  const [tab, setTab] = useState<"ativas" | "desativadas">("ativas");
+  const deactivated = useMemo(() => new Set(allClients.filter((c) => c.status === "encerrado").map((c) => c.id)), [allClients]);
+  const allItems = useMemo(() => buildHealthItems(rows), [rows]);
+  const activeItems = useMemo(() => allItems.filter((i) => !deactivated.has(i.client_id)), [allItems, deactivated]);
+  const offItems = useMemo(() => allItems.filter((i) => deactivated.has(i.client_id)), [allItems, deactivated]);
+  const off = tab === "desativadas";
+  const items = off ? offItems : activeItems;
+  const visible = useMemo(() => filterHealthItems(items, { query, clientId, platform, status: off ? null : status }), [items, query, clientId, platform, status, off]);
+  const counts = useMemo(() => countByStatus(activeItems), [activeItems]);
   const clients = useMemo(() => [...new Map(items.map((i) => [i.client_id, i.client_name])).entries()].sort((a, b) => a[1].localeCompare(b[1], "pt-BR")), [items]);
 
   const verify = async () => {
     setResults(null);
-    const ids = visible.map((i) => i.ad_account_id);
+    const ids = visible.filter((i) => !deactivated.has(i.client_id)).map((i) => i.ad_account_id);
     const all: RefreshResult[] = [];
     try {
       for (let i = 0; i < ids.length; i += 50) all.push(...(await refresh.mutateAsync(ids.slice(i, i + 50))).results);
@@ -99,14 +113,36 @@ export function AccountsHealthPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Saúde das contas</h1>
           <p className="mt-1 text-sm text-slate-500">Status, saldo e sincronização de todas as contas de anúncio.</p>
         </div>
-        {canManage && visible.length > 0 && (
+        {canManage && !off && visible.length > 0 && (
           <Button variant="secondary" loading={refresh.isPending} onClick={verify}>
             {!refresh.isPending && <RefreshCw className="size-4" aria-hidden />} Verificar status e saldo
           </Button>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por status">
+      <div className="flex flex-wrap gap-1" role="tablist" aria-label="Contas ativas ou de clientes desativados">
+        {([["ativas", "Contas ativas", activeItems.length], ["desativadas", "Clientes desativados", offItems.length]] as const).map(([id, label, n]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => { setTab(id); setClientId(null); setResults(null); }}
+            className={cn("rounded-lg px-3 py-1.5 text-sm font-medium", tab === id ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100")}
+          >
+            {label} <span className="opacity-70">({n})</span>
+          </button>
+        ))}
+      </div>
+
+      {off && (
+        <Alert tone="info">
+          Contas de clientes desativados: o CRM não sincroniza, não verifica o saldo e não monitora estas contas. Os dados abaixo são
+          da última vez que foram lidos. Para tirar daqui de vez, exclua o cliente na ficha dele.
+        </Alert>
+      )}
+
+      {!off && <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por status">
         {HEALTH_STATUSES.map((s) => (
           <button
             key={s}
@@ -121,7 +157,7 @@ export function AccountsHealthPage() {
             {HEALTH_LABELS[s]} <span className="ml-1 font-semibold">{counts[s]}</span>
           </button>
         ))}
-      </div>
+      </div>}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="relative">
@@ -151,7 +187,7 @@ export function AccountsHealthPage() {
       {isLoading ? (
         <div className="h-40 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando contas" />
       ) : items.length === 0 ? (
-        <Alert tone="info">Nenhuma conta de anúncio vinculada ainda. Vincule contas na página de cada cliente.</Alert>
+        <Alert tone="info">{off ? "Nenhuma conta de cliente desativado." : "Nenhuma conta de anúncio vinculada ainda. Vincule contas na página de cada cliente."}</Alert>
       ) : visible.length === 0 ? (
         <Alert tone="info">Nenhuma conta encontrada com esses filtros.</Alert>
       ) : (
@@ -176,7 +212,7 @@ export function AccountsHealthPage() {
                     <td className="px-4 py-3 text-slate-700">{item.client_name}</td>
                     <td className="px-4 py-3 text-slate-700">{PLATFORM_LABELS[item.platform_id] ?? item.platform_id}</td>
                     <td className="px-4 py-3"><AccountName item={item} /></td>
-                    <td className="px-4 py-3"><HealthBadge status={item.health.status} /><Reasons item={item} /></td>
+                    <td className="px-4 py-3">{off ? <OffBadge /> : <><HealthBadge status={item.health.status} /><Reasons item={item} /></>}</td>
                     <td className="px-4 py-3"><Balance item={item} /></td>
                     <td className="px-4 py-3"><LastSync item={item} /></td>
                   </tr>
@@ -192,10 +228,10 @@ export function AccountsHealthPage() {
                 <Card className="space-y-2 p-4 text-sm">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0"><AccountName item={item} /></div>
-                    <HealthBadge status={item.health.status} />
+                    {off ? <OffBadge /> : <HealthBadge status={item.health.status} />}
                   </div>
                   <p className="text-xs text-slate-500">{item.client_name} · {PLATFORM_LABELS[item.platform_id] ?? item.platform_id}</p>
-                  <Reasons item={item} />
+                  {!off && <Reasons item={item} />}
                   <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-2">
                     <div><p className="text-xs text-slate-500">Saldo</p><Balance item={item} /></div>
                     <div><p className="text-xs text-slate-500">Última sincronização</p><LastSync item={item} /></div>

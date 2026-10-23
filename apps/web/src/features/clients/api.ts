@@ -46,6 +46,24 @@ export function useSetClientActive() {
   });
 }
 
+/**
+ * Excluir cliente (23/10/2026): só admin, só cliente já desativado, digitando o nome para confirmar.
+ * Some de todas as telas; os dados ficam guardados no banco (dá para recuperar por lá).
+ */
+export function useExcludeClient() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase.rpc("client_exclude", { p_client_id: id, p_name: name });
+      if (error) {
+        // As mensagens de regra (nome não confere, desative antes) já vêm prontas do banco.
+        throw new FriendlyError(error.code === "22023" ? error.message : friendlyDbError(error, "Não conseguimos excluir o cliente."));
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries(),
+  });
+}
+
 export function useClient(id: string | undefined) {
   return useQuery({
     queryKey: [...CLIENTS_KEY, id],

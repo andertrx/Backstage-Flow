@@ -1,6 +1,8 @@
 -- Ponto de volta (23/10/2026): desfaz a migração clientes_desativar.
 -- Tira os gatilhos novos, guarda as funções novas com o sufixo _nova_2026_10_23 e devolve as antigas
 -- (que ficaram em private.*_antes_2026_10_23) ao nome e ao lugar originais. Não apaga dados.
+-- ATENÇÃO (23/10/2026): rode ANTES o voltar_clientes_excluir_2026_10_23.sql. Depois dele, can_view_client
+-- já é a função original (as linhas sobre can_view_client abaixo devem ser puladas).
 -- Rodar inteiro no SQL Editor do Supabase.
 begin;
 drop trigger if exists clients_status_guard on public.clients;

@@ -1,14 +1,16 @@
 import { can, formatCnpj, formatPhone, opsCan, PLATFORMS } from "@backstage/shared";
-import { ArrowLeft, CalendarDays, ChartPie, ClipboardList, History, Info as InfoIcon, LayoutDashboard, Pencil, Power, PowerOff } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChartPie, ClipboardList, History, Info as InfoIcon, LayoutDashboard, Pencil, Power, PowerOff, Trash2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
+import { Field, Input } from "@/components/ui/field.tsx";
+import { Modal } from "@/components/ui/modal.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { errorMessage } from "@/lib/errors.ts";
-import { useClient, useSetClientActive } from "./api.ts";
+import { useClient, useExcludeClient, useSetClientActive } from "./api.ts";
 import { PlatformAccountsCard } from "@/features/ad-accounts/PlatformAccountsCard.tsx";
 import { platformLook } from "@/features/platforms/look.ts";
 import { ClientEmailCard } from "@/features/client-report/ClientEmailCard.tsx";
@@ -35,12 +37,44 @@ function Info({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** Confirmação de "Excluir cliente": digitar o nome do cliente (só admin, só cliente desativado). */
+function ExcludeClientModal({ id, name, onClose }: { id: string; name: string; onClose: () => void }) {
+  const exclude = useExcludeClient();
+  const navigate = useNavigate();
+  const [typed, setTyped] = useState("");
+  const matches = typed.trim().toLowerCase() === name.trim().toLowerCase();
+  return (
+    <Modal title="Excluir cliente" open onClose={onClose}>
+      <form className="space-y-4" onSubmit={(e) => {
+        e.preventDefault();
+        if (matches) exclude.mutate({ id, name: typed }, { onSuccess: () => navigate("/clientes") });
+      }}>
+        <p className="text-sm text-slate-600">
+          <strong>{name}</strong> some de todas as telas do CRM (Clientes, Contas, relatórios, escolhas de cliente).
+          Os dados antigos continuam guardados no banco e o administrador consegue recuperar por lá, se precisar.
+        </p>
+        <Field label={`Para confirmar, digite o nome do cliente: ${name}`}>
+          {(fid) => <Input id={fid} autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} data-testid="client-exclude-name" />}
+        </Field>
+        {exclude.error && <Alert tone="error">{errorMessage(exclude.error)}</Alert>}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" variant="danger" disabled={!matches} loading={exclude.isPending} data-testid="client-exclude-confirm">
+            <Trash2 className="size-4" aria-hidden /> Excluir cliente
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export function ClientDetailPage() {
   const { id } = useParams();
   const { profile } = useAuth();
   const { data: client, isLoading, error } = useClient(id);
   const [editing, setEditing] = useState(false);
   const setActive = useSetClientActive();
+  const [excluding, setExcluding] = useState(false);
   // Etapa 36.3: abas da Central de Operações (só para quem acompanha o cliente lá).
   const opsPerms = useMyOpsPermissions();
   const showOps = opsCan(opsPerms.data, "ops.clients.view") || opsCan(opsPerms.data, "ops.am");
@@ -98,10 +132,15 @@ export function ClientDetailPage() {
             </Button>
           )}
           {profile?.role === "admin" && (client.status === "encerrado" ? (
-            <Button variant="secondary" loading={setActive.isPending} data-testid="client-reactivate"
-              onClick={() => setActive.mutate({ id: client.id, active: true })}>
-              <Power className="size-4" aria-hidden /> Reativar cliente
-            </Button>
+            <>
+              <Button variant="secondary" loading={setActive.isPending} data-testid="client-reactivate"
+                onClick={() => setActive.mutate({ id: client.id, active: true })}>
+                <Power className="size-4" aria-hidden /> Reativar cliente
+              </Button>
+              <Button variant="danger" data-testid="client-exclude" onClick={() => setExcluding(true)}>
+                <Trash2 className="size-4" aria-hidden /> Excluir cliente
+              </Button>
+            </>
           ) : (
             <Button variant="danger" loading={setActive.isPending} data-testid="client-deactivate"
               onClick={() => {
@@ -115,12 +154,13 @@ export function ClientDetailPage() {
         </div>
       </div>
       {setActive.error && <Alert tone="error">{errorMessage(setActive.error)}</Alert>}
+      {excluding && <ExcludeClientModal id={client.id} name={client.name} onClose={() => setExcluding(false)} />}
       {client.status === "encerrado" && (
         <div data-testid="client-deactivated">
           <Alert tone="warning">
             <strong>Cliente desativado.</strong> O CRM não sincroniza as contas, não monitora, não lê a planilha, não manda o e-mail semanal
             e não recebe o tracking dele; o acesso do cliente está bloqueado. Os dados antigos continuam guardados.
-            {profile?.role === "admin" ? " Use \"Reativar cliente\" para voltar." : " Só o administrador pode reativar."}
+            {profile?.role === "admin" ? " Use \"Reativar cliente\" para voltar ou \"Excluir cliente\" para tirá-lo de todas as telas." : " Só o administrador pode reativar."}
           </Alert>
         </div>
       )}

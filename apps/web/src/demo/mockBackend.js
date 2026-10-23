@@ -225,7 +225,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
       const shift = (n) => new Date(Date.parse(`${today}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
       const rows = db.adAccounts
-        .filter((a) => !a.unlinked_at && (!p.p_client_ids || p.p_client_ids.includes(a.client_id)) &&
+        .filter((a) => !a.unlinked_at && !db.clients.find((c) => c.id === a.client_id)?.excluded_at && (!p.p_client_ids || p.p_client_ids.includes(a.client_id)) &&
           (!p.p_platforms || p.p_platforms.includes(a.platform_id)) && (!p.p_ad_account_ids || p.p_ad_account_ids.includes(a.id)))
         .map((a) => {
           const s = db.snapshots[a.id] ?? {};
@@ -806,8 +806,9 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       return sent ? res(200, { data: r }) : fail(400, "EMAIL_SEND_FAILED", r.detail);
     }
     // Papel "cliente" só vê a empresa com o login ligado (Etapa 19.2).
-    const clientVisible = (clientId) => role !== "cliente" ||
-      (db.access.some((a) => a.user_id === userId && a.client_id === clientId) && Boolean(db.portals[clientId]?.login_enabled));
+    // Cliente excluído (23/10/2026) some para todos; o papel "cliente" também não vê o desativado.
+    const clientVisible = (clientId) => !db.clients.find((c) => c.id === clientId)?.excluded_at && (role !== "cliente" ||
+      (db.clients.find((c) => c.id === clientId)?.status !== "encerrado" && db.access.some((a) => a.user_id === userId && a.client_id === clientId) && Boolean(db.portals[clientId]?.login_enabled)));
     // Link secreto (Edge Function client-report-link → public.client_report_public)
     if (url.includes("/functions/v1/client-report-link")) {
       const b = parse();
@@ -877,6 +878,21 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       Object.assign(portal, { link_token: token, link_enabled: true, link_created_at: new Date().toISOString(), link_uses: 0, link_last_used_at: null,
         link_expires_at: p.p_valid_days ? new Date(Date.now() + p.p_valid_days * 86_400_000).toISOString() : null });
       return res(200, token);
+    }
+
+    // Excluir cliente (mesma regra de private.client_exclude_impl): só admin, só desativado, nome confere.
+    if (url.includes("/rest/v1/rpc/client_exclude")) {
+      const p = parse();
+      db.rpcCalls.push({ fn: "client_exclude", ...p });
+      if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador pode excluir clientes." });
+      const client = db.clients.find((c) => c.id === p.p_client_id && !c.excluded_at);
+      if (!client) return res(404, { code: "P0002", message: "Cliente não encontrado." });
+      if (client.status !== "encerrado") return res(400, { code: "22023", message: "Desative o cliente antes de excluir." });
+      if ((p.p_name ?? "").trim().toLowerCase() !== client.name.trim().toLowerCase()) {
+        return res(400, { code: "22023", message: "O nome digitado não confere com o nome do cliente." });
+      }
+      Object.assign(client, { excluded_at: new Date().toISOString(), excluded_by: userId });
+      return res(204);
     }
 
     // --- Clientes

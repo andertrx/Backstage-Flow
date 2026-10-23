@@ -18,10 +18,11 @@
 | Monitoramento e alertas | as contas ficam fora da avaliação; os alertas abertos são encerrados com o motivo "cliente desativado" |
 | Leitura automática da planilha | a leitura do cliente é recusada (`ri_read_claim`) |
 | E-mail semanal de relatório | o cliente sai da lista de envio (`client_report_email_due`) |
-| Acesso do cliente | link secreto recusado ("Link inválido ou desativado") e login do cliente sem acesso aos dados (`can_view_client`) |
+| Acesso do cliente | link secreto recusado ("Link inválido ou desativado") e login do cliente sem acesso aos dados (`can_view_client` e `visible_client_ids`; ver a correção abaixo) |
 | Tracking do site e WhatsApp | eventos recusados (`tracking_ingest`, `tracking_whatsapp_register`, `tracking_whatsapp_inbound`) |
 | Envio à API de Conversões do Meta | a fila do cliente não sai (`tracking_capi_claim`); com mais de 7 dias o Meta não aceita mais e os eventos são descartados |
 | Central de Operações | repetições de tarefas/reuniões do cliente param ("Parada automaticamente: o cliente foi desativado") |
+| Tela Contas | a conta vai para a aba **"Clientes desativados"** com a etiqueta "Cliente desativado — não sincroniza"; fica fora da contagem e do "Verificar status e saldo" |
 | Telas do dia a dia | some da escolha de cliente (Dashboard, Campanhas, Relatórios, Meta/Google, Comparativo, Executivo, Monitoramento, Inteligência de Resultados, Tracking, Alertas). Continua na lista de Clientes (aba "Desativado"), no Histórico e nos Logs |
 
 ## O que não muda
@@ -40,3 +41,47 @@
 ## Testes
 - SQL: `supabase/tests/clientes_desativar.sql` — 11 verificações OK no banco real (desfeito no fim).
 - Navegador: `e2e/client-deactivate.mjs` — confirmação, etiqueta, alertas encerrados, some do Dashboard, aba Desativado, reativar, gestor sem botão e recusado.
+
+---
+
+# Contas ativas × desativadas e Excluir cliente (23/10/2026, à tarde)
+
+> Ander: "se eu desativo um cliente, ele tem que sair de Contas. Ou pelo menos ter contas ativas e contas desativadas...
+> E quando eu excluir esse cliente, aí some." Caminho escolhido: abas em Contas + botão Excluir.
+
+![Contas: aba Clientes desativados](contas-desativados.png)
+
+## Tela Contas
+- Duas abas: **Contas ativas** (padrão) e **Clientes desativados**, cada uma com a quantidade.
+- Os contadores de status e o botão **"Verificar status e saldo"** só valem para as contas ativas.
+- Na aba de desativados aparece o aviso de que essas contas não sincronizam e a etiqueta "Cliente desativado — não sincroniza".
+
+## Excluir cliente
+![Confirmação para excluir](cliente-excluir.png)
+- Só o **administrador**, e só para cliente **já desativado** (o botão aparece ao lado de "Reativar cliente").
+- Para confirmar, é preciso **digitar o nome do cliente** (maiúsculas/minúsculas não importam).
+- O cliente **some de todas as telas**: lista de Clientes (até em "Todos"), Contas, relatórios, escolhas de cliente, ficha.
+- **Nada é apagado de verdade**: o banco só marca a data da exclusão (`excluded_at`) e quem excluiu (`excluded_by`).
+  Recuperar é feito pelo banco (limpando `excluded_at`), se um dia precisar.
+- Fica no histórico de auditoria como `client.exclude`.
+- Pontos de atenção:
+  - o **CNPJ** do cliente excluído continua reservado: cadastrar outro cliente com o mesmo CNPJ dá "Já existe um cliente com este CNPJ";
+  - tarefas antigas da Central de Operações ligadas a ele continuam guardadas.
+
+## Correção encontrada ao fazer isto (honestidade)
+Na entrega da manhã, a parte "login do cliente bloqueado" **não estava valendo de verdade**: as regras de acesso (RLS) do
+banco continuavam usando a versão antiga da checagem, e a lista de clientes visíveis não olhava a desativação.
+Na prática, só o link secreto estava bloqueado. Corrigido nesta migração: as 12 regras de acesso agora usam a checagem nova,
+e um usuário com papel "cliente" de uma empresa desativada não vê mais nada.
+
+## Banco
+- Migração `20261023195405_clientes_excluir.sql`. **Nenhuma tabela nova**; duas colunas novas em `clients`:
+  - `excluded_at` (quando foi excluído) e `excluded_by` (quem excluiu, ligado a `auth.users`). Guardadas para sempre.
+- `private.client_exclude_impl` (confere admin, cliente desativado e nome) chamada pela função fina `public.client_exclude`.
+- `private.can_view_client` e `private.visible_client_ids`: cliente excluído some para todos; desativado some para o papel "cliente".
+- Volta: `supabase/rollback/voltar_clientes_excluir_2026_10_23.sql` (rodar **antes** do `voltar_clientes_desativar`).
+
+## Testes
+- SQL: `supabase/tests/clientes_excluir.sql` — 13 verificações OK no banco real (desfeito no fim).
+- Banco real, como admin, numa transação desfeita: excluir "Abraço de Algodão" tirou a conta dela de Contas (1 → 0) e o cliente da lista (1 → 0).
+- Navegador: `e2e/client-deactivate.mjs` agora com 23 verificações (abas de Contas, verificar saldo só das ativas, excluir com nome errado/certo, some de Clientes e Contas, gestor recusado).

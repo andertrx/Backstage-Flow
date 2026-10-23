@@ -1,3 +1,16 @@
+# Ponto de restauração — antes de "Contas ativas/desativadas" e "Excluir cliente" (23/10/2026, tarde)
+
+| Parte | Identificação desta versão |
+|---|---|
+| **Código** (branch `claude/meta-google-ads-dashboard-8g4wfg`) | commit **`08e7752`** |
+| **Banco** (Supabase) | última migração **`20261023125125 clientes_desativar`** |
+
+## Como voltar
+1. **Banco:** rodar `supabase/rollback/voltar_clientes_excluir_2026_10_23.sql` (tira o Excluir, limpa `excluded_at` e devolve as checagens de acesso anteriores).
+2. **Código e site:** pedir "volte o excluir cliente" — eu reverto os commits dessa mudança em cima da branch.
+
+---
+
 # Ponto de restauração — antes de "Desativar cliente" (23/10/2026)
 
 | Parte | Identificação desta versão |
