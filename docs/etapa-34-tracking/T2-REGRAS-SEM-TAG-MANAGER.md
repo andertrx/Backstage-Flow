@@ -69,3 +69,4 @@ Também mudou: `tracking_containers.rules_version` (versão no ar) e a fila do M
 - **Regras compartilhadas**: 7 testes (endereço, campo e resposta, valor em real e dólar, nome no Meta, resumo, validação).
 - **Navegador** (`tracking-rules.mjs`): **26 verificações** — tela (criar, validar, publicar, testar endereço, ordem, desligar, voltar versão, visualizador) e script (lojista → Lead com Pixel, sacoleiro → LeadOutros, rádio com acento, clique, troca de página → compra com valor e pedido sem Pixel, compra sem valor não sai, sem regras nada muda).
 - O teste antigo do tracking (`tracking.mjs`, 114 verificações) continua passando.
+- **Conjunto completo de testes de navegador** (fim da fase): **62 roteiros, 1.850 verificações, nenhuma falha**.
