@@ -20,6 +20,7 @@ export * from "./sync/freshness.ts";
 export * from "./errors/redact.ts";
 export * from "./tracking/params.ts";
 export * from "./tracking/identity.ts";
+export * from "./tracking/rules.ts";
 export * from "./reports/clientReport.ts";
 export * from "./reports/breakdowns.ts";
 export * from "./reports/email.ts";

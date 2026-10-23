@@ -26,6 +26,8 @@ export interface MockDb {
   coverage: Record<string, Row>;
   errorLogs: Row[];
   trackingContainers: Row[];
+  trackingRules: Row[];
+  trackingRuleVersions: Row[];
   trackingTouchpoints: Row[];
   trackingEvents: Row[];
   trackingLeads: Row[];

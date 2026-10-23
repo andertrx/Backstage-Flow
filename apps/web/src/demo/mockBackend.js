@@ -72,6 +72,8 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     rpcOverride: {},
     /** Tracking (Etapa 34): containers, chegadas com origem e eventos. */
     trackingContainers: [],
+    trackingRules: [],
+    trackingRuleVersions: [],
     trackingTouchpoints: [],
     trackingEvents: [],
     /** Leads (com first_touch/last_touch já resumidos), compras e jornada por lead. */
@@ -1442,6 +1444,59 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         db.rpcCalls.push({ fn: "tracking_containers.update", id: c.id });
         return res(204);
       }
+    }
+    // Regras do site sem Tag Manager (Tracking T2): mesmas regras do banco (rascunho, publicar, voltar versão)
+    if (url.includes("/rest/v1/tracking_rule_versions")) {
+      const cid = eqParam(url, "container_id");
+      return res(200, db.trackingRuleVersions.filter((v) => v.container_id === cid).sort((a, b) => b.version - a.version)
+        .map(({ version, rules_count, restored_from, published_at }) => ({ version, rules_count, restored_from, published_at })));
+    }
+    // Relógio que sempre anda (no banco, cada mudança tem um horário maior que a anterior).
+    const ruleClock = () => { db.ruleClock = Math.max(Date.now(), (db.ruleClock ?? 0) + 1); return new Date(db.ruleClock).toISOString(); };
+    if (url.includes("/rest/v1/tracking_rules")) {
+      const canEdit = ["admin", "gestor"].includes(role);
+      if (method === "GET") {
+        const cid = eqParam(url, "container_id");
+        return res(200, db.trackingRules.filter((r) => r.container_id === cid).sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at)));
+      }
+      if (!canEdit) return res(403, { code: "42501", message: "new row violates row-level security policy" });
+      const now = ruleClock();
+      if (method === "POST") {
+        const row = parse();
+        const c = db.trackingContainers.find((x) => x.id === row.container_id);
+        if (row.event_name === "Purchase" && row.value_mode === "nenhum") return res(400, { code: "23514", message: "violates check constraint tracking_rules_purchase" });
+        db.trackingRules.push({ id: crypto.randomUUID(), enabled: true, archived_at: null, created_at: now, updated_at: now, ...row, client_id: c.client_id });
+        return res(201);
+      }
+      if (method === "PATCH") {
+        const r = db.trackingRules.find((x) => x.id === eqParam(url, "id"));
+        Object.assign(r, parse(), { updated_at: now });
+        return res(204);
+      }
+    }
+    if (url.includes("/rest/v1/rpc/tracking_rules_publish") || url.includes("/rest/v1/rpc/tracking_rules_restore")) {
+      const p = parse();
+      if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor publicam regras." });
+      const c = db.trackingContainers.find((x) => x.id === p.p_container_id);
+      const keys = ["id", "name", "kind", "match_op", "match_text", "click_by", "field_name", "field_values", "event_name", "meta_mode", "meta_event",
+        "value_mode", "value_fixed", "value_selector", "currency", "order_param"];
+      if (url.includes("tracking_rules_restore")) {
+        const v = db.trackingRuleVersions.find((x) => x.container_id === c.id && x.version === p.p_version);
+        if (!v) return res(404, { code: "P0002", message: "Versão não encontrada." });
+        const now = ruleClock();
+        for (const r of db.trackingRules) if (r.container_id === c.id && !r.archived_at) Object.assign(r, { archived_at: now, updated_at: now });
+        v.rules.forEach((r, i) => db.trackingRules.push({ ...r, id: crypto.randomUUID(), container_id: c.id, client_id: c.client_id, position: i,
+          enabled: true, archived_at: null, created_at: now, updated_at: now }));
+      }
+      const rules = db.trackingRules.filter((r) => r.container_id === c.id && !r.archived_at && r.enabled)
+        .sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at))
+        .map((r) => Object.fromEntries(keys.filter((k) => r[k] != null).map((k) => [k, r[k]])));
+      const version = Math.max(0, ...db.trackingRuleVersions.filter((x) => x.container_id === c.id).map((x) => x.version)) + 1;
+      db.trackingRuleVersions.push({ container_id: c.id, version, rules, rules_count: rules.length,
+        restored_from: url.includes("tracking_rules_restore") ? p.p_version : null, published_at: ruleClock() });
+      c.rules_version = version;
+      db.rpcCalls.push({ fn: url.includes("restore") ? "tracking_rules_restore" : "tracking_rules_publish", ...p });
+      return res(200, version);
     }
     if (url.includes("/rest/v1/rpc/tracking_overview")) {
       const p = parse();

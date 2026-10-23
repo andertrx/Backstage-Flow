@@ -11,6 +11,7 @@
  * A origem da visita é recalculada aqui (o navegador não decide).
  *
  * Respostas: 204 (recebido/duplicado/ignorado), 400/403/404/413/429 (recusado).
+ * GET ?k=<chave> (Tracking T2): devolve as regras publicadas do site ({v, r}) para o script.
  */
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { adminClient } from "../_shared/auth.ts";
@@ -29,6 +30,20 @@ async function findContainer(db: SupabaseClient, key: string): Promise<Container
   if (cache.size > 1000) cache.clear();
   cache.set(key, { at: Date.now(), container });
   return container;
+}
+
+// Regras do site (Tracking T2): o script pede uma vez por página. Público como a chave do site;
+// só sai a versão PUBLICADA, de site ativo de cliente ativo.
+const rulesCache = new Map<string, { at: number; body: string }>();
+async function rulesFor(db: SupabaseClient, key: string): Promise<string> {
+  const hit = rulesCache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.body;
+  const { data, error } = await db.rpc("tracking_rules_for_key", { p_key: key });
+  if (error) throw error;
+  const body = JSON.stringify(data ?? { v: null, r: [] });
+  if (rulesCache.size > 1000) rulesCache.clear();
+  rulesCache.set(key, { at: Date.now(), body });
+  return body;
 }
 
 function cors(origin: string | null): HeadersInit {
@@ -58,6 +73,19 @@ async function allowed(db: SupabaseClient, bucket: string, rule: { max: number; 
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(origin) });
+  if (req.method === "GET") {
+    const key = new URL(req.url).searchParams.get("k") ?? "";
+    if (!/^bf_[0-9a-f]{24}$/.test(key)) return reply(400, null, "INVALID_INPUT");
+    try {
+      return new Response(await rulesFor(adminClient(), key), {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=300" },
+      });
+    } catch (err) {
+      await recordError({ source: "servidor", code: "TRACK_RULES_FAILED", technical: err, context: { funcao: "track" } });
+      return reply(500, null, "UNKNOWN");
+    }
+  }
   if (req.method !== "POST") return reply(405, null, "METHOD_NOT_ALLOWED");
 
   try {

@@ -7,7 +7,7 @@ import {
   EVIDENCE_LABELS,
   eventLabel,
 } from "@backstage/shared";
-import { Code2, MousePointerClick, Pencil, Plus, Radar } from "lucide-react";
+import { Code2, ListChecks, MousePointerClick, Pencil, Plus, Radar } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -44,6 +44,7 @@ import { ContainerFormModal, InstallModal } from "./ContainerModals.tsx";
 import { LeadsSection } from "./LeadsSection.tsx";
 import { capiStatus, PERIOD_LABELS, type PeriodPreset, periodRange, summarizeConversions, waConnectionStatus } from "./logic.ts";
 import { MetaCapiModal } from "./MetaCapiModal.tsx";
+import { RulesModal } from "./RulesModal.tsx";
 import { WhatsAppApiModal } from "./WhatsAppApiModal.tsx";
 import { WhatsAppSection } from "./WhatsAppSection.tsx";
 
@@ -94,6 +95,7 @@ export function TrackingPage() {
 
   const [editing, setEditing] = useState<TrackingContainer | "new" | null>(null);
   const [installing, setInstalling] = useState<TrackingContainer | null>(null);
+  const [rulesFor, setRulesFor] = useState<TrackingContainer | null>(null);
 
   const visible = containers.filter((c) => !clientId || c.client_id === clientId);
   const visibleIds = new Set(visible.map((c) => c.id));
@@ -195,6 +197,7 @@ export function TrackingPage() {
                   onMeta={() => setMetaFor(c)}
                   waConnection={waConnOf(c.id)}
                   onWhatsApp={() => setWaApiFor(c)}
+                  onRules={() => setRulesFor(c)}
                 />
               ))}
             </ul>
@@ -314,6 +317,7 @@ export function TrackingPage() {
       {waApiFor && (
         <WhatsAppApiModal container={waApiFor} connection={waConnOf(waApiFor.id)} canManage={canManage} onClose={() => setWaApiFor(null)} />
       )}
+      {rulesFor && <RulesModal container={rulesFor} canManage={canManage} onClose={() => setRulesFor(null)} />}
     </div>
   );
 }
@@ -338,7 +342,7 @@ function Stat({ label, value, hint }: { label: string; value: number; hint?: str
   );
 }
 
-function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, destination, capi, onMeta, waConnection, onWhatsApp }: {
+function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, destination, capi, onMeta, waConnection, onWhatsApp, onRules }: {
   container: TrackingContainer;
   stats?: OverviewRow;
   canManage: boolean;
@@ -349,6 +353,7 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
   onMeta: () => void;
   waConnection: WhatsAppConnection | undefined;
   onWhatsApp: () => void;
+  onRules: () => void;
 }) {
   const meta = capiStatus(destination, capi);
   const wa = waConnectionStatus(waConnection);
@@ -382,6 +387,9 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
               WhatsApp API · {wa.label}
             </Button>
           )}
+          <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onRules} aria-label={`Regras do site: ${c.name}`}>
+            <ListChecks className="size-3.5" aria-hidden /> Regras · {c.rules_version ? `versão ${c.rules_version}` : "nenhuma publicada"}
+          </Button>
           <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onInstall} aria-label={`Código de instalação: ${c.name}`}>
             <Code2 className="size-3.5" aria-hidden /> Código de instalação
           </Button>

@@ -57,6 +57,8 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [34.4 — De onde vêm as conversões: atribuição por campanha e qualidade do tracking](docs/etapa-34-tracking/34.4-ATRIBUICAO.md)
   - [34.5-W — WhatsApp (aplicativo comum): código de rastreio e marcação de Lead/Venda](docs/etapa-34-tracking/34.5-W-WHATSAPP.md)
   - [34.5-W2 — WhatsApp pela API oficial: conversas automáticas, anúncios de WhatsApp e envio business_messaging](docs/etapa-34-tracking/34.5-W2-WHATSAPP-API.md)
+  - [Reanálise e plano novo do tracking completo para o Meta (23/10)](docs/etapa-34-tracking/REANALISE-2026-10-23.md)
+  - [T2 — Regras do site sem Tag Manager (formulário lojista, página, clique, publicar/voltar versão)](docs/etapa-34-tracking/T2-REGRAS-SEM-TAG-MANAGER.md) ✅ 23/10
 - [Etapa 35 — Meta Ads Campaign Builder (auditoria e plano)](docs/etapa-35-campaign-builder/35.0-AUDITORIA.md) *(em espera: prompt enviado por engano; auditoria guardada para depois)*
 - [Etapa 36 — Central de Operações](docs/etapa-36-central-operacoes/36.16-RELATORIO-FINAL.md) ✅ concluída ([auditoria e plano](docs/etapa-36-central-operacoes/36.0-AUDITORIA.md))
   - [36.1 — Setores, equipe e permissões](docs/etapa-36-central-operacoes/36.1-SETORES-EQUIPE.md) ✅ concluída

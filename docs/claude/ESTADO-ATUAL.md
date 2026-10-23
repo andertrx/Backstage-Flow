@@ -29,7 +29,7 @@
 | 38 — Comercial separado da Operação | ✅ concluída (38.1 e 38.2) |
 | 39 — Inteligência de Resultados (Google Sheets) | ✅ concluída no código (39.1 a 39.5); falta a primeira leitura real com a chave do Google do Ander |
 
-### Próximas fases possíveis (Etapa 34, ver `docs/etapa-34-tracking/ANALISE-E-PLANO.md`)
+### Próximas fases possíveis (Etapa 34 — plano NOVO de 23/10 em `docs/etapa-34-tracking/REANALISE-2026-10-23.md`: T1 piloto, T2 ✅ regras, T3 contatos e vendas no CRM, T4 WhatsApp oficial com frase de venda, T5 links dos anúncios, T6 saúde do tracking. A tabela abaixo é do plano antigo)
 | Fase | O que entrega | Depende do Ander? |
 |---|---|---|
 | **34.5** | Vendas fora do site (manual ou webhook), ligadas à origem e enviadas ao Meta como conversão | não (**recomendada**) |
@@ -82,3 +82,4 @@ A lista completa está em [`docs/PENDENCIAS.md`](../PENDENCIAS.md). Lembre nos r
 
 - **23/10/2026 — Desativar cliente:** botão na ficha (só admin). Cliente 'encerrado' (rótulo "Desativado") não sincroniza, não é monitorado, não tem planilha lida, e-mail, acesso do cliente nem tracking/CAPI. Regra em `private.client_is_active`; gatilhos `clients_status_guard`/`clients_status_effects`; telas usam `useActiveClients`. Ver `docs/CLIENTE-DESATIVADO.md`.
 - **23/10/2026 — Contas ativas/desativadas e Excluir cliente:** Contas com abas (verificar saldo só das ativas). Excluir = `clients.excluded_at` via `public.client_exclude` (admin, cliente desativado, nome confere); some de tudo pelo RLS (`can_view_client`, `visible_client_ids`). Recuperar: limpar `excluded_at` no banco. CNPJ do excluído continua reservado. Cuidado: renomear função no Postgres deixa as políticas RLS apontando para a função renomeada (foi o que aconteceu no `clientes_desativar`).
+- **23/10/2026 — Tracking T2 (regras sem Tag Manager):** `tracking_rules` (rascunho, arquivar em vez de apagar) e `tracking_rule_versions` (publicações, permanentes); `tracking_containers.rules_version`. Publicar/voltar: `tracking_rules_publish` / `tracking_rules_restore`. O `t.js` busca `GET track?k=` e aplica as regras; `custom_data.bf_meta` decide o nome no Meta ou "nao_enviar" (`private.tracking_capi_enqueue`). Lógica espelhada em `packages/shared/src/tracking/rules.ts` e no `t.js` (mudar os dois). Plano: `docs/etapa-34-tracking/REANALISE-2026-10-23.md` (próximas: T1 piloto, T3 contatos e vendas no CRM).

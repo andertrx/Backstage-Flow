@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Channel, Evidence } from "@backstage/shared";
+import type { Channel, Evidence, TrackingRuleInput } from "@backstage/shared";
 import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import type { AttributionModel, AttributionRowInput, ConsentMode, ContainerInput, ContainerStatus, QualityInput } from "./logic.ts";
@@ -15,6 +15,8 @@ export interface TrackingContainer {
   consent_mode: ConsentMode;
   retention_days: number;
   created_at: string;
+  /** Versão das regras publicada para o script do site (Tracking T2). */
+  rules_version: number | null;
   clients: { name: string } | null;
 }
 
@@ -64,7 +66,7 @@ export function useTrackingContainers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_containers")
-        .select("id, client_id, name, public_key, allowed_domains, status, test_mode, consent_mode, retention_days, created_at, clients(name)")
+        .select("id, client_id, name, public_key, allowed_domains, status, test_mode, consent_mode, retention_days, created_at, rules_version, clients(name)")
         .order("created_at", { ascending: true });
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os containers de tracking."));
       return data as unknown as TrackingContainer[];
@@ -539,5 +541,94 @@ export function useTrackingQuality(from: string, to: string, enabled: boolean) {
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos calcular a qualidade do tracking."));
       return (data ?? []) as QualityRow[];
     },
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Regras do site sem Tag Manager (Tracking T2): rascunho, publicar e voltar versão
+// -----------------------------------------------------------------------------
+export interface TrackingRule extends TrackingRuleInput {
+  id: string;
+  container_id: string;
+  position: number;
+  enabled: boolean;
+  archived_at: string | null;
+  updated_at: string;
+}
+
+export interface RuleVersion {
+  version: number;
+  rules_count: number;
+  restored_from: number | null;
+  published_at: string;
+}
+
+const rulesKey = (containerId: string) => [...KEY, "rules", containerId] as const;
+
+/** Regras do site, inclusive as arquivadas (para saber se há mudança não publicada). */
+export function useTrackingRules(containerId: string) {
+  return useQuery({
+    queryKey: rulesKey(containerId),
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tracking_rules").select("*").eq("container_id", containerId)
+        .order("position").order("created_at");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as regras do site."));
+      return data as TrackingRule[];
+    },
+  });
+}
+
+export function useRuleVersions(containerId: string) {
+  return useQuery({
+    queryKey: [...rulesKey(containerId), "versions"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tracking_rule_versions").select("version, rules_count, restored_from, published_at")
+        .eq("container_id", containerId).order("version", { ascending: false }).limit(20);
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as versões publicadas."));
+      return data as RuleVersion[];
+    },
+  });
+}
+
+export type RuleAction =
+  | { action: "save"; id?: string; input: TrackingRuleInput; position?: number }
+  | { action: "update"; id: string; changes: Partial<Pick<TrackingRule, "enabled" | "position">> }
+  | { action: "archive"; id: string }
+  | { action: "swap"; first: { id: string; position: number }; second: { id: string; position: number } }
+  | { action: "publish" }
+  | { action: "restore"; version: number };
+
+/** Tudo sobre as regras de um site. O banco confere quem pode (admin e gestor). */
+export function useRuleAction(containerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (a: RuleAction) => {
+      const fail = (error: unknown, msg: string) => { throw new FriendlyError(friendlyDbError(error, msg)); };
+      if (a.action === "publish" || a.action === "restore") {
+        const { error } = a.action === "publish"
+          ? await supabase.rpc("tracking_rules_publish", { p_container_id: containerId })
+          : await supabase.rpc("tracking_rules_restore", { p_container_id: containerId, p_version: a.version });
+        if (error) fail(error, "Não conseguimos publicar as regras.");
+        return;
+      }
+      if (a.action === "save") {
+        const { error } = a.id
+          ? await supabase.from("tracking_rules").update(a.input).eq("id", a.id)
+          : await supabase.from("tracking_rules").insert({ ...a.input, container_id: containerId, position: a.position ?? 0 });
+        if (error) fail(error, "Não conseguimos salvar a regra.");
+        return;
+      }
+      if (a.action === "swap") {
+        for (const r of [a.first, a.second]) {
+          const { error } = await supabase.from("tracking_rules").update({ position: r.position }).eq("id", r.id);
+          if (error) fail(error, "Não conseguimos mudar a ordem.");
+        }
+        return;
+      }
+      const changes = a.action === "archive" ? { archived_at: new Date().toISOString() } : a.changes;
+      const { error } = await supabase.from("tracking_rules").update(changes).eq("id", a.id);
+      if (error) fail(error, "Não conseguimos alterar a regra.");
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });
 }

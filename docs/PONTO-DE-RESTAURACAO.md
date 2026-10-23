@@ -1,3 +1,16 @@
+# Ponto de restauração — antes de "Tracking T2: regras sem Tag Manager" (23/10/2026, noite)
+
+| Parte | Identificação desta versão |
+|---|---|
+| **Código** (branch `claude/meta-google-ads-dashboard-8g4wfg`) | commit **`f69a497`** (plano do tracking) |
+| **Banco** (Supabase) | última migração **`20261023195405 clientes_excluir`** |
+
+## Como voltar
+1. **Banco:** rodar `supabase/rollback/voltar_tracking_regras_2026_10_23.sql` (devolve a fila do Meta como era e desliga as regras; as tabelas ficam guardadas).
+2. **Código e site:** pedir "volte as regras do tracking" — eu reverto os commits dessa mudança em cima da branch.
+
+---
+
 # Ponto de restauração — antes de "Contas ativas/desativadas" e "Excluir cliente" (23/10/2026, tarde)
 
 | Parte | Identificação desta versão |

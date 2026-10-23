@@ -179,7 +179,10 @@
       var fb = fbIds();
       body.fbp = fb.fbp;
       if (fb.fbc) body.fbc = fb.fbc;
-      firePixel(name, data, body.e);
+      // Regra do CRM pode mandar com outro nome ao Meta (bf_meta) ou não mandar.
+      var pxName = data && data.bf_meta ? (data.bf_meta === "nao_enviar" ? null : data.bf_meta) : name, pxData = null;
+      if (data && typeof data === "object") { pxData = {}; for (var dk in data) if (dk.indexOf("bf_") !== 0) pxData[dk] = data[dk]; }
+      if (pxName) firePixel(pxName, pxData, body.e);
       var json = JSON.stringify(body);
       try {
         if (navigator.sendBeacon && navigator.sendBeacon(ENDPOINT, new Blob([json], { type: "text/plain" }))) return;
@@ -236,30 +239,42 @@
       if (/(^|[\s_-])(nome|name|full)/.test(n)) return "name";
       return null;
     };
-    if (el.getAttribute("data-forms") === "lead") {
-      // Cifra ao sair do campo: no envio o hash já está pronto (a página pode ir embora logo depois).
-      d.addEventListener("change", function (ev) {
-        try {
-          var k = ev.target && ev.target.tagName === "INPUT" ? fieldKind(ev.target) : null;
-          if (k && canHash) { var u = {}; u[k] = ev.target.value; hashUser(u); }
-        } catch (e) { /* nunca quebra o site */ }
-      }, true);
-      d.addEventListener("submit", function (ev) {
-        try {
-          var f = ev.target, u = {}, found = false;
-          if (!f || !f.elements) return;
-          for (var i = 0; i < f.elements.length; i++) {
-            var inp = f.elements[i], k = inp.tagName === "INPUT" ? fieldKind(inp) : null;
-            if (k && inp.value && !u[k]) {
-              u[k] = inp.value;
-              if (k === "email" || k === "phone") found = true;
-            }
+    var FORMS_LEAD = el.getAttribute("data-forms") === "lead";
+    var RULES = [];
+    var hasFormRules = function () { for (var i = 0; i < RULES.length; i++) if (RULES[i].kind === "formulario") return true; return false; };
+    // Cifra ao sair do campo: no envio o hash já está pronto (a página pode ir embora logo depois).
+    d.addEventListener("change", function (ev) {
+      try {
+        if (!FORMS_LEAD && !hasFormRules()) return;
+        var k = ev.target && ev.target.tagName === "INPUT" ? fieldKind(ev.target) : null;
+        if (k && canHash) { var u = {}; u[k] = ev.target.value; hashUser(u); }
+      } catch (e) { /* nunca quebra o site */ }
+    }, true);
+    d.addEventListener("submit", function (ev) {
+      try {
+        var f = ev.target, u = {}, found = false;
+        if (!f || !f.elements) return;
+        for (var i = 0; i < f.elements.length; i++) {
+          var inp = f.elements[i], k = inp.tagName === "INPUT" ? fieldKind(inp) : null;
+          if (k && inp.value && !u[k]) {
+            u[k] = inp.value;
+            if (k === "email" || k === "phone") found = true;
           }
-          if (!found) return;
-          track("Lead", { formulario: (f.getAttribute("id") || f.getAttribute("name") || "sem_nome").slice(0, 80) }, u);
-        } catch (e) { /* nunca quebra o site */ }
-      }, true);
-    }
+        }
+        var formName = (f.getAttribute("id") || f.getAttribute("name") || "sem_nome").slice(0, 80);
+        // Regra do CRM ganha da regra automática (a primeira que bater, na ordem da lista).
+        var hit = formRuleHit(f);
+        if (hit) {
+          var data = ruleData(hit.rule);
+          if (!data) return;
+          data.formulario = formName;
+          if (hit.answer) data.resposta = hit.answer.slice(0, 100);
+          return track(hit.rule.event_name, data, found ? u : null);
+        }
+        if (!FORMS_LEAD || !found) return;
+        track("Lead", { formulario: formName }, u);
+      } catch (e) { /* nunca quebra o site */ }
+    }, true);
 
     // ---- Clique para o WhatsApp = Contact (desligar com data-whatsapp="off").
     // Com data-wa-code="1": poe um codigo curto na mensagem ("ref. K7Q2M9"). Quando a
@@ -304,6 +319,152 @@
       }, true);
     }
 
+    // ---- Regras do CRM (Tracking T2): página, clique e formulário, sem Tag Manager.
+    // Mesmas regras de packages/shared/src/tracking/rules.ts (lá estão os testes).
+    var nt = function (v) {
+      var t = String(v == null ? "" : v);
+      if (t.normalize) t = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return t.toLowerCase().replace(/\s+/g, " ").replace(/^ | $/g, "");
+    };
+    var noSlash = function (t) { return t.length > 1 ? t.replace(/\/+(\?|$)/, "$1") : t; };
+    var pageHit = function (r, url) {
+      try {
+        var u = new URL(url), want = nt(r.match_text), full = /^https?:/.test(want);
+        if (!want) return false;
+        var target = nt(full ? u.href : u.pathname + u.search);
+        if (r.match_op === "igual") return noSlash(target) === noSlash(want) || noSlash(nt(full ? u.origin + u.pathname : u.pathname)) === noSlash(want);
+        if (r.match_op === "comeca") return target.indexOf(want) === 0;
+        return target.indexOf(want) >= 0;
+      } catch (e) {
+        return false;
+      }
+    };
+    var money = function (text) {
+      var m = String(text == null ? "" : text).match(/\d[\d.,\s]*/);
+      if (!m) return null;
+      var t = m[0].replace(/\s/g, "").replace(/[.,]$/, ""), ld = t.lastIndexOf("."), lc = t.lastIndexOf(",");
+      if (ld >= 0 && lc >= 0) {
+        var dec = ld > lc ? "." : ",";
+        t = t.split(dec === "." ? "," : ".").join("").replace(dec, ".");
+      } else if (ld >= 0 || lc >= 0) {
+        var parts = t.split(lc >= 0 ? "," : ".");
+        t = parts.length === 2 && parts[1].length <= 2 ? parts.join(".") : parts.join("");
+      }
+      var n = Number(t);
+      return isFinite(n) && n >= 0 && n <= 1e9 ? Math.round(n * 100) / 100 : null;
+    };
+    // Dados que acompanham o evento da regra. Compra sem valor encontrado: não envia (nada inventado).
+    var ruleData = function (r) {
+      var data = { bf_regra: String(r.name || "").slice(0, 80) };
+      if (r.meta_mode === "nao_enviar") data.bf_meta = "nao_enviar";
+      else if (r.meta_mode === "personalizado" && r.meta_event) data.bf_meta = r.meta_event;
+      if (r.value_mode === "fixo") { data.value = Number(r.value_fixed); data.currency = r.currency; }
+      else if (r.value_mode === "pagina") {
+        var node = null;
+        try { node = d.querySelector(r.value_selector); } catch (e) { node = null; }
+        var v = node ? money(node.textContent) : null;
+        if (v != null) { data.value = v; data.currency = r.currency; }
+        else if (r.event_name === "Purchase") return null;
+      }
+      if (r.order_param) {
+        try {
+          var o = new URL(location.href).searchParams.get(r.order_param);
+          if (o && /^[A-Za-z0-9_.:\/#-]{1,100}$/.test(o)) data.transaction_id = o;
+        } catch (e) { /* sem nº do pedido */ }
+      }
+      return data;
+    };
+    var firedPages = {};
+    var runPageRules = function () {
+      for (var i = 0; i < RULES.length; i++) {
+        var r = RULES[i], key = r.id + "|" + location.href;
+        if (r.kind !== "pagina" || firedPages[key] || !pageHit(r, location.href)) continue;
+        var data = ruleData(r);
+        if (!data) continue;
+        firedPages[key] = 1;
+        track(r.event_name, data);
+      }
+    };
+    // Textos que identificam um campo: name, id, placeholder, rótulo e o título do grupo (rádios).
+    var fieldNames = function (inp) {
+      var out = [inp.name, inp.id, inp.getAttribute("placeholder"), inp.getAttribute("aria-label")], node = inp, lb;
+      try { if (inp.id) { lb = d.querySelector("label[for='" + String(inp.id).replace(/'/g, "") + "']"); if (lb) out.push(lb.textContent); } } catch (e) { /* id estranho */ }
+      if (inp.closest) { lb = inp.closest("label"); if (lb) out.push(lb.textContent); lb = inp.closest("fieldset"); if (lb && lb.querySelector("legend")) out.push(lb.querySelector("legend").textContent); }
+      for (var up = 0; up < 3 && node.parentElement; up++) {
+        node = node.parentElement;
+        lb = node.querySelector("label, legend");
+        if (lb && !lb.contains(inp) && (!lb.htmlFor || lb.htmlFor !== inp.id)) { out.push(lb.textContent); break; }
+      }
+      return out;
+    };
+    var answersOf = function (inp) {
+      var tag = inp.tagName, type = (inp.type || "").toLowerCase();
+      if (tag === "SELECT") {
+        var o = inp.options && inp.selectedIndex >= 0 ? inp.options[inp.selectedIndex] : null;
+        return o ? [o.text, o.value] : [];
+      }
+      if (type === "radio" || type === "checkbox") {
+        if (!inp.checked) return [];
+        var lb = inp.closest ? inp.closest("label") : null;
+        try { if (!lb && inp.id) lb = d.querySelector("label[for='" + String(inp.id).replace(/'/g, "") + "']"); } catch (e) { lb = null; }
+        return [inp.value, lb ? lb.textContent : ""];
+      }
+      if (tag === "INPUT" || tag === "TEXTAREA") return fieldKind(inp) ? [] : [inp.value];
+      return [];
+    };
+    var nameHit = function (want, names) {
+      want = nt(want);
+      for (var i = 0; i < names.length; i++) { var n = nt(names[i]); if (want && n && (n === want || n.indexOf(want) >= 0)) return true; }
+      return false;
+    };
+    var formRuleHit = function (f) {
+      for (var i = 0; i < RULES.length; i++) {
+        var r = RULES[i];
+        if (r.kind !== "formulario") continue;
+        if (r.match_text) {
+          var which = nt((f.getAttribute("id") || "") + " " + (f.getAttribute("name") || "") + " " + (f.getAttribute("class") || "") + " " + (f.getAttribute("action") || ""));
+          if (which.indexOf(nt(r.match_text)) < 0) continue;
+        }
+        if (!r.field_name) return { rule: r, answer: null };
+        for (var j = 0; j < f.elements.length; j++) {
+          var inp = f.elements[j];
+          if (!nameHit(r.field_name, fieldNames(inp))) continue;
+          var ans = answersOf(inp);
+          for (var a = 0; a < ans.length; a++) {
+            for (var v = 0; v < r.field_values.length; v++) if (nt(ans[a]) && nt(ans[a]) === nt(r.field_values[v])) return { rule: r, answer: r.field_values[v] };
+          }
+        }
+      }
+      return null;
+    };
+    var lastClick = {};
+    d.addEventListener("click", function (ev) {
+      try {
+        var t = ev.target;
+        if (!t || !t.closest || !RULES.length) return;
+        var btn = t.closest("a, button, input[type='submit'], input[type='button'], [role='button']") || t;
+        for (var i = 0; i < RULES.length; i++) {
+          var r = RULES[i], hit = false;
+          if (r.kind !== "clique") continue;
+          if (r.click_by === "seletor") { try { hit = !!t.closest(r.match_text); } catch (e) { hit = false; } }
+          else if (r.click_by === "link") { var a = t.closest("a[href]"); hit = !!a && nt(a.getAttribute("href")).indexOf(nt(r.match_text)) >= 0; }
+          else hit = nt(btn.textContent || btn.value).indexOf(nt(r.match_text)) >= 0;
+          if (!hit || Date.now() - (lastClick[r.id] || 0) < 1500) continue;
+          var data = ruleData(r);
+          if (!data) continue;
+          lastClick[r.id] = Date.now();
+          track(r.event_name, data);
+          return;
+        }
+      } catch (e) { /* nunca quebra o site */ }
+    }, true);
+    // Busca as regras publicadas no CRM (o navegador guarda por 5 min).
+    try {
+      fetch(ENDPOINT + "?k=" + KEY, { credentials: "omit" }).then(function (res) { return res.ok ? res.json() : null; }).then(function (cfg) {
+        if (cfg && cfg.r && cfg.r.length) { RULES = cfg.r; runPageRules(); }
+      }, function () { /* sem regras: segue o automático */ });
+    } catch (e) { /* sem regras: segue o automático */ }
+
     send("PageView");
     for (var i = 0; i < pending.length; i++) api.apply(null, pending[i]);
 
@@ -315,6 +476,7 @@
       last = location.href;
       if (!consent) return;
       transmit("PageView", null, Date.now(), last, ref);
+      runPageRules();
     };
     var wrap = function (fn) {
       return function () {
