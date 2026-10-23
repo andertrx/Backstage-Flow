@@ -120,7 +120,7 @@ export function AccountsHealthPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-1" role="tablist" aria-label="Contas ativas ou de clientes desativados">
+      <div className="flex flex-wrap gap-1" role="tablist" aria-label="Situação das contas">
         {([["ativas", "Contas ativas", activeItems.length], ["desativadas", "Clientes desativados", offItems.length]] as const).map(([id, label, n]) => (
           <button
             key={id}

@@ -60,7 +60,8 @@ export function useExcludeClient() {
         throw new FriendlyError(error.code === "22023" ? error.message : friendlyDbError(error, "Não conseguimos excluir o cliente."));
       }
     },
-    onSuccess: () => queryClient.invalidateQueries(),
+    // Recarrega as telas sem esperar: quem chamou já pode sair da ficha do cliente excluído.
+    onSuccess: () => { void queryClient.invalidateQueries(); },
   });
 }
 
