@@ -20,7 +20,7 @@ import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { type MonitorRuleRow, useArchiveMonitorRule, useMonitorRules, useSaveMonitorRule, useScopeOptions } from "./api.ts";
@@ -201,7 +201,7 @@ export function RulesSettings() {
 function RuleModal({ editing, canGlobal, onClose }: { editing: NonNullable<Editing>; canGlobal: boolean; onClose: () => void }) {
   const rule = editing.mode === "edit" ? editing.rule : null;
   const save = useSaveMonitorRule();
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
   const [clientId, setClientId] = useState(rule?.client_id ?? "");
   const [accountId, setAccountId] = useState(rule?.scope === "account" ? (rule.scope_id ?? "") : "");
   const [campaignId, setCampaignId] = useState(rule?.scope === "campaign" ? (rule.scope_id ?? "") : "");

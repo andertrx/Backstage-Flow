@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatMoney, formatRelative } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
@@ -68,7 +68,7 @@ export function TrackingPage() {
       return latest;
     });
 
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
   const { data: containers = [], isLoading, error } = useTrackingContainers();
   const hasContainers = containers.length > 0;
   const range = useMemo(() => periodRange(period), [period]);

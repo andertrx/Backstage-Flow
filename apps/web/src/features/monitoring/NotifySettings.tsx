@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Field, Select } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import {
@@ -70,7 +70,7 @@ function PrefsForm({ prefs, userId, isSelf }: { prefs: MonitorPrefs; userId: str
   const [f, setF] = useState<MonitorPrefsInput>(() => toInput(prefs));
   const [dirty, setDirty] = useState(false);
   const save = useSaveMonitorPrefs();
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
   const set = (patch: Partial<MonitorPrefsInput>) => { setF((v) => ({ ...v, ...patch })); setDirty(true); };
   const quiet = f.quiet_start !== null;
   const chosen = new Set(f.client_ids ?? []);

@@ -17,6 +17,35 @@ export function useClients() {
   });
 }
 
+/**
+ * Clientes para escolher nas telas do dia a dia: sem os desativados (23/10/2026).
+ * A lista de Clientes e a ficha continuam usando useClients/useClient.
+ */
+export function useActiveClients() {
+  return useQuery({
+    queryKey: CLIENTS_KEY,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("clients").select("*").order("name");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os clientes."));
+      return data as Client[];
+    },
+    select: (list: Client[]) => list.filter((c) => c.status !== "encerrado"),
+  });
+}
+
+/** Desativar ("encerrado") ou reativar ("ativo"). Só admin; o banco confere e faz o resto. */
+export function useSetClientActive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.from("clients").update({ status: active ? "ativo" : "encerrado" }).eq("id", id);
+      if (error) throw new FriendlyError(friendlyDbError(error, active ? "Não conseguimos reativar o cliente." : "Não conseguimos desativar o cliente."));
+    },
+    // Muitas telas mudam (listas, alertas, planilha...): recarrega tudo.
+    onSuccess: () => queryClient.invalidateQueries(),
+  });
+}
+
 export function useClient(id: string | undefined) {
   return useQuery({
     queryKey: [...CLIENTS_KEY, id],

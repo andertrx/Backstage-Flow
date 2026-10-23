@@ -20,7 +20,7 @@ import { Alert } from "@/components/ui/alert.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Field, Input } from "@/components/ui/field.tsx";
 import { InfoTooltip } from "@/components/ui/tooltip.tsx";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { useDashboardSummary } from "@/features/dashboard/api.ts";
 import { CurrencyTabs } from "@/features/dashboard/CurrencyTabs.tsx";
 import { resolveFilterPeriod } from "@/features/dashboard/filters.ts";
@@ -48,7 +48,7 @@ export function ComparisonPage() {
   const { search } = useLocation();
   const choice = useMemo(() => parseCompare(params), [params]);
   const setChoice = useCallback((next: CompareChoice) => updateParams((latest) => writeCompare(latest, next)), [updateParams]);
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
 
   const timezone = clients.find((c) => c.id === filters.clientId)?.timezone ?? DEFAULT_TIMEZONE;
   const current = useMemo(() => resolveFilterPeriod(filters, timezone).current, [filters, timezone]);

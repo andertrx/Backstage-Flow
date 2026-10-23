@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDate, formatDateTime, formatRelative } from "@/lib/format.ts";
@@ -195,7 +195,7 @@ function AlertCard({ a, now, onOpen, canHandle }: { a: MonitorAlertRow; now: Dat
           )}
           {a.resolved_at && (
             <span className="text-xs text-slate-500">
-              {a.resolution === "manual" ? "Resolvido à mão" : a.details.closed_reason === "inativo" ? "Encerrado: item desativado" : a.details.closed_reason === "abaixo_do_minimo" ? "Encerrado: deixou de ser crítico" : "Normalizou sozinho"}{" "}
+              {a.resolution === "manual" ? "Resolvido à mão" : a.details.closed_reason === "inativo" ? "Encerrado: item desativado" : a.details.closed_reason === "cliente_desativado" ? "Encerrado: cliente desativado" : a.details.closed_reason === "abaixo_do_minimo" ? "Encerrado: deixou de ser crítico" : "Normalizou sozinho"}{" "}
               {formatRelative(a.resolved_at, now)}
             </span>
           )}
@@ -272,7 +272,7 @@ export function AlertsTab() {
   const { objectives } = useMonitorObjectives();
   const openId = Number(params.get("alerta")) || null;
   const setOpenId = (id: number | null) => updateParams((p) => { if (id) p.set("alerta", String(id)); else p.delete("alerta"); return p; });
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
   const { data: alerts = [], isLoading, error } = useMonitorAlerts(open);
   const now = new Date();
   const shown = alerts.filter((a) => (!open || !a.resolved_at) && (open || a.resolved_at))

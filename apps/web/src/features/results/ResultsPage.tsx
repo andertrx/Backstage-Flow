@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Field, Select } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { type DashboardFilters, FILTER_PARAMS, parseFilters, resolveFilterPeriod, serializeFilters, updateFilters } from "@/features/dashboard/filters.ts";
 import { cn } from "@/lib/cn.ts";
@@ -69,7 +69,7 @@ export function ResultsPage() {
       ...("busca" in patch ? { busca: patch.busca || null } : {}),
     }),
   };
-  const clients = useClients();
+  const clients = useActiveClients();
   const settings = useSheetsSettings();
   const sources = useRiSources(clientId);
   const [editing, setEditing] = useState(false);

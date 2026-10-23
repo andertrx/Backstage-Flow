@@ -896,7 +896,17 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       }
       if (method === "PATCH") {
         const client = db.clients.find((c) => c.id === id);
-        Object.assign(client, parse());
+        const patch = parse();
+        // Mesma regra do gatilho do banco: só admin desativa ou reativa (23/10/2026).
+        if ("status" in patch && patch.status !== client.status && [patch.status, client.status].includes("encerrado") && role !== "admin") {
+          return res(403, { code: "42501", message: "Só o administrador pode desativar ou reativar um cliente." });
+        }
+        if (patch.status === "encerrado" && client.status !== "encerrado") {
+          for (const a of db.monitorAlerts ?? []) {
+            if (a.client_id === id && !a.resolved_at) Object.assign(a, { resolved_at: new Date().toISOString(), resolution: "automatica", status: "resolvido", details: { ...a.details, closed_reason: "cliente_desativado" } });
+          }
+        }
+        Object.assign(client, patch);
         return res(204);
       }
     }

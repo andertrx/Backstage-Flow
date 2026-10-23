@@ -65,7 +65,8 @@ export function ClientFormModal({ client, onClose, onSaved }: Props) {
           <Field label="Status">
             {(id) => (
               <Select id={id} value={values.status} onChange={set("status")}>
-                {CLIENT_STATUSES.map((s: ClientStatus) => (
+                {/* "Desativado" só pelo botão da ficha (admin), que explica o que para de funcionar. */}
+                {CLIENT_STATUSES.filter((s) => s !== "encerrado" || values.status === "encerrado").map((s: ClientStatus) => (
                   <option key={s} value={s}>
                     {CLIENT_STATUS_LABELS[s]}
                   </option>

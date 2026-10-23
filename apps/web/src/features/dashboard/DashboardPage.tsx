@@ -7,7 +7,7 @@ import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useAccountBalances } from "@/features/balance/api.ts";
 import { BalanceSection } from "@/features/balance/BalanceSection.tsx";
 import { summarizeBalances } from "@/features/balance/summary.ts";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { useDashboardSummary } from "./api.ts";
 import { ChartsSection } from "./ChartsSection.tsx";
@@ -28,7 +28,7 @@ export function DashboardPage() {
   const firstName = profile?.full_name.split(" ")[0] || "";
   const { filters, setFilters, clear } = useDashboardFilters();
   const { search } = useLocation();
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
 
   // As datas seguem o fuso do cliente escolhido (ou o de Brasília).
   const timezone = clients.find((c) => c.id === filters.clientId)?.timezone ?? DEFAULT_TIMEZONE;

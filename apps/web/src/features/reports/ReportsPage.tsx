@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { campaignFilter, useDashboardSummary, useDashboardTimeseries, useFilterAccounts, useFilterCampaigns } from "@/features/dashboard/api.ts";
 import { FiltersBar } from "@/features/dashboard/FiltersBar.tsx";
 import { PERIOD_OPTIONS, resolveFilterPeriod } from "@/features/dashboard/filters.ts";
@@ -24,7 +24,7 @@ const dates = (r: { from: string; to: string }) => (r.from === r.to ? formatDate
 
 export function ReportsPage() {
   const { filters, setFilters, clear } = useDashboardFilters();
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
   const { data: accounts = [] } = useFilterAccounts();
   const { data: campaignOptions = [] } = useFilterCampaigns(filters.clientId, filters.accountId, filters.platform);
   const timezone = clients.find((c) => c.id === filters.clientId)?.timezone ?? DEFAULT_TIMEZONE;

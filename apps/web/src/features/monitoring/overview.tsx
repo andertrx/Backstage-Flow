@@ -7,7 +7,7 @@ import { Alert } from "@/components/ui/alert.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Select } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { STATUS_LABELS } from "./alertDetail.tsx";
@@ -191,7 +191,7 @@ export function HistoryTab() {
   const [clientId, setClientId] = useState("");
   const [platform, setPlatform] = useState<MonitorPlatform>("");
   const [asTable, setAsTable] = useState(false);
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
   const { objectives } = useMonitorObjectives();
   const { data: h, error, isLoading } = useMonitorHistory(days, clientId || null, platform || null, objectives);
 

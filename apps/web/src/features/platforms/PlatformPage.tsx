@@ -23,7 +23,7 @@ import type { AccountBalance } from "@/features/balance/types.ts";
 import { useCampaignTable } from "@/features/campaigns/api.ts";
 import { CampaignStatusBadge } from "@/features/campaigns/CampaignStatusBadge.tsx";
 import { DEFAULT_TABLE } from "@/features/campaigns/table.ts";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { useDashboardSummary, useFilterAccounts } from "@/features/dashboard/api.ts";
 import { CurrencyTabs } from "@/features/dashboard/CurrencyTabs.tsx";
 import { type DashboardFilters, resolveFilterPeriod, serializeFilters } from "@/features/dashboard/filters.ts";
@@ -44,7 +44,7 @@ export function PlatformPage({ view }: { view: PlatformView }) {
   const { filters: urlFilters, setFilters, clear } = useDashboardFilters();
   // Esta tela é de uma plataforma só: o filtro de plataforma é fixo.
   const filters: DashboardFilters = useMemo(() => ({ ...urlFilters, platform: view.id }), [urlFilters, view.id]);
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
   const { data: accounts = [] } = useFilterAccounts();
 
   const timezone = clients.find((c) => c.id === filters.clientId)?.timezone ?? DEFAULT_TIMEZONE;

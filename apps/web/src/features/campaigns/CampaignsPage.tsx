@@ -5,7 +5,7 @@ import { Link } from "react-router";
 import { MetricsTable } from "@/components/data/MetricsTable.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Input } from "@/components/ui/field.tsx";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { resolveFilterPeriod } from "@/features/dashboard/filters.ts";
 import { FiltersBar } from "@/features/dashboard/FiltersBar.tsx";
 import { useDashboardFilters } from "@/features/dashboard/useDashboardFilters.ts";
@@ -35,7 +35,7 @@ export function CampaignsPage() {
     [updateParams],
   );
 
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
   const timezone = clients.find((c) => c.id === filters.clientId)?.timezone ?? DEFAULT_TIMEZONE;
   const period = useMemo(() => resolveFilterPeriod(filters, timezone), [filters, timezone]);
   const { data, isLoading, isFetching, isPlaceholderData, error } = useCampaignTable(period.current, filters, table);

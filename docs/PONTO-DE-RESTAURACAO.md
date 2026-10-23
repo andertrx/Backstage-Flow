@@ -1,3 +1,16 @@
+# Ponto de restauração — antes de "Desativar cliente" (23/10/2026)
+
+| Parte | Identificação desta versão |
+|---|---|
+| **Código** (branch `claude/meta-google-ads-dashboard-8g4wfg`) | commit **`2c9c89f`** |
+| **Banco** (Supabase) | última migração **`20261021210425 ri_campanha_nao_achada`** |
+
+## Como voltar
+1. **Banco:** rodar `supabase/rollback/voltar_clientes_desativar_2026_10_23.sql` (tira os gatilhos e devolve as funções antigas; não apaga dados).
+2. **Código e site:** pedir "volte o desativar cliente" — eu reverto os commits dessa mudança em cima da branch.
+
+---
+
 # Ponto de restauração — antes da correção da conta da Inteligência de Resultados (21/10/2026, noite)
 
 Criado antes de ligar os IDs do Meta que estão nas colunas de nome da planilha e de mostrar o aviso "sem campanha".

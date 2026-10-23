@@ -37,7 +37,7 @@ import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { TimeSeriesChart } from "@/components/charts/TimeSeriesChart.tsx";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatAxisValue, formatChange, formatDate, formatKpi } from "@/lib/format.ts";
@@ -104,7 +104,7 @@ export function useMonitorFilters() {
 const rangeText = (r: DateRange) => (r.from === r.to ? formatDate(r.from) : `${formatDate(r.from)} a ${formatDate(r.to)}`);
 
 export function FiltersBar({ filters, pair, set }: ReturnType<typeof useMonitorFilters>) {
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
   return (
     <Card className="space-y-3 p-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

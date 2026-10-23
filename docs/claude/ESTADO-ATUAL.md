@@ -79,3 +79,5 @@ A lista completa está em [`docs/PENDENCIAS.md`](../PENDENCIAS.md). Lembre nos r
 - **Navegador:** 43 roteiros, 1.300 verificações (02/10/2026).
 - **Testes SQL da Central:** 178 verificações (36.1 a 36.7).
 - **Contas reais do Meta:** 28 (17 no cartão e 11 pré-pagas). Nenhuma conta Google conectada.
+
+- **23/10/2026 — Desativar cliente:** botão na ficha (só admin). Cliente 'encerrado' (rótulo "Desativado") não sincroniza, não é monitorado, não tem planilha lida, e-mail, acesso do cliente nem tracking/CAPI. Regra em `private.client_is_active`; gatilhos `clients_status_guard`/`clients_status_effects`; telas usam `useActiveClients`. Ver `docs/CLIENTE-DESATIVADO.md`.

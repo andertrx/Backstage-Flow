@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Select } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatRelative } from "@/lib/format.ts";
@@ -65,7 +65,7 @@ export function AlertsPage() {
       return latest;
     });
 
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
   const { data = [], isLoading, error } = useAlerts(situation);
   const refresh = useRefreshAlerts();
   const [lastCheck, setLastCheck] = useState<RefreshAlertsResult | null>(null);

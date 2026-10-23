@@ -18,7 +18,7 @@ import { Link, useLocation } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
-import { useClients } from "@/features/clients/api.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import { CurrencyTabs } from "@/features/dashboard/CurrencyTabs.tsx";
 import { resolveFilterPeriod } from "@/features/dashboard/filters.ts";
 import { FiltersBar } from "@/features/dashboard/FiltersBar.tsx";
@@ -35,7 +35,7 @@ const EMPTY = sumExecutive([]);
 export function ExecutivePage() {
   const { filters, setFilters, clear } = useDashboardFilters();
   const { search } = useLocation();
-  const { data: clients = [] } = useClients();
+  const { data: clients = [] } = useActiveClients();
   const client = clients.find((c) => c.id === filters.clientId) ?? null;
 
   // As datas seguem o fuso do cliente escolhido (ou o de Brasília), como no Dashboard.

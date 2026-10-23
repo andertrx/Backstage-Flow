@@ -92,6 +92,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [Correção da conta: IDs da planilha e aviso "sem campanha"](docs/etapa-39-inteligencia-de-resultados/39.8-CORRECAO-DA-CONTA.md) ✅ 21/10
   - [Modo CNPJ: planilha que só pede o CNPJ](docs/etapa-39-inteligencia-de-resultados/39.9-MODO-CNPJ.md) ✅ 22/10
 - [Política de Privacidade e Termos de Serviço (páginas públicas)](docs/POLITICA-E-TERMOS.md) ✅ 22/10
+- [Desativar cliente (para sincronização, alertas, planilha, e-mail, acesso e tracking)](docs/CLIENTE-DESATIVADO.md) ✅ 23/10
 
 ## Estrutura
 

@@ -6,7 +6,8 @@ export type ClientStatus = (typeof CLIENT_STATUSES)[number];
 export const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
   ativo: "Ativo",
   pausado: "Pausado",
-  encerrado: "Encerrado",
+  // "Encerrado" virou "Desativado" (23/10/2026): o CRM para de trabalhar para o cliente (ver docs/CLIENTE-DESATIVADO.md).
+  encerrado: "Desativado",
 };
 
 export const DEFAULT_CLIENT_TIMEZONE = "America/Sao_Paulo";

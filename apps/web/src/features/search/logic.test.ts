@@ -25,7 +25,7 @@ describe("busca global", () => {
   it("status só aparece quando não está ativo", () => {
     expect(resultStatus(row({}))).toBeNull();
     expect(resultStatus(row({ status: "pausada" }))).toBe("Pausada");
-    expect(resultStatus(row({ kind: "cliente", status: "encerrado" }))).toBe("Encerrado");
+    expect(resultStatus(row({ kind: "cliente", status: "encerrado" }))).toBe("Desativado");
   });
 
   it("atalhos do cliente; relatórios só para quem pode gerar", () => {
