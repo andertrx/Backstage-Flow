@@ -6,7 +6,7 @@ import { Field, Input } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatRelative } from "@/lib/format.ts";
-import { type TrackingContainer, type WhatsAppConnection, useWhatsAppConnectionAction } from "./api.ts";
+import { type TrackingContainer, useCoexAction, useWaAppReady, type WhatsAppConnection, useWhatsAppConnectionAction, waReturnUri } from "./api.ts";
 import { validateWaIds, waConnectionStatus } from "./logic.ts";
 
 const TONE = { neutral: "neutral", warning: "warning", danger: "danger", success: "success" } as const;
@@ -30,6 +30,19 @@ export function WhatsAppApiModal({ container, connection, canManage, onClose }: 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const status = waConnectionStatus(connection);
+  const ready = useWaAppReady(canManage);
+  const coex = useCoexAction();
+  const isCoex = connection?.mode === "coexistencia";
+
+  async function onCoex() {
+    setError(null);
+    try {
+      const r = await coex.mutateAsync({ action: "coex_start", containerId: container.id, redirectUri: waReturnUri() });
+      if (r.url) window.location.assign(r.url);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
 
   async function run(body: Parameters<typeof action.mutateAsync>[0], ok: (r: Awaited<ReturnType<typeof action.mutateAsync>>) => string) {
     setError(null);
@@ -70,15 +83,42 @@ export function WhatsAppApiModal({ container, connection, canManage, onClose }: 
         </div>
 
         <Alert tone="info">
-          Só para números na <strong>API oficial</strong> do WhatsApp (WhatsApp Business Platform). Quem usa o app comum do WhatsApp Business
-          continua com o código “ref.” na mensagem — não precisa configurar nada aqui. Com a API oficial, a conversa chega sozinha no CRM e,
-          quando vem de anúncio de clique para o WhatsApp, a origem fica <strong>confirmada</strong>. O texto das mensagens não é guardado.
+          Com o WhatsApp ligado ao CRM (pelo app do celular via <strong>Coexistence</strong>, ou pela <strong>API oficial</strong>), a conversa chega
+          sozinha e, quando vem de anúncio de clique para o WhatsApp, a origem fica <strong>confirmada</strong>. Sem ligar nada, o código “ref.” na
+          mensagem continua funcionando. O texto das mensagens não é guardado.
         </Alert>
 
         {error && <Alert tone="error">{error}</Alert>}
         {notice && <Alert tone="success">{notice}</Alert>}
 
-        {canManage ? (
+        {canManage && (
+          <section className="space-y-2 rounded-lg ring-1 ring-slate-200 p-3" data-testid="wa-coex">
+            <h3 className="font-semibold text-slate-900">Número no app WhatsApp Business do celular (Coexistence)</h3>
+            {isCoex ? (
+              <p className="text-slate-700" data-testid="wa-coex-on">
+                Ligado pelo cadastro oficial do Meta{connection?.display_phone ? `: ${connection.display_phone}` : ""}
+                {connection?.verified_name ? ` · ${connection.verified_name}` : ""}. O número continua no celular; as mensagens e as Frases do
+                WhatsApp chegam sozinhas.
+              </p>
+            ) : (
+              <p className="text-slate-600">
+                O número continua no celular, do jeito que a equipe já usa. O Meta avisa o CRM das mensagens recebidas e das que o atendente manda
+                (para as Frases do WhatsApp). Basta entrar com o Facebook de quem administra o WhatsApp do cliente.
+              </p>
+            )}
+            {ready.data ? (
+              <Button type="button" variant={isCoex ? "secondary" : "primary"} loading={coex.isPending} onClick={() => void onCoex()}>
+                {isCoex ? "Ligar de novo (trocar o número)" : "Ligar WhatsApp Business"}
+              </Button>
+            ) : ready.isSuccess ? (
+              <p className="text-xs text-slate-500" data-testid="wa-coex-not-ready">
+                Para ligar assim, o administrador configura antes o app do Meta da agência em Configurações → Integrações → WhatsApp (Coexistence).
+              </p>
+            ) : null}
+          </section>
+        )}
+
+        {canManage && isCoex ? null : canManage ? (
           <form onSubmit={onSave} className="space-y-4" noValidate>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="ID do número de telefone *" hint="developers.facebook.com → seu app → WhatsApp → Configuração da API.">

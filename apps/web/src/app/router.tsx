@@ -34,6 +34,7 @@ const OpsNotificationsRoute = lazy(() => import("@/features/operations/Notificat
 const OpsDashboardRoute = lazy(() => import("@/features/operations/DashboardPage.tsx").then((m) => ({ default: m.DashboardRoute })));
 const OpsSettingsPage = lazy(() => import("@/features/operations/OpsSettingsPage.tsx").then((m) => ({ default: m.OpsSettingsPage })));
 const TrackingPage = lazy(() => import("@/features/tracking/TrackingPage.tsx").then((m) => ({ default: m.TrackingPage })));
+const WhatsAppCallbackPage = lazy(() => import("@/features/tracking/WhatsAppCallbackPage.tsx").then((m) => ({ default: m.WhatsAppCallbackPage })));
 const SyncPage = lazy(() => import("@/features/sync/SyncPage.tsx").then((m) => ({ default: m.SyncPage })));
 const LogsPage = lazy(() => import("@/features/logs/LogsPage.tsx").then((m) => ({ default: m.LogsPage })));
 const ReportsPage = lazy(() => import("@/features/reports/ReportsPage.tsx").then((m) => ({ default: m.ReportsPage })));
@@ -195,6 +196,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="tracking.view">
             <TrackingPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "tracking/whatsapp/retorno",
+        element: (
+          <RequirePermission permission="tracking.view">
+            <WhatsAppCallbackPage />
           </RequirePermission>
         ),
       },

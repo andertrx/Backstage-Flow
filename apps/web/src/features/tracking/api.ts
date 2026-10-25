@@ -446,6 +446,10 @@ export interface WhatsAppConnection {
   last_webhook_at: string | null;
   last_error_at: string | null;
   last_error_message: string | null;
+  /** T4.2: "coexistencia" = ligado pelo cadastro oficial do Meta (o número continua no app do celular). */
+  mode: "manual" | "coexistencia";
+  display_phone: string | null;
+  verified_name: string | null;
 }
 
 export function useWhatsAppConnections(enabled: boolean) {
@@ -456,7 +460,7 @@ export function useWhatsAppConnections(enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_whatsapp_connections")
-        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message");
+        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name");
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conexões do WhatsApp."));
       return data as WhatsAppConnection[];
     },
@@ -508,6 +512,82 @@ export function useWhatsAppConnectionAction() {
       const { data, error } = await supabase.functions.invoke("tracking-whatsapp", { body });
       if (error) throw new FriendlyError(await friendlyFunctionError(error));
       return (data as { data: { webhookUrl?: string; verifyToken?: string | null; removed?: boolean } }).data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+// -----------------------------------------------------------------------------
+// T4.2: ligar o WhatsApp pelo cadastro oficial do Meta (Coexistence), com o app do Meta da agência
+// -----------------------------------------------------------------------------
+
+/** Para onde o Meta devolve a pessoa depois do cadastro (precisa estar cadastrado no app do Meta). */
+export const waReturnUri = () => `${window.location.origin}/tracking/whatsapp/retorno`;
+/** Endereço do webhook do app da agência (um só para todos os números ligados por Coexistence). */
+export const waAppWebhookUrl = () =>
+  `${((import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "https://demonstracao.supabase.co").replace(/\/$/, "")}/functions/v1/whatsapp-webhook?app=1`;
+
+const rpcError = (error: { code?: string; message: string }, fallback: string) =>
+  new FriendlyError(["22023", "42501"].includes(error.code ?? "") ? error.message : friendlyDbError(error, fallback));
+
+export interface WaAppSettings {
+  app_id: string | null;
+  config_id: string | null;
+  graph_version: string;
+  has_secret: boolean;
+  verify_token: string | null;
+  ready: boolean;
+}
+
+/** Só admin (o banco confere). */
+export function useWaAppSettings(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "wa-app-settings"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("wa_app_settings_get");
+      if (error) throw rpcError(error, "Não conseguimos carregar o app do Meta.");
+      return data as WaAppSettings;
+    },
+  });
+}
+
+export function useSaveWaAppSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { appId: string; configId: string; appSecret: string }) => {
+      const { data, error } = await supabase.rpc("wa_app_settings_save", { p_app_id: input.appId, p_config_id: input.configId, p_app_secret: input.appSecret || null });
+      if (error) throw rpcError(error, "Não conseguimos salvar o app do Meta.");
+      return data as WaAppSettings;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+/** O botão "Ligar WhatsApp Business" só aparece com o app da agência pronto (admin e gestor). */
+export function useWaAppReady(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "wa-app-ready"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("wa_app_ready");
+      if (error) throw rpcError(error, "Não conseguimos verificar o app do Meta.");
+      return data === true;
+    },
+  });
+}
+
+export type CoexAction =
+  | { action: "coex_start"; containerId: string; redirectUri: string }
+  | { action: "coex_complete"; code: string; state: string; redirectUri: string };
+
+export function useCoexAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: CoexAction) => {
+      const { data, error } = await supabase.functions.invoke("tracking-whatsapp", { body });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      return (data as { data: { url?: string; containerId?: string; displayPhone?: string | null; verifiedName?: string | null; numbers?: number } }).data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });

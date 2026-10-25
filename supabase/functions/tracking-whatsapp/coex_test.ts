@@ -2,7 +2,7 @@ import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 import { buildCoexAuthorizeUrl, coexSchema, completeCoex, credentialsReady, wabaIdsFromDebugToken } from "./coex.ts";
 
 const creds = { app_id: "123456789012", config_id: "987654321098", graph_version: "v23.0", app_secret: "b".repeat(32), verify_token: "v".repeat(48) };
-const RET = "https://www.backstageflow.com.br/configuracoes/integracoes/whatsapp/retorno";
+const RET = "https://www.backstageflow.com.br/tracking/whatsapp/retorno";
 
 Deno.test("endereço do cadastro oficial do Meta (Coexistence)", () => {
   const url = new URL(buildCoexAuthorizeUrl(creds, RET, "s".repeat(64)));
@@ -18,7 +18,7 @@ Deno.test("endereço do cadastro oficial do Meta (Coexistence)", () => {
 Deno.test("só aceita o retorno do próprio CRM e configuração completa", () => {
   assert(coexSchema.safeParse({ action: "coex_start", containerId: crypto.randomUUID(), redirectUri: RET }).success);
   assert(!coexSchema.safeParse({ action: "coex_start", containerId: crypto.randomUUID(), redirectUri: "https://malicioso.com/x" }).success);
-  assert(!coexSchema.safeParse({ action: "coex_start", containerId: crypto.randomUUID(), redirectUri: "http://site.com" + "/configuracoes/integracoes/whatsapp/retorno" }).success);
+  assert(!coexSchema.safeParse({ action: "coex_start", containerId: crypto.randomUUID(), redirectUri: "http://site.com" + "/tracking/whatsapp/retorno" }).success);
   assert(credentialsReady(creds));
   assert(!credentialsReady({ ...creds, app_secret: null }));
 });

@@ -82,6 +82,8 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     salesLog: [],
     waTriggers: [],
     waTriggerLog: [],
+    /** T4.2: app do Meta da agência (o segredo fica "no cofre": a tela nunca recebe). */
+    waApp: { app_id: null, config_id: null, graph_version: "v23.0", secret: null, verify_token: null },
     trackingRuleVersions: [],
     trackingTouchpoints: [],
     trackingEvents: [],
@@ -1568,6 +1570,26 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       const id = Number(eqParam(url, "contact_id"));
       return res(200, db.contactHistory.filter((h) => h.contact_id === id && contactClientIds().includes(h.client_id)).sort((a, b) => b.at.localeCompare(a.at)));
     }
+    // App do Meta da agência para o WhatsApp (Tracking T4.2): só admin; o segredo nunca volta para a tela.
+    const waAppView = () => ({ app_id: db.waApp.app_id, config_id: db.waApp.config_id, graph_version: db.waApp.graph_version,
+      has_secret: Boolean(db.waApp.secret), verify_token: db.waApp.verify_token, ready: Boolean(db.waApp.app_id && db.waApp.config_id && db.waApp.secret) });
+    if (url.includes("/rest/v1/rpc/wa_app_settings_get")) {
+      if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador configura o app do Meta." });
+      return res(200, waAppView());
+    }
+    if (url.includes("/rest/v1/rpc/wa_app_settings_save")) {
+      if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador configura o app do Meta." });
+      const p = parse();
+      if (!/^\d{5,30}$/.test(p.p_app_id ?? "")) return res(400, { code: "22023", message: "ID do app inválido (só números)." });
+      if (!/^\d{5,30}$/.test(p.p_config_id ?? "")) return res(400, { code: "22023", message: "ID da configuração inválido (só números)." });
+      if (p.p_app_secret && !/^[0-9a-f]{32}$/.test(p.p_app_secret)) return res(400, { code: "22023", message: "Segredo do app inválido (são 32 letras e números)." });
+      Object.assign(db.waApp, { app_id: p.p_app_id, config_id: p.p_config_id, ...(p.p_app_secret ? { secret: p.p_app_secret } : {}) });
+      if (!db.waApp.verify_token) db.waApp.verify_token = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6";
+      return res(200, waAppView());
+    }
+    if (url.includes("/rest/v1/rpc/wa_app_ready")) {
+      return res(200, ["admin", "gestor"].includes(role) && Boolean(db.waApp.app_id && db.waApp.config_id && db.waApp.secret));
+    }
     // Frases do WhatsApp (Tracking T4.1): mesmas regras do banco (admin/gestor configuram; frase repetida recusada).
     if (url.includes("/rest/v1/tracking_wa_trigger_log")) {
       const cid = eqParam(url, "client_id");
@@ -2310,6 +2332,32 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/functions/v1/tracking-whatsapp")) {
       const body = parse();
       db.functionCalls.push({ fn: "tracking-whatsapp", ...body });
+      // T4.2: cadastro oficial do Meta (Coexistence). O "Meta" aqui é simulado: devolve um código para o retorno.
+      if (String(body.action).startsWith("coex_")) {
+        if (!["admin", "gestor"].includes(role)) return res(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para esta ação." } });
+        const a = db.waApp;
+        if (!(a.app_id && a.config_id && a.secret)) {
+          return res(400, { error: { code: "INVALID_STATE", message: "O administrador precisa configurar o app do Meta da agência em Integrações → WhatsApp (Coexistence)." } });
+        }
+        if (body.action === "coex_start") {
+          const state = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
+          db.coexStates = [...(db.coexStates ?? []), { state, containerId: body.containerId, redirectUri: body.redirectUri }];
+          // Em vez do Facebook, o simulador volta direto para o retorno do CRM com um código.
+          return res(200, { data: { url: `${body.redirectUri}?code=codigo-simulado-do-meta&state=${state}` } });
+        }
+        const st = (db.coexStates ?? []).find((x) => x.state === body.state);
+        db.coexStates = (db.coexStates ?? []).filter((x) => x.state !== body.state);
+        if (!st || st.redirectUri !== body.redirectUri) return res(400, { error: { code: "INVALID_STATE", message: "Autorização inválida ou expirada. Tente ligar de novo." } });
+        const ct = db.trackingContainers.find((t) => t.id === st.containerId);
+        let conn = db.whatsappConnections.find((w) => w.container_id === st.containerId);
+        if (!conn) {
+          conn = { id: crypto.randomUUID(), container_id: st.containerId, client_id: ct?.client_id, has_app_secret: false, last_webhook_at: null, last_error_at: null, last_error_message: null };
+          db.whatsappConnections.push(conn);
+        }
+        Object.assign(conn, { phone_number_id: "990000000042001", waba_id: "880000000042001", enabled: true, mode: "coexistencia",
+          display_phone: "+55 45 3000-4242", verified_name: "Loja Atacado" });
+        return res(200, { data: { containerId: st.containerId, displayPhone: conn.display_phone, verifiedName: conn.verified_name, numbers: 1 } });
+      }
       if (String(body.action).startsWith("connection_")) {
         if (!["admin", "gestor"].includes(role)) return res(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para esta ação." } });
         let conn = db.whatsappConnections.find((w) => w.container_id === body.containerId);

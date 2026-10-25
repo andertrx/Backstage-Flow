@@ -102,6 +102,7 @@ describe("WhatsApp pela API oficial", () => {
   it("mostra a situação da conexão em português", () => {
     expect(waConnectionStatus(null).label).toBe("Não configurado");
     expect(waConnectionStatus({ ...base, has_app_secret: false }).label).toBe("Falta o segredo do app");
+    expect(waConnectionStatus({ ...base, has_app_secret: false, mode: "coexistencia", last_webhook_at: null }).label).toBe("Ligado, sem mensagem ainda");
     expect(waConnectionStatus({ ...base, enabled: false }).label).toBe("Desligado");
     expect(waConnectionStatus(base).label).toBe("Ligado, sem mensagem ainda");
     expect(waConnectionStatus({ ...base, last_webhook_at: "2026-09-27T10:00:00Z" }).label).toBe("Funcionando");

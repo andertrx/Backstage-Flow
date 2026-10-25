@@ -109,3 +109,23 @@ begin
 
   raise exception 'R: % verificações OK', v_ok;
 end $$;
+
+-- O botão "Ligar WhatsApp Business" só aparece com o app pronto, e só para admin/gestor (migração 20261025235336).
+do $$
+declare v_admin uuid; v_visu uuid; v_ok int := 0;
+begin
+  select id into v_admin from public.profiles where role = 'admin' and active limit 1;
+  select id into v_visu from public.profiles where role = 'visualizador' and active limit 1;
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  if public.wa_app_ready() then raise exception 'sem configuração: não está pronto'; end if;
+  perform public.wa_app_settings_save('123456789012', '987654321098', repeat('c', 32));
+  if not public.wa_app_ready() then raise exception 'admin: pronto depois de configurar'; end if;
+  v_ok := v_ok + 1;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_visu, 'role', 'authenticated')::text, true);
+  if public.wa_app_ready() then raise exception 'visualizador: sempre não'; end if;
+  perform set_config('request.jwt.claims', json_build_object('role', 'authenticated')::text, true);
+  if public.wa_app_ready() then raise exception 'sem usuário: sempre não'; end if;
+  v_ok := v_ok + 1;
+  raise exception 'R: % verificações OK', v_ok;
+end $$;

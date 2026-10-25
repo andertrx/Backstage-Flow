@@ -2,14 +2,14 @@
  * Tracking T4.2: ligar o WhatsApp do cliente pelo CADASTRO OFICIAL do Meta (Embedded Signup, Coexistence).
  * O número continua no app WhatsApp Business do celular. Fluxo por redirecionamento (sem o script do Meta no site):
  *   1. coex_start → endereço do login do Meta (app da agência + configuração + "whatsapp_business_app_onboarding");
- *   2. o Meta devolve um código para /configuracoes/integracoes/whatsapp/retorno;
+ *   2. o Meta devolve um código para /tracking/whatsapp/retorno (admin e gestor abrem o Tracking);
  *   3. coex_complete → troca o código pelo token (só no servidor), acha a conta e o número, assina o webhook do app.
  * O token nunca vai para a tela nem para log: vai para o cofre (Vault).
  */
 import { z } from "npm:zod@4";
 import { AppError } from "../_shared/http.ts";
 
-export const RETURN_PATH = "/configuracoes/integracoes/whatsapp/retorno";
+export const RETURN_PATH = "/tracking/whatsapp/retorno";
 
 const redirectUri = z.string().url().refine((u) => {
   const url = new URL(u);
