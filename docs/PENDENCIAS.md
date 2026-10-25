@@ -43,9 +43,9 @@
 - [ ] Token da API de Conversões (colar direto no CRM, nunca por chat)
 - [ ] Código de teste do Meta (Gerenciador de Eventos → Testar eventos)
 - [ ] Nos anúncios, colocar o ID da campanha no link (ver `docs/etapa-34-tracking/34.4-ATRIBUICAO.md`)
-- [ ] Contatos (T3.1): criar os usuários **Vendedor (do cliente)** e liberar cada um na ficha do cliente (Equipe com acesso)
 - [ ] No Gerenciador de Eventos do Meta: criar a **conversão personalizada "LeadLojista"** para otimizar campanhas pelo lojista
-- [ ] Vendas (T3.2): dizer qual é o **sistema de vendas** do cliente piloto e quem tem acesso a ele, para cadastrar o webhook (passo a passo em `docs/etapa-34-tracking/T3.2-VENDAS-WEBHOOK.md`, seção 10)
+- [ ] Vendas (T3.2): em aberto. Quando houver cliente com sistema de vendas, cadastrar o webhook (passo a passo em `docs/etapa-34-tracking/T3.2-VENDAS-WEBHOOK.md`, seção 10)
+- [ ] WhatsApp (T4.1/T4.2): para ligar o número por **Coexistence**, o app da agência no Meta precisa entrar no programa **Tech Provider** (verificação da empresa + aprovação do app). Ver `docs/etapa-34-tracking/T4.1-FRASES-WHATSAPP.md`, seção 4
 
 ## Segurança do login (Supabase → Authentication)
 - [ ] Desligar cadastro aberto (só administradores criam usuários)

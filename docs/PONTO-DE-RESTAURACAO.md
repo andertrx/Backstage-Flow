@@ -1,3 +1,17 @@
+# Ponto de restauração — antes de "Tracking T4.1: frases do WhatsApp" (25/10/2026, noite)
+
+| Parte | Identificação desta versão |
+|---|---|
+| **Código** (branch `claude/meta-google-ads-dashboard-8g4wfg`) | commit **`36e14af`** |
+| **Banco** (Supabase) | última migração **`20261025185406 vendas_webhook`** |
+| **Servidor** | `whatsapp-webhook` versão **7** (a 8 lê as frases) |
+
+## Como voltar
+1. **Banco:** rodar `supabase/rollback/voltar_whatsapp_frases_2026_10_25.sql` (desliga as frases; nada é apagado).
+2. **Código, site e servidor:** pedir "volte as frases do WhatsApp": eu reverto os commits dessa mudança e publico de novo o `whatsapp-webhook` sem a leitura das frases.
+
+---
+
 # Ponto de restauração — antes de "Tracking T3.2: vendas pelo webhook" (25/10/2026)
 
 | Parte | Identificação desta versão |

@@ -61,6 +61,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T2 — Regras do site sem Tag Manager (formulário lojista, página, clique, publicar/voltar versão)](docs/etapa-34-tracking/T2-REGRAS-SEM-TAG-MANAGER.md) ✅ 23/10
   - [T3.1 — Contatos no CRM (no lugar da planilha) e papel Vendedor do cliente](docs/etapa-34-tracking/T3.1-CONTATOS-E-VENDEDOR.md) ✅ 25/10
   - [T3.2 — Vendas pelo webhook de qualquer sistema de vendas](docs/etapa-34-tracking/T3.2-VENDAS-WEBHOOK.md) ✅ 25/10
+  - [T4.1 — Frases do WhatsApp (marcação como no Tintim, pelo número)](docs/etapa-34-tracking/T4.1-FRASES-WHATSAPP.md) ✅ 25/10
 - [Etapa 35 — Meta Ads Campaign Builder (auditoria e plano)](docs/etapa-35-campaign-builder/35.0-AUDITORIA.md) *(em espera: prompt enviado por engano; auditoria guardada para depois)*
 - [Etapa 36 — Central de Operações](docs/etapa-36-central-operacoes/36.16-RELATORIO-FINAL.md) ✅ concluída ([auditoria e plano](docs/etapa-36-central-operacoes/36.0-AUDITORIA.md))
   - [36.1 — Setores, equipe e permissões](docs/etapa-36-central-operacoes/36.1-SETORES-EQUIPE.md) ✅ concluída
