@@ -27,6 +27,11 @@ export interface MockDb {
   errorLogs: Row[];
   trackingContainers: Row[];
   trackingRules: Row[];
+  contactProfiles: Row[];
+  contactStages: Row[];
+  contacts: Row[];
+  contactHistory: Row[];
+  contactQueue: Row[];
   trackingRuleVersions: Row[];
   trackingTouchpoints: Row[];
   trackingEvents: Row[];

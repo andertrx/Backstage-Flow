@@ -279,7 +279,7 @@ function ContactModal({ contact: c, profiles, stages, canMark, canArchive, stage
           <div><dt>Chegou por</dt><dd className="text-sm text-slate-900">{ORIGIN_LABELS[c.origin]}{c.ref_code ? ` (ref. ${c.ref_code})` : ""}</dd></div>
           <div><dt>Origem</dt><dd className="text-sm text-slate-900">{c.channel ? CHANNEL_LABELS[c.channel as Channel] ?? c.channel : "Não identificada"}</dd></div>
           <div className="col-span-2"><dt>Campanha</dt><dd className="text-sm text-slate-900">{c.campaign ?? "—"}</dd></div>
-          <div><dt>Contato guardado</dt><dd className="text-sm text-slate-900">{[c.has_phone && "telefone", c.has_email && "e-mail"].filter(Boolean).join(" e ") || "nenhum"} (cifrado)</dd></div>
+          <div><dt>Contato guardado</dt><dd className="text-sm text-slate-900">{[c.has_phone && "telefone", c.has_email && "e-mail"].filter(Boolean).join(" e ") ? `${[c.has_phone && "telefone", c.has_email && "e-mail"].filter(Boolean).join(" e ")} (cifrado)` : "Só o código da mensagem"}</dd></div>
           <div><dt>Desde</dt><dd className="text-sm text-slate-900">{formatDateTime(c.created_at)}</dd></div>
         </dl>
 

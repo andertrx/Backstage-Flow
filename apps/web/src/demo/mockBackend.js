@@ -73,6 +73,11 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     /** Tracking (Etapa 34): containers, chegadas com origem e eventos. */
     trackingContainers: [],
     trackingRules: [],
+    contactProfiles: [],
+    contactStages: [],
+    contacts: [],
+    contactHistory: [],
+    contactQueue: [],
     trackingRuleVersions: [],
     trackingTouchpoints: [],
     trackingEvents: [],
@@ -1445,6 +1450,132 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         return res(204);
       }
     }
+    // Contatos dos clientes (Tracking T3.1): mesmas regras do banco (quem vê, quem marca, Meta uma vez por pessoa)
+    const contactClientIds = () => db.clients.filter((c) => !c.excluded_at && (role === "admin"
+      || (["gestor", "operador", "visualizador", "vendedor"].includes(role) && db.access.some((a) => a.user_id === userId && a.client_id === c.id)
+        && (role !== "vendedor" || c.status !== "encerrado")))).map((c) => c.id);
+    const contactSeed = (clientId) => {
+      if (!db.contactStages.some((s) => s.client_id === clientId)) {
+        [["Novo", "aberta", null], ["Qualificado", "aberta", null], ["Venda", "ganha", "Purchase"], ["Perdido", "perdida", null]].forEach(([name, kind, meta], i) =>
+          db.contactStages.push({ id: `st-${clientId.slice(-4)}-${i}`, client_id: clientId, name, kind, meta_event: meta, position: i, archived_at: null }));
+      }
+      if (!db.contactProfiles.some((p) => p.client_id === clientId)) {
+        [["Lojista", "LeadLojista"], ["Sacoleiro", null], ["Cliente final", null], ["Outro", null]].forEach(([name, meta], i) =>
+          db.contactProfiles.push({ id: `pf-${clientId.slice(-4)}-${i}`, client_id: clientId, name, meta_event: meta, position: i, archived_at: null }));
+      }
+    };
+    const canMarkContacts = (clientId) => ["admin", "gestor", "operador", "vendedor"].includes(role) && contactClientIds().includes(clientId)
+      && db.clients.find((c) => c.id === clientId)?.status !== "encerrado";
+    const contactRow = (k) => {
+      const click = k.wa_click_id ? db.whatsappClicks.find((w) => w.id === k.wa_click_id) : null;
+      return { id: k.id, origin: k.origin, created_at: k.created_at, last_change_at: k.last_change_at, ref_code: k.ref_code, stage_id: k.stage_id,
+        profile_id: k.profile_id, sales: k.sales, has_phone: Boolean(k.ph_hash), has_email: Boolean(k.em_hash), channel: click?.touch?.channel ?? k.channel ?? null,
+        campaign: click?.touch?.utm_campaign ?? k.campaign ?? null, site: db.trackingContainers.find((t) => t.id === k.container_id)?.name ?? null, archived: Boolean(k.archived_at) };
+    };
+    const contactLog = (k, entry) => db.contactHistory.push({ id: db.contactHistory.length + 1, contact_id: k.id, client_id: k.client_id,
+      at: new Date(Date.now() + db.contactHistory.length).toISOString(), stage_id: null, profile_id: null, value_micros: null, currency: null,
+      order_id: null, meta_event: null, meta_note: null, ...entry });
+    if (url.includes("/rest/v1/rpc/contacts_clients")) {
+      return res(200, db.clients.filter((c) => contactClientIds().includes(c.id)).sort((a, b) => a.name.localeCompare(b.name))
+        .map((c) => (contactSeed(c.id), { id: c.id, name: c.name, has_site: db.trackingContainers.some((t) => t.client_id === c.id) })));
+    }
+    if (url.includes("/rest/v1/rpc/contacts_list")) {
+      const p = parse();
+      if (!contactClientIds().includes(p.p_client)) return res(200, []);
+      const code = p.p_code ? String(p.p_code).toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/^REF/, "") : null;
+      return res(200, db.contacts.filter((k) => k.client_id === p.p_client && (!code || k.ref_code === code) && (!p.p_ph_hash || k.ph_hash === p.p_ph_hash)
+        && (!p.p_stage || k.stage_id === p.p_stage)).sort((a, b) => b.last_change_at.localeCompare(a.last_change_at)).map(contactRow));
+    }
+    if (url.includes("/rest/v1/rpc/contact_create")) {
+      const p = parse();
+      if (!canMarkContacts(p.p_client)) return res(403, { code: "42501", message: "Sem permissão para marcar contatos deste cliente." });
+      contactSeed(p.p_client);
+      const code = p.p_code ? String(p.p_code).toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/^REF/, "") : null;
+      if (p.p_code && !/^[2-9A-HJ-NP-Z]{6}$/.test(code ?? "")) return res(400, { code: "22023", message: "Código inválido. São 6 letras/números, como K7Q2M9." });
+      let click = null;
+      if (code) {
+        click = db.whatsappClicks.find((w) => w.code === code && db.trackingContainers.find((t) => t.id === w.container_id)?.client_id === p.p_client);
+        if (!click) return res(404, { code: "P0002", message: "Código não encontrado neste cliente." });
+        const same = db.contacts.find((k) => k.wa_click_id === click.id);
+        if (same) return res(200, same.id);
+      }
+      if (p.p_ph_hash) {
+        const same = db.contacts.find((k) => k.client_id === p.p_client && k.ph_hash === p.p_ph_hash);
+        if (same) return res(200, same.id);
+      }
+      const stage = db.contactStages.filter((st) => st.client_id === p.p_client && st.kind === "aberta" && !st.archived_at).sort((a, b) => a.position - b.position)[0];
+      const now = new Date().toISOString();
+      const k = { id: (db.contacts.at(-1)?.id ?? 100) + 1, client_id: p.p_client, origin: click ? "whatsapp" : "manual", ph_hash: p.p_ph_hash ?? null,
+        em_hash: p.p_em_hash ?? null, wa_click_id: click?.id ?? null, ref_code: code, container_id: click?.container_id
+          ?? db.trackingContainers.find((t) => t.client_id === p.p_client)?.id ?? null,
+        stage_id: stage.id, profile_id: null, meta_sent: [], sales: 0, created_at: now, last_change_at: now, archived_at: null };
+      db.contacts.push(k);
+      contactLog(k, { kind: "criado", stage_id: stage.id });
+      return res(200, k.id);
+    }
+    if (url.includes("/rest/v1/rpc/contact_update")) {
+      const p = parse();
+      const k = db.contacts.find((x) => x.id === p.p_id);
+      if (!k || !canMarkContacts(k.client_id)) return res(403, { code: "42501", message: "Contato não encontrado ou sem permissão." });
+      const out = {};
+      const send = (name) => {
+        if (!k.container_id) return "sem_site";
+        db.contactQueue.push({ contact_id: k.id, event_name: name, ...(name === "Purchase" ? { value: p.p_value, currency: p.p_currency } : {}) });
+        return "ok";
+      };
+      if (p.p_profile && p.p_profile !== k.profile_id) {
+        const pf = db.contactProfiles.find((x) => x.id === p.p_profile && x.client_id === k.client_id);
+        k.profile_id = pf.id;
+        let r = null;
+        if (pf.meta_event && !k.meta_sent.includes(pf.meta_event)) { r = send(pf.meta_event); if (r !== "sem_site") k.meta_sent.push(pf.meta_event); }
+        contactLog(k, { kind: "perfil", profile_id: pf.id, meta_event: r && r !== "sem_site" ? pf.meta_event : null,
+          meta_note: r === "sem_site" ? "Não enviado ao Meta: cliente sem site no Tracking." : pf.meta_event && !r ? "Já enviado antes ao Meta para esta pessoa." : null });
+        Object.assign(out, { perfil: pf.name, perfil_meta: r });
+      }
+      if (p.p_stage && p.p_stage !== k.stage_id) {
+        const st = db.contactStages.find((x) => x.id === p.p_stage && x.client_id === k.client_id);
+        let r = null;
+        if (st.kind === "ganha") {
+          if (p.p_value == null || !/^[A-Z]{3}$/.test(p.p_currency ?? "")) return res(400, { code: "22023", message: "Informe o valor e a moeda da venda." });
+          const order = p.p_order ?? `ct${k.id}-${k.sales + 1}`;
+          if (db.contactHistory.some((h) => h.client_id === k.client_id && h.kind === "venda" && h.order_id === order)) {
+            return res(409, { code: "23505", message: "Já existe uma venda com este nº de pedido." });
+          }
+          r = st.meta_event ? send("Purchase") : "ok";
+          k.sales += 1;
+          contactLog(k, { kind: "venda", stage_id: st.id, value_micros: Math.round(p.p_value * 1e6), currency: p.p_currency, order_id: order,
+            meta_event: st.meta_event && r !== "sem_site" ? st.meta_event : null });
+        } else contactLog(k, { kind: "etapa", stage_id: st.id });
+        k.stage_id = st.id;
+        Object.assign(out, { etapa: st.name, venda_meta: r });
+      }
+      k.last_change_at = new Date().toISOString();
+      return res(200, out);
+    }
+    if (url.includes("/rest/v1/rpc/contact_archive")) {
+      const k = db.contacts.find((x) => x.id === parse().p_id);
+      if (!k || role === "vendedor" || !canMarkContacts(k.client_id)) return res(403, { code: "42501", message: "Só a equipe da agência arquiva contatos." });
+      k.archived_at = new Date().toISOString();
+      contactLog(k, { kind: "arquivado" });
+      return res(204);
+    }
+    if (url.includes("/rest/v1/tracking_contact_history")) {
+      const id = Number(eqParam(url, "contact_id"));
+      return res(200, db.contactHistory.filter((h) => h.contact_id === id && contactClientIds().includes(h.client_id)).sort((a, b) => b.at.localeCompare(a.at)));
+    }
+    if (url.includes("/rest/v1/tracking_contact_profiles") || url.includes("/rest/v1/tracking_contact_stages")) {
+      const list = url.includes("profiles") ? db.contactProfiles : db.contactStages;
+      if (method === "GET") {
+        const cid = eqParam(url, "client_id");
+        if (!contactClientIds().includes(cid)) return res(200, []);
+        contactSeed(cid);
+        return res(200, list.filter((x) => x.client_id === cid).sort((a, b) => a.position - b.position));
+      }
+      if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "new row violates row-level security policy" });
+      if (method === "POST") { list.push({ id: crypto.randomUUID(), archived_at: null, meta_event: null, ...parse() }); return res(201); }
+      if (method === "PATCH") { Object.assign(list.find((x) => x.id === eqParam(url, "id")), parse()); return res(204); }
+    }
+
     // Regras do site sem Tag Manager (Tracking T2): mesmas regras do banco (rascunho, publicar, voltar versão)
     if (url.includes("/rest/v1/tracking_rule_versions")) {
       const cid = eqParam(url, "container_id");

@@ -107,6 +107,8 @@ export function AppLayout() {
   const [collapsed, setCollapsed] = usePersistentState("menu-recolhido", false);
   const displayName = profile?.full_name || profile?.email || "";
   const section = EXTRA_TITLES[pathname] ?? navItemForPath(pathname)?.label;
+  // Papel sem itens no menu (ex.: Vendedor do cliente, T3.1): sem botão de menu vazio no celular.
+  const hasMenu = navGroupsFor(profile?.role, opsPermissions).length > 0;
   useDocumentTitle();
 
   // Esc fecha o menu do celular.
@@ -173,9 +175,11 @@ export function AppLayout() {
         <div className="sticky top-0 z-30 print:hidden">
         <DemoBanner />
         <header className="flex h-16 items-center gap-3 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6 lg:px-8">
-          <button className="-ml-1 rounded-lg p-1 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
-            <Menu className="size-6" />
-          </button>
+          {hasMenu && (
+            <button className="-ml-1 rounded-lg p-1 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
+              <Menu className="size-6" />
+            </button>
+          )}
           <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-500" data-testid="header-section">{section}</p>
           {can(profile?.role, "internal.view") && <GlobalSearch />}
           {can(profile?.role, "monitor.view") && <MonitorBell />}

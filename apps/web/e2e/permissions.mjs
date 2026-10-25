@@ -15,13 +15,15 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   await login(page, "/configuracoes/permissoes");
   await page.getByRole("heading", { name: "Papéis e permissões", level: 1 }).waitFor();
   check(await page.getByRole("link", { name: "Papéis e permissões" }).count() === 1, "aba nova nas Configurações");
-  check(await page.getByTestId("permission-row").count() === 19, "19 permissões explicadas em português (4 do Monitoramento, Etapa 37; 2 da Inteligência de Resultados, Etapa 39)");
+  check(await page.getByTestId("permission-row").count() === 22, "22 permissões explicadas em português (4 do Monitoramento, Etapa 37; 2 da Inteligência de Resultados, Etapa 39; 3 dos Contatos, T3.1)");
   const cell = (perm, role) => page.locator(`[data-testid=permission-row][data-permission="${perm}"] td[data-role=${role}] svg`).getAttribute("aria-label");
   check(await cell("logs.view", "gestor") === "Sim" && await cell("logs.view", "operador") === "Não", "logs: gestor sim, operador não");
   check(await cell("clients.edit", "gestor") === "Sim" && await cell("clients.edit", "operador") === "Não", "editar clientes: gestor sim, operador não");
   check(await cell("sync.run", "operador") === "Sim" && await cell("sync.run", "visualizador") === "Não", "sincronizar: operador sim, visualizador não");
   check(await cell("accounts.connect", "gestor") === "Não" && await cell("accounts.connect", "admin") === "Sim", "conectar plataformas: só administrador");
   check(await cell("tracking.manage", "gestor") === "Sim" && await cell("tracking.manage", "operador") === "Não" && await cell("tracking.view", "visualizador") === "Sim", "tracking: gestor configura, operador e visualizador só veem");
+  check(await cell("contacts.mark", "vendedor") === "Sim" && await cell("contacts.setup", "vendedor") === "Não" && await cell("internal.view", "vendedor") === "Não"
+    && await page.locator('td[data-role=vendedor] svg[aria-label="Sim"]').count() === 2, "vendedor do cliente: só ver e marcar contatos");
   const clienteSim = await page.locator('td[data-role=cliente] svg[aria-label="Sim"]').count();
   check(clienteSim === 0, "cliente: nenhuma permissão interna");
   check(clean(await page.getByTestId("scope-row").innerText()).includes("Só a própria empresa, sem informações internas"), "linha de quais clientes cada papel vê");
