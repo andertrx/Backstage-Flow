@@ -129,3 +129,4 @@
 - **Comandos e passo a passo:** [COMO-TRABALHAR.md](COMO-TRABALHAR.md).
 - **Situação e próximos passos:** [ESTADO-ATUAL.md](ESTADO-ATUAL.md).
 - **Pendências do Ander:** [../PENDENCIAS.md](../PENDENCIAS.md). **Domínio:** [../DOMINIO.md](../DOMINIO.md). **Voltar versão:** [../PONTO-DE-RESTAURACAO.md](../PONTO-DE-RESTAURACAO.md).
+- **23 a 25/10 (T3.1 — contatos e vendedor):** respostas do Ander: quem marca é a **equipe do cliente** (papel novo Vendedor) e as etapas padrão (só Lojista e Venda vão ao Meta). Feito: tela Contatos, papel Vendedor travado no resto do CRM, marcação enviada pelo caminho do tracking. Os testes acharam 2 problemas antes da entrega (contato manual; permissão por coluna das tabelas novas, inclusive as da T2). A sessão reiniciou no meio; os arquivos das migrações foram refeitos e conferidos com o banco (md5 igual). Ver `etapa-34-tracking/T3.1-CONTATOS-E-VENDEDOR.md`.

@@ -1,3 +1,17 @@
+# Ponto de restauração — antes de "Tracking T3.1: contatos e papel Vendedor" (23/10/2026, noite)
+
+| Parte | Identificação desta versão |
+|---|---|
+| **Código** (branch `claude/meta-google-ads-dashboard-8g4wfg`) | commit **`34d857a`** |
+| **Banco** (Supabase) | última migração **`20261023220501 tracking_regras_permissao_servidor`** |
+
+## Como voltar
+1. Trocar o papel dos usuários Vendedor (Configurações → Usuários).
+2. **Banco:** rodar `supabase/rollback/voltar_contatos_vendedor_2026_10_23.sql` (desliga contatos e o papel; nada é apagado).
+3. **Código e site:** pedir "volte os contatos" — eu reverto os commits dessa mudança em cima da branch.
+
+---
+
 # Ponto de restauração — antes de "Tracking T2: regras sem Tag Manager" (23/10/2026, noite)
 
 | Parte | Identificação desta versão |

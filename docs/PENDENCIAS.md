@@ -43,6 +43,8 @@
 - [ ] Token da API de Conversões (colar direto no CRM, nunca por chat)
 - [ ] Código de teste do Meta (Gerenciador de Eventos → Testar eventos)
 - [ ] Nos anúncios, colocar o ID da campanha no link (ver `docs/etapa-34-tracking/34.4-ATRIBUICAO.md`)
+- [ ] Contatos (T3.1): criar os usuários **Vendedor (do cliente)** e liberar cada um na ficha do cliente (Equipe com acesso)
+- [ ] No Gerenciador de Eventos do Meta: criar a **conversão personalizada "LeadLojista"** para otimizar campanhas pelo lojista
 
 ## Segurança do login (Supabase → Authentication)
 - [ ] Desligar cadastro aberto (só administradores criam usuários)
