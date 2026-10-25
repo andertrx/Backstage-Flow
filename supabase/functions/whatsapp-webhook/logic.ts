@@ -5,6 +5,8 @@
  * nada do texto é guardado. O número do cliente vira hash SHA-256.
  */
 
+import { matchTriggers, normalizeWhatsAppNumber, type WaTrigger } from "../../../packages/shared/src/tracking/waTriggers.ts";
+
 export const MAX_BODY_BYTES = 1024 * 1024;
 
 const hex = (buf: ArrayBuffer) => Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
@@ -88,4 +90,65 @@ export async function extractInbound(payload: unknown, phoneNumberId: string): P
     }
   }
   return out;
+}
+
+export interface Echo {
+  wa_hash: string;
+  ph_hash: string;
+  message_key: string;
+  matches: { trigger_id: string; value?: number; currency?: string }[];
+}
+
+/**
+ * Tracking T4.1: mensagens que o ATENDENTE mandou (pelo app WhatsApp Business ligado por Coexistence:
+ * campo "smb_message_echoes"; ou por uma ferramenta pela API: "message_echoes").
+ * O texto é lido só aqui, na memória, para achar as frases do cliente; sai só o hash do número e as frases achadas.
+ * Mensagem sem nenhuma frase não gera nada.
+ */
+export async function extractEchoes(payload: unknown, phoneNumberId: string, triggers: WaTrigger[]): Promise<Echo[]> {
+  const out: Echo[] = [];
+  if (!triggers.length) return out;
+  const p = payload as {
+    object?: string;
+    entry?: { changes?: { field?: string; value?: { metadata?: { phone_number_id?: string }; message_echoes?: MetaEcho[] } }[] }[];
+  };
+  if (p?.object !== "whatsapp_business_account") return out;
+  for (const entry of p.entry ?? []) {
+    for (const change of entry.changes ?? []) {
+      if (!["smb_message_echoes", "message_echoes"].includes(change.field ?? "")) continue;
+      if (change.value?.metadata?.phone_number_id !== phoneNumberId) continue;
+      for (const m of change.value.message_echoes ?? []) {
+        const to = (m.to ?? "").replace(/\D/g, "");
+        const text = m.text?.body ?? m.image?.caption ?? m.document?.caption ?? m.video?.caption ?? "";
+        if (to.length < 8 || !m.id || !text) continue;
+        const matches = matchTriggers(text, triggers);
+        if (!matches.length) continue;
+        out.push({
+          wa_hash: await sha256Hex(to),
+          ph_hash: await sha256Hex(normalizeWhatsAppNumber(to)),
+          message_key: (await sha256Hex(m.id)).slice(0, 40),
+          matches: matches.map(({ trigger_id, value, currency }) => ({ trigger_id, value, currency })),
+        });
+      }
+    }
+  }
+  return out;
+}
+
+interface MetaEcho {
+  from?: string;
+  to?: string;
+  id?: string;
+  timestamp?: string;
+  type?: string;
+  text?: { body?: string };
+  image?: { caption?: string };
+  video?: { caption?: string };
+  document?: { caption?: string };
+}
+
+/** O aviso traz mensagens do atendente? (Só então o servidor busca as frases do cliente.) */
+export function hasEchoes(payload: unknown): boolean {
+  const p = payload as { entry?: { changes?: { field?: string }[] }[] };
+  return (p?.entry ?? []).some((e) => (e.changes ?? []).some((c) => c.field === "smb_message_echoes" || c.field === "message_echoes"));
 }

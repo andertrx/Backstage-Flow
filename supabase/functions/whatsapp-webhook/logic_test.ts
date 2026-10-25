@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { extractInbound, hmacSha256Hex, safeEqual, sha256Hex, validSignature } from "./logic.ts";
+import { extractEchoes, extractInbound, hasEchoes, hmacSha256Hex, safeEqual, sha256Hex, validSignature } from "./logic.ts";
 
 const payload = (messages: unknown[], phoneNumberId = "106540352242922") => ({
   object: "whatsapp_business_account",
@@ -40,4 +40,41 @@ Deno.test("ignora status de entrega, outro número e objeto que não é do Whats
   assertEquals(await extractInbound({ object: "page", entry: [] }, "106540352242922"), []);
   const statusOnly = { object: "whatsapp_business_account", entry: [{ changes: [{ field: "messages", value: { metadata: { phone_number_id: "106540352242922" }, statuses: [{ id: "wamid.x", status: "read" }] } }] }] };
   assertEquals(await extractInbound(statusOnly, "106540352242922"), []);
+});
+
+// Tracking T4.1: frases que o atendente manda (como no Tintim)
+const echoes = (items: unknown[], field = "smb_message_echoes", phoneNumberId = "106540352242922") => ({
+  object: "whatsapp_business_account",
+  entry: [{ id: "102290129340398", changes: [{ field, value: { messaging_product: "whatsapp", metadata: { phone_number_id: phoneNumberId }, message_echoes: items } }] }],
+});
+const TRIGGERS = [
+  { id: "t-venda", phrase: "Parabéns pela sua compra", kind: "venda" as const, currency: "BRL" },
+  { id: "t-loja", phrase: "cadastro de lojista", kind: "perfil" as const, currency: "BRL" },
+];
+
+Deno.test("frase do atendente: acha a frase e o valor; número vira hash (com o 9 de volta); texto não sai", async () => {
+  const p = echoes([{ from: "554530001111", to: "554599998888", id: "wamid.E1", timestamp: "1790000000", type: "text",
+    text: { body: "Maria, parabéns pela sua compra de R$ 297,50! Seu cadastro de lojista está ativo." } }]);
+  assert(hasEchoes(p));
+  const [e] = await extractEchoes(p, "106540352242922", TRIGGERS);
+  assertEquals(e.wa_hash, await sha256Hex("554599998888"));
+  assertEquals(e.ph_hash, await sha256Hex("5545999998888"));
+  assertEquals(e.matches, [{ trigger_id: "t-loja", value: undefined, currency: undefined }, { trigger_id: "t-venda", value: 297.5, currency: "BRL" }]);
+  const out = JSON.stringify(e);
+  assert(!out.includes("Maria") && !out.includes("99998888") && !out.includes("parab"));
+});
+
+Deno.test("mensagem do atendente sem frase, de outro número ou sem frases cadastradas: nada", async () => {
+  const p = echoes([{ to: "5545999998888", id: "wamid.E2", type: "text", text: { body: "Bom dia! Tudo bem?" } }]);
+  assertEquals(await extractEchoes(p, "106540352242922", TRIGGERS), []);
+  const outro = echoes([{ to: "5545999998888", id: "wamid.E3", type: "text", text: { body: "Parabéns pela sua compra de R$ 10" } }], "smb_message_echoes", "999");
+  assertEquals(await extractEchoes(outro, "106540352242922", TRIGGERS), []);
+  assertEquals(await extractEchoes(echoes([{ to: "5545999998888", id: "wamid.E4", type: "text", text: { body: "Parabéns pela sua compra" } }]), "106540352242922", []), []);
+  assert(!hasEchoes(payload([])));
+});
+
+Deno.test("mensagem enviada por ferramenta pela API (message_echoes) e legenda de imagem também valem", async () => {
+  const p = echoes([{ to: "5545999998888", id: "wamid.E5", type: "image", image: { caption: "Parabéns pela sua compra! Total R$ 89,90" } }], "message_echoes");
+  const [e] = await extractEchoes(p, "106540352242922", TRIGGERS);
+  assertEquals(e.matches[0].value, 89.9);
 });

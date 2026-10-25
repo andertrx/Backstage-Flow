@@ -11,10 +11,13 @@
  *
  * Não guarda o texto das conversas: só o hash do número do cliente, a origem
  * (anúncio de WhatsApp ou código do site) e a contagem de mensagens.
+ * Tracking T4.1: mensagens do atendente ("smb_message_echoes" / "message_echoes") são lidas só na
+ * memória para achar as frases do cliente (ex.: "Parabéns pela sua compra de R$ 297") e marcar o contato.
  */
 import { adminClient } from "../_shared/auth.ts";
 import { recordError } from "../_shared/errorlog.ts";
-import { extractInbound, MAX_BODY_BYTES, safeEqual, validSignature } from "./logic.ts";
+import type { WaTrigger } from "../../../packages/shared/src/tracking/waTriggers.ts";
+import { extractEchoes, extractInbound, hasEchoes, MAX_BODY_BYTES, safeEqual, validSignature } from "./logic.ts";
 
 const text = (status: number, body = "") => new Response(body, { status, headers: { "Content-Type": "text/plain" } });
 
@@ -57,6 +60,15 @@ Deno.serve(async (req) => {
     for (const msg of await extractInbound(payload, conn.phone_number_id)) {
       const { error } = await db.rpc("tracking_whatsapp_inbound", { p: { connection_id: conn.id, ...msg } });
       if (error) throw error;
+    }
+    // Tracking T4.1: frases que o atendente mandou (como no Tintim).
+    if (hasEchoes(payload)) {
+      const { data: triggers, error: tErr } = await db.rpc("wa_triggers_for", { p_connection: conn.id });
+      if (tErr) throw tErr;
+      for (const echo of await extractEchoes(payload, conn.phone_number_id, (triggers ?? []) as WaTrigger[])) {
+        const { error } = await db.rpc("wa_echo", { p: { connection_id: conn.id, ...echo } });
+        if (error) throw error;
+      }
     }
     return text(200);
   } catch (err) {
