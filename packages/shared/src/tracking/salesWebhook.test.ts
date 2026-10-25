@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectPaths, extractSale, getPath, parseWebhookBody, suggestMapping } from "./salesWebhook.ts";
+import { collectPaths, extractSale, getPath, parseWebhookBody, suggestSalesMapping } from "./salesWebhook.ts";
 
 const shop = {
   id: 9001,
@@ -33,9 +33,9 @@ describe("aviso de venda (webhook de qualquer sistema)", () => {
   });
 
   it("sugere o mapeamento pelos nomes mais comuns", () => {
-    const m = suggestMapping(collectPaths(shop));
+    const m = suggestSalesMapping(collectPaths(shop));
     expect(m).toMatchObject({ order: "order_number", value: "total_price", currency: "currency", phone: "customer.phone", email: "customer.email", status: "financial_status" });
-    expect(suggestMapping(["data.amount_cents", "data.id"]).value_in_cents).toBe(true);
+    expect(suggestSalesMapping(["data.amount_cents", "data.id"]).value_in_cents).toBe(true);
   });
 
   it("extrai a venda pelo mapeamento", () => {

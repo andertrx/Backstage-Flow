@@ -1,5 +1,5 @@
 import { can, CHANNEL_LABELS, type Channel, hashUserData, normalizeLeadPhone } from "@backstage/shared";
-import { Archive, Plus, Search, Settings2 } from "lucide-react";
+import { Archive, Plus, Search, Settings2, Store } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -27,9 +27,10 @@ import {
   type UpdateResult,
   useUpdateContact,
 } from "./api.ts";
+import { SalesSystemsModal } from "./SalesSystemsModal.tsx";
 import { SetupModal } from "./SetupModal.tsx";
 
-const ORIGIN_LABELS: Record<ContactRow["origin"], string> = { site: "Site", whatsapp: "WhatsApp", manual: "Manual" };
+const ORIGIN_LABELS: Record<ContactRow["origin"], string> = { site: "Site", whatsapp: "WhatsApp", manual: "Manual", sistema: "Sistema de vendas" };
 const STAGE_TONE: Record<ContactStage["kind"], "neutral" | "success" | "danger"> = { aberta: "neutral", ganha: "success", perdida: "danger" };
 
 /** O que a marcação fez, em português (sem prometer envio: o Meta só recebe se o Meta CAPI do site estiver ligado). */
@@ -66,6 +67,7 @@ export function ContactsPage() {
   const [openId, setOpenId] = useState<number | null>(null);
   const [creatingPhone, setCreatingPhone] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
+  const [showSales, setShowSales] = useState(false);
 
   const stages = useMemo(() => (setup.data?.stages ?? []).filter((s) => !s.archived_at), [setup.data]);
   const profiles = useMemo(() => (setup.data?.profiles ?? []).filter((p) => !p.archived_at), [setup.data]);
@@ -130,9 +132,14 @@ export function ContactsPage() {
           </p>
         </div>
         {canSetup && clientId && (
-          <Button variant="secondary" onClick={() => setShowSetup(true)}>
-            <Settings2 className="size-4" aria-hidden /> Perfis e etapas
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => setShowSales(true)}>
+              <Store className="size-4" aria-hidden /> Sistemas de venda
+            </Button>
+            <Button variant="secondary" onClick={() => setShowSetup(true)}>
+              <Settings2 className="size-4" aria-hidden /> Perfis e etapas
+            </Button>
+          </div>
         )}
       </div>
 
@@ -237,6 +244,7 @@ export function ContactsPage() {
         <ContactModal contact={opened} profiles={profiles} stages={stages} canMark={canMark} canArchive={canMark && !isSeller}
           stageOf={stageOf} profileOf={profileOf} onClose={() => setOpenId(null)} />
       )}
+      {showSales && clientId && <SalesSystemsModal clientId={clientId} onClose={() => setShowSales(false)} />}
       {showSetup && clientId && setup.data && (
         <SetupModal clientId={clientId} profiles={setup.data.profiles} stages={setup.data.stages} onClose={() => setShowSetup(false)} />
       )}

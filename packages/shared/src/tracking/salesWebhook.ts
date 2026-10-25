@@ -89,7 +89,7 @@ const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u
 const last = (p: string) => norm(p.split(".").filter((x) => !/^\d+$/.test(x)).at(-1) ?? "");
 
 /** Sugestão de mapeamento pelos nomes mais comuns (a agência confere e ajusta). Ordem dos nomes = preferência. */
-export function suggestMapping(paths: string[]): SalesMapping {
+export function suggestSalesMapping(paths: string[]): SalesMapping {
   const find = (names: string[], avoid?: RegExp) => {
     for (const n of names) {
       const hit = paths.find((p) => last(p) === n && !(avoid && avoid.test(norm(p))));
@@ -120,10 +120,11 @@ const asText = (v: unknown) => (v == null || typeof v === "object" ? null : Stri
 
 /** Lê a venda do aviso pelo mapeamento. Nada inventado: faltou dado obrigatório → recusado, com o motivo. */
 export function extractSale(body: Record<string, unknown>, m: SalesMapping): SaleExtract {
-  if (!m.order || !m.value) return { ok: false, result: "recusado", reason: "Mapeamento incompleto: diga no CRM onde estão o nº do pedido e o valor." };
-  if (m.status && m.status_values?.length) {
+  if (typeof m.order !== "string" || typeof m.value !== "string" || !m.order || !m.value) return { ok: false, result: "recusado", reason: "Mapeamento incompleto: diga no CRM onde estão o nº do pedido e o valor." };
+  const accepted = Array.isArray(m.status_values) ? m.status_values.filter((s): s is string => typeof s === "string" && s.trim() !== "") : [];
+  if (m.status && accepted.length) {
     const st = asText(getPath(body, m.status));
-    if (!st || !m.status_values.some((s) => norm(s.trim()) === norm(st))) {
+    if (!st || !accepted.some((s) => norm(s.trim()) === norm(st))) {
       return { ok: false, result: "ignorado", reason: `Status "${(st ?? "vazio").slice(0, 40)}" não conta como venda.` };
     }
   }

@@ -78,6 +78,8 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     contacts: [],
     contactHistory: [],
     contactQueue: [],
+    salesWebhooks: [],
+    salesLog: [],
     trackingRuleVersions: [],
     trackingTouchpoints: [],
     trackingEvents: [],
@@ -1563,6 +1565,43 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/tracking_contact_history")) {
       const id = Number(eqParam(url, "contact_id"));
       return res(200, db.contactHistory.filter((h) => h.contact_id === id && contactClientIds().includes(h.client_id)).sort((a, b) => b.at.localeCompare(a.at)));
+    }
+    // Sistemas de venda (Tracking T3.2): endereço do webhook, chave só uma vez, mapeamento e registro dos avisos.
+    const salesKey = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, "0")).join("");
+    const salesAdmin = (cid) => ["admin", "gestor"].includes(role) && contactClientIds().includes(cid);
+    if (url.includes("/rest/v1/rpc/sales_webhook_create")) {
+      const p = parse();
+      if (!salesAdmin(p.p_client)) return res(403, { code: "42501", message: "Só administrador e gestor configuram sistemas de venda." });
+      const key = salesKey();
+      const now = new Date().toISOString();
+      const w = { id: crypto.randomUUID(), client_id: p.p_client, name: String(p.p_name).trim(), key_hint: key.slice(-4), key, enabled: true, test_mode: true,
+        mapping: {}, last_received_at: null, last_result: null, last_reason: null, last_keys: [], created_at: now, archived_at: null };
+      db.salesWebhooks.push(w);
+      return res(200, { id: w.id, key });
+    }
+    if (url.includes("/rest/v1/rpc/sales_webhook_new_key")) {
+      const w = db.salesWebhooks.find((x) => x.id === parse().p_id);
+      if (!w || !salesAdmin(w.client_id)) return res(403, { code: "42501", message: "Só administrador e gestor configuram sistemas de venda." });
+      w.key = salesKey();
+      w.key_hint = w.key.slice(-4);
+      return res(200, w.key);
+    }
+    if (url.includes("/rest/v1/tracking_sales_webhook_log")) {
+      const wid = eqParam(url, "webhook_id");
+      return res(200, db.salesLog.filter((l) => l.webhook_id === wid && contactClientIds().includes(l.client_id) && role !== "vendedor")
+        .sort((a, b) => b.received_at.localeCompare(a.received_at) || b.id - a.id).slice(0, 20));
+    }
+    if (url.includes("/rest/v1/tracking_sales_webhooks")) {
+      if (method === "GET") {
+        const cid = eqParam(url, "client_id");
+        if (!contactClientIds().includes(cid) || role === "vendedor") return res(200, []);
+        // A tela nunca recebe a chave (no banco, só o hash existe e a coluna não é liberada).
+        return res(200, db.salesWebhooks.filter((w) => w.client_id === cid && !w.archived_at).map(({ key: _key, ...w }) => w));
+      }
+      const w = db.salesWebhooks.find((x) => x.id === eqParam(url, "id"));
+      if (!w || !salesAdmin(w.client_id)) return res(403, { code: "42501", message: "new row violates row-level security policy" });
+      Object.assign(w, parse());
+      return res(204);
     }
     if (url.includes("/rest/v1/tracking_contact_profiles") || url.includes("/rest/v1/tracking_contact_stages")) {
       const list = url.includes("profiles") ? db.contactProfiles : db.contactStages;

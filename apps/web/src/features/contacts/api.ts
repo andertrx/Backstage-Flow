@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { SalesMapping } from "@backstage/shared";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 
@@ -11,7 +12,7 @@ export interface ContactClient {
 
 export interface ContactRow {
   id: number;
-  origin: "site" | "whatsapp" | "manual";
+  origin: "site" | "whatsapp" | "manual" | "sistema";
   created_at: string;
   last_change_at: string;
   ref_code: string | null;
@@ -173,6 +174,110 @@ export function useSaveSetupItem() {
       const { error } = input.id
         ? await supabase.from(table).update(input.values).eq("id", input.id)
         : await supabase.from(table).insert(input.values);
+      if (error) throw ruleError(error, "Não conseguimos salvar.");
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Sistemas de venda (Tracking T3.2): a venda chega pelo aviso (webhook) do sistema do cliente. */
+
+export interface SalesWebhook {
+  id: string;
+  client_id: string;
+  name: string;
+  key_hint: string;
+  enabled: boolean;
+  test_mode: boolean;
+  mapping: SalesMapping;
+  last_received_at: string | null;
+  last_result: SalesLogRow["result"] | null;
+  last_reason: string | null;
+  last_keys: string[];
+  created_at: string;
+}
+
+export interface SalesLogRow {
+  id: number;
+  received_at: string;
+  result: "aceito" | "repetido" | "ignorado" | "recusado" | "teste";
+  reason: string | null;
+  order_id: string | null;
+  value_micros: number | null;
+  currency: string | null;
+  contact_found: boolean | null;
+}
+
+/** Endereço que o sistema de vendas chama (a chave vai no cabeçalho x-webhook-key ou em &k=). */
+export function salesWebhookUrl(id: string): string {
+  const base = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "https://demonstracao.supabase.co";
+  return `${base.replace(/\/$/, "")}/functions/v1/sales-webhook?w=${id}`;
+}
+
+export function useSalesWebhooks(clientId: string | null) {
+  return useQuery({
+    queryKey: [...KEY, "sales-webhooks", clientId],
+    enabled: Boolean(clientId),
+    // Janela aberta: confere a cada 15 s se chegou aviso novo (campos recebidos e último resultado).
+    staleTime: 0,
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tracking_sales_webhooks")
+        .select("id, client_id, name, key_hint, enabled, test_mode, mapping, last_received_at, last_result, last_reason, last_keys, created_at")
+        .eq("client_id", clientId!).is("archived_at", null).order("created_at");
+      if (error) throw ruleError(error, "Não conseguimos carregar os sistemas de venda.");
+      return data as SalesWebhook[];
+    },
+  });
+}
+
+export function useSalesWebhookLog(webhookId: string | null) {
+  return useQuery({
+    queryKey: [...KEY, "sales-log", webhookId],
+    enabled: Boolean(webhookId),
+    staleTime: 0,
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tracking_sales_webhook_log")
+        .select("id, received_at, result, reason, order_id, value_micros, currency, contact_found")
+        .eq("webhook_id", webhookId!).order("received_at", { ascending: false }).order("id", { ascending: false }).limit(20);
+      if (error) throw ruleError(error, "Não conseguimos carregar os avisos recebidos.");
+      return data as SalesLogRow[];
+    },
+  });
+}
+
+/** Cria o endereço; a chave volta UMA vez (o banco guarda só o hash). */
+export function useCreateSalesWebhook() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { clientId: string; name: string }) => {
+      const { data, error } = await supabase.rpc("sales_webhook_create", { p_client: input.clientId, p_name: input.name });
+      if (error) throw ruleError(error, "Não conseguimos criar o endereço.");
+      return data as { id: string; key: string };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useNewSalesWebhookKey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase.rpc("sales_webhook_new_key", { p_id: id });
+      if (error) throw ruleError(error, "Não conseguimos trocar a chave.");
+      return data as string;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useUpdateSalesWebhook() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; values: Partial<Pick<SalesWebhook, "name" | "enabled" | "test_mode" | "mapping">> & { archived_at?: string } }) => {
+      const { error } = await supabase.from("tracking_sales_webhooks").update(input.values).eq("id", input.id);
       if (error) throw ruleError(error, "Não conseguimos salvar.");
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
