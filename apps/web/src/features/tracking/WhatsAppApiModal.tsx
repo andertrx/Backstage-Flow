@@ -142,7 +142,7 @@ export function WhatsAppApiModal({ container, connection, canManage, onClose }: 
             <li>Preencha o ID do número, o ID da conta (WABA) e o segredo do app, e clique em Salvar.</li>
             <li>Clique em “Ver endereço do webhook”.</li>
             <li>No app do Meta: WhatsApp → Configuração → Webhook → Editar. Cole a URL e o token de verificação e clique em “Verificar e salvar”.</li>
-            <li>Ainda em Webhook, assine o campo <strong>messages</strong>.</li>
+            <li>Ainda em Webhook, assine os campos <strong>messages</strong> e <strong>smb_message_echoes</strong> (mensagens que o atendente manda pelo app, para as Frases do WhatsApp; se usar uma ferramenta de atendimento pela API, também <strong>message_echoes</strong>).</li>
             <li>Volte aqui, marque “Registrar as conversas” e salve. Mande uma mensagem de teste para o número.</li>
           </ol>
         </details>

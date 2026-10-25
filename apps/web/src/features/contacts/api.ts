@@ -283,3 +283,73 @@ export function useUpdateSalesWebhook() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });
 }
+
+/* ------------------------------------------------------------------ */
+/* Frases do WhatsApp (Tracking T4.1): o atendente manda a frase no chat e o CRM marca o contato. */
+
+export interface WaTriggerRow {
+  id: string;
+  client_id: string;
+  phrase: string;
+  stage_id: string | null;
+  profile_id: string | null;
+  default_value: number | null;
+  currency: string;
+  position: number;
+  enabled: boolean;
+  archived_at: string | null;
+}
+
+export interface WaTriggerLogRow {
+  id: number;
+  at: string;
+  trigger_id: string;
+  contact_id: number | null;
+  result: "aplicado" | "repetido" | "sem_valor" | "ignorado";
+  reason: string | null;
+  value_micros: number | null;
+  currency: string | null;
+}
+
+export function useWaTriggers(clientId: string | null) {
+  return useQuery({
+    queryKey: [...KEY, "wa-triggers", clientId],
+    enabled: Boolean(clientId),
+    queryFn: async () => {
+      const [triggers, log, conn] = await Promise.all([
+        supabase.from("tracking_wa_triggers")
+          .select("id, client_id, phrase, stage_id, profile_id, default_value, currency, position, enabled, archived_at")
+          .eq("client_id", clientId!).is("archived_at", null).order("position").order("created_at"),
+        supabase.from("tracking_wa_trigger_log")
+          .select("id, at, trigger_id, contact_id, result, reason, value_micros, currency")
+          .eq("client_id", clientId!).order("at", { ascending: false }).order("id", { ascending: false }).limit(20),
+        supabase.from("tracking_whatsapp_connections").select("id, enabled").eq("client_id", clientId!),
+      ]);
+      if (triggers.error) throw ruleError(triggers.error, "Não conseguimos carregar as frases.");
+      if (log.error) throw ruleError(log.error, "Não conseguimos carregar as frases reconhecidas.");
+      if (conn.error) throw ruleError(conn.error, "Não conseguimos ver a ligação do WhatsApp.");
+      return {
+        triggers: triggers.data as WaTriggerRow[],
+        log: log.data as WaTriggerLogRow[],
+        whatsappOn: (conn.data as { enabled: boolean }[]).some((c) => c.enabled),
+      };
+    },
+    staleTime: 0,
+    refetchInterval: 15_000,
+  });
+}
+
+export function useSaveWaTrigger() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id?: string; values: Partial<Omit<WaTriggerRow, "id">> }) => {
+      const { error } = input.id
+        ? await supabase.from("tracking_wa_triggers").update(input.values).eq("id", input.id)
+        : await supabase.from("tracking_wa_triggers").insert(input.values);
+      if (error) {
+        throw ruleError(error.code === "23505" ? { ...error, message: "Já existe uma frase igual neste cliente." } : error, "Não conseguimos salvar a frase.");
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}

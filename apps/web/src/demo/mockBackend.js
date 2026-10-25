@@ -80,6 +80,8 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     contactQueue: [],
     salesWebhooks: [],
     salesLog: [],
+    waTriggers: [],
+    waTriggerLog: [],
     trackingRuleVersions: [],
     trackingTouchpoints: [],
     trackingEvents: [],
@@ -1566,6 +1568,32 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       const id = Number(eqParam(url, "contact_id"));
       return res(200, db.contactHistory.filter((h) => h.contact_id === id && contactClientIds().includes(h.client_id)).sort((a, b) => b.at.localeCompare(a.at)));
     }
+    // Frases do WhatsApp (Tracking T4.1): mesmas regras do banco (admin/gestor configuram; frase repetida recusada).
+    if (url.includes("/rest/v1/tracking_wa_trigger_log")) {
+      const cid = eqParam(url, "client_id");
+      if (!contactClientIds().includes(cid) || role === "vendedor") return res(200, []);
+      return res(200, db.waTriggerLog.filter((l) => l.client_id === cid).sort((a, b) => b.at.localeCompare(a.at) || b.id - a.id).slice(0, 20));
+    }
+    if (url.includes("/rest/v1/tracking_wa_triggers")) {
+      if (method === "GET") {
+        const cid = eqParam(url, "client_id");
+        if (!contactClientIds().includes(cid)) return res(200, []);
+        return res(200, db.waTriggers.filter((t) => t.client_id === cid && !t.archived_at).sort((a, b) => a.position - b.position));
+      }
+      if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "new row violates row-level security policy" });
+      const body = parse();
+      if (body.phrase !== undefined) body.phrase = String(body.phrase).trim().replace(/\s+/g, " ");
+      const clash = (cid, phrase, id) => db.waTriggers.some((t) => t.client_id === cid && !t.archived_at && t.id !== id && t.phrase.toLowerCase() === phrase.toLowerCase());
+      if (method === "POST") {
+        if (clash(body.client_id, body.phrase)) return res(409, { code: "23505", message: "duplicate key value violates unique constraint" });
+        db.waTriggers.push({ id: crypto.randomUUID(), stage_id: null, profile_id: null, default_value: null, currency: "BRL", position: 0, enabled: true, archived_at: null, ...body });
+        return res(201);
+      }
+      const t = db.waTriggers.find((x) => x.id === eqParam(url, "id"));
+      if (body.phrase !== undefined && clash(t.client_id, body.phrase, t.id)) return res(409, { code: "23505", message: "duplicate key value violates unique constraint" });
+      Object.assign(t, body);
+      return res(204);
+    }
     // Sistemas de venda (Tracking T3.2): endereço do webhook, chave só uma vez, mapeamento e registro dos avisos.
     const salesKey = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, "0")).join("");
     const salesAdmin = (cid) => ["admin", "gestor"].includes(role) && contactClientIds().includes(cid);
@@ -1726,7 +1754,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       return res(200, [...db.whatsappClicks].sort((a, b) => b.clicked_at.localeCompare(a.clicked_at)).map((c) => ({ ...c, touch: c.touch ?? null })));
     }
     if (url.includes("/rest/v1/tracking_whatsapp_connections")) {
-      return res(200, db.whatsappConnections.map((w) => ({ ...w, has_app_secret: db.waSecrets[w.id]?.app != null })));
+      const cid = eqParam(url, "client_id");
+      return res(200, db.whatsappConnections.filter((w) => !cid || w.client_id === cid).map((w) => ({ ...w, has_app_secret: db.waSecrets[w.id]?.app != null })));
     }
     if (url.includes("/rest/v1/tracking_whatsapp_conversations")) {
       return res(200, [...db.whatsappConversations].sort((a, b) => b.last_message_at.localeCompare(a.last_message_at)).map((c) => ({ ...c, touch: c.touch ?? null })));
