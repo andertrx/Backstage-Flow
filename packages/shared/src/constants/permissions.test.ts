@@ -3,8 +3,9 @@ import { can, PERMISSION_LABELS, PERMISSIONS, ROLE_SCOPE } from "./permissions.t
 import { isRole, ROLES } from "./roles.ts";
 
 describe("papéis", () => {
-  it("reconhece somente os 6 papéis válidos", () => {
-    expect(ROLES).toHaveLength(6);
+  it("reconhece somente os 7 papéis válidos (vendedor do cliente desde a T3.1)", () => {
+    expect(ROLES).toHaveLength(7);
+    expect(isRole("vendedor")).toBe(true);
     expect(isRole("admin")).toBe(true);
     expect(isRole("superadmin")).toBe(false);
     expect(isRole(undefined)).toBe(false);
@@ -59,5 +60,13 @@ describe("tela de papéis e permissões", () => {
 
   it("papel Equipe (Etapa 36) não vê nada dos módulos de anúncios", () => {
     expect(PERMISSIONS.filter((p) => can("equipe", p))).toEqual([]);
+  });
+});
+
+describe("vendedor do cliente (T3.1)", () => {
+  it("só vê e marca contatos; nada mais do CRM", () => {
+    expect(PERMISSIONS.filter((p) => can("vendedor", p))).toEqual(["contacts.view", "contacts.mark"]);
+    expect(ROLES.filter((role) => can(role, "contacts.setup"))).toEqual(["admin", "gestor"]);
+    expect(ROLES.filter((role) => can(role, "contacts.mark"))).toEqual(["admin", "gestor", "operador", "vendedor"]);
   });
 });

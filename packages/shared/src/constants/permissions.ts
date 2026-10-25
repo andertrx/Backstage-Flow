@@ -26,6 +26,9 @@ export const PERMISSIONS = [
   "monitor.admin",
   "results.view",
   "results.manage",
+  "contacts.view",
+  "contacts.mark",
+  "contacts.setup",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -48,11 +51,16 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "monitor.rules",
     "results.view",
     "results.manage",
+    "contacts.view",
+    "contacts.mark",
+    "contacts.setup",
   ],
-  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view", "tracking.whatsapp", "monitor.view", "monitor.handle", "results.view"],
-  visualizador: ["clients.view", "internal.view", "tracking.view", "monitor.view", "results.view"],
+  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view", "tracking.whatsapp", "monitor.view", "monitor.handle", "results.view", "contacts.view", "contacts.mark"],
+  visualizador: ["clients.view", "internal.view", "tracking.view", "monitor.view", "results.view", "contacts.view"],
   // Etapa 36: só a Central de Operações (permissões próprias, por pessoa).
   equipe: [],
+  // T3.1: equipe de vendas do cliente — só os contatos (o banco confere quais clientes).
+  vendedor: ["contacts.view", "contacts.mark"],
   cliente: [],
 };
 
@@ -82,6 +90,9 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "monitor.admin": "Administrar o Monitoramento (regras globais e notificações de outras pessoas)",
   "results.view": "Ver a Inteligência de Resultados (perfis comerciais por campanha, conjunto e anúncio, vindos da planilha do cliente)",
   "results.manage": "Conectar e configurar a planilha do Google Sheets de cada cliente (colunas e regras dos perfis)",
+  "contacts.view": "Ver os contatos dos clientes (de onde veio, perfil, etapa e vendas)",
+  "contacts.mark": "Marcar contatos: perfil (Lojista...), etapa e venda — o que vai ao Meta",
+  "contacts.setup": "Configurar os perfis e as etapas dos contatos de cada cliente (e o que vai ao Meta)",
 };
 
 /** Quais clientes cada papel enxerga (a regra que o banco aplica em toda consulta). */
@@ -91,5 +102,6 @@ export const ROLE_SCOPE: Record<Role, string> = {
   operador: "Só os clientes liberados para ele",
   visualizador: "Só os clientes liberados para ele",
   equipe: "Nenhum pelos módulos de anúncios; na Central, só o necessário para as tarefas",
+  vendedor: "Só os contatos dos clientes liberados para ele (nada mais do CRM)",
   cliente: "Só a própria empresa, sem informações internas",
 };
