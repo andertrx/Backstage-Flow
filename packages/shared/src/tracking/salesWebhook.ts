@@ -85,7 +85,7 @@ export function getPath(obj: unknown, path: string | undefined): unknown {
   return cur;
 }
 
-const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const last = (p: string) => norm(p.split(".").filter((x) => !/^\d+$/.test(x)).at(-1) ?? "");
 
 /** Sugestão de mapeamento pelos nomes mais comuns (a agência confere e ajusta). Ordem dos nomes = preferência. */
