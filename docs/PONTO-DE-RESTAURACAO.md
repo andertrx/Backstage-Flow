@@ -1,3 +1,17 @@
+# Ponto de restauração — antes de "Tracking T3.2: vendas pelo webhook" (25/10/2026)
+
+| Parte | Identificação desta versão |
+|---|---|
+| **Código** (branch `claude/meta-google-ads-dashboard-8g4wfg`) | commit **`f559dd4`** |
+| **Banco** (Supabase) | última migração **`20261025164801 clientes_desativar_sync_manual`** |
+
+## Como voltar
+1. **Banco:** rodar `supabase/rollback/voltar_vendas_webhook_2026_10_25.sql` (desliga os endereços e as funções; tabelas e histórico ficam guardados).
+2. **Servidor:** desligar a função `sales-webhook` (ou deixar: sem as funções do banco ela só responde erro).
+3. **Código e site:** pedir "volte as vendas por webhook": eu reverto os commits dessa mudança em cima da branch.
+
+---
+
 # Ponto de restauração — antes de "Tracking T3.1: contatos e papel Vendedor" (23/10/2026, noite)
 
 | Parte | Identificação desta versão |
