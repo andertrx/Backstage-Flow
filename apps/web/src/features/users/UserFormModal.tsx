@@ -44,7 +44,7 @@ export function UserFormModal({ user, open, onClose }: Props) {
       const problem = validateNewPassword(password);
       if (problem) return setError(problem);
     }
-    const withOps = role !== "cliente" && Boolean(opsDraft.primarySector) && (ops !== null || Boolean(member?.in_ops));
+    const withOps = role !== "cliente" && role !== "vendedor" && Boolean(opsDraft.primarySector) && (ops !== null || Boolean(member?.in_ops));
     try {
       let userId = user?.id;
       if (isNew) {
@@ -97,7 +97,7 @@ export function UserFormModal({ user, open, onClose }: Props) {
             <Input id={id} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           )}
         </Field>
-        {role !== "cliente" && sectors.data && opsReady && (
+        {role !== "cliente" && role !== "vendedor" && sectors.data && opsReady && (
           <details className="rounded-lg ring-1 ring-slate-200" open={Boolean(member?.in_ops) || role === "equipe"} data-testid="user-ops-section">
             <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-slate-800">
               Central de Operações: setores e cargo

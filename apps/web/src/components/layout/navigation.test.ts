@@ -32,6 +32,11 @@ describe("menu lateral", () => {
     expect(navItemsFor("equipe", ["ops.access"]).map((i) => i.label)).toEqual(["Central de Operações"]);
   });
 
+  it("papel Vendedor (T3.1) não vê nenhum item do menu: só a tela de Contatos, que abre sozinha", () => {
+    expect(labels("vendedor")).toEqual([]);
+    expect(navItemsFor("vendedor", ["ops.access"]).map((i) => i.label)).toEqual([]);
+  });
+
   it("operador não vê Logs", () => {
     expect(labels("operador")).not.toContain("Logs");
     expect(labels("gestor")).toContain("Logs");

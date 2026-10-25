@@ -35,7 +35,7 @@ export interface NavItem {
 
 /** Menu lateral, na ordem pedida na Etapa 21. */
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", path: "/", icon: LayoutDashboard, group: "Visão geral", hiddenFor: ["equipe"] },
+  { label: "Dashboard", path: "/", icon: LayoutDashboard, group: "Visão geral", hiddenFor: ["equipe", "vendedor"] },
   { label: "Clientes", path: "/clientes", icon: Building2, group: "Visão geral", permission: "clients.view" },
   { label: "Contas", path: "/contas", icon: Wallet, group: "Visão geral", permission: "internal.view" },
   { label: "Central de Operações", path: "/operacoes", icon: KanbanSquare, group: "Operações", ops: true },
@@ -56,7 +56,7 @@ export const NAV_ITEMS: NavItem[] = [
 export function navItemsFor(role: Role | null | undefined, opsPermissions?: readonly string[] | null): NavItem[] {
   return NAV_ITEMS.filter((item) => {
     if (role && item.hiddenFor?.includes(role)) return false;
-    if (item.ops) return role === "admin" || (role !== "cliente" && opsCan(opsPermissions, "ops.access"));
+    if (item.ops) return role === "admin" || (role !== "cliente" && role !== "vendedor" && opsCan(opsPermissions, "ops.access"));
     return !item.permission || can(role, item.permission);
   });
 }

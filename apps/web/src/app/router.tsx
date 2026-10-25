@@ -45,6 +45,7 @@ const AccountsHealthPage = lazy(() => import("@/features/health/AccountsHealthPa
 const GoogleCallbackPage = lazy(() => import("@/features/integrations/GoogleCallbackPage.tsx").then((m) => ({ default: m.GoogleCallbackPage })));
 const IntegrationsPage = lazy(() => import("@/features/integrations/IntegrationsPage.tsx").then((m) => ({ default: m.IntegrationsPage })));
 const PermissionsPage = lazy(() => import("@/features/settings/PermissionsPage.tsx").then((m) => ({ default: m.PermissionsPage })));
+const ContactsPage = lazy(() => import("@/features/contacts/ContactsPage.tsx").then((m) => ({ default: m.ContactsPage })));
 const HistoryPage = lazy(() => import("@/features/history/HistoryPage.tsx").then((m) => ({ default: m.HistoryPage })));
 const PrivacyPage = lazy(() => import("@/features/legal/LegalPages.tsx").then((m) => ({ default: m.PrivacyPage })));
 const TermsPage = lazy(() => import("@/features/legal/LegalPages.tsx").then((m) => ({ default: m.TermsPage })));
@@ -179,6 +180,15 @@ export const router = createBrowserRouter([
           { path: "equipe", element: <OpsTeamPage /> },
           { path: "configuracoes", element: <OpsSettingsPage /> },
         ],
+      },
+      {
+        // Tracking T3.1: contatos dos clientes (também é a única tela do papel Vendedor).
+        path: "contatos",
+        element: (
+          <RequirePermission permission="contacts.view">
+            <ContactsPage />
+          </RequirePermission>
+        ),
       },
       {
         path: "tracking",

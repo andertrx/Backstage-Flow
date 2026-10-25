@@ -7,8 +7,9 @@ import {
   EVIDENCE_LABELS,
   eventLabel,
 } from "@backstage/shared";
-import { Code2, ListChecks, MousePointerClick, Pencil, Plus, Radar } from "lucide-react";
+import { Code2, ListChecks, MousePointerClick, Pencil, Plus, Radar, Users } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -113,11 +114,17 @@ export function TrackingPage() {
             Visitas, origens e eventos dos sites dos clientes, coletados pelo nosso script (sem dados pessoais).
           </p>
         </div>
-        {canManage && (
-          <Button onClick={() => setEditing("new")}>
-            <Plus className="size-4" aria-hidden /> Novo container
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {/* T3.1: contatos dos clientes (no lugar da planilha) */}
+          <Link to="/contatos" className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400">
+            <Users className="size-4" aria-hidden /> Contatos
+          </Link>
+          {canManage && (
+            <Button onClick={() => setEditing("new")}>
+              <Plus className="size-4" aria-hidden /> Novo container
+            </Button>
+          )}
+        </div>
       </div>
 
       <Alert tone="info">

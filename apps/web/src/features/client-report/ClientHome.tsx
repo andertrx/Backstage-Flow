@@ -44,11 +44,13 @@ function ClientHome() {
 
 /**
  * Na página inicial: o cliente vai para o painel dele; o papel Equipe (Etapa 36)
- * vai para a Central de Operações; os demais veem o Dashboard normal.
+ * vai para a Central de Operações; o Vendedor (T3.1) vai para os Contatos; os demais veem o Dashboard normal.
  */
 export function ClientHomeOr({ children }: { children: ReactNode }) {
   const { profile } = useAuth();
   if (profile?.role === "equipe") return <Navigate to="/operacoes" replace />;
+  // T3.1: o vendedor do cliente só usa os Contatos.
+  if (profile?.role === "vendedor") return <Navigate to="/contatos" replace />;
   return profile?.role === "cliente" ? <ClientHome /> : children;
 }
 
