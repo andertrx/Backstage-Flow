@@ -85,3 +85,12 @@ e um usuário com papel "cliente" de uma empresa desativada não vê mais nada.
 - SQL: `supabase/tests/clientes_excluir.sql` — 13 verificações OK no banco real (desfeito no fim).
 - Banco real, como admin, numa transação desfeita: excluir "Abraço de Algodão" tirou a conta dela de Contas (1 → 0) e o cliente da lista (1 → 0).
 - Navegador: `e2e/client-deactivate.mjs` agora com 23 verificações (abas de Contas, verificar saldo só das ativas, excluir com nome errado/certo, some de Clientes e Contas, gestor recusado).
+
+---
+
+# Correção de 25/10/2026: a Abraço de Algodão ainda aparecia no Dashboard
+
+- **Causa:** a sincronização automática estava parada, mas o botão **"Sincronizar agora"** (manual) ainda puxava a conta do cliente desativado: 6 sincronizações manuais entre 23 e 25/10 trouxeram dados até o dia 25.
+- **Banco:** `20261025164801_clientes_desativar_sync_manual.sql` — a trava de execução (`sync_lock`) pula cliente desativado. Testado no banco real: conta da Abraço recusada, conta de cliente ativo aceita.
+- **Telas:** sem filtro de cliente, Dashboard, Meta/Google, Relatórios, Comparativo e Saldo **não somam** cliente desativado, e a conta dele sai da escolha de "Conta". O **Histórico** continua mostrando o passado de todos (decisão de 23/10).
+- **Testes de navegador:** `client-deactivate` (25), `dashboard` (39), `history` (23), `balance` (32), `health` (33), `reports` (28), `comparison` (38), `meta-view` (44), `google-view` (31) — todos OK.
