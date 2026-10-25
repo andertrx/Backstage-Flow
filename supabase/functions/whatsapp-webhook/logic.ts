@@ -152,3 +152,11 @@ export function hasEchoes(payload: unknown): boolean {
   const p = payload as { entry?: { changes?: { field?: string }[] }[] };
   return (p?.entry ?? []).some((e) => (e.changes ?? []).some((c) => c.field === "smb_message_echoes" || c.field === "message_echoes"));
 }
+
+/** T4.2: números (phone_number_id) que aparecem no aviso do app da agência, sem repetir. */
+export function phoneNumberIds(payload: unknown): string[] {
+  const p = payload as { object?: string; entry?: { changes?: { value?: { metadata?: { phone_number_id?: string } } }[] }[] };
+  if (p?.object !== "whatsapp_business_account") return [];
+  const ids = (p.entry ?? []).flatMap((e) => (e.changes ?? []).map((c) => c.value?.metadata?.phone_number_id ?? ""));
+  return [...new Set(ids.filter((id) => /^\d{5,30}$/.test(id)))];
+}

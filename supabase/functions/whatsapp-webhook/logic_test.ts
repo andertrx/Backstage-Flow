@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { extractEchoes, extractInbound, hasEchoes, hmacSha256Hex, safeEqual, sha256Hex, validSignature } from "./logic.ts";
+import { extractEchoes, extractInbound, hasEchoes, phoneNumberIds, hmacSha256Hex, safeEqual, sha256Hex, validSignature } from "./logic.ts";
 
 const payload = (messages: unknown[], phoneNumberId = "106540352242922") => ({
   object: "whatsapp_business_account",
@@ -77,4 +77,14 @@ Deno.test("mensagem enviada por ferramenta pela API (message_echoes) e legenda d
   const p = echoes([{ to: "5545999998888", id: "wamid.E5", type: "image", image: { caption: "Parabéns pela sua compra! Total R$ 89,90" } }], "message_echoes");
   const [e] = await extractEchoes(p, "106540352242922", TRIGGERS);
   assertEquals(e.matches[0].value, 89.9);
+});
+
+Deno.test("T4.2: webhook do app da agência separa os avisos por número", () => {
+  const p = { object: "whatsapp_business_account", entry: [
+    { id: "1", changes: [{ field: "messages", value: { metadata: { phone_number_id: "106540352242922" } } }, { field: "smb_message_echoes", value: { metadata: { phone_number_id: "106540352242922" } } }] },
+    { id: "2", changes: [{ field: "messages", value: { metadata: { phone_number_id: "990000000042001" } } }] },
+    { id: "3", changes: [{ field: "messages", value: { metadata: { phone_number_id: "lixo" } } }] },
+  ] };
+  assertEquals(phoneNumberIds(p), ["106540352242922", "990000000042001"]);
+  assertEquals(phoneNumberIds({ object: "page" }), []);
 });
