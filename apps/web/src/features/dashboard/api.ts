@@ -2,21 +2,36 @@ import { useQuery } from "@tanstack/react-query";
 import type { DateRange, Granularity, SeriesRow } from "@backstage/shared";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import type { DashboardFilters } from "./filters.ts";
 import type { FilterAccount, FilterCampaign, SummaryRow } from "./types.ts";
 
-/** Contas vinculadas que o usuário enxerga (o RLS filtra no banco). */
-export function useFilterAccounts() {
+/**
+ * Clientes ativos (25/10/2026): sem filtro de cliente, os números e as contas não incluem cliente
+ * desativado. null = sem restrição (tela de Histórico, que guarda o passado de todos).
+ */
+function useScopeClientIds(includeInactive: boolean): { ids: string[] | null; ready: boolean } {
+  const active = useActiveClients();
+  if (includeInactive) return { ids: null, ready: true };
+  return { ids: active.data ? active.data.map((c) => c.id) : null, ready: Boolean(active.data) };
+}
+const clientScope = (clientId: string | null, ids: string[] | null) => (clientId ? [clientId] : ids);
+
+/** Contas vinculadas que o usuário enxerga (o RLS filtra no banco); sem as de cliente desativado, salvo no Histórico. */
+export function useFilterAccounts(opts: { includeInactive?: boolean } = {}) {
+  const includeInactive = opts.includeInactive ?? false;
   return useQuery({
-    queryKey: ["dashboard", "accounts"],
+    queryKey: ["dashboard", "accounts", includeInactive],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ad_accounts")
-        .select("id, client_id, platform_id, external_id, name, currency")
+        .select("id, client_id, platform_id, external_id, name, currency, clients(status)")
         .is("unlinked_at", null)
         .order("name");
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as contas."));
-      return data as FilterAccount[];
+      return (data as unknown as (FilterAccount & { clients: { status: string } | null })[])
+        .filter((a) => includeInactive || a.clients?.status !== "encerrado")
+        .map(({ clients: _c, ...a }) => a as FilterAccount);
     },
   });
 }
@@ -38,11 +53,11 @@ export function useFilterCampaigns(clientId: string | null, accountId: string | 
   });
 }
 
-async function fetchSummary(range: DateRange, f: DashboardFilters): Promise<SummaryRow[]> {
+async function fetchSummary(range: DateRange, f: DashboardFilters, scopeIds: string[] | null): Promise<SummaryRow[]> {
   const { data, error } = await supabase.rpc("dashboard_summary", {
     p_from: range.from,
     p_to: range.to,
-    p_client_ids: f.clientId ? [f.clientId] : null,
+    p_client_ids: clientScope(f.clientId, scopeIds),
     p_platforms: f.platform ? [f.platform] : null,
     p_ad_account_ids: f.accountId ? [f.accountId] : null,
     p_campaign_ids: campaignFilter(f),
@@ -72,30 +87,35 @@ async function fetchSummary(range: DateRange, f: DashboardFilters): Promise<Summ
 }
 
 /** Totais do período atual e do período de comparação (mesmos filtros). */
-export function useDashboardSummary(current: DateRange, previous: DateRange, filters: DashboardFilters) {
+export function useDashboardSummary(current: DateRange, previous: DateRange, filters: DashboardFilters, opts: { includeInactive?: boolean } = {}) {
   const { currency: _ignored, ...queryFilters } = filters;
+  const scope = useScopeClientIds(opts.includeInactive ?? false);
   return useQuery({
-    queryKey: ["dashboard", "summary", current, previous, queryFilters],
+    queryKey: ["dashboard", "summary", current, previous, queryFilters, scope.ids],
+    enabled: scope.ready,
     placeholderData: (prev) => prev,
     queryFn: async () => {
-      const [now, before] = await Promise.all([fetchSummary(current, filters), fetchSummary(previous, filters)]);
+      const [now, before] = await Promise.all([fetchSummary(current, filters, scope.ids), fetchSummary(previous, filters, scope.ids)]);
       return { current: now, previous: before };
     },
   });
 }
 
 /** Série no tempo do gráfico (mesmos filtros do resumo). */
-export function useDashboardTimeseries(range: DateRange, f: DashboardFilters, granularity: Granularity, byPlatform: boolean) {
+export function useDashboardTimeseries(range: DateRange, f: DashboardFilters, granularity: Granularity, byPlatform: boolean, opts: { includeInactive?: boolean } = {}) {
   const { currency: _ignored, ...queryFilters } = f;
+  const scope = useScopeClientIds(opts.includeInactive ?? false);
+  const scopeIds = scope.ids;
   return useQuery({
-    queryKey: ["dashboard", "timeseries", range, queryFilters, granularity, byPlatform],
+    queryKey: ["dashboard", "timeseries", range, queryFilters, granularity, byPlatform, scopeIds],
+    enabled: scope.ready,
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("dashboard_timeseries", {
         p_from: range.from,
         p_to: range.to,
         p_granularity: granularity,
-        p_client_ids: f.clientId ? [f.clientId] : null,
+        p_client_ids: clientScope(f.clientId, scopeIds),
         p_platforms: f.platform ? [f.platform] : null,
         p_ad_account_ids: f.accountId ? [f.accountId] : null,
         p_campaign_ids: campaignFilter(f),

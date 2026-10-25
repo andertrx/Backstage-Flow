@@ -57,7 +57,8 @@ export function HistoryPage() {
   const currencyParam = params.get("moeda");
 
   const { data: clients = [] } = useClients();
-  const { data: accounts = [] } = useFilterAccounts();
+  // Histórico guarda o passado de todos, inclusive cliente desativado (decisão do Ander, 23/10).
+  const { data: accounts = [] } = useFilterAccounts({ includeInactive: true });
   const coverage = useHistoryCoverage(clientId, platform, accountId);
   const target = coverage.data?.[0]?.target ?? fallbackTarget(today);
   const months = useMemo(() => monthOptions(target, today), [target, today]);
@@ -72,9 +73,9 @@ export function HistoryPage() {
   const filters: DashboardFilters = {
     period: "custom", from: range.from, to: range.to, clientId, platform, accountId, campaignId: null, campaignIds: [], status: null, currency: null,
   };
-  const summary = useDashboardSummary(range, previous, filters);
+  const summary = useDashboardSummary(range, previous, filters, { includeInactive: true });
   const yearRange = { from: months.at(-1)?.range.from ?? range.from, to: today };
-  const monthly = useDashboardTimeseries(yearRange, filters, "month", false);
+  const monthly = useDashboardTimeseries(yearRange, filters, "month", false, { includeInactive: true });
 
   const currencies = summary.data?.current.map((r) => r.currency) ?? [];
   const currency = pickCurrency(currencies, currencyParam) ?? currencies[0] ?? null;

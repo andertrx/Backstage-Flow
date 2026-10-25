@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { callAdAccounts } from "@/features/ad-accounts/api.ts";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
+import { useActiveClients } from "@/features/clients/api.ts";
 import type { AccountBalance, ManualBalanceStatus } from "./types.ts";
 
 const BALANCES_KEY = ["balances"] as const;
@@ -20,12 +21,16 @@ export interface BalanceFilters {
 
 /** Saldo de cada conta (última verificação). O RLS decide quais contas aparecem. */
 export function useAccountBalances(f: BalanceFilters) {
+  // Sem filtro de cliente: só clientes ativos (cliente desativado não entra no saldo somado, 25/10/2026).
+  const active = useActiveClients();
+  const scopeIds = active.data ? active.data.map((c) => c.id) : null;
   return useQuery({
-    queryKey: [...BALANCES_KEY, f.clientId, f.platform, f.accountId],
+    queryKey: [...BALANCES_KEY, f.clientId, f.platform, f.accountId, scopeIds],
+    enabled: Boolean(active.data),
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("account_balances", {
-        p_client_ids: f.clientId ? [f.clientId] : null,
+        p_client_ids: f.clientId ? [f.clientId] : scopeIds,
         p_platforms: f.platform ? [f.platform] : null,
         p_ad_account_ids: f.accountId ? [f.accountId] : null,
       });

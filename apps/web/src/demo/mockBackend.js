@@ -1379,7 +1379,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/ad_accounts")) {
       const clientId = eqParam(url, "client_id");
       const platform = eqParam(url, "platform_id");
-      return res(200, db.adAccounts.filter((a) => (!clientId || a.client_id === clientId) && (!platform || a.platform_id === platform) && !a.unlinked_at));
+      return res(200, db.adAccounts.filter((a) => (!clientId || a.client_id === clientId) && (!platform || a.platform_id === platform) && !a.unlinked_at)
+        .map((a) => (url.includes("clients(status)") || url.includes("clients%28status%29") ? { ...a, clients: { status: db.clients.find((c) => c.id === a.client_id)?.status ?? "ativo" } } : a)));
     }
 
     // --- Campanhas (o site só lê)

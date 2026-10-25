@@ -44,6 +44,11 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   await page.getByLabel("Cliente", { exact: true }).locator("option", { hasText: "Loja Que Fica" }).waitFor({ state: "attached" });
   const options = await page.getByLabel("Cliente", { exact: true }).locator("option").allInnerTexts();
   check(!options.includes("Loja Que Saiu") && options.includes("Loja Que Fica"), `Dashboard: desativado some da escolha de cliente (${options.join(", ")})`);
+  const accountOptions = await page.getByLabel("Conta", { exact: true }).locator("option").allInnerTexts().catch(() => []);
+  check(!accountOptions.some((o) => o.includes("Conta Que Saiu")), `Dashboard: conta do desativado some da escolha de conta (${accountOptions.join(", ")})`);
+  const summaryCall = db.rpcCalls.filter((c) => c.p_from && "p_client_ids" in c).at(-1);
+  check(Array.isArray(summaryCall?.p_client_ids) && !summaryCall.p_client_ids.includes(CLI) && summaryCall.p_client_ids.includes(OUTRO),
+    "Dashboard em \"Todos os clientes\": os números não somam o cliente desativado");
   await page.goto(`${BASE}/clientes`);
   await page.getByText("Loja Que Fica").first().waitFor();
   check(await page.getByText("Loja Que Saiu").count() === 0, "lista de Clientes (aba Ativo) não mostra o desativado");
