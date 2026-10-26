@@ -50,6 +50,7 @@ const ContactsPage = lazy(() => import("@/features/contacts/ContactsPage.tsx").t
 const HistoryPage = lazy(() => import("@/features/history/HistoryPage.tsx").then((m) => ({ default: m.HistoryPage })));
 const PrivacyPage = lazy(() => import("@/features/legal/LegalPages.tsx").then((m) => ({ default: m.PrivacyPage })));
 const TermsPage = lazy(() => import("@/features/legal/LegalPages.tsx").then((m) => ({ default: m.TermsPage })));
+const OAuthConsentPage = lazy(() => import("@/features/oauth/OAuthConsentPage.tsx").then((m) => ({ default: m.OAuthConsentPage })));
 const UsersPage = lazy(() => import("@/features/users/UsersPage.tsx").then((m) => ({ default: m.UsersPage })));
 
 export const router = createBrowserRouter([
@@ -59,6 +60,18 @@ export const router = createBrowserRouter([
   // Páginas públicas (sem login) exigidas pelo Google na tela de autorização.
   { path: "/privacidade", errorElement: <RouteError />, element: <Suspense fallback={<FullPageSpinner />}><PrivacyPage /></Suspense> },
   { path: "/termos", errorElement: <RouteError />, element: <Suspense fallback={<FullPageSpinner />}><TermsPage /></Suspense> },
+  // Etapa 40: autorização do programa de IA no servidor MCP (exige login; fora do menu, como o login).
+  {
+    path: "/oauth/consent",
+    errorElement: <RouteError />,
+    element: (
+      <RequireAuth>
+        <Suspense fallback={<FullPageSpinner />}>
+          <OAuthConsentPage />
+        </Suspense>
+      </RequireAuth>
+    ),
+  },
   // Etapa 19.2: dashboard pelo link secreto (sem login).
   {
     path: "/r/:token",

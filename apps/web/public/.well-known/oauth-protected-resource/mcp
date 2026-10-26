@@ -1,0 +1,10 @@
+{
+  "resource": "https://www.backstageflow.com.br/mcp",
+  "authorization_servers": [
+    "https://dkatllzkmlzpginuzvis.supabase.co/auth/v1"
+  ],
+  "bearer_methods_supported": [
+    "header"
+  ],
+  "resource_name": "Backstage Flow"
+}

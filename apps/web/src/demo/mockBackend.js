@@ -88,6 +88,9 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     dueTasks: [],
     dueSeen: [],
     pushSubs: [],
+    // Etapa 40: pedidos de autorização OAuth (programa de IA no MCP) e respostas dadas na tela.
+    oauthRequests: {},
+    oauthDecisions: [],
     /** T4.2: app do Meta da agência (o segredo fica "no cofre": a tela nunca recebe). */
     waApp: { app_id: null, config_id: null, graph_version: "v23.0", secret: null, verify_token: null },
     trackingRuleVersions: [],
@@ -361,6 +364,21 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       return res(200, { access_token: jwt, token_type: "bearer", expires_in: 3600, expires_at: now + 3600, refresh_token: "r1", user });
     }
     if (url.includes("/auth/v1/logout")) return res(204);
+    // Etapa 40: tela de autorização do OAuth (Supabase Auth como servidor de login do MCP).
+    const oauthMatch = url.match(/\/auth\/v1\/oauth\/authorizations\/([^/?]+)(\/consent)?/);
+    if (oauthMatch) {
+      const reqo = db.oauthRequests[oauthMatch[1]];
+      if (!reqo) return res(404, { code: 404, error_code: "oauth_authorization_not_found", msg: "authorization not found" });
+      if (oauthMatch[2] && method === "POST") {
+        const action = parse().action;
+        db.oauthDecisions.push({ id: oauthMatch[1], action });
+        reqo.decided = action;
+        return res(200, { redirect_url: action === "approve" ? `${reqo.redirect_uri}?code=codigo-teste&state=s1` : `${reqo.redirect_uri}?error=access_denied&state=s1` });
+      }
+      if (reqo.decided === "approve") return res(200, { redirect_url: `${reqo.redirect_uri}?code=codigo-teste&state=s1` });
+      return res(200, { authorization_id: oauthMatch[1], redirect_uri: reqo.redirect_uri, client: { id: "c1", name: reqo.client, uri: "", logo_uri: "" },
+        user: { id: user.id, email: user.email }, scope: "openid email" });
+    }
     if (url.includes("/auth/v1/user")) return res(200, user);
 
     // --- Perfis

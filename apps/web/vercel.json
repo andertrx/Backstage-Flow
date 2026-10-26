@@ -6,6 +6,10 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/mcp",
+      "destination": "https://dkatllzkmlzpginuzvis.supabase.co/functions/v1/mcp"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
@@ -54,6 +58,23 @@
         {
           "key": "Cross-Origin-Resource-Policy",
           "value": "cross-origin"
+        }
+      ]
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource/(.*)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300"
         }
       ]
     }
