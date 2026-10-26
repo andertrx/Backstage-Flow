@@ -9,6 +9,7 @@ import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { useUnseenAlertsCount } from "@/features/alerts/api.ts";
 import { useMyOpsPermissions } from "@/features/operations/api.ts";
 import { MonitorBell } from "@/features/monitoring/MonitorBell.tsx";
+import { DueTasksReminder } from "@/features/operations/DueTasksReminder.tsx";
 import { NotificationBell } from "@/features/operations/NotificationBell.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { GlobalSearch } from "@/features/search/GlobalSearch.tsx";
@@ -214,6 +215,8 @@ export function AppLayout() {
           </ErrorBoundary>
         </main>
       </div>
+      {/* Central 36.17: tarefas vencidas às 8h, 12h e 17h (só para quem acessa a Central). */}
+      {opsCan(opsPermissions, "ops.access") && <DueTasksReminder />}
       <ScrollRestoration />
     </div>
   );

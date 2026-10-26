@@ -82,6 +82,12 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     salesLog: [],
     waTriggers: [],
     waTriggerLog: [],
+    /** Central 36.17: lembrete de tarefas vencidas (o teste define o horário e as tarefas) e aparelhos. */
+    dueSlot: null,
+    dueDay: "2026-10-26",
+    dueTasks: [],
+    dueSeen: [],
+    pushSubs: [],
     /** T4.2: app do Meta da agência (o segredo fica "no cofre": a tela nunca recebe). */
     waApp: { app_id: null, config_id: null, graph_version: "v23.0", secret: null, verify_token: null },
     trackingRuleVersions: [],
@@ -663,6 +669,38 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     const opsDeny = (msg = "Só o administrador pode mudar a configuração da Central de Operações.") => res(403, { code: "42501", message: msg });
     const opsBad = (message) => res(400, { code: "22023", message });
     if (url.includes("/rest/v1/rpc/ops_my_permissions")) return res(200, opsPerms);
+    // Central 36.17: lembrete de tarefas vencidas (8h/12h/17h) só para o responsável; "Vi" por dia e horário.
+    if (url.includes("/rest/v1/rpc/ops_due_reminder_seen")) {
+      if (!opsPerms.includes("ops.access")) return opsDeny("Sem acesso à Central de Operações.");
+      const p = parse();
+      if (p.p_day !== db.dueDay || Number(p.p_slot) !== db.dueSlot) return opsBad("Lembrete fora do horário atual.");
+      db.dueSeen.push(`${userId}:${p.p_day}:${p.p_slot}`);
+      return res(204);
+    }
+    if (url.includes("/rest/v1/rpc/ops_due_reminder")) {
+      if (!opsPerms.includes("ops.access")) return res(200, { slot: null, seen: true, tasks: [] });
+      const seen = db.dueSlot == null || db.dueSeen.includes(`${userId}:${db.dueDay}:${db.dueSlot}`);
+      return res(200, { day: db.dueDay, slot: db.dueSlot, seen, tasks: db.dueTasks.filter((t) => t.principal === userId).map(({ principal: _p, ...t }) => t) });
+    }
+    if (url.includes("/rest/v1/rpc/ops_push_subscribe")) {
+      if (!opsPerms.includes("ops.access")) return opsDeny("Sem acesso à Central de Operações.");
+      const p = parse();
+      if (!/^https:\/\//.test(p.p_endpoint ?? "")) return opsBad("Autorização do navegador inválida. Tente de novo.");
+      const ex = db.pushSubs.find((x) => x.endpoint === p.p_endpoint);
+      if (ex) Object.assign(ex, { user_id: userId, disabled_at: null });
+      else db.pushSubs.push({ id: crypto.randomUUID(), user_id: userId, endpoint: p.p_endpoint, p256dh: p.p_p256dh, auth: p.p_auth, device: p.p_device,
+        created_at: new Date().toISOString(), last_sent_at: null, last_error: null, disabled_at: null });
+      return res(200, db.pushSubs.find((x) => x.endpoint === p.p_endpoint).id);
+    }
+    if (url.includes("/rest/v1/rpc/ops_push_unsubscribe")) {
+      const p = parse();
+      const ex = db.pushSubs.find((x) => x.endpoint === p.p_endpoint && x.user_id === userId);
+      if (ex) ex.disabled_at = new Date().toISOString();
+      return res(204);
+    }
+    if (url.includes("/rest/v1/ops_push_subscriptions")) {
+      return res(200, db.pushSubs.filter((x) => x.user_id === userId).map(({ id, device, created_at, last_sent_at, last_error, disabled_at }) => ({ id, device, created_at, last_sent_at, last_error, disabled_at })));
+    }
     const opsTask = handleOpsTasks({ db, url, method, parse, rawBody, role, userId, opsPerms, res });
     if (opsTask) return opsTask;
     if (url.includes("/rest/v1/ops_sectors")) {
@@ -2408,6 +2446,18 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     }
 
     // --- Edge Function admin-users
+    if (url.includes("/functions/v1/ops-push")) {
+      const body = parse();
+      db.functionCalls.push({ fn: "ops-push", ...body });
+      if (body.action === "public_key") return res(200, { data: { publicKey: "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4" } });
+      if (body.action === "test") {
+        const mine = db.pushSubs.filter((x) => x.user_id === userId && !x.disabled_at);
+        if (!mine.length) return res(400, { error: { code: "INVALID_STATE", message: 'Nenhum aparelho ativado. Clique em "Ativar neste aparelho" primeiro.' } });
+        for (const x of mine) x.last_sent_at = new Date().toISOString();
+        return res(200, { data: { sent: mine.length, failed: 0 } });
+      }
+      return res(401, { error: { code: "UNAUTHENTICATED", message: "Acesso negado." } });
+    }
     if (url.includes("/functions/v1/admin-users")) {
       const body = parse();
       db.functionCalls.push(body);

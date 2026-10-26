@@ -12,6 +12,7 @@ import {
   type OpsNotification, useMarkNotificationsRead, useNotificationPrefs, useNotifications, useSaveNotificationPrefs,
 } from "./notificationsApi.ts";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
+import { PushDevicesCard } from "./PushDevicesCard.tsx";
 import { RequireOps } from "./OpsLayout.tsx";
 
 function Preferences() {
@@ -82,6 +83,7 @@ export function NotificationsPage() {
       </Card>
       {items.length >= 200 && <p className="text-xs text-slate-500">Mostrando as 200 mais recentes. As lidas continuam guardadas.</p>}
       <Preferences />
+      <PushDevicesCard />
     </div>
   );
 }
