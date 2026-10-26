@@ -6,7 +6,7 @@ import { supabaseData } from "./data.ts";
 import { createHandler, RATE_PER_MINUTE } from "./server.ts";
 
 /**
- * Etapa 40 — Edge Function "mcp": servidor MCP remoto do Backstage Flow (só leitura).
+ * Etapa 40 — Edge Function "mcp": servidor MCP remoto do Backstage Flow (leitura; escrita só na Central de Operações, 40.2).
  * Endereço público: https://www.backstageflow.com.br/mcp (o site repassa para https://<projeto>.supabase.co/functions/v1/mcp).
  * O endereço é o do site porque o Supabase tira o cabeçalho WWW-Authenticate das respostas: o cliente de IA então
  * acha o login pelo arquivo /.well-known/oauth-protected-resource/mcp, que o site publica (apps/web/public/.well-known).

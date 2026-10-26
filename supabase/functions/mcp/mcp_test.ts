@@ -2,7 +2,8 @@ import { assert, assertEquals, assertMatch } from "jsr:@std/assert@1";
 import { Client } from "npm:@modelcontextprotocol/sdk@1.32.1/client/index.js";
 import { StreamableHTTPClientTransport } from "npm:@modelcontextprotocol/sdk@1.32.1/client/streamableHttp.js";
 import { AuthError, bearer, oauthClientId } from "./auth.ts";
-import { type DataPort, DataError, likeEscape } from "./data.ts";
+import { type DataPort, DataError, likeEscape, type OpsRpc } from "./data.ts";
+import { OPS_TOOLS } from "./ops_tools.ts";
 import { createHandler, type Deps, type LogEntry } from "./server.ts";
 import { type Caller, period, summaryOut, TOOLS } from "./tools.ts";
 
@@ -17,12 +18,33 @@ const USERS: Record<string, Caller> = {
   "tok-admin": { id: "00000000-0000-4000-8000-000000000001", name: "Ander", role: "admin" },
   "tok-visu": { id: "00000000-0000-4000-8000-000000000002", name: "Visu", role: "visualizador" },
   "tok-equipe": { id: "00000000-0000-4000-8000-000000000003", name: "Equipe", role: "equipe" },
+  "tok-gestor": { id: "00000000-0000-4000-8000-000000000004", name: "Gestor", role: "gestor" },
 };
+const ALL_OPS = ["ops.access", "ops.tasks.create", "ops.tasks.edit", "ops.tasks.assign", "ops.tasks.archive", "ops.cards.move"];
+const OPS_BY_ROLE: Record<string, string[]> = { admin: ALL_OPS, gestor: ALL_OPS, equipe: ["ops.access"], visualizador: [] };
+const TASK = "7a000000-0000-4000-8000-000000000071";
+const SECTOR = "5e000000-0000-4000-8000-000000000051";
+const PERSON = "00000000-0000-4000-8000-000000000003";
+
+/** Central falsa: guarda as chamadas e responde como o banco (versão, conflito, permissão). */
+interface FakeCentral {
+  calls: { name: OpsRpc; args: Record<string, unknown> }[];
+  task: Record<string, unknown> & { version: number };
+  people: { user_id: string; role: string; name: string }[];
+  failWith?: DataError;
+}
+const newCentral = (): FakeCentral => ({
+  calls: [],
+  task: { id: TASK, number: 12, title: "Banner", description: "antiga", client_id: CLI_A, client_name: "Loja A", sector_id: SECTOR, status_id: "nao_iniciado",
+    status_name: "Não iniciado", category: "aberto", priority: "media", start_date: null, due_date: "2026-10-30", effort_hours: null, visibility: "setor",
+    version: 3, archived_at: null, client_stage_id: null, mandatory: false, created_at: "2026-10-20T10:00:00Z", updated_at: "2026-10-20T10:00:00Z" },
+  people: [{ user_id: PERSON, role: "principal", name: "Equipe" }, { user_id: "00000000-0000-4000-8000-000000000009", role: "aprovador", name: "Aprova" }],
+});
 const CLI_A = "a0000000-0000-4000-8000-00000000000a";
 const CLI_B = "b0000000-0000-4000-8000-00000000000b";
 
 /** Banco falso: o visualizador só "vê" o cliente A (como o RLS faria). */
-function fakeData(user: Caller, opts: { slow?: boolean; broken?: boolean } = {}): DataPort {
+function fakeData(user: Caller, opts: { slow?: boolean; broken?: boolean } = {}, central: FakeCentral = newCentral()): DataPort {
   const visible = user.role === "admin" ? [CLI_A, CLI_B] : [CLI_A];
   const clients = [
     { id: CLI_A, name: "Loja A", status: "ativo", timezone: "America/Sao_Paulo", is_demo: false },
@@ -31,7 +53,7 @@ function fakeData(user: Caller, opts: { slow?: boolean; broken?: boolean } = {})
   return {
     ping: () => (opts.broken ? Promise.reject(new Error("fora do ar")) : Promise.resolve()),
     lastSync: () => Promise.resolve({ finished_at: "2026-10-26T10:00:00Z", status: "sucesso" }),
-    opsPermissions: () => Promise.resolve(user.role === "admin" ? ["ops.access"] : []),
+    opsPermissions: () => Promise.resolve(OPS_BY_ROLE[user.role] ?? []),
     listClients: ({ limit, offset }) => Promise.resolve({ rows: clients.slice(offset, offset + limit), total: clients.length }),
     accounts: (ids) => Promise.resolve(ids.includes(CLI_A) ? [{ id: "acc-a", client_id: CLI_A, name: "Conta A", platform_id: "meta", currency: "BRL", status: "ativa" }] : []),
     summary: async (f) => {
@@ -52,10 +74,36 @@ function fakeData(user: Caller, opts: { slow?: boolean; broken?: boolean } = {})
     client: (id) => Promise.resolve(clients.find((c) => c.id === id) ?? null),
     account: () => Promise.resolve({ id: "acc-a", client_id: CLI_A, name: "Conta A", platform_id: "meta", currency: "BRL", status: "ativa" }),
     mcpHealth: () => Promise.resolve({ escopo: "só as suas chamadas", chamadas: 3 }),
+    opsReference: () => Promise.resolve({
+      sectors: [{ id: SECTOR, name: "Design", color: "#2563EB", status: "ativo", position: 1 }],
+      statuses: [{ id: "nao_iniciado", name: "Não iniciado", color: "#94A3B8", category: "aberto", active: true, position: 1 },
+        { id: "finalizado", name: "Finalizado", color: "#10B981", category: "concluido", active: true, position: 2 }],
+      columns: [], activityTypes: [],
+    }),
+    opsRpc: (name, args) => {
+      central.calls.push({ name, args });
+      if (central.failWith && name !== "ops_task_get") return Promise.reject(central.failWith);
+      if (name === "ops_directory") return Promise.resolve({ people: [{ user_id: PERSON, name: "Equipe", sector_id: SECTOR }], clients: [{ id: CLI_A, name: "Loja A", status: "ativo" }] });
+      if (name === "ops_task_list") return Promise.resolve([{ ...central.task, people: central.people, tags: ["urgente"], comments: 1, overdue: false }]);
+      if (name === "ops_task_get") {
+        return Promise.resolve(args.p_id === TASK ? { task: central.task, people: central.people, tags: ["urgente"], comments: [{ author: "Ander", body: "ok", created_at: "x" }] } : null);
+      }
+      if (name === "ops_task_save") {
+        if (args.p_id) central.task = { ...central.task, version: central.task.version + 1 };
+        return Promise.resolve(TASK);
+      }
+      if (name === "ops_task_set_status" || name === "ops_task_set_people") {
+        central.task = { ...central.task, version: central.task.version + 1 };
+        return Promise.resolve(central.task.version);
+      }
+      if (name === "ops_comment_add") return Promise.resolve(55);
+      if (name === "ops_sector_save") return Promise.resolve(args.p_id ?? "5e000000-0000-4000-8000-000000000099");
+      return Promise.resolve(null);
+    },
   };
 }
 
-function setup(opts: { slow?: boolean; broken?: boolean; limit?: number; timeoutMs?: number } = {}) {
+function setup(opts: { slow?: boolean; broken?: boolean; limit?: number; timeoutMs?: number } = {}, central: FakeCentral = newCentral()) {
   const logs: LogEntry[] = [];
   const errors: string[] = [];
   const hits = new Map<string, number>();
@@ -79,7 +127,7 @@ function setup(opts: { slow?: boolean; broken?: boolean; limit?: number; timeout
       errors.push(code);
       return Promise.resolve();
     },
-    dataFor: (token) => fakeData(USERS[token], opts),
+    dataFor: (token) => fakeData(USERS[token], opts, central),
     now: () => new Date("2026-10-26T15:00:00Z"),
     timeoutMs: opts.timeoutMs ?? 5_000,
     resourceUrl: BASE,
@@ -87,11 +135,11 @@ function setup(opts: { slow?: boolean; broken?: boolean; limit?: number; timeout
   };
   const handler = createHandler(deps);
   const fetchFn = (input: string | URL | Request, init?: RequestInit) => handler(new Request(input, init));
-  return { handler, fetchFn, logs, errors };
+  return { handler, fetchFn, logs, errors, central };
 }
 
-async function connect(token: string, opts: Parameters<typeof setup>[0] = {}) {
-  const s = setup(opts);
+async function connect(token: string, opts: Parameters<typeof setup>[0] = {}, central: FakeCentral = newCentral()) {
+  const s = setup(opts, central);
   const client = new Client({ name: "teste", version: "1.0.0" });
   await client.connect(new StreamableHTTPClientTransport(new URL(BASE), {
     fetch: s.fetchFn, requestInit: { headers: { Authorization: `Bearer ${token}` } },
@@ -103,27 +151,39 @@ type ToolInfo = { name: string; annotations?: { readOnlyHint?: boolean; destruct
 const text = (r: unknown) => ((r as { content: { text: string }[] }).content[0].text);
 const json = (r: unknown) => JSON.parse(text(r));
 
-Deno.test("conecta pelo cliente oficial, identifica nome/versão e lista só ferramentas de leitura", async () => {
+Deno.test("conecta pelo cliente oficial; admin vê leitura + Central; escrita marcada (pede confirmação); nada perigoso", async () => {
   const { client } = await connect("tok-admin");
   assertEquals(client.getServerVersion()?.name, "backstage-flow");
   const { tools } = await client.listTools();
-  assertEquals(tools.map((t: ToolInfo) => t.name).sort(), TOOLS.map((t) => t.name).sort());
-  assert(tools.every((t: ToolInfo) => t.annotations?.readOnlyHint === true && t.annotations?.destructiveHint === false), "todas marcadas como só leitura");
-  assert(!tools.some((t: ToolInfo) => /delete|update|create|pause|edit|sql|shell|file|apagar|alterar|pausar|excluir/i.test(t.name)), "nenhuma de escrita");
+  assertEquals(tools.map((t: ToolInfo) => t.name).sort(), [...TOOLS, ...OPS_TOOLS].map((t) => t.name).sort());
+  const writes = new Set(OPS_TOOLS.filter((t) => t.write).map((t) => t.name));
+  assert(tools.every((t: ToolInfo) => t.annotations?.readOnlyHint === !writes.has(t.name)), "leitura marcada como leitura; escrita como escrita");
+  assertEquals(tools.find((t: ToolInfo) => t.name === "backstage_archive_task")?.annotations?.destructiveHint, true);
+  assert(!tools.some((t: ToolInfo) => /delete|remove|sql|shell|file|apagar|excluir|campaign_(update|pause)|budget|balance|user|permission|integration/i.test(t.name)), "nada de apagar, SQL, campanhas, saldo, usuários ou integrações");
   const res = await client.listResources();
   assertEquals(res.resources.map((r: { uri: string }) => r.uri), ["backstage://guia"]);
   const guia = await client.readResource({ uri: "backstage://guia" });
-  assertMatch((guia.contents[0] as { text: string }).text, /Somente leitura/);
+  assertMatch((guia.contents[0] as { text: string }).text, /Nada é apagado/);
   await client.close();
 });
 
-Deno.test("cada papel vê só as ferramentas que pode usar (equipe: sem métricas)", async () => {
+Deno.test("cada papel vê só as ferramentas que pode usar (equipe: Central sem criar; visualizador: só leitura; gestor: sem configurações)", async () => {
   const { client } = await connect("tok-equipe");
   const names = (await client.listTools()).tools.map((t: ToolInfo) => t.name).sort();
-  assertEquals(names, ["backstage_capabilities", "backstage_mcp_health", "backstage_status"]);
+  assertEquals(names, ["backstage_capabilities", "backstage_central_reference", "backstage_comment_task", "backstage_get_task", "backstage_list_tasks",
+    "backstage_mcp_health", "backstage_status"]);
   const cap = json(await client.callTool({ name: "backstage_capabilities", arguments: {} }));
-  assertEquals(cap.modulos_liberados_no_crm, []);
+  assertEquals(cap.modulos_liberados_no_crm, ["Central de Operações"]);
   await client.close();
+  const v = await connect("tok-visu");
+  assertEquals((await v.client.listTools()).tools.map((t: ToolInfo) => t.name).sort(), TOOLS.map((t) => t.name).sort());
+  assertEquals(json(await v.client.callTool({ name: "backstage_capabilities", arguments: {} })).modo, "somente leitura");
+  await v.client.close();
+  const g = await connect("tok-gestor");
+  const gn = (await g.client.listTools()).tools.map((t: ToolInfo) => t.name);
+  assert(gn.includes("backstage_create_task") && !gn.some((n: string) => /save_sector|set_sector|save_status|set_status_active|queue_column|activity_type/.test(n)),
+    "gestor mexe em tarefas, mas não nas configurações (só admin)");
+  await g.client.close();
 });
 
 Deno.test("status: sem segredos; banco fora do ar aparece como indisponível", async () => {
@@ -131,7 +191,7 @@ Deno.test("status: sem segredos; banco fora do ar aparece como indisponível", a
   const s = json(await client.callTool({ name: "backstage_status", arguments: {} }));
   assertEquals(s.sistema, "Backstage Flow");
   assertEquals(s.banco.estado, "funcionando");
-  assertEquals(s.servidor_mcp.modo, "somente leitura");
+  assertEquals(s.servidor_mcp.versao, "1.1.0");
   assert(!/key|secret|token|senha|password/i.test(JSON.stringify(s)), "sem segredos");
   assertEquals(logs.at(-1)?.tool, "backstage_status");
   assertEquals(logs.at(-1)?.ok, true);
@@ -280,4 +340,78 @@ Deno.test("auxiliares: cabeçalho de login, client_id do OAuth, busca e período
   assertEquals(likeEscape("50%_off"), "50\\%\\_off");
   assertEquals(period(undefined, undefined, new Date("2026-10-26T15:00:00Z")), { from: "2026-09-27", to: "2026-10-26" });
   assertEquals(summaryOut([])[0], undefined);
+});
+
+Deno.test("Central: criar tarefa usa a mesma ação do site, com pessoas, etiquetas e link", async () => {
+  const central = newCentral();
+  const { client, logs } = await connect("tok-gestor", {}, central);
+  const r = json(await client.callTool({ name: "backstage_create_task", arguments: {
+    titulo: "Revisar criativos", setor_id: SECTOR, cliente_id: CLI_A, prazo: "2026-10-31", prioridade: "alta", responsavel_id: PERSON, etiquetas: ["meta"] } }));
+  const save = central.calls.find((c) => c.name === "ops_task_save")!;
+  assertEquals(save.args.p_id, null);
+  const p = save.args.p as Record<string, unknown>;
+  assertEquals([p.title, p.sector_id, p.client_id, p.due_date, p.priority, p.visibility], ["Revisar criativos", SECTOR, CLI_A, "2026-10-31", "alta", "setor"]);
+  assertEquals(p.people, { principal: PERSON, adicionais: [], aprovadores: [], observadores: [] });
+  assertEquals(p.tags, ["meta"]);
+  assert(r.criada && r.tarefa.link.endsWith(`/operacoes/tarefas?tarefa=${TASK}`));
+  assertEquals(logs.at(-1)?.tool, "backstage_create_task");
+  const bad = await client.callTool({ name: "backstage_create_task", arguments: { titulo: "ab", setor_id: SECTOR } });
+  assert(bad.isError, "título curto recusado");
+  await client.close();
+});
+
+Deno.test("Central: editar muda só o que foi pedido, confere a versão e exige algum campo", async () => {
+  const central = newCentral();
+  const { client } = await connect("tok-gestor", {}, central);
+  await client.callTool({ name: "backstage_update_task", arguments: { tarefa_id: TASK, versao: 3, prazo: "2026-11-05", cliente_id: null } });
+  const save = central.calls.find((c) => c.name === "ops_task_save")!;
+  const p = save.args.p as Record<string, unknown>;
+  assertEquals(save.args.p_version, 3);
+  assertEquals([p.title, p.description, p.due_date, p.client_id, p.tags], ["Banner", "antiga", "2026-11-05", null, ["urgente"]]);
+  const conflict = await client.callTool({ name: "backstage_update_task", arguments: { tarefa_id: TASK, versao: 1, titulo: "Outro" } });
+  assert(conflict.isError);
+  assertMatch(text(conflict), /alterou esta tarefa/);
+  const empty = await client.callTool({ name: "backstage_update_task", arguments: { tarefa_id: TASK } });
+  assertMatch(text(empty), /pelo menos um campo/);
+  await client.close();
+});
+
+Deno.test("Central: status, pessoas (mantém aprovadores), comentário e arquivar", async () => {
+  const central = newCentral();
+  const { client } = await connect("tok-gestor", {}, central);
+  const st = json(await client.callTool({ name: "backstage_set_task_status", arguments: { tarefa_id: TASK, status_id: "finalizado" } }));
+  assert(st.status_alterado);
+  assertEquals(central.calls.find((c) => c.name === "ops_task_set_status")!.args, { p_id: TASK, p_version: 3, p_status: "finalizado" });
+  await client.callTool({ name: "backstage_set_task_people", arguments: { tarefa_id: TASK, responsavel_id: null, adicionais_ids: [PERSON] } });
+  const people = central.calls.find((c) => c.name === "ops_task_set_people")!.args.p_people as Record<string, unknown>;
+  assertEquals(people, { principal: null, adicionais: [PERSON], aprovadores: ["00000000-0000-4000-8000-000000000009"], observadores: [] });
+  const c = json(await client.callTool({ name: "backstage_comment_task", arguments: { tarefa_id: TASK, texto: "Feito pelo Claude" } }));
+  assertEquals(c.comentario_id, 55);
+  const ar = json(await client.callTool({ name: "backstage_archive_task", arguments: { tarefa_id: TASK } }));
+  assertEquals(ar.arquivada, true);
+  const nf = await client.callTool({ name: "backstage_get_task", arguments: { tarefa_id: CLI_B } });
+  assertMatch(text(nf), /não encontrada ou não liberada/);
+  const list = json(await client.callTool({ name: "backstage_list_tasks", arguments: { prazo: "atrasadas", minhas: true } }));
+  assertEquals(list.tarefas[0].numero, 12);
+  assertEquals((central.calls.find((x) => x.name === "ops_task_list")!.args.f as Record<string, unknown>).due, "atrasadas");
+  await client.close();
+});
+
+Deno.test("Central: configurações (admin) e erros do banco viram mensagens claras", async () => {
+  const central = newCentral();
+  const { client } = await connect("tok-admin", {}, central);
+  const s = json(await client.callTool({ name: "backstage_save_sector", arguments: { nome: "Vídeo", cor: "#2563EB" } }));
+  assert(s.salvo && s.setor_id);
+  const badColor = await client.callTool({ name: "backstage_save_sector", arguments: { nome: "Vídeo", cor: "azul" } });
+  assert(badColor.isError);
+  central.failWith = new DataError("42501", "Só o administrador pode mudar a configuração da Central de Operações.");
+  const denied = await client.callTool({ name: "backstage_save_status", arguments: { nome: "Novo", cor: "#000000", grupo: "aberto" } });
+  assertMatch(text(denied), /Sem permissão/);
+  central.failWith = new DataError("40001", "Alguém alterou esta tarefa antes de você. Recarregue para ver a versão atual.");
+  const conflict = await client.callTool({ name: "backstage_set_task_status", arguments: { tarefa_id: TASK, status_id: "finalizado" } });
+  assertMatch(text(conflict), /Alguém alterou/);
+  central.failWith = new DataError("22023", "Há 3 tarefa(s) neste status. Escolha para qual status elas vão antes de desativar.");
+  const rule = await client.callTool({ name: "backstage_set_status_active", arguments: { status_id: "nao_iniciado", ativo: false } });
+  assertMatch(text(rule), /Escolha para qual status/);
+  await client.close();
 });

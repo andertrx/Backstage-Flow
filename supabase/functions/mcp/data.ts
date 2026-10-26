@@ -74,6 +74,21 @@ export interface MetricsFilter {
   campaignIds: string[] | null;
 }
 
+/** Ações da Central que o MCP pode chamar (as mesmas do site; o banco confere a permissão de quem chama). */
+export const OPS_RPCS = [
+  "ops_directory", "ops_task_list", "ops_task_get", "ops_task_save", "ops_task_set_status", "ops_task_set_people", "ops_comment_add",
+  "ops_task_archive", "ops_sector_save", "ops_sector_set_status", "ops_status_save", "ops_status_set_active", "ops_queue_column_save",
+  "ops_queue_column_set_active", "ops_activity_type_save",
+] as const;
+export type OpsRpc = (typeof OPS_RPCS)[number];
+
+export interface OpsReference {
+  sectors: { id: string; name: string; color: string; status: string; position: number }[];
+  statuses: { id: string; name: string; color: string; category: string; active: boolean; position: number }[];
+  columns: { id: string; sector_id: string; name: string; color: string; status_id: string; active: boolean; position: number }[];
+  activityTypes: { id: string; name: string; active: boolean; position: number }[];
+}
+
 export interface DataPort {
   ping(): Promise<void>;
   lastSync(): Promise<{ finished_at: string; status: string } | null>;
@@ -86,6 +101,8 @@ export interface DataPort {
   client(id: string): Promise<ClientRow | null>;
   account(id: string): Promise<AccountRow | null>;
   mcpHealth(hours: number): Promise<Record<string, unknown>>;
+  opsRpc(name: OpsRpc, args: Record<string, unknown>): Promise<unknown>;
+  opsReference(): Promise<OpsReference>;
 }
 
 function check<T>(r: { data: T | null; error: DbError | null }): T {
@@ -151,6 +168,24 @@ export function supabaseData(db: SupabaseClient): DataPort {
     },
     async mcpHealth(hours) {
       return check(await db.rpc("mcp_health", { p_hours: hours })) as Record<string, unknown>;
+    },
+    async opsRpc(name, args) {
+      if (!(OPS_RPCS as readonly string[]).includes(name)) throw new DataError("42501", "ação não permitida");
+      return check(await db.rpc(name, args));
+    },
+    async opsReference() {
+      const [sectors, statuses, columns, activityTypes] = await Promise.all([
+        db.from("ops_sectors").select("id, name, color, status, position").order("position"),
+        db.from("ops_statuses").select("id, name, color, category, active, position").order("position"),
+        db.from("ops_queue_columns").select("id, sector_id, name, color, status_id, active, position").order("position"),
+        db.from("ops_activity_types").select("id, name, active, position").order("position"),
+      ]);
+      return {
+        sectors: check(sectors) as OpsReference["sectors"],
+        statuses: check(statuses) as OpsReference["statuses"],
+        columns: check(columns) as OpsReference["columns"],
+        activityTypes: check(activityTypes) as OpsReference["activityTypes"],
+      };
     },
   };
 }

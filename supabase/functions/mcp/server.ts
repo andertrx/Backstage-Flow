@@ -3,7 +3,8 @@ import { WebStandardStreamableHTTPServerTransport } from "npm:@modelcontextproto
 import { AuthError, bearer, oauthClientId } from "./auth.ts";
 import { DataError, type DataPort } from "./data.ts";
 import { guide } from "./guide.ts";
-import { type Caller, MCP_NAME, MCP_VERSION, ToolError, toolsFor } from "./tools.ts";
+import { OPS_TOOLS } from "./ops_tools.ts";
+import { type Caller, MCP_NAME, MCP_VERSION, READ_TOOLS, ToolError, type ToolSpec } from "./tools.ts";
 
 /**
  * Etapa 40 — servidor MCP do Backstage Flow (SDK oficial, transporte HTTP "streamable", sem sessão).
@@ -38,6 +39,9 @@ export interface Deps {
 export const MAX_BODY_BYTES = 64 * 1024;
 export const RATE_PER_MINUTE = 60;
 
+/** Ferramentas que a pessoa pode usar: leitura + Central (conforme papel e permissões da Central). */
+export const toolsFor = (role: Caller["role"], ops: readonly string[]): ToolSpec[] => [...READ_TOOLS, ...OPS_TOOLS].filter((t) => t.allowed(role, ops));
+
 const INTERNAL_MSG = "Serviço interno do Backstage Flow indisponível no momento. Tente de novo em instantes.";
 
 export function classify(err: unknown): { code: string; message: string; unexpected: boolean } {
@@ -45,6 +49,11 @@ export function classify(err: unknown): { code: string; message: string; unexpec
   if (err instanceof DataError) {
     if (err.dbCode === "42501") return { code: "FORBIDDEN", message: "Sem permissão para essa consulta no Backstage Flow.", unexpected: false };
     if (err.dbCode === "22023") return { code: "INVALID_INPUT", message: err.message, unexpected: false };
+    if (err.dbCode === "40001") return { code: "CONFLICT", message: err.message, unexpected: false };
+    if (err.dbCode === "23505") return { code: "INVALID_INPUT", message: "Já existe um item com esses dados.", unexpected: false };
+    if (err.dbCode === "23514" || err.dbCode === "23502" || err.dbCode === "23503") {
+      return { code: "INVALID_INPUT", message: "Valor inválido para este campo (confira IDs, datas e cores).", unexpected: false };
+    }
     if (err.dbCode === "22P02" || err.dbCode === "22007" || err.dbCode === "22008") {
       return { code: "INVALID_INPUT", message: "Parâmetro inválido.", unexpected: false };
     }
@@ -61,12 +70,24 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 /** Monta o servidor MCP só com as ferramentas que o papel da pessoa pode usar. */
-export function buildServer(user: Caller, data: DataPort, deps: Pick<Deps, "log" | "reportError" | "now" | "timeoutMs">, oauthClient: string | null = null) {
+export function buildServer(
+  user: Caller,
+  data: DataPort,
+  deps: Pick<Deps, "log" | "reportError" | "now" | "timeoutMs">,
+  oauthClient: string | null = null,
+  ops: readonly string[] = [],
+) {
   const server = new McpServer(
     { name: MCP_NAME, title: "Backstage Flow", version: MCP_VERSION },
-    { instructions: "Ferramentas de LEITURA do CRM Backstage Flow (agência de tráfego pago). Respeite as moedas separadas e não invente números: se um dado não vier, diga que não está disponível. Leia o recurso backstage://guia para as regras." },
+    {
+      instructions:
+        "CRM Backstage Flow (agência de tráfego pago). Consultas de clientes, métricas, campanhas e alertas são só leitura; na Central de Operações " +
+        "dá para criar e mexer em tarefas e (administrador) nas configurações, com as permissões da pessoa. Antes de criar ou editar, leia os IDs " +
+        "em backstage_central_reference e, para editar, a versão em backstage_get_task. Respeite as moedas separadas e não invente números. " +
+        "Leia o recurso backstage://guia para as regras.",
+    },
   );
-  const tools = toolsFor(user.role);
+  const tools = toolsFor(user.role, ops);
   const names = tools.map((t) => t.name);
   for (const t of tools) {
     server.registerTool(
@@ -75,12 +96,14 @@ export function buildServer(user: Caller, data: DataPort, deps: Pick<Deps, "log"
         title: t.title,
         description: t.description,
         inputSchema: t.input,
-        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        annotations: t.write
+          ? { readOnlyHint: false, destructiveHint: t.destructive === true, idempotentHint: false, openWorldHint: false }
+          : { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       },
       async (args: Record<string, unknown>) => {
         const started = Date.now();
         try {
-          const result = await withTimeout(t.run({ user, data, now: deps.now, tools: names }, args ?? {}), deps.timeoutMs);
+          const result = await withTimeout(t.run({ user, data, now: deps.now, tools: names, ops }, args ?? {}), deps.timeoutMs);
           await deps.log({ userId: user.id, tool: t.name, ok: true, errorCode: null, ms: Date.now() - started, oauthClientId: oauthClient });
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         } catch (err) {
@@ -164,7 +187,9 @@ export function createHandler(deps: Deps) {
     const length = Number(req.headers.get("content-length") ?? "0");
     if (length > MAX_BODY_BYTES) return rpcError(413, -32600, "Pedido grande demais.");
 
-    const server = buildServer(user, deps.dataFor(token!), deps, client);
+    const data = deps.dataFor(token!);
+    const ops = await data.opsPermissions().catch(() => [] as string[]);
+    const server = buildServer(user, data, deps, client, ops);
     const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     try {
       await server.connect(transport);

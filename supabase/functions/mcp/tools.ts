@@ -11,7 +11,7 @@ import { type DataPort, type SummaryRow } from "./data.ts";
  */
 
 export const MCP_NAME = "backstage-flow";
-export const MCP_VERSION = "1.0.0";
+export const MCP_VERSION = "1.1.0";
 export const MAX_DAYS = 400;
 
 export interface Caller {
@@ -25,6 +25,8 @@ export interface ToolContext {
   data: DataPort;
   now: () => Date;
   tools: string[];
+  /** Permissões da pessoa na Central de Operações (vêm do banco). */
+  ops: readonly string[];
 }
 
 export class ToolError extends Error {
@@ -38,13 +40,17 @@ export interface ToolSpec {
   title: string;
   description: string;
   input: z.ZodRawShape;
-  /** Quem vê a ferramenta (a regra de verdade continua no banco). */
-  allowed: (role: Role) => boolean;
+  /** Quem vê a ferramenta: papel do CRM e permissões da Central (a regra de verdade continua no banco). */
+  allowed: (role: Role, ops: readonly string[]) => boolean;
+  /** Ferramenta que muda algo no CRM (o cliente de IA pede confirmação antes de usar). */
+  write?: boolean;
+  /** Mudança com efeito maior (desativar, arquivar, mover tarefas): reversível, mas pede atenção. */
+  destructive?: boolean;
   run: (ctx: ToolContext, args: Record<string, unknown>) => Promise<unknown>;
 }
 
-const uuid = z.string().uuid();
-const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use o formato AAAA-MM-DD.");
+export const uuid = z.string().uuid();
+export const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use o formato AAAA-MM-DD.");
 const ids = (what: string) => z.array(uuid).min(1).max(50).optional().describe(`Até 50 IDs de ${what} (opcional).`);
 
 export const spDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d);
@@ -102,6 +108,8 @@ export function summaryOut(rows: SummaryRow[]) {
 }
 
 const NO_DATA = "Informação não disponível pela API";
+const READ_NAMES = new Set(["backstage_status", "backstage_capabilities", "backstage_list_clients", "backstage_get_metrics", "backstage_list_alerts",
+  "backstage_get_campaign", "backstage_mcp_health", "backstage_central_reference", "backstage_list_tasks", "backstage_get_task"]);
 
 const internal = (role: Role) => can(role, "internal.view");
 
@@ -129,7 +137,7 @@ export const TOOLS: ToolSpec[] = [
       const now = ctx.now();
       return {
         sistema: "Backstage Flow",
-        servidor_mcp: { nome: MCP_NAME, versao: MCP_VERSION, estado: "funcionando", modo: "somente leitura" },
+        servidor_mcp: { nome: MCP_NAME, versao: MCP_VERSION, estado: "funcionando" },
         banco,
         ultima_sincronizacao: sync,
         consultado_em: now.toISOString(),
@@ -162,7 +170,7 @@ export const TOOLS: ToolSpec[] = [
         papel: r,
         modulos_liberados_no_crm: modules.filter(([, ok]) => ok).map(([m]) => m),
         ferramentas_mcp: ctx.tools,
-        modo: "somente leitura: nenhuma ferramenta altera dados nesta versão",
+        modo: ctx.tools.some((t) => !READ_NAMES.has(t)) ? "leitura e, na Central de Operações, escrita com as suas permissões" : "somente leitura",
       };
     },
   },
@@ -309,4 +317,4 @@ export const TOOLS: ToolSpec[] = [
   },
 ];
 
-export const toolsFor = (role: Role) => TOOLS.filter((t) => t.allowed(role));
+export const READ_TOOLS = TOOLS;
