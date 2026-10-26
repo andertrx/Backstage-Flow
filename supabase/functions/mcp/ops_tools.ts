@@ -64,7 +64,7 @@ export const OPS_TOOLS: ToolSpec[] = [
   {
     name: "backstage_central_reference",
     title: "Central: setores, status, pessoas e clientes",
-    description: "Lista o que a Central de Operações usa para criar e mexer em tarefas: setores, status (com o grupo), colunas das filas, tipos de atividade, pessoas da equipe, clientes e as suas permissões na Central. Use para descobrir os IDs antes de criar ou editar.",
+    description: "Lista o que a Central de Operações usa: setores, status (com o grupo), colunas das filas, tipos de atividade, etapas do onboarding, pessoas da equipe, clientes e as suas permissões na Central. Use para descobrir os IDs antes de criar ou editar.",
     input: {},
     allowed: ops("ops.access"),
     async run(ctx) {
@@ -74,6 +74,7 @@ export const OPS_TOOLS: ToolSpec[] = [
         status: ref.statuses.map((s) => ({ id: s.id, nome: s.name, grupo: s.category, ativo: s.active, cor: s.color })),
         colunas_das_filas: ref.columns.map((c) => ({ id: c.id, setor_id: c.sector_id, nome: c.name, status_id: c.status_id, ativa: c.active, cor: c.color })),
         tipos_de_atividade: ref.activityTypes.map((a) => ({ id: a.id, nome: a.name, ativo: a.active })),
+        etapas_do_onboarding: ref.clientStages.map((e) => ({ id: e.id, nome: e.name, ativa: e.active })),
         pessoas: (dir?.people ?? []).map((p) => {
           const x = p as { user_id: string; name: string; sector_id: string | null };
           return { user_id: x.user_id, nome: x.name, setor_principal_id: x.sector_id };

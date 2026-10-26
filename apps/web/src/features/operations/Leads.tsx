@@ -1,3 +1,4 @@
+import { originLabel } from "./origin.ts";
 import {
   BR_STATES, formatCnpj, formatPhone, OPS_LEAD_CURRENCIES, OPS_LEAD_KIND_LABELS, OPS_LEAD_KINDS, OPS_LEAD_ORIGIN_SUGGESTIONS, OPS_PRIORITIES,
   OPS_PRIORITY_LABELS, normalizePhone, opsToday, type OpsLeadKind, type OpsPriority,
@@ -411,7 +412,7 @@ export function LeadDrawer({ id, ctx, onClose, focusRelease }: { id: string; ctx
                       <li key={e.id} className="text-sm">
                         <span className={cn("font-medium", e.action === "lead.interacao" ? "text-blue-800" : "text-slate-800")}>{EVENT_LABELS[e.action] ?? e.action}</span>
                         {t && <span className="text-slate-600"> · {t}</span>}
-                        <p className="text-xs text-slate-400">{e.origin === "sistema" ? "Sistema" : e.actor ?? "—"} · {formatDateTime(e.happened_at ?? e.created_at)}</p>
+                        <p className="text-xs text-slate-400">{originLabel(e.origin, e.actor)} · {formatDateTime(e.happened_at ?? e.created_at)}</p>
                       </li>
                     );
                   })}

@@ -39,7 +39,8 @@ Deno.serve(createHandler({
   dataFor: (token) =>
     supabaseData(createClient(URL_BASE, Deno.env.get("SUPABASE_ANON_KEY")!, {
       auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { Authorization: `Bearer ${token}` } },
+      // x-backstage-origin: o banco marca "via MCP" no histórico (Etapa 40.3); só etiqueta, não dá permissão.
+      global: { headers: { Authorization: `Bearer ${token}`, "x-backstage-origin": "mcp" } },
     })),
   now: () => new Date(),
   timeoutMs: 20_000,

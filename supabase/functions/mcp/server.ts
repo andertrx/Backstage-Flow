@@ -3,6 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from "npm:@modelcontextproto
 import { AuthError, bearer, oauthClientId } from "./auth.ts";
 import { DataError, type DataPort } from "./data.ts";
 import { guide } from "./guide.ts";
+import { CLIENT_TOOLS, MONITOR_TOOLS } from "./crm_tools.ts";
 import { OPS_TOOLS } from "./ops_tools.ts";
 import { type Caller, MCP_NAME, MCP_VERSION, READ_TOOLS, ToolError, type ToolSpec } from "./tools.ts";
 
@@ -40,7 +41,7 @@ export const MAX_BODY_BYTES = 64 * 1024;
 export const RATE_PER_MINUTE = 60;
 
 /** Ferramentas que a pessoa pode usar: leitura + Central (conforme papel e permissões da Central). */
-export const toolsFor = (role: Caller["role"], ops: readonly string[]): ToolSpec[] => [...READ_TOOLS, ...OPS_TOOLS].filter((t) => t.allowed(role, ops));
+export const toolsFor = (role: Caller["role"], ops: readonly string[]): ToolSpec[] => [...READ_TOOLS, ...OPS_TOOLS, ...MONITOR_TOOLS, ...CLIENT_TOOLS].filter((t) => t.allowed(role, ops));
 
 const INTERNAL_MSG = "Serviço interno do Backstage Flow indisponível no momento. Tente de novo em instantes.";
 
@@ -81,9 +82,9 @@ export function buildServer(
     { name: MCP_NAME, title: "Backstage Flow", version: MCP_VERSION },
     {
       instructions:
-        "CRM Backstage Flow (agência de tráfego pago). Consultas de clientes, métricas, campanhas e alertas são só leitura; na Central de Operações " +
-        "dá para criar e mexer em tarefas e (administrador) nas configurações, com as permissões da pessoa. Antes de criar ou editar, leia os IDs " +
-        "em backstage_central_reference e, para editar, a versão em backstage_get_task. Respeite as moedas separadas e não invente números. " +
+        "CRM Backstage Flow (agência de tráfego pago). Métricas e campanhas são só leitura. Dá para mexer, com as permissões da pessoa, " +
+        "na Central de Operações (tarefas, onboarding dos clientes e, administrador, configurações) e no Monitoramento (tratar alertas, regras). " +
+        "Antes de criar ou editar, leia os IDs em backstage_central_reference e a versão no item (get). Respeite as moedas separadas e não invente números. " +
         "Leia o recurso backstage://guia para as regras.",
     },
   );

@@ -69,7 +69,7 @@ export interface OpsMeetingEvent {
   id: number;
   action: string;
   actor: string | null;
-  origin: "manual" | "sistema";
+  origin: "manual" | "sistema" | "mcp";
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   created_at: string;

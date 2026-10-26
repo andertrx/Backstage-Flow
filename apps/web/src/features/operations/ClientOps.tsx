@@ -1,3 +1,4 @@
+import { originLabel } from "./origin.ts";
 import { opsProgress, opsToday } from "@backstage/shared";
 import { CalendarClock, ClipboardList, FileText, History, Megaphone, NotebookPen, Plus, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
@@ -328,7 +329,7 @@ export function ClientOpsHistory({ detail, ctx }: { detail: OpsClientDetail; ctx
                 ? <button type="button" className="text-xs font-medium text-blue-700 hover:underline" onClick={() => open(a.task_id!)}>#{a.task_number} {a.task_title}</button>
                 : <p className="text-xs text-slate-400">#{a.task_number} (tarefa de outro setor)</p>
             )}
-            <p className="text-xs text-slate-400">{a.origin === "sistema" ? "Sistema" : a.actor ?? "—"} · {formatDateTime(a.created_at)}</p>
+            <p className="text-xs text-slate-400">{originLabel(a.origin, a.actor)} · {formatDateTime(a.created_at)}</p>
           </>
         ),
       });

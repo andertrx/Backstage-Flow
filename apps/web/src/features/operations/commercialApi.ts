@@ -86,7 +86,7 @@ export interface OpsLeadEvent {
   body: string | null;
   happened_at: string | null;
   actor: string | null;
-  origin: "manual" | "sistema";
+  origin: "manual" | "sistema" | "mcp";
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   created_at: string;

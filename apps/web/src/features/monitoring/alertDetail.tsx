@@ -76,7 +76,7 @@ function Timeline({ events }: { events: AlertEvent[] }) {
           <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", EVENT_DOT[e.kind] ?? "bg-slate-400")} aria-hidden />
           <div className="min-w-0">
             <p className="text-slate-800">
-              <span className="font-medium">{e.actor_name ?? "Sistema"}</span> · {eventText(e)}
+              <span className="font-medium">{e.actor_name ?? "Sistema"}</span>{e.data?.origem === "mcp" && <span className="text-xs text-slate-500"> (via Claude, MCP)</span>} · {eventText(e)}
             </p>
             {(e.kind === "comentario" || e.kind === "providencia" || (e.kind === "estado" && e.note)) && (
               <p className="mt-0.5 whitespace-pre-wrap rounded-md bg-slate-50 px-2 py-1 text-slate-700">{e.note}</p>

@@ -1,3 +1,4 @@
+import { originLabel } from "./origin.ts";
 import {
   OPS_MEETING_ITEM_KINDS, OPS_MEETING_ITEM_LABELS, OPS_MEETING_STATUS_LABELS, opsMeetingDay, opsMeetingIsoToLocal, opsMeetingItemMakesTask,
   opsMeetingLocalToIso, opsMeetingSpan, type OpsMeetingItemKind, type OpsMeetingStatus,
@@ -437,7 +438,7 @@ export function MeetingDrawer({ id, ctx, onClose }: { id: string; ctx: TasksCont
                       <li key={e.id} className="text-sm">
                         <span className="font-medium text-slate-800">{ACTION_LABELS[e.action] ?? e.action}</span>
                         {t && <span className="text-slate-600"> · {t}</span>}
-                        <p className="text-xs text-slate-400">{e.origin === "sistema" ? "Sistema" : e.actor ?? "—"} · {formatDateTime(e.created_at)}</p>
+                        <p className="text-xs text-slate-400">{originLabel(e.origin, e.actor)} · {formatDateTime(e.created_at)}</p>
                       </li>
                     );
                   })}

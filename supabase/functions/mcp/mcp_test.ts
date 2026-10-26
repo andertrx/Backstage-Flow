@@ -3,6 +3,7 @@ import { Client } from "npm:@modelcontextprotocol/sdk@1.32.1/client/index.js";
 import { StreamableHTTPClientTransport } from "npm:@modelcontextprotocol/sdk@1.32.1/client/streamableHttp.js";
 import { AuthError, bearer, oauthClientId } from "./auth.ts";
 import { type DataPort, DataError, likeEscape, type OpsRpc } from "./data.ts";
+import { CLIENT_TOOLS, MONITOR_TOOLS } from "./crm_tools.ts";
 import { OPS_TOOLS } from "./ops_tools.ts";
 import { createHandler, type Deps, type LogEntry } from "./server.ts";
 import { type Caller, period, summaryOut, TOOLS } from "./tools.ts";
@@ -20,7 +21,7 @@ const USERS: Record<string, Caller> = {
   "tok-equipe": { id: "00000000-0000-4000-8000-000000000003", name: "Equipe", role: "equipe" },
   "tok-gestor": { id: "00000000-0000-4000-8000-000000000004", name: "Gestor", role: "gestor" },
 };
-const ALL_OPS = ["ops.access", "ops.tasks.create", "ops.tasks.edit", "ops.tasks.assign", "ops.tasks.archive", "ops.cards.move"];
+const ALL_OPS = ["ops.access", "ops.tasks.create", "ops.tasks.edit", "ops.tasks.assign", "ops.tasks.archive", "ops.cards.move", "ops.clients.view", "ops.history.edit"];
 const OPS_BY_ROLE: Record<string, string[]> = { admin: ALL_OPS, gestor: ALL_OPS, equipe: ["ops.access"], visualizador: [] };
 const TASK = "7a000000-0000-4000-8000-000000000071";
 const SECTOR = "5e000000-0000-4000-8000-000000000051";
@@ -78,7 +79,7 @@ function fakeData(user: Caller, opts: { slow?: boolean; broken?: boolean } = {},
       sectors: [{ id: SECTOR, name: "Design", color: "#2563EB", status: "ativo", position: 1 }],
       statuses: [{ id: "nao_iniciado", name: "Não iniciado", color: "#94A3B8", category: "aberto", active: true, position: 1 },
         { id: "finalizado", name: "Finalizado", color: "#10B981", category: "concluido", active: true, position: 2 }],
-      columns: [], activityTypes: [],
+      columns: [], activityTypes: [], clientStages: [{ id: "kickoff", name: "Kickoff", color: "#2563EB", active: true, position: 1 }],
     }),
     opsRpc: (name, args) => {
       central.calls.push({ name, args });
@@ -97,6 +98,17 @@ function fakeData(user: Caller, opts: { slow?: boolean; broken?: boolean } = {},
         return Promise.resolve(central.task.version);
       }
       if (name === "ops_comment_add") return Promise.resolve(55);
+      if (name === "monitor_alert_detail") {
+        return Promise.resolve(args.p_id === 7 ? { alert: { id: 7, severity: "critico", status: "novo", client_name: "Loja A", version: 2, dedupe_key: "x" }, can_handle: true,
+          events: [{ kind: "estado", from_value: "novo", to_value: "visualizado", note: null, actor_name: "Ander", created_at: "x", data: { origem: "mcp" } }] } : null);
+      }
+      if (name === "monitor_rule_save" || name === "monitor_alert_to_task" || name === "ops_client_note_add") return Promise.resolve("9b000000-0000-4000-8000-000000000099");
+      if (name === "ops_client_get") {
+        return Promise.resolve(args.p_client === CLI_A ? { client: { id: CLI_A, name: "Loja A", status: "ativo" },
+          ops: { stage_id: "kickoff", stage_since: "x", started_at: "x", version: 4, am_user_id: null, am_name: null },
+          timeline: [{ action: "cliente.etapa", actor: "Ander", origin: "mcp", created_at: "x" }] } : null);
+      }
+      if (name === "ops_client_board") return Promise.resolve({ clients: [{ client_id: CLI_A, name: "Loja A", stage_id: "kickoff", version: 4, can_move: true }], available: [{ id: CLI_B, name: "Loja B" }] });
       if (name === "ops_sector_save") return Promise.resolve(args.p_id ?? "5e000000-0000-4000-8000-000000000099");
       return Promise.resolve(null);
     },
@@ -155,8 +167,8 @@ Deno.test("conecta pelo cliente oficial; admin vê leitura + Central; escrita ma
   const { client } = await connect("tok-admin");
   assertEquals(client.getServerVersion()?.name, "backstage-flow");
   const { tools } = await client.listTools();
-  assertEquals(tools.map((t: ToolInfo) => t.name).sort(), [...TOOLS, ...OPS_TOOLS].map((t) => t.name).sort());
-  const writes = new Set(OPS_TOOLS.filter((t) => t.write).map((t) => t.name));
+  assertEquals(tools.map((t: ToolInfo) => t.name).sort(), [...TOOLS, ...OPS_TOOLS, ...MONITOR_TOOLS, ...CLIENT_TOOLS].map((t) => t.name).sort());
+  const writes = new Set([...OPS_TOOLS, ...MONITOR_TOOLS, ...CLIENT_TOOLS].filter((t) => t.write).map((t) => t.name));
   assert(tools.every((t: ToolInfo) => t.annotations?.readOnlyHint === !writes.has(t.name)), "leitura marcada como leitura; escrita como escrita");
   assertEquals(tools.find((t: ToolInfo) => t.name === "backstage_archive_task")?.annotations?.destructiveHint, true);
   assert(!tools.some((t: ToolInfo) => /delete|remove|sql|shell|file|apagar|excluir|campaign_(update|pause)|budget|balance|user|permission|integration/i.test(t.name)), "nada de apagar, SQL, campanhas, saldo, usuários ou integrações");
@@ -170,13 +182,14 @@ Deno.test("conecta pelo cliente oficial; admin vê leitura + Central; escrita ma
 Deno.test("cada papel vê só as ferramentas que pode usar (equipe: Central sem criar; visualizador: só leitura; gestor: sem configurações)", async () => {
   const { client } = await connect("tok-equipe");
   const names = (await client.listTools()).tools.map((t: ToolInfo) => t.name).sort();
-  assertEquals(names, ["backstage_capabilities", "backstage_central_reference", "backstage_comment_task", "backstage_get_task", "backstage_list_tasks",
-    "backstage_mcp_health", "backstage_status"]);
+  assertEquals(names, ["backstage_capabilities", "backstage_central_reference", "backstage_comment_task", "backstage_get_client_ops", "backstage_get_task",
+    "backstage_list_onboarding", "backstage_list_tasks", "backstage_mcp_health", "backstage_status"]);
   const cap = json(await client.callTool({ name: "backstage_capabilities", arguments: {} }));
   assertEquals(cap.modulos_liberados_no_crm, ["Central de Operações"]);
   await client.close();
   const v = await connect("tok-visu");
-  assertEquals((await v.client.listTools()).tools.map((t: ToolInfo) => t.name).sort(), TOOLS.map((t) => t.name).sort());
+  assertEquals((await v.client.listTools()).tools.map((t: ToolInfo) => t.name).sort(),
+    [...TOOLS.map((t) => t.name), "backstage_get_alert", "backstage_list_alert_rules"].sort(), "visualizador: só leitura (vê alertas e regras, não trata)");
   assertEquals(json(await v.client.callTool({ name: "backstage_capabilities", arguments: {} })).modo, "somente leitura");
   await v.client.close();
   const g = await connect("tok-gestor");
@@ -191,7 +204,7 @@ Deno.test("status: sem segredos; banco fora do ar aparece como indisponível", a
   const s = json(await client.callTool({ name: "backstage_status", arguments: {} }));
   assertEquals(s.sistema, "Backstage Flow");
   assertEquals(s.banco.estado, "funcionando");
-  assertEquals(s.servidor_mcp.versao, "1.1.0");
+  assertEquals(s.servidor_mcp.versao, "1.2.0");
   assert(!/key|secret|token|senha|password/i.test(JSON.stringify(s)), "sem segredos");
   assertEquals(logs.at(-1)?.tool, "backstage_status");
   assertEquals(logs.at(-1)?.ok, true);
@@ -413,5 +426,62 @@ Deno.test("Central: configurações (admin) e erros do banco viram mensagens cla
   central.failWith = new DataError("22023", "Há 3 tarefa(s) neste status. Escolha para qual status elas vão antes de desativar.");
   const rule = await client.callTool({ name: "backstage_set_status_active", arguments: { status_id: "nao_iniciado", ativo: false } });
   assertMatch(text(rule), /Escolha para qual status/);
+  await client.close();
+});
+
+Deno.test("Monitoramento: abrir, mudar situação, responsável, resolver, virar tarefa, regras e gravidade (admin)", async () => {
+  const central = newCentral();
+  const { client } = await connect("tok-admin", {}, central);
+  const a = json(await client.callTool({ name: "backstage_get_alert", arguments: { alerta_id: 7 } }));
+  assertEquals(a.alerta.dedupe_key, undefined);
+  assertEquals(a.historico[0].via, "MCP");
+  await client.callTool({ name: "backstage_alert_set_status", arguments: { alerta_id: 7, situacao: "em_analise", versao: 2 } });
+  assertEquals(central.calls.find((c) => c.name === "monitor_alert_set_status")!.args, { p_id: 7, p_status: "em_analise", p_version: 2 });
+  const bad = await client.callTool({ name: "backstage_alert_set_status", arguments: { alerta_id: 7, situacao: "resolvido" } });
+  assert(bad.isError, "resolver só pela ferramenta própria");
+  await client.callTool({ name: "backstage_alert_resolve", arguments: { alerta_id: 7, observacao: "Criativo trocado" } });
+  assertEquals(central.calls.find((c) => c.name === "monitor_alert_resolve")!.args, { p_id: 7, p_note: "Criativo trocado", p_version: null });
+  const t = json(await client.callTool({ name: "backstage_alert_to_task", arguments: { alerta_id: 7, setor_id: SECTOR, prazo: "2026-11-01" } }));
+  assert(t.tarefa_criada && t.link.includes("/operacoes/tarefas?tarefa="));
+  await client.callTool({ name: "backstage_save_alert_rule", arguments: { onde: "global", metrica: "cpc", direcao: "up", atencao_pct: 20, critico_pct: 40 } });
+  const rule = central.calls.find((c) => c.name === "monitor_rule_save")!.args;
+  assertEquals([rule.p_scope, rule.p_metric, rule.p_direction, rule.p_attention, rule.p_critical, rule.p_active], ["global", "cpc", "up", 20, 40, true]);
+  const badRule = await client.callTool({ name: "backstage_save_alert_rule", arguments: { onde: "global", metrica: "vendas", direcao: "up", atencao_pct: 20, critico_pct: 40 } });
+  assert(badRule.isError, "métrica que não existe é recusada");
+  await client.callTool({ name: "backstage_set_min_severity", arguments: { gravidade: "atencao" } });
+  const nf = await client.callTool({ name: "backstage_get_alert", arguments: { alerta_id: 99 } });
+  assertMatch(text(nf), /não encontrado ou não liberado/);
+  await client.close();
+});
+
+Deno.test("Monitoramento: gestor trata alertas e regras, mas não muda a gravidade mínima", async () => {
+  const { client } = await connect("tok-gestor");
+  const names = (await client.listTools()).tools.map((t: ToolInfo) => t.name);
+  assert(names.includes("backstage_alert_resolve") && names.includes("backstage_save_alert_rule") && !names.includes("backstage_set_min_severity"));
+  await client.close();
+});
+
+Deno.test("Clientes: lista, ficha (via MCP no histórico), mover etapa com versão, AM, atividade, colocar no fluxo", async () => {
+  const central = newCentral();
+  const { client } = await connect("tok-gestor", {}, central);
+  const list = json(await client.callTool({ name: "backstage_list_onboarding", arguments: { minhas: true } }));
+  assertEquals([list.clientes[0].nome, list.fora_do_fluxo[0].nome], ["Loja A", "Loja B"]);
+  assertEquals((central.calls.find((c) => c.name === "ops_client_board")!.args.f as Record<string, unknown>).mine, true);
+  const ficha = json(await client.callTool({ name: "backstage_get_client_ops", arguments: { cliente_id: CLI_A } }));
+  assertEquals([ficha.fluxo.versao, ficha.historico[0].origem], [4, "via MCP"]);
+  await client.callTool({ name: "backstage_client_move_stage", arguments: { cliente_id: CLI_A, etapa_id: "setup" } });
+  assertEquals(central.calls.find((c) => c.name === "ops_client_stage_move")!.args, { p_client: CLI_A, p_version: 4, p_stage: "setup" });
+  const conflict = await client.callTool({ name: "backstage_client_move_stage", arguments: { cliente_id: CLI_A, etapa_id: "setup", versao: 1 } });
+  assertMatch(text(conflict), /alterou este cliente/);
+  await client.callTool({ name: "backstage_client_set_am", arguments: { cliente_id: CLI_A, am_id: PERSON } });
+  assertEquals(central.calls.find((c) => c.name === "ops_client_set_am")!.args, { p_client: CLI_A, p_version: 4, p_am: PERSON });
+  const note = json(await client.callTool({ name: "backstage_client_add_note", arguments: { cliente_id: CLI_A, tipo_id: "reuniao", titulo: "Kickoff feito" } }));
+  assert(note.registrada);
+  const p = central.calls.find((c) => c.name === "ops_client_note_add")!.args.p as Record<string, unknown>;
+  assertEquals([p.client_id, p.type_id, p.title, p.happened_at], [CLI_A, "reuniao", "Kickoff feito", "2026-10-26T15:00:00.000Z"]);
+  await client.callTool({ name: "backstage_client_start", arguments: { cliente_id: CLI_A, etapa_id: "kickoff" } });
+  assertEquals(central.calls.find((c) => c.name === "ops_client_start")!.args, { p_client: CLI_A, p_stage: "kickoff", p_am: null });
+  const nf = await client.callTool({ name: "backstage_get_client_ops", arguments: { cliente_id: CLI_B } });
+  assertMatch(text(nf), /não encontrado ou não liberado/);
   await client.close();
 });

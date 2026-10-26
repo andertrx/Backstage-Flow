@@ -1,3 +1,4 @@
+import { originLabel } from "./origin.ts";
 import { OPS_PERSON_ROLE_LABELS, OPS_VISIBILITY_LABELS, opsIsClosed, opsToday } from "@backstage/shared";
 import { Archive, ArchiveRestore, AtSign, FileText, Link2, Paperclip, Pencil, Trash2, Upload, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -376,7 +377,7 @@ export function TaskDetail({ id, sectors, statuses, directory, me, onClose }: {
                       <span className="font-medium text-slate-800">{ACTION_LABELS[a.action] ?? a.action}</span>
                       {activityText(a, { status: statusName }) && <span className="text-slate-600"> · {activityText(a, { status: statusName })}</span>}
                       <p className="text-xs text-slate-400">
-                        {a.origin === "sistema" ? "Sistema" : a.actor ?? "—"} · {formatDateTime(a.created_at)}
+                        {originLabel(a.origin, a.actor)} · {formatDateTime(a.created_at)}
                       </p>
                     </li>
                   ))}
