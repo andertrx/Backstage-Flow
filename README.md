@@ -99,6 +99,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [Correção da conta: IDs da planilha e aviso "sem campanha"](docs/etapa-39-inteligencia-de-resultados/39.8-CORRECAO-DA-CONTA.md) ✅ 21/10
   - [Modo CNPJ: planilha que só pede o CNPJ](docs/etapa-39-inteligencia-de-resultados/39.9-MODO-CNPJ.md) ✅ 22/10
 - [Etapa 40 — Servidor MCP (conectar o Claude ao Backstage Flow, só leitura)](docs/etapa-40-mcp/40-SERVIDOR-MCP.md) ✅ 26/10 ([auditoria](docs/etapa-40-mcp/40.0-AUDITORIA.md))
+  - [40.2 — MCP mexe na Central: criar e editar tarefas, status, pessoas, comentários, arquivar; configurações (admin)](docs/etapa-40-mcp/40.2-ESCRITA-NA-CENTRAL.md) ✅ 26/10
 - [Política de Privacidade e Termos de Serviço (páginas públicas)](docs/POLITICA-E-TERMOS.md) ✅ 22/10
 - [Desativar cliente (para sincronização, alertas, planilha, e-mail, acesso e tracking)](docs/CLIENTE-DESATIVADO.md) ✅ 23/10
 - [Contas ativas × clientes desativados e Excluir cliente](docs/CLIENTE-DESATIVADO.md#contas-ativas--desativadas-e-excluir-cliente-23102026-à-tarde) ✅ 23/10
