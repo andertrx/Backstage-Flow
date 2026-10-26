@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDate } from "@/lib/format.ts";
-import { type DueTask, useDueReminder, useEnablePush, useMarkReminderSeen, usePushState } from "./dueReminderApi.ts";
+import { type DueReminder, type DueTask, useDueReminder, useEnablePush, useMarkReminderSeen, usePushState } from "./dueReminderApi.ts";
 import { useOpsStatuses, useSetTaskStatus } from "./tasksApi.ts";
 
 const lateText = (t: DueTask) => (t.days_late <= 0 ? "vence hoje" : `venceu há ${t.days_late} dia${t.days_late === 1 ? "" : "s"}`);
@@ -17,7 +17,13 @@ const lateText = (t: DueTask) => (t.days_late <= 0 ? "vence hoje" : `venceu há 
  * Se o CRM estiver fechado no horário, aparece quando abrir.
  */
 export function DueTasksReminder() {
-  const reminder = useDueReminder(true);
+  const r = useDueReminder(true).data;
+  if (!r || r.slot == null || r.seen || !r.day || (r.tasks ?? []).length === 0) return null;
+  // Status e aparelho só são buscados quando há lembrete para mostrar (o dashboard não ganha chamadas à toa).
+  return <DueTasksModal r={r as DueReminder & { day: string; slot: 8 | 12 | 17 }} />;
+}
+
+function DueTasksModal({ r }: { r: DueReminder & { day: string; slot: 8 | 12 | 17 } }) {
   const seen = useMarkReminderSeen();
   const statuses = useOpsStatuses();
   const setStatus = useSetTaskStatus();
@@ -27,11 +33,9 @@ export function DueTasksReminder() {
   const [done, setDone] = useState<string[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
   const [pushNote, setPushNote] = useState<string | null>(null);
-  const r = reminder.data;
-  const tasks = (r?.tasks ?? []).filter((t) => !done.includes(t.id));
-  if (!r || r.slot == null || r.seen || !r.day || (r.tasks ?? []).length === 0) return null;
+  const tasks = r.tasks.filter((t) => !done.includes(t.id));
 
-  const markSeen = () => seen.mutate({ day: r.day!, slot: r.slot! });
+  const markSeen = () => seen.mutate({ day: r.day, slot: r.slot });
   const concluded = statuses.data?.find((s) => s.category === "concluido" && s.active);
 
   async function conclude(t: DueTask) {
