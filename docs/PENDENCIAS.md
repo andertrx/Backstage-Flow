@@ -6,6 +6,10 @@
 ## Planilhas da Inteligência de Resultados (21/10/2026)
 - [ ] **Armored:** 441 linhas têm na coluna `utm_campaign` um nome de campanha que não existe no Meta como está escrito (ex.: "CP-36 … [LP]" na planilha; no Meta o CP-36 é "[FORM]" e o CP-37 é "[LP]"). O melhor é trocar a UTM para o ID (`utm_campaign={{campaign.id}}`, `utm_term={{adset.id}}`, `utm_content={{ad.id}}`), como a Vonks já faz. As linhas aparecem no aviso amarelo com "Ver linhas".
 
+## Central — aviso de tarefa vencida no aparelho (36.17, 26/10/2026)
+- [ ] Em cada aparelho (computador e celular): abrir o CRM → Central → Notificações → **Ativar neste aparelho** → Permitir → **Enviar teste**. Me diga se o aviso chegou (ainda não foi testado num aparelho real).
+- [ ] **iPhone:** abrir o site no Safari → Compartilhar → "Adicionar à Tela de Início" → abrir pelo ícone e ativar por lá.
+
 ## Domínio backstageflow.com.br
 - [x] 1. Vercel: domínio adicionado (27/09/2026)
 - [x] 2. Registro.br: DNS apontado (27/09/2026)

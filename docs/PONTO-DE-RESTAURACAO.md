@@ -1,3 +1,17 @@
+# Ponto de restauração — antes de "Central 36.17: lembrete de tarefa vencida" (26/10/2026)
+
+| Parte | Identificação desta versão |
+|---|---|
+| **Código** (branch `claude/meta-google-ads-dashboard-8g4wfg`) | commit **`f204f31`** |
+| **Banco** (Supabase) | última migração **`20261025235336 whatsapp_coexistencia_pronto`** |
+| **Servidor** | sem a função `ops-push` (nova na 36.17) |
+
+## Como voltar
+1. **Banco:** rodar `supabase/rollback/voltar_ops_lembretes_2026_10_26.sql` (para o agendamento e desliga os aparelhos; nada é apagado).
+2. **Código e site:** pedir "volte o lembrete de tarefa vencida": eu reverto os commits da 36.17 e publico de novo.
+
+---
+
 # Ponto de restauração — antes de "Tracking T4.2: WhatsApp por Coexistence" (25/10/2026, noite)
 
 | Parte | Identificação desta versão |
