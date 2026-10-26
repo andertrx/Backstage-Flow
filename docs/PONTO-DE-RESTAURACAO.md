@@ -1,3 +1,17 @@
+# Ponto de restauração — antes de "Tracking T4.2: WhatsApp por Coexistence" (25/10/2026, noite)
+
+| Parte | Identificação desta versão |
+|---|---|
+| **Código** (branch `claude/meta-google-ads-dashboard-8g4wfg`) | commit **`e29032b`** |
+| **Banco** (Supabase) | última migração **`20261025220520 whatsapp_frases`** |
+| **Servidor** | `whatsapp-webhook` versão **8**, `tracking-whatsapp` versão **9** |
+
+## Como voltar
+1. **Banco:** rodar `supabase/rollback/voltar_whatsapp_coexistencia_2026_10_25.sql` (desliga os números por Coexistence; nada é apagado).
+2. **Código, site e servidor:** pedir "volte o WhatsApp por Coexistence": eu reverto os commits e publico de novo as duas funções sem essa parte.
+
+---
+
 # Ponto de restauração — antes de "Tracking T4.1: frases do WhatsApp" (25/10/2026, noite)
 
 | Parte | Identificação desta versão |
