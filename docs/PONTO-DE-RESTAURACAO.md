@@ -1,3 +1,18 @@
+# Ponto de restauração — antes da "Etapa 40: servidor MCP" (26/10/2026)
+
+| Parte | Identificação desta versão |
+|---|---|
+| **Código** (branch `claude/meta-google-ads-dashboard-8g4wfg`) | commit **`3bc4763`** |
+| **Banco** (Supabase) | última migração **`20261026030746 ops_lembretes_prazo`** |
+| **Servidor** | sem a função `mcp` (nova na Etapa 40); OAuth Server do Supabase desligado |
+
+## Como voltar
+1. **Banco:** rodar `supabase/rollback/voltar_mcp_2026_10_26.sql` (para a limpeza do registro e tira as permissões; nada é apagado).
+2. **Acesso dos programas de IA:** Supabase → Authentication → OAuth Server → desligar (corta todos de uma vez).
+3. **Código, site e servidor:** pedir "volte a Etapa 40": eu reverto os commits e desligo a função `mcp`.
+
+---
+
 # Ponto de restauração — antes de "Central 36.17: lembrete de tarefa vencida" (26/10/2026)
 
 | Parte | Identificação desta versão |
