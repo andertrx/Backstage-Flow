@@ -17,6 +17,7 @@ export const OPS_PERMISSIONS = [
   "ops.meetings.manage",
   "ops.dashboard.view",
   "ops.commercial",
+  "ops.envios",
 ] as const;
 
 /** "ops.admin": só o admin. "ops.am": Account Manager de algum cliente (vem do banco, não é marcada à mão). */
@@ -36,6 +37,7 @@ export const OPS_PERMISSION_LABELS: Record<(typeof OPS_PERMISSIONS)[number], str
   "ops.meetings.manage": "Criar reuniões e Dailies",
   "ops.dashboard.view": "Ver o dashboard operacional",
   "ops.commercial": "Comercial: leads e conversão em cliente",
+  "ops.envios": "Envios semanais: configurar mensagens para grupos e ver o histórico",
 };
 
 /** Marcadas ao colocar alguém na Central (o admin ajusta). */

@@ -3,6 +3,7 @@
  * Usado pelos testes de navegador (e2e/support.mjs) e pelo MODO DEMONSTRAÇÃO
  * do site (Etapa 27): as mesmas regras das funções do banco, em JavaScript.
  */
+import { handleOpsEnvios, seedOpsEnvios } from "./mockOpsEnvios.js";
 import { handleOpsTasks, seedOpsTasks } from "./mockOpsTasks.js";
 
 export const USER_ID = "11111111-1111-1111-1111-111111111111";
@@ -166,6 +167,8 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     opsMembers: {},
     /** Tarefas da Central (Etapa 36.2). */
     ...seedOpsTasks(),
+    /** Envios semanais (Etapa 41). */
+    ...seedOpsEnvios(),
   };
 }
 
@@ -677,7 +680,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     }
     // --- Central de Operações (Etapa 36; mesmas regras de private.ops_can)
     const OPS_ALL = ["ops.access", "ops.kanban.view", "ops.tasks.create", "ops.tasks.edit", "ops.tasks.archive", "ops.tasks.assign",
-      "ops.tasks.sector", "ops.cards.move", "ops.clients.view", "ops.history.edit", "ops.meetings.manage", "ops.dashboard.view", "ops.commercial"];
+      "ops.tasks.sector", "ops.cards.move", "ops.clients.view", "ops.history.edit", "ops.meetings.manage", "ops.dashboard.view", "ops.commercial", "ops.envios"];
     const me = db.opsMembers[userId];
     const opsBase = role === "admin" ? [...OPS_ALL, "ops.admin"]
       : role !== "cliente" && me?.active && me.permissions.includes("ops.access") ? me.permissions : [];
@@ -719,6 +722,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/ops_push_subscriptions")) {
       return res(200, db.pushSubs.filter((x) => x.user_id === userId).map(({ id, device, created_at, last_sent_at, last_error, disabled_at }) => ({ id, device, created_at, last_sent_at, last_error, disabled_at })));
     }
+    const opsEnvio = handleOpsEnvios({ db, url, parse, userId, opsPerms, res });
+    if (opsEnvio) return opsEnvio;
     const opsTask = handleOpsTasks({ db, url, method, parse, rawBody, role, userId, opsPerms, res });
     if (opsTask) return opsTask;
     if (url.includes("/rest/v1/ops_sectors")) {

@@ -7,8 +7,11 @@
 - [ ] **Armored:** 441 linhas têm na coluna `utm_campaign` um nome de campanha que não existe no Meta como está escrito (ex.: "CP-36 … [LP]" na planilha; no Meta o CP-36 é "[FORM]" e o CP-37 é "[LP]"). O melhor é trocar a UTM para o ID (`utm_campaign={{campaign.id}}`, `utm_term={{adset.id}}`, `utm_content={{ad.id}}`), como a Vonks já faz. As linhas aparecem no aviso amarelo com "Ver linhas".
 
 ## Servidor MCP — conectar o Claude ao Backstage Flow (Etapa 40, 26/10/2026)
-- [ ] **Supabase → Authentication → OAuth Server:** ligar; em *Authorization path* colocar `/oauth/consent`; ligar **Allow dynamic client registration**. Salvar. (Hoje está desligado; sem isso o login do Claude não abre.)
-- [ ] No computador com o Claude Code: `claude mcp add --transport http --scope user backstage-flow https://www.backstageflow.com.br/mcp` → abrir o Claude Code → `/mcp` → backstage-flow → **Authenticate** → entrar no CRM → **Permitir**. Depois peça "use o backstage_status" e me conte o resultado (passo a passo em `docs/etapa-40-mcp/40-SERVIDOR-MCP.md`, seção 8).
+- [x] **Supabase → Authentication → OAuth Server:** ligar; em *Authorization path* colocar `/oauth/consent`; ligar **Allow dynamic client registration**. Salvar. (Hoje está desligado; sem isso o login do Claude não abre.)
+- [x] (Feito: o Claude já está conectado, 26/10/2026.) No computador com o Claude Code: `claude mcp add --transport http --scope user backstage-flow https://www.backstageflow.com.br/mcp` → abrir o Claude Code → `/mcp` → backstage-flow → **Authenticate** → entrar no CRM → **Permitir**. Depois peça "use o backstage_status" e me conte o resultado (passo a passo em `docs/etapa-40-mcp/40-SERVIDOR-MCP.md`, seção 8).
+
+## Envios semanais (Etapa 41, 27/10/2026)
+- [ ] Em Central → Equipe, marcar a permissão **"Envios semanais"** para quem mais deve configurar os envios (o administrador já tem).
 
 ## Central — aviso de tarefa vencida no aparelho (36.17, 26/10/2026)
 - [ ] Em cada aparelho (computador e celular): abrir o CRM → Central → Notificações → **Ativar neste aparelho** → Permitir → **Enviar teste**. Me diga se o aviso chegou (ainda não foi testado num aparelho real).

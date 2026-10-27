@@ -30,6 +30,7 @@ const OpsMyTasksPage = lazy(() => import("@/features/operations/MyTasksPage.tsx"
 const OpsClientsRoute = lazy(() => import("@/features/operations/ClientsPage.tsx").then((m) => ({ default: m.ClientsRoute })));
 const OpsCommercialRoute = lazy(() => import("@/features/operations/CommercialPage.tsx").then((m) => ({ default: m.CommercialRoute })));
 const OpsMeetingsRoute = lazy(() => import("@/features/operations/MeetingsPage.tsx").then((m) => ({ default: m.MeetingsRoute })));
+const OpsEnviosRoute = lazy(() => import("@/features/operations/EnviosPage.tsx").then((m) => ({ default: m.EnviosRoute })));
 const OpsNotificationsRoute = lazy(() => import("@/features/operations/NotificationsPage.tsx").then((m) => ({ default: m.NotificationsRoute })));
 const OpsDashboardRoute = lazy(() => import("@/features/operations/DashboardPage.tsx").then((m) => ({ default: m.DashboardRoute })));
 const OpsSettingsPage = lazy(() => import("@/features/operations/OpsSettingsPage.tsx").then((m) => ({ default: m.OpsSettingsPage })));
@@ -187,6 +188,8 @@ export const router = createBrowserRouter([
           { path: "tarefas", element: <OpsTasksPage /> },
           { path: "comercial", element: <OpsCommercialRoute /> },
           { path: "reunioes", element: <OpsMeetingsRoute /> },
+          // Etapa 41: envios semanais para grupos de WhatsApp (o CRM só guarda; o agente envia pelo MCP).
+          { path: "envios", element: <OpsEnviosRoute /> },
           { path: "notificacoes", element: <OpsNotificationsRoute /> },
           { path: "clientes", element: <OpsClientsRoute /> },
           // 38.2: as Filas ficam dentro de Operação (links antigos continuam funcionando).

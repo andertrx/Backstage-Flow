@@ -1,3 +1,4 @@
+import { Switch } from "@/components/ui/switch.tsx";
 import { Copy, KeyRound, Link2, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -5,27 +6,11 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Select } from "@/components/ui/field.tsx";
 import { useClientAccess } from "@/features/clients/api.ts";
-import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { useClientPortal, useNewClientLink, useSetClientPortal } from "./api.ts";
 
-export function Switch({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={cn("relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        checked ? "bg-emerald-600" : "bg-slate-300")}
-    >
-      <span className={cn("inline-block size-5 rounded-full bg-white shadow transition-transform", checked ? "translate-x-5" : "translate-x-0.5")} />
-    </button>
-  );
-}
+export { Switch };
 
 const VALIDITY = [
   { value: "", label: "Sem validade (até você desligar)" },
