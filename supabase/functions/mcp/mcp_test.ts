@@ -3,6 +3,7 @@ import { Client } from "npm:@modelcontextprotocol/sdk@1.32.1/client/index.js";
 import { StreamableHTTPClientTransport } from "npm:@modelcontextprotocol/sdk@1.32.1/client/streamableHttp.js";
 import { AuthError, bearer, oauthClientId } from "./auth.ts";
 import { type DataPort, DataError, likeEscape, type OpsRpc } from "./data.ts";
+import { COMMERCIAL_TOOLS, MEETING_TOOLS } from "./commercial_tools.ts";
 import { CLIENT_TOOLS, MONITOR_TOOLS } from "./crm_tools.ts";
 import { OPS_TOOLS } from "./ops_tools.ts";
 import { createHandler, type Deps, type LogEntry } from "./server.ts";
@@ -21,11 +22,16 @@ const USERS: Record<string, Caller> = {
   "tok-equipe": { id: "00000000-0000-4000-8000-000000000003", name: "Equipe", role: "equipe" },
   "tok-gestor": { id: "00000000-0000-4000-8000-000000000004", name: "Gestor", role: "gestor" },
 };
-const ALL_OPS = ["ops.access", "ops.tasks.create", "ops.tasks.edit", "ops.tasks.assign", "ops.tasks.archive", "ops.cards.move", "ops.clients.view", "ops.history.edit"];
+const ALL_OPS = ["ops.access", "ops.tasks.create", "ops.tasks.edit", "ops.tasks.assign", "ops.tasks.archive", "ops.cards.move", "ops.clients.view", "ops.history.edit", "ops.commercial", "ops.meetings.manage"];
 const OPS_BY_ROLE: Record<string, string[]> = { admin: ALL_OPS, gestor: ALL_OPS, equipe: ["ops.access"], visualizador: [] };
 const TASK = "7a000000-0000-4000-8000-000000000071";
 const SECTOR = "5e000000-0000-4000-8000-000000000051";
 const PERSON = "00000000-0000-4000-8000-000000000003";
+const LEAD = "1e000000-0000-4000-8000-0000000000e1";
+const MEETING = "3e000000-0000-4000-8000-0000000000e3";
+const ITEM = "1f000000-0000-4000-8000-0000000000f1";
+/** Contatos do lead falso: nunca podem aparecer numa resposta do MCP. */
+const SECRET_CONTACT = { contact_name: "Maria Contato", phone: "11999998888", email: "maria@empresa.com", cnpj: "11222333000181" };
 
 /** Central falsa: guarda as chamadas e responde como o banco (versão, conflito, permissão). */
 interface FakeCentral {
@@ -81,6 +87,12 @@ function fakeData(user: Caller, opts: { slow?: boolean; broken?: boolean } = {},
         { id: "finalizado", name: "Finalizado", color: "#10B981", category: "concluido", active: true, position: 2 }],
       columns: [], activityTypes: [], clientStages: [{ id: "kickoff", name: "Kickoff", color: "#2563EB", active: true, position: 1 }],
     }),
+    commercialReference: () => Promise.resolve({
+      leadStages: [{ id: "novo", name: "Novo", category: "aberto", active: true, position: 1, require_previous: false, require_next_action: false },
+        { id: "perdido", name: "Perdido", category: "perdido", active: true, position: 9, require_previous: false, require_next_action: false }],
+      lossReasons: [{ id: "preco", name: "Preço", active: true, position: 1 }],
+      meetingCategories: [{ id: "daily", name: "Daily", active: true, position: 1 }],
+    }),
     opsRpc: (name, args) => {
       central.calls.push({ name, args });
       if (central.failWith && name !== "ops_task_get") return Promise.reject(central.failWith);
@@ -109,6 +121,31 @@ function fakeData(user: Caller, opts: { slow?: boolean; broken?: boolean } = {},
           timeline: [{ action: "cliente.etapa", actor: "Ander", origin: "mcp", created_at: "x" }] } : null);
       }
       if (name === "ops_client_board") return Promise.resolve({ clients: [{ client_id: CLI_A, name: "Loja A", stage_id: "kickoff", version: 4, can_move: true }], available: [{ id: CLI_B, name: "Loja B" }] });
+      if (name === "ops_lead_board") {
+        return Promise.resolve({ leads: [{ id: LEAD, number: 5, company_name: "Padaria Sol", stage_id: "novo", priority: "alta", potential_value: 3000, currency: "BRL", version: 2, ...SECRET_CONTACT }], origins: [] });
+      }
+      if (name === "ops_lead_get") {
+        return Promise.resolve(args.p_id === LEAD ? {
+          lead: { id: LEAD, number: 5, company_name: "Padaria Sol", stage_id: "novo", stage_name: "Novo", priority: "alta", potential_value: 3000, currency: "BRL",
+            segment: "Alimentação", next_action: "Ligar", next_action_date: "2026-10-28", entered_at: "2026-10-20", version: 2, archived_at: null, ...SECRET_CONTACT },
+          events: [{ action: "lead.editado", kind: null, body: null, happened_at: null, actor: "Ander", origin: "mcp", before: { telefone: null }, after: { telefone: "alterado" }, created_at: "x" }],
+        } : null);
+      }
+      if (name === "ops_lead_duplicates") return Promise.resolve({ leads: [{ number: 5, company_name: "Padaria Sol", stage_name: "Novo", reason: "mesmo nome" }], clients: [] });
+      if (name === "ops_lead_save") return Promise.resolve(LEAD);
+      if (name === "ops_meeting_list") return Promise.resolve({ meetings: [{ id: MEETING, number: 3, title: "Daily", status: "agendada", people_count: 2 }], can: { create: true } });
+      if (name === "ops_meeting_get") {
+        return Promise.resolve(args.p_id === MEETING ? {
+          meeting: { id: MEETING, number: 3, title: "Daily", category_id: "daily", status: "agendada", starts_at: "2026-10-28T12:00:00Z", duration_min: 15,
+            sector_id: SECTOR, client_id: null, location: "Meet", agenda: "Pauta", notes: "ata antiga", version: 6 },
+          people: [{ user_id: PERSON, name: "Equipe", attended: true }, { user_id: "00000000-0000-4000-8000-000000000009", name: "Aprova", attended: false }],
+          items: [{ id: ITEM, kind: "pendencia", body: "Enviar proposta", task_number: null }],
+          events: [{ action: "reuniao.criada", actor: "Ander", origin: "mcp", created_at: "x" }],
+          can: { edit: true },
+        } : null);
+      }
+      if (name === "ops_meeting_save") return Promise.resolve(args.p_id ?? MEETING);
+      if (name === "ops_meeting_item_to_task" || name === "ops_meeting_item_add") return Promise.resolve(TASK);
       if (name === "ops_sector_save") return Promise.resolve(args.p_id ?? "5e000000-0000-4000-8000-000000000099");
       return Promise.resolve(null);
     },
@@ -167,8 +204,8 @@ Deno.test("conecta pelo cliente oficial; admin vê leitura + Central; escrita ma
   const { client } = await connect("tok-admin");
   assertEquals(client.getServerVersion()?.name, "backstage-flow");
   const { tools } = await client.listTools();
-  assertEquals(tools.map((t: ToolInfo) => t.name).sort(), [...TOOLS, ...OPS_TOOLS, ...MONITOR_TOOLS, ...CLIENT_TOOLS].map((t) => t.name).sort());
-  const writes = new Set([...OPS_TOOLS, ...MONITOR_TOOLS, ...CLIENT_TOOLS].filter((t) => t.write).map((t) => t.name));
+  assertEquals(tools.map((t: ToolInfo) => t.name).sort(), [...TOOLS, ...OPS_TOOLS, ...MONITOR_TOOLS, ...CLIENT_TOOLS, ...COMMERCIAL_TOOLS, ...MEETING_TOOLS].map((t) => t.name).sort());
+  const writes = new Set([...OPS_TOOLS, ...MONITOR_TOOLS, ...CLIENT_TOOLS, ...COMMERCIAL_TOOLS, ...MEETING_TOOLS].filter((t) => t.write).map((t) => t.name));
   assert(tools.every((t: ToolInfo) => t.annotations?.readOnlyHint === !writes.has(t.name)), "leitura marcada como leitura; escrita como escrita");
   assertEquals(tools.find((t: ToolInfo) => t.name === "backstage_archive_task")?.annotations?.destructiveHint, true);
   assert(!tools.some((t: ToolInfo) => /delete|remove|sql|shell|file|apagar|excluir|campaign_(update|pause)|budget|balance|user|permission|integration/i.test(t.name)), "nada de apagar, SQL, campanhas, saldo, usuários ou integrações");
@@ -183,7 +220,9 @@ Deno.test("cada papel vê só as ferramentas que pode usar (equipe: Central sem 
   const { client } = await connect("tok-equipe");
   const names = (await client.listTools()).tools.map((t: ToolInfo) => t.name).sort();
   assertEquals(names, ["backstage_capabilities", "backstage_central_reference", "backstage_comment_task", "backstage_get_client_ops", "backstage_get_task",
-    "backstage_list_onboarding", "backstage_list_tasks", "backstage_mcp_health", "backstage_status"]);
+    "backstage_list_onboarding", "backstage_list_tasks", "backstage_mcp_health", "backstage_status",
+    "backstage_cancel_meeting", "backstage_get_meeting", "backstage_list_meetings", "backstage_meeting_add_item", "backstage_meeting_reference",
+    "backstage_record_meeting", "backstage_save_meeting"].sort());
   const cap = json(await client.callTool({ name: "backstage_capabilities", arguments: {} }));
   assertEquals(cap.modulos_liberados_no_crm, ["Central de Operações"]);
   await client.close();
@@ -204,7 +243,7 @@ Deno.test("status: sem segredos; banco fora do ar aparece como indisponível", a
   const s = json(await client.callTool({ name: "backstage_status", arguments: {} }));
   assertEquals(s.sistema, "Backstage Flow");
   assertEquals(s.banco.estado, "funcionando");
-  assertEquals(s.servidor_mcp.versao, "1.2.0");
+  assertEquals(s.servidor_mcp.versao, "1.3.0");
   assert(!/key|secret|token|senha|password/i.test(JSON.stringify(s)), "sem segredos");
   assertEquals(logs.at(-1)?.tool, "backstage_status");
   assertEquals(logs.at(-1)?.ok, true);
@@ -483,5 +522,84 @@ Deno.test("Clientes: lista, ficha (via MCP no histórico), mover etapa com vers�
   assertEquals(central.calls.find((c) => c.name === "ops_client_start")!.args, { p_client: CLI_A, p_stage: "kickoff", p_am: null });
   const nf = await client.callTool({ name: "backstage_get_client_ops", arguments: { cliente_id: CLI_B } });
   assertMatch(text(nf), /não encontrado ou não liberado/);
+  await client.close();
+});
+
+Deno.test("Comercial: lista e abre leads SEM os contatos; cria/edita gravando contatos ditados sem mostrá-los; mover, interação, arquivar", async () => {
+  const central = newCentral();
+  const { client } = await connect("tok-admin", {}, central);
+  const outputs: string[] = [];
+  const call = async (name: string, args: Record<string, unknown>) => {
+    const r = await client.callTool({ name, arguments: args });
+    outputs.push(text(r));
+    return r;
+  };
+  const list = json(await call("backstage_list_leads", { prioridade: "alta" }));
+  assertEquals([list.total, list.leads[0].company_name, list.leads[0].contato_cadastrado.telefone], [1, "Padaria Sol", true]);
+  const got = json(await call("backstage_get_lead", { lead_id: LEAD }));
+  assertEquals([got.lead.version, got.historico[0].origem], [2, "via MCP"]);
+  // criar: contatos ditados vão para o banco
+  const created = json(await call("backstage_save_lead", { empresa: "Mercado Lua", telefone: "(11) 91234-5678", email: "dono@lua.com", etapa_id: "novo", valor_potencial: 1500.5 }));
+  assert(created.lead_criado && created.possiveis_duplicados[0].includes("mesmo nome"));
+  const createArgs = central.calls.find((c) => c.name === "ops_lead_save")!.args;
+  const pc = createArgs.p as Record<string, string>;
+  assertEquals([createArgs.p_id, pc.company_name, pc.phone, pc.email, pc.stage_id, pc.potential_value, pc.currency], [null, "Mercado Lua", "(11) 91234-5678", "dono@lua.com", "novo", "1500.5", "BRL"]);
+  // editar: muda só o pedido e mantém os contatos que já existiam (sem mostrar)
+  await call("backstage_save_lead", { lead_id: LEAD, versao: 2, proxima_acao: "Enviar proposta" });
+  const edit = central.calls.filter((c) => c.name === "ops_lead_save")[1].args;
+  const pe = edit.p as Record<string, string>;
+  assertEquals([edit.p_version, pe.next_action, pe.phone, pe.email, pe.contact_name, pe.cnpj, pe.company_name, pe.segment],
+    [2, "Enviar proposta", SECRET_CONTACT.phone, SECRET_CONTACT.email, SECRET_CONTACT.contact_name, SECRET_CONTACT.cnpj, "Padaria Sol", "Alimentação"]);
+  assertMatch(text(await call("backstage_save_lead", { lead_id: LEAD, versao: 1, proxima_acao: "x" })), /alterou este lead/);
+  assert((await call("backstage_save_lead", { lead_id: LEAD })).isError, "edição sem campos é recusada");
+  await call("backstage_move_lead", { lead_id: LEAD, etapa_id: "perdido", motivo_perda_id: "preco" });
+  assertEquals(central.calls.find((c) => c.name === "ops_lead_move")!.args,
+    { p_id: LEAD, p_version: 2, p_stage: "perdido", p_loss_reason: "preco", p_loss_note: null });
+  await call("backstage_lead_note", { lead_id: LEAD, tipo: "contato", texto: "Liguei, pediu proposta" });
+  assertEquals(central.calls.find((c) => c.name === "ops_lead_note_add")!.args.p_kind, "contato");
+  await call("backstage_archive_lead", { lead_id: LEAD });
+  assertEquals(central.calls.find((c) => c.name === "ops_lead_archive")!.args, { p_id: LEAD, p_archived: true });
+  const ref = json(await call("backstage_commercial_reference", {}));
+  assertEquals([ref.etapas[1].grupo, ref.motivos_de_perda[0].id], ["perdido", "preco"]);
+  // nenhuma resposta traz os contatos
+  for (const o of outputs) for (const v of Object.values(SECRET_CONTACT)) assert(!o.includes(v), `contato vazou: ${v}`);
+  const names = (await client.listTools()).tools.map((t: ToolInfo) => t.name);
+  assert(!names.some((n: string) => n.includes("convert")), "converter lead em cliente fica só no site");
+  await client.close();
+});
+
+Deno.test("Comercial: sem a permissão Comercial as ferramentas de leads não aparecem", async () => {
+  const { client } = await connect("tok-equipe");
+  const names = (await client.listTools()).tools.map((t: ToolInfo) => t.name);
+  assert(!names.some((n: string) => n.includes("lead")) && names.includes("backstage_list_meetings") && !names.includes("backstage_meeting_item_to_task"));
+  await client.close();
+});
+
+Deno.test("Reuniões: listar, abrir, agendar, editar só o pedido (mantém participantes), ata/presença, item, virar tarefa, cancelar", async () => {
+  const central = newCentral();
+  const { client } = await connect("tok-admin", {}, central);
+  const list = json(await client.callTool({ name: "backstage_list_meetings", arguments: { situacao: "agendada", minhas: true } }));
+  assertEquals([list.total, list.voce_pode_criar], [1, true]);
+  assertEquals((central.calls.find((c) => c.name === "ops_meeting_list")!.args.f as Record<string, unknown>).status, "agendada");
+  const m = json(await client.callTool({ name: "backstage_get_meeting", arguments: { reuniao_id: MEETING } }));
+  assertEquals([m.reuniao.versao, m.itens[0].tipo, m.historico[0].origem], [6, "pendencia", "via MCP"]);
+  const missing = await client.callTool({ name: "backstage_save_meeting", arguments: { titulo: "Alinhamento" } });
+  assertMatch(text(missing), /título, tipo/);
+  await client.callTool({ name: "backstage_save_meeting", arguments: { titulo: "Alinhamento", tipo_id: "daily", inicio: "2026-10-29T10:00:00-03:00", participantes: [PERSON] } });
+  const created = central.calls.find((c) => c.name === "ops_meeting_save")!.args;
+  assertEquals([created.p_id, (created.p as Record<string, unknown>).title, (created.p as Record<string, unknown>).people], [null, "Alinhamento", [PERSON]]);
+  await client.callTool({ name: "backstage_save_meeting", arguments: { reuniao_id: MEETING, versao: 6, duracao_min: 45 } });
+  const edited = central.calls.filter((c) => c.name === "ops_meeting_save")[1].args;
+  const pe = edited.p as Record<string, unknown>;
+  assertEquals([edited.p_version, pe.duration_min, pe.title, pe.agenda, (pe.people as string[]).length], [6, 45, "Daily", "Pauta", 2]);
+  await client.callTool({ name: "backstage_record_meeting", arguments: { reuniao_id: MEETING, ata: "Decidimos X" } });
+  assertEquals(central.calls.find((c) => c.name === "ops_meeting_record")!.args, { p_id: MEETING, p_version: 6, p_notes: "Decidimos X", p_attended: [PERSON] });
+  await client.callTool({ name: "backstage_meeting_add_item", arguments: { reuniao_id: MEETING, tipo: "bloqueio", texto: "Sem acesso ao BM", prazo: "2026-10-30" } });
+  assertEquals((central.calls.find((c) => c.name === "ops_meeting_item_add")!.args.p as Record<string, unknown>).kind, "bloqueio");
+  const t = json(await client.callTool({ name: "backstage_meeting_item_to_task", arguments: { item_id: ITEM } }));
+  assert(t.tarefa_criada && t.link.includes(TASK));
+  assertMatch(text(await client.callTool({ name: "backstage_cancel_meeting", arguments: { reuniao_id: MEETING, motivo: "Feriado", versao: 2 } })), /alterou esta reunião/);
+  await client.callTool({ name: "backstage_cancel_meeting", arguments: { reuniao_id: MEETING, motivo: "Feriado" } });
+  assertEquals(central.calls.find((c) => c.name === "ops_meeting_cancel")!.args, { p_id: MEETING, p_version: 6, p_reason: "Feriado" });
   await client.close();
 });

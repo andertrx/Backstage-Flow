@@ -84,6 +84,10 @@ export const OPS_RPCS = [
   "monitor_alert_assign", "monitor_alert_resolve", "monitor_alert_to_task", "monitor_rules_list", "monitor_rule_save", "monitor_rule_archive",
   "monitor_min_severity_save", "ops_client_board", "ops_client_get", "ops_client_start", "ops_client_stage_move", "ops_client_set_am",
   "ops_client_note_add",
+  // 40.4: Comercial (leads) e Reuniões
+  "ops_lead_board", "ops_lead_get", "ops_lead_duplicates", "ops_lead_save", "ops_lead_move", "ops_lead_note_add", "ops_lead_archive",
+  "ops_meeting_list", "ops_meeting_get", "ops_meeting_save", "ops_meeting_record", "ops_meeting_item_add", "ops_meeting_item_to_task",
+  "ops_meeting_cancel",
 ] as const;
 export type OpsRpc = (typeof OPS_RPCS)[number];
 
@@ -93,6 +97,12 @@ export interface OpsReference {
   columns: { id: string; sector_id: string; name: string; color: string; status_id: string; active: boolean; position: number }[];
   activityTypes: { id: string; name: string; active: boolean; position: number }[];
   clientStages: { id: string; name: string; color: string; active: boolean; position: number }[];
+}
+
+export interface CommercialReference {
+  leadStages: { id: string; name: string; category: string; active: boolean; position: number; require_previous: boolean; require_next_action: boolean }[];
+  lossReasons: { id: string; name: string; active: boolean; position: number }[];
+  meetingCategories: { id: string; name: string; active: boolean; position: number }[];
 }
 
 export interface DataPort {
@@ -109,6 +119,7 @@ export interface DataPort {
   mcpHealth(hours: number): Promise<Record<string, unknown>>;
   opsRpc(name: OpsRpc, args: Record<string, unknown>): Promise<unknown>;
   opsReference(): Promise<OpsReference>;
+  commercialReference(): Promise<CommercialReference>;
 }
 
 function check<T>(r: { data: T | null; error: DbError | null }): T {
@@ -193,6 +204,18 @@ export function supabaseData(db: SupabaseClient): DataPort {
         columns: check(columns) as OpsReference["columns"],
         activityTypes: check(activityTypes) as OpsReference["activityTypes"],
         clientStages: check(clientStages) as OpsReference["clientStages"],
+      };
+    },
+    async commercialReference() {
+      const [leadStages, lossReasons, meetingCategories] = await Promise.all([
+        db.from("ops_lead_stages").select("id, name, category, active, position, require_previous, require_next_action").order("position"),
+        db.from("ops_loss_reasons").select("id, name, active, position").order("position"),
+        db.from("ops_meeting_categories").select("id, name, active, position").order("position"),
+      ]);
+      return {
+        leadStages: check(leadStages) as CommercialReference["leadStages"],
+        lossReasons: check(lossReasons) as CommercialReference["lossReasons"],
+        meetingCategories: check(meetingCategories) as CommercialReference["meetingCategories"],
       };
     },
   };
