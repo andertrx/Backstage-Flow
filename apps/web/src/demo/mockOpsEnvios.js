@@ -2,17 +2,19 @@
 // O CRM só guarda a configuração e o histórico; quem envia é o agente (MCP).
 
 export function seedOpsEnvios() {
-  return { opsEnvios: [], opsEnvioClientes: [], opsEnvioExecucoes: [] };
+  // envioAgora: relógio dos testes (ISO); vazio = agora.
+  return { opsEnvios: [], opsEnvioClientes: [], opsEnvioExecucoes: [], opsEnvioAprovacoes: [], envioAgora: null };
 }
 
-const spNow = () => {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", weekday: "short", year: "numeric", month: "2-digit", day: "2-digit" })
-    .formatToParts(new Date()).map((p) => [p.type, p.value]));
+const spNow = (iso) => {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", weekday: "short", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(iso ? new Date(iso) : new Date()).map((p) => [p.type, p.value]));
   const dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(parts.weekday);
   const day = `${parts.year}-${parts.month}-${parts.day}`;
   const monday = new Date(`${day}T00:00:00-03:00`);
   monday.setUTCDate(monday.getUTCDate() - ((dow + 6) % 7));
-  return { dow, weekStart: monday.toISOString() };
+  return { dow, weekStart: monday.toISOString(), semana: monday.toISOString().slice(0, 10),
+    hora: `${parts.hour}:${parts.minute}` };
 };
 const digits = (t) => String(t ?? "").replace(/[^0-9]/g, "");
 
@@ -26,10 +28,20 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
   const bad = (message) => res(400, { code: "22023", message });
   const name = (id) => db.profiles.find((x) => x.id === id)?.full_name ?? null;
   const clientName = (id) => db.clients.find((c) => c.id === id)?.name ?? null;
-  const now = spNow();
+  const now = spNow(db.envioAgora);
+  const aprovacaoDe = (e) => db.opsEnvioAprovacoes.find((a) => a.envio_id === e.id && a.semana === now.semana) ?? null;
+  const situacao = (e) => {
+    const a = aprovacaoDe(e);
+    const valida = Boolean(a && a.decisao === "aprovado" && a.versao_envio === e.versao);
+    const hoje = e.ativo && !e.arquivado_em && e.dia_semana === now.dow;
+    const sit = !hoje ? "nao_hoje" : valida ? "aprovado" : a?.decisao === "recusado" ? "recusado" : now.hora >= e.horario ? "nao_aprovado_a_tempo"
+      : now.hora >= (e.horario <= "07:00" ? "00:00" : "07:00") ? "aguardando_aprovacao" : "antes_da_janela";
+    return { semana: now.semana, situacao_hoje: sit, pode_enviar_agora: hoje && valida && now.hora >= e.horario,
+      aprovacao: a ? { decisao: a.decisao, versao_envio: a.versao_envio, decidido_em: a.decidido_em, decidido_por_nome: name(a.decidido_por), origem: a.origem, valida } : null };
+  };
 
   const json = (e, soAtivos) => ({
-    ...e, criado_por_nome: name(e.criado_por), atualizado_por_nome: name(e.atualizado_por), toca_hoje: e.dia_semana === now.dow,
+    ...e, ...situacao(e), criado_por_nome: name(e.criado_por), atualizado_por_nome: name(e.atualizado_por), toca_hoje: e.dia_semana === now.dow,
     clientes: db.opsEnvioClientes.filter((c) => c.envio_id === e.id && !c.removido_em && (!soAtivos || c.ativo)).map((c) => {
       const ex = db.opsEnvioExecucoes.filter((x) => x.envio_id === e.id && x.cliente_id === c.cliente_id).sort((a, b) => b.executado_em.localeCompare(a.executado_em));
       return { ...c, cliente_nome: clientName(c.cliente_id),
@@ -43,6 +55,26 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
     const out = db.opsEnvios.filter((e) => (f.arquivados ? e.arquivado_em : !e.arquivado_em) && (!f.so_ativos || e.ativo))
       .sort((a, b) => a.dia_semana - b.dia_semana || a.horario.localeCompare(b.horario) || a.nome.localeCompare(b.nome)).map((e) => json(e, f.so_ativos));
     return res(200, { hoje: { dia_semana: now.dow, inicio_semana: now.weekStart }, envios: out });
+  }
+  if (rpc("ops_envio_pendentes")) {
+    return res(200, db.opsEnvios.filter((e) => situacao(e).situacao_hoje === "aguardando_aprovacao").map((e) => json(e, true)));
+  }
+  if (rpc("ops_envio_decidir")) {
+    const e = db.opsEnvios.find((x) => x.id === p.p_id);
+    if (!e) return bad("Envio não encontrado.");
+    if (e.versao !== p.p_versao) return res(409, { code: "40001", message: "O envio foi alterado depois que você abriu. Confira de novo antes de aprovar." });
+    if (!["aguardando_aprovacao", "aprovado", "recusado"].includes(situacao(e).situacao_hoje)) return bad("Este envio não está esperando aprovação agora (só no dia, até o horário do envio).");
+    if (now.hora >= e.horario) return bad("Passou do horário do envio: a decisão desta semana já foi fechada.");
+    const row = { envio_id: e.id, semana: now.semana, decisao: p.p_aprovar ? "aprovado" : "recusado", versao_envio: e.versao, decidido_por: userId,
+      decidido_em: new Date().toISOString(), origem: "manual" };
+    const ex = aprovacaoDe(e);
+    if (ex) Object.assign(ex, row); else db.opsEnvioAprovacoes.push({ id: db.opsEnvioAprovacoes.length + 1, ...row });
+    return res(200, situacao(e));
+  }
+  if (rpc("ops_envio_aprovacoes")) {
+    const f = p.f ?? {};
+    return res(200, db.opsEnvioAprovacoes.filter((a) => !f.envio_id || a.envio_id === f.envio_id).sort((a, b) => b.semana.localeCompare(a.semana) || b.id - a.id)
+      .map((a) => ({ ...a, envio_nome: db.opsEnvios.find((e) => e.id === a.envio_id)?.nome, decidido_por_nome: name(a.decidido_por) })));
   }
   if (rpc("ops_envio_get")) {
     const e = db.opsEnvios.find((x) => x.id === p.p_id);

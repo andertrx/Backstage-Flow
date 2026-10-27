@@ -11,7 +11,7 @@ import { type DataPort, type SummaryRow } from "./data.ts";
  */
 
 export const MCP_NAME = "backstage-flow";
-export const MCP_VERSION = "1.3.0";
+export const MCP_VERSION = "1.4.0";
 export const MAX_DAYS = 400;
 
 export interface Caller {
@@ -111,7 +111,7 @@ const NO_DATA = "Informação não disponível pela API";
 const READ_NAMES = new Set(["backstage_status", "backstage_capabilities", "backstage_list_clients", "backstage_get_metrics", "backstage_list_alerts",
   "backstage_get_campaign", "backstage_mcp_health", "backstage_central_reference", "backstage_list_tasks", "backstage_get_task", "backstage_get_alert", "backstage_alert_assignees", "backstage_list_alert_rules",
   "backstage_list_onboarding", "backstage_get_client_ops", "backstage_commercial_reference", "backstage_list_leads", "backstage_get_lead",
-  "backstage_meeting_reference", "backstage_list_meetings", "backstage_get_meeting"]);
+  "backstage_meeting_reference", "backstage_list_meetings", "backstage_get_meeting", "backstage_list_envios", "backstage_get_envio"]);
 
 const internal = (role: Role) => can(role, "internal.view");
 
@@ -166,13 +166,14 @@ export const TOOLS: ToolSpec[] = [
         ["Tracking", can(r, "tracking.view")],
         ["Inteligência de Resultados", can(r, "results.view")],
         ["Central de Operações", ops.includes("ops.access")],
+        ["Envios semanais (grupos de WhatsApp)", ops.includes("ops.envios")],
         ["Administração de usuários", can(r, "users.manage")],
       ] as const;
       return {
         papel: r,
         modulos_liberados_no_crm: modules.filter(([, ok]) => ok).map(([m]) => m),
         ferramentas_mcp: ctx.tools,
-        modo: ctx.tools.some((t) => !READ_NAMES.has(t)) ? "leitura e, com as suas permissões, escrita na Central de Operações (tarefas, clientes, Comercial, reuniões) e no Monitoramento" : "somente leitura",
+        modo: ctx.tools.some((t) => !READ_NAMES.has(t)) ? "leitura e, com as suas permissões, escrita na Central de Operações (tarefas, clientes, Comercial, reuniões, envios semanais) e no Monitoramento" : "somente leitura",
       };
     },
   },

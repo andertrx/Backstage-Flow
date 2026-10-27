@@ -128,3 +128,20 @@ export function parseWhatsApp(text: string): WaSegment[][] {
   }
   return lines;
 }
+
+/**
+ * Etapa 41.2: instrução fixa da tarefa agendada no computador da pessoa (app do Claude + Claude no Chrome + WhatsApp Web
+ * + conector do Backstage Flow). Curta e sempre igual: se não houver nada liberado, para na primeira consulta (gasta pouco).
+ */
+export const ENVIO_AGENT_INSTRUCTION = [
+  "Você é o agente dos Envios semanais do Backstage Flow. Siga exatamente estes passos:",
+  "1. Chame a ferramenta backstage_list_envios com liberados_agora = true.",
+  "2. Se a lista vier vazia (total 0), responda apenas \"Nada liberado para enviar agora\" e pare. Não abra o navegador.",
+  "3. Para cada envio da lista e cada grupo dele: abra o WhatsApp Web (web.whatsapp.com) no Chrome, procure o grupo pelo nome exato (nome_grupo),",
+  "   cole a mensagem exatamente como veio (com as quebras de linha e emojis) e envie. Logo depois, numa SEGUNDA mensagem,",
+  "   marque as pessoas de marcar_na_ordem, na ordem: digite @ e o nome e escolha a pessoa na lista que aparece. Envie.",
+  "4. Depois de cada grupo, registre o resultado com backstage_registrar_execucao_envio (envio_id, cliente_id, status):",
+  "   enviado; falhou (com o motivo, ex.: grupo não encontrado, pessoa não encontrada para marcar); ou pulado.",
+  "5. Não envie nada que não esteja nessa lista, não responda nem leia outras conversas e não altere nada no WhatsApp.",
+  "6. No fim, responda com um resumo curto: quantos grupos enviados, falhados e pulados.",
+].join("\n");

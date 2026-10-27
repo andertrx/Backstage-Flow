@@ -5,6 +5,7 @@ import { AuthError, bearer, oauthClientId } from "./auth.ts";
 import { type DataPort, DataError, likeEscape, type OpsRpc } from "./data.ts";
 import { COMMERCIAL_TOOLS, MEETING_TOOLS } from "./commercial_tools.ts";
 import { CLIENT_TOOLS, MONITOR_TOOLS } from "./crm_tools.ts";
+import { ENVIO_TOOLS } from "./envios_tools.ts";
 import { OPS_TOOLS } from "./ops_tools.ts";
 import { createHandler, type Deps, type LogEntry } from "./server.ts";
 import { type Caller, period, summaryOut, TOOLS } from "./tools.ts";
@@ -22,7 +23,7 @@ const USERS: Record<string, Caller> = {
   "tok-equipe": { id: "00000000-0000-4000-8000-000000000003", name: "Equipe", role: "equipe" },
   "tok-gestor": { id: "00000000-0000-4000-8000-000000000004", name: "Gestor", role: "gestor" },
 };
-const ALL_OPS = ["ops.access", "ops.tasks.create", "ops.tasks.edit", "ops.tasks.assign", "ops.tasks.archive", "ops.cards.move", "ops.clients.view", "ops.history.edit", "ops.commercial", "ops.meetings.manage"];
+const ALL_OPS = ["ops.access", "ops.tasks.create", "ops.tasks.edit", "ops.tasks.assign", "ops.tasks.archive", "ops.cards.move", "ops.clients.view", "ops.history.edit", "ops.commercial", "ops.meetings.manage", "ops.envios"];
 const OPS_BY_ROLE: Record<string, string[]> = { admin: ALL_OPS, gestor: ALL_OPS, equipe: ["ops.access"], visualizador: [] };
 const TASK = "7a000000-0000-4000-8000-000000000071";
 const SECTOR = "5e000000-0000-4000-8000-000000000051";
@@ -30,6 +31,18 @@ const PERSON = "00000000-0000-4000-8000-000000000003";
 const LEAD = "1e000000-0000-4000-8000-0000000000e1";
 const MEETING = "3e000000-0000-4000-8000-0000000000e3";
 const ITEM = "1f000000-0000-4000-8000-0000000000f1";
+const ENVIO_OK = "e1000000-0000-4000-8000-0000000000e1";
+const ENVIO_ESPERA = "e2000000-0000-4000-8000-0000000000e2";
+const envioFake = (id: string, nome: string, liberado: boolean) => ({
+  id, nome, mensagem: "Bom dia! ☀️\nComo foi a semana?", dia_semana: 1, horario: "10:00", ativo: true, versao: 2, semana: "2026-11-02",
+  situacao_hoje: liberado ? "aprovado" : "aguardando_aprovacao", pode_enviar_agora: liberado,
+  aprovacao: liberado ? { decisao: "aprovado", decidido_por_nome: "Ander", decidido_em: "2026-11-02T11:00:00Z", valida: true } : null,
+  clientes: [
+    { cliente_id: CLI_A, cliente_nome: "Loja A", nome_grupo: "Acelera A. – Loja A", contatos_marcar: ["Ana Paula", "Bruno"], ativo: true, observacao: null, ja_enviado_nesta_semana: false, ultima_execucao: null },
+    { cliente_id: CLI_B, cliente_nome: "Loja B", nome_grupo: "STG – Loja B", contatos_marcar: [], ativo: true, observacao: null, ja_enviado_nesta_semana: true, ultima_execucao: null },
+    { cliente_id: PERSON, cliente_nome: "Loja C", nome_grupo: "Loja C", contatos_marcar: [], ativo: false, observacao: null, ja_enviado_nesta_semana: false, ultima_execucao: null },
+  ],
+});
 /** Contatos do lead falso: nunca podem aparecer numa resposta do MCP. */
 const SECRET_CONTACT = { contact_name: "Maria Contato", phone: "11999998888", email: "maria@empresa.com", cnpj: "11222333000181" };
 
@@ -146,6 +159,13 @@ function fakeData(user: Caller, opts: { slow?: boolean; broken?: boolean } = {},
       }
       if (name === "ops_meeting_save") return Promise.resolve(args.p_id ?? MEETING);
       if (name === "ops_meeting_item_to_task" || name === "ops_meeting_item_add") return Promise.resolve(TASK);
+      if (name === "ops_envio_list") return Promise.resolve({ hoje: { data: "2026-11-02", hora: "10:05" }, envios: [envioFake(ENVIO_OK, "Feedback", true), envioFake(ENVIO_ESPERA, "Outro", false)] });
+      if (name === "ops_envio_get") return Promise.resolve(args.p_id === ENVIO_OK ? envioFake(ENVIO_OK, "Feedback", true) : null);
+      if (name === "ops_envio_execucao_add") {
+        return args.p_status === "enviado" && args.p_envio === ENVIO_ESPERA
+          ? Promise.reject(new DataError("22023", "Este envio não foi aprovado nesta semana: não envie."))
+          : Promise.resolve(7);
+      }
       if (name === "ops_sector_save") return Promise.resolve(args.p_id ?? "5e000000-0000-4000-8000-000000000099");
       return Promise.resolve(null);
     },
@@ -204,8 +224,8 @@ Deno.test("conecta pelo cliente oficial; admin vê leitura + Central; escrita ma
   const { client } = await connect("tok-admin");
   assertEquals(client.getServerVersion()?.name, "backstage-flow");
   const { tools } = await client.listTools();
-  assertEquals(tools.map((t: ToolInfo) => t.name).sort(), [...TOOLS, ...OPS_TOOLS, ...MONITOR_TOOLS, ...CLIENT_TOOLS, ...COMMERCIAL_TOOLS, ...MEETING_TOOLS].map((t) => t.name).sort());
-  const writes = new Set([...OPS_TOOLS, ...MONITOR_TOOLS, ...CLIENT_TOOLS, ...COMMERCIAL_TOOLS, ...MEETING_TOOLS].filter((t) => t.write).map((t) => t.name));
+  assertEquals(tools.map((t: ToolInfo) => t.name).sort(), [...TOOLS, ...OPS_TOOLS, ...MONITOR_TOOLS, ...CLIENT_TOOLS, ...COMMERCIAL_TOOLS, ...MEETING_TOOLS, ...ENVIO_TOOLS].map((t) => t.name).sort());
+  const writes = new Set([...OPS_TOOLS, ...MONITOR_TOOLS, ...CLIENT_TOOLS, ...COMMERCIAL_TOOLS, ...MEETING_TOOLS, ...ENVIO_TOOLS].filter((t) => t.write).map((t) => t.name));
   assert(tools.every((t: ToolInfo) => t.annotations?.readOnlyHint === !writes.has(t.name)), "leitura marcada como leitura; escrita como escrita");
   assertEquals(tools.find((t: ToolInfo) => t.name === "backstage_archive_task")?.annotations?.destructiveHint, true);
   assert(!tools.some((t: ToolInfo) => /delete|remove|sql|shell|file|apagar|excluir|campaign_(update|pause)|budget|balance|user|permission|integration/i.test(t.name)), "nada de apagar, SQL, campanhas, saldo, usuários ou integrações");
@@ -243,7 +263,7 @@ Deno.test("status: sem segredos; banco fora do ar aparece como indisponível", a
   const s = json(await client.callTool({ name: "backstage_status", arguments: {} }));
   assertEquals(s.sistema, "Backstage Flow");
   assertEquals(s.banco.estado, "funcionando");
-  assertEquals(s.servidor_mcp.versao, "1.3.0");
+  assertEquals(s.servidor_mcp.versao, "1.4.0");
   assert(!/key|secret|token|senha|password/i.test(JSON.stringify(s)), "sem segredos");
   assertEquals(logs.at(-1)?.tool, "backstage_status");
   assertEquals(logs.at(-1)?.ok, true);
@@ -601,5 +621,43 @@ Deno.test("Reuniões: listar, abrir, agendar, editar só o pedido (mantém parti
   assertMatch(text(await client.callTool({ name: "backstage_cancel_meeting", arguments: { reuniao_id: MEETING, motivo: "Feriado", versao: 2 } })), /alterou esta reunião/);
   await client.callTool({ name: "backstage_cancel_meeting", arguments: { reuniao_id: MEETING, motivo: "Feriado" } });
   assertEquals(central.calls.find((c) => c.name === "ops_meeting_cancel")!.args, { p_id: MEETING, p_version: 6, p_reason: "Feriado" });
+  await client.close();
+});
+
+Deno.test("Envios semanais: só o liberado (aprovado e no horário), grupos pendentes na ordem; registrar; aprovar não existe no MCP", async () => {
+  const central = newCentral();
+  const { client } = await connect("tok-admin", {}, central);
+  const all = json(await client.callTool({ name: "backstage_list_envios", arguments: {} }));
+  assertEquals(all.total, 2);
+  assertMatch(all.envios[1].situacao_hoje, /NÃO envie/);
+  assertEquals(all.envios[0].grupos.length, 2, "grupo pausado não vai para o agente");
+  const lib = json(await client.callTool({ name: "backstage_list_envios", arguments: { liberados_agora: true } }));
+  assertEquals([lib.total, lib.envios[0].envio_id, lib.envios[0].pode_enviar_agora], [1, ENVIO_OK, true]);
+  assertEquals(lib.envios[0].grupos.map((g: { nome_grupo: string }) => g.nome_grupo), ["Acelera A. – Loja A"], "pula o grupo já enviado nesta semana");
+  assertEquals(lib.envios[0].grupos[0].marcar_na_ordem, ["Ana Paula", "Bruno"]);
+  assertEquals(lib.envios[0].mensagem, "Bom dia! ☀️\nComo foi a semana?");
+  assertMatch(lib.como_enviar, /SEGUNDA mensagem/);
+  const one = json(await client.callTool({ name: "backstage_get_envio", arguments: { envio_id: ENVIO_OK } }));
+  assertEquals([one.grupos.length, one.grupos[2].ativo_neste_envio], [3, false]);
+  const ok = json(await client.callTool({ name: "backstage_registrar_execucao_envio", arguments: { envio_id: ENVIO_OK, cliente_id: CLI_A, status: "enviado", detalhe: "ok" } }));
+  assert(ok.registrado);
+  assertEquals(central.calls.find((c) => c.name === "ops_envio_execucao_add")!.args,
+    { p_envio: ENVIO_OK, p_cliente: CLI_A, p_status: "enviado", p_detalhe: "ok", p_executado_em: null });
+  const recusado = await client.callTool({ name: "backstage_registrar_execucao_envio", arguments: { envio_id: ENVIO_ESPERA, cliente_id: CLI_A, status: "enviado" } });
+  assert(recusado.isError);
+  assertMatch(text(recusado), /não foi aprovado/);
+  const bad = await client.callTool({ name: "backstage_registrar_execucao_envio", arguments: { envio_id: ENVIO_OK, cliente_id: CLI_A, status: "ok" } });
+  assert(bad.isError, "status inválido");
+  const names = (await client.listTools()).tools.map((t: ToolInfo) => t.name);
+  assert(!names.some((n: string) => /aprov|decid/.test(n)), "aprovar é só na tela do CRM");
+  const cap = json(await client.callTool({ name: "backstage_capabilities", arguments: {} }));
+  assert(cap.modulos_liberados_no_crm.includes("Envios semanais (grupos de WhatsApp)"));
+  await client.close();
+});
+
+Deno.test("Envios semanais: sem a permissão, as ferramentas não aparecem", async () => {
+  const { client } = await connect("tok-equipe");
+  const names = (await client.listTools()).tools.map((t: ToolInfo) => t.name);
+  assert(!names.some((n: string) => n.includes("envio")));
   await client.close();
 });

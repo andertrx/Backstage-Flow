@@ -10,6 +10,7 @@ import { useUnseenAlertsCount } from "@/features/alerts/api.ts";
 import { useMyOpsPermissions } from "@/features/operations/api.ts";
 import { MonitorBell } from "@/features/monitoring/MonitorBell.tsx";
 import { DueTasksReminder } from "@/features/operations/DueTasksReminder.tsx";
+import { EnvioApprovalReminder } from "@/features/operations/EnvioApproval.tsx";
 import { NotificationBell } from "@/features/operations/NotificationBell.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { GlobalSearch } from "@/features/search/GlobalSearch.tsx";
@@ -217,6 +218,8 @@ export function AppLayout() {
       </div>
       {/* Central 36.17: tarefas vencidas às 8h, 12h e 17h (só para quem acessa a Central). */}
       {opsCan(opsPermissions, "ops.access") && <DueTasksReminder />}
+      {/* Etapa 41.2: aprovação do envio semanal de hoje (das 7h até o horário), só para quem tem "Envios semanais". */}
+      {opsCan(opsPermissions, "ops.envios") && <EnvioApprovalReminder />}
       <ScrollRestoration />
     </div>
   );

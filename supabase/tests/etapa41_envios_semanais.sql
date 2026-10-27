@@ -73,11 +73,13 @@ begin
     perform public.ops_envio_execucao_add(v_e, v_c1, 'ok', null, null);
     raise exception 'status inválido deveria ser recusado';
   exception when sqlstate '22023' then null; end;
-  perform set_config('request.headers', '{"x-backstage-origin": "mcp"}', true);
-  v_x := public.ops_envio_execucao_add(v_e, v_c1, 'enviado', 'Enviado e marcado', null);
-  if (select origem from public.ops_envio_execucoes where id = v_x) <> 'mcp' then raise exception 'execução via MCP marcada'; end if;
+  v_x := public.ops_envio_execucao_add(v_e, v_c1, 'enviado', 'Enviado à mão', null);
   if not ((public.ops_envio_get(v_e) -> 'clientes' -> 0 ->> 'ja_enviado_nesta_semana')::boolean) then raise exception 'já enviado nesta semana'; end if;
-  if jsonb_array_length(public.ops_envio_historico(jsonb_build_object('envio_id', v_e))) <> 1 then raise exception 'histórico'; end if;
+  -- 41.2: pelo MCP, "enviado" exige a aprovação da semana (testado em etapa41_2); "falhou" fica marcado "mcp"
+  perform set_config('request.headers', '{"x-backstage-origin": "mcp"}', true);
+  v_x := public.ops_envio_execucao_add(v_e, v_c1, 'falhou', 'Grupo não encontrado', null);
+  if (select origem from public.ops_envio_execucoes where id = v_x) <> 'mcp' then raise exception 'execução via MCP marcada'; end if;
+  if jsonb_array_length(public.ops_envio_historico(jsonb_build_object('envio_id', v_e))) <> 2 then raise exception 'histórico'; end if;
   perform set_config('request.headers', '{}', true);
   v_ok := v_ok + 1;
 

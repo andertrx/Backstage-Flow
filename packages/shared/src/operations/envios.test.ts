@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEnvioCommand, cleanContacts, type EnvioInput, looksLikePhone, parseWhatsApp, validateEnvio } from "./envios.ts";
+import { buildEnvioCommand, cleanContacts, ENVIO_AGENT_INSTRUCTION, type EnvioInput, looksLikePhone, parseWhatsApp, validateEnvio } from "./envios.ts";
 
 const base = (): EnvioInput => ({
   nome: "Feedback semanal",
@@ -76,5 +76,14 @@ describe("parseWhatsApp", () => {
   });
   it("linha vazia continua sendo uma linha", () => {
     expect(parseWhatsApp("a\n\nb")).toEqual([[{ text: "a" }], [], [{ text: "b" }]]);
+  });
+});
+
+describe("instrução da tarefa agendada (41.2)", () => {
+  it("consulta só o liberado, para cedo quando não há nada e registra cada grupo", () => {
+    expect(ENVIO_AGENT_INSTRUCTION).toContain("backstage_list_envios com liberados_agora = true");
+    expect(ENVIO_AGENT_INSTRUCTION).toMatch(/vier vazia.*pare/);
+    expect(ENVIO_AGENT_INSTRUCTION).toContain("SEGUNDA mensagem");
+    expect(ENVIO_AGENT_INSTRUCTION).toContain("backstage_registrar_execucao_envio");
   });
 });

@@ -1,6 +1,6 @@
 import {
-  buildEnvioCommand, cleanContacts, ENVIO_LIMITS, ENVIO_STATUS_LABELS, ENVIO_STATUSES, ENVIO_WEEKDAYS, type EnvioClienteInput, type EnvioStatus,
-  parseWhatsApp, validateEnvio,
+  buildEnvioCommand, cleanContacts, ENVIO_AGENT_INSTRUCTION, ENVIO_LIMITS, ENVIO_STATUS_LABELS, ENVIO_STATUSES, ENVIO_WEEKDAYS, type EnvioClienteInput, type EnvioStatus,
+  validateEnvio,
 } from "@backstage/shared";
 import { ArrowDown, ArrowUp, Archive, ArchiveRestore, Check, Copy, History, Pencil, Plus, Search, Send, X } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
@@ -15,31 +15,25 @@ import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
-import { type OpsEnvio, type OpsEnvioHistoricoFilters, useArchiveEnvio, useEnvioHistorico, useEnvios, useSaveEnvio } from "./enviosApi.ts";
+import { type EnvioSituacaoHoje, type OpsEnvio, type OpsEnvioHistoricoFilters, useArchiveEnvio, useEnvioAprovacoes, useEnvioHistorico, useEnvios, useSaveEnvio } from "./enviosApi.ts";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { RequireOps } from "./OpsLayout.tsx";
+import { EnvioApprovalModal } from "./EnvioApproval.tsx";
 import { originLabel } from "./origin.ts";
+import { WhatsAppPreview } from "./WhatsAppPreview.tsx";
 import { type TasksContext, useTasksContext } from "./tasksContext.tsx";
 
 const STATUS_TONE: Record<EnvioStatus, "success" | "danger" | "neutral"> = { enviado: "success", falhou: "danger", pulado: "neutral" };
 
-/** Pré-visualização no estilo do WhatsApp: quebras de linha, emojis, *negrito*, _itálico_, ~riscado~. */
-export function WhatsAppPreview({ text }: { text: string }) {
-  const lines = parseWhatsApp(text);
-  return (
-    <div className="rounded-xl bg-[#e7f3ec] p-3" data-testid="envio-preview">
-      <div className="ml-auto max-w-md rounded-lg rounded-tr-none bg-[#d9fdd3] px-3 py-2 text-sm text-slate-900 shadow-sm">
-        {text.trim() === "" ? <span className="text-slate-400">A mensagem aparece aqui.</span> : lines.map((segs, i) => (
-          <p key={i} className="min-h-5 whitespace-pre-wrap break-words">
-            {segs.map((s, j) => (
-              <span key={j} className={cn(s.bold && "font-bold", s.italic && "italic", s.strike && "line-through", s.mono && "font-mono text-xs")}>{s.text}</span>
-            ))}
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
+/** 41.2: situação do envio hoje (aprovação semanal). */
+const SITUACAO: Partial<Record<EnvioSituacaoHoje, { label: string; tone: "success" | "danger" | "warning" | "neutral" | "brand" }>> = {
+  antes_da_janela: { label: "Hoje: aprovação a partir das 7h", tone: "brand" },
+  aguardando_aprovacao: { label: "Hoje: aguardando sua aprovação", tone: "warning" },
+  aprovado: { label: "Hoje: aprovado", tone: "success" },
+  recusado: { label: "Hoje: não enviar esta semana", tone: "neutral" },
+  nao_aprovado_a_tempo: { label: "Hoje: não aprovado a tempo (não sai)", tone: "danger" },
+};
+const DECISAO_LABEL = { aprovado: "Aprovado", recusado: "Não enviar", sem_resposta: "Sem resposta (não saiu)" } as const;
 
 /** "Quem marcar": vários nomes, na ordem (setas para mudar). Só nomes, como aparecem no grupo. */
 function ContactsEditor({ names, onChange, label }: { names: string[]; onChange: (v: string[]) => void; label: string }) {
@@ -194,7 +188,7 @@ function CopyCommand({ envio }: { envio: OpsEnvio }) {
   const [copied, setCopied] = useState<"ok" | "erro" | null>(null);
   async function copy() {
     try {
-      await navigator.clipboard.writeText(buildEnvioCommand(envio));
+      await navigator.clipboard.writeText(buildEnvioCommand(envio, envio.id));
       setCopied("ok");
     } catch { setCopied("erro"); }
     setTimeout(() => setCopied(null), 2500);
@@ -208,8 +202,26 @@ function CopyCommand({ envio }: { envio: OpsEnvio }) {
   );
 }
 
+/** 41.2: a instrução fixa para colar na tarefa agendada do Claude no computador (ver a documentação da fase). */
+function CopyAgentInstruction() {
+  const [copied, setCopied] = useState<"ok" | "erro" | null>(null);
+  async function copy() {
+    try { await navigator.clipboard.writeText(ENVIO_AGENT_INSTRUCTION); setCopied("ok"); } catch { setCopied("erro"); }
+    setTimeout(() => setCopied(null), 2500);
+  }
+  return (
+    <Button variant="secondary" onClick={copy} aria-label="Copiar instrução da tarefa agendada">
+      {copied === "ok" ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+      {copied === "ok" ? "Instrução copiada" : copied === "erro" ? "Não deu para copiar" : "Instrução da tarefa agendada"}
+    </Button>
+  );
+}
+
 function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
   const archive = useArchiveEnvio();
+  const [reviewing, setReviewing] = useState(false);
+  const sit = SITUACAO[envio.situacao_hoje];
+  const podeDecidir = ["aguardando_aprovacao", "aprovado", "recusado"].includes(envio.situacao_hoje);
   const [error, setError] = useState<string | null>(null);
   const ativos = envio.clientes.filter((c) => c.ativo);
   const arquivado = Boolean(envio.arquivado_em);
@@ -224,11 +236,15 @@ function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold text-slate-900">{envio.nome}</h3>
             {arquivado ? <Badge>Arquivado</Badge> : envio.ativo ? <Badge tone="success">Ativo</Badge> : <Badge tone="warning">Pausado</Badge>}
-            {envio.toca_hoje && envio.ativo && !arquivado && <Badge tone="brand">Hoje</Badge>}
+            {!arquivado && sit && <Badge tone={sit.tone}>{sit.label}</Badge>}
           </div>
           <p className="text-sm text-slate-600">{ENVIO_WEEKDAYS[envio.dia_semana]} às {envio.horario} · {ativos.length} grupo(s) ativo(s)</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {!arquivado && podeDecidir && (
+            <Button className="px-3 py-1.5 text-xs" variant={envio.situacao_hoje === "aguardando_aprovacao" ? "primary" : "secondary"} onClick={() => setReviewing(true)}
+              aria-label={`Revisar e aprovar ${envio.nome}`}>Revisar e aprovar</Button>
+          )}
           {!arquivado && <CopyCommand envio={envio} />}
           {!arquivado && <Button variant="ghost" className="px-2 py-1 text-xs" onClick={onEdit} aria-label={`Editar ${envio.nome}`}><Pencil className="size-3.5" aria-hidden /> Editar</Button>}
           <Button variant="ghost" className="px-2 py-1 text-xs" onClick={toggleArchive} loading={archive.isPending} aria-label={`${arquivado ? "Desarquivar" : "Arquivar"} ${envio.nome}`}>
@@ -249,6 +265,7 @@ function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
         </ul>
       )}
       {error && <Alert tone="error">{error}</Alert>}
+      {reviewing && <EnvioApprovalModal envio={envio} onClose={() => setReviewing(false)} />}
     </Card>
   );
 }
@@ -305,7 +322,40 @@ function HistoricoView({ envios, ctx }: { envios: OpsEnvio[]; ctx: TasksContext 
           </Card>
         )}
       {(hist.data ?? []).length >= 300 && <p className="text-xs text-slate-500">Mostrando as 300 mais recentes. Use os filtros para ver as mais antigas.</p>}
+      <AprovacoesView envioId={f.envio_id} />
     </div>
+  );
+}
+
+/** 41.2: decisão de cada semana (aprovado, não enviar, sem resposta). */
+function AprovacoesView({ envioId }: { envioId?: string }) {
+  const ap = useEnvioAprovacoes(envioId);
+  const rows = ap.data ?? [];
+  return (
+    <section className="space-y-2" data-testid="envio-aprovacoes">
+      <h3 className="text-sm font-semibold text-slate-800">Aprovações semanais</h3>
+      {ap.error ? <Alert tone="error">{errorMessage(ap.error)}</Alert> : rows.length === 0 ? (
+        <p className="text-sm text-slate-500">Nenhuma decisão ainda. No dia do envio, das 7h até o horário, o CRM pede a sua aprovação.</p>
+      ) : (
+        <Card className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+              <tr><th className="px-4 py-2">Semana de</th><th className="px-4 py-2">Envio</th><th className="px-4 py-2">Decisão</th><th className="px-4 py-2">Quem e quando</th></tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((r) => (
+                <tr key={r.id} data-testid="envio-aprovacao-row">
+                  <td className="whitespace-nowrap px-4 py-2 tabular-nums text-slate-700">{r.semana.split("-").reverse().join("/")}</td>
+                  <td className="px-4 py-2 text-slate-700">{r.envio_nome}</td>
+                  <td className="px-4 py-2"><Badge tone={r.decisao === "aprovado" ? "success" : r.decisao === "recusado" ? "neutral" : "danger"}>{DECISAO_LABEL[r.decisao]}</Badge></td>
+                  <td className="px-4 py-2 text-xs text-slate-500">{r.origem === "sistema" ? "Sistema (passou do horário)" : originLabel(r.origem, r.decidido_por_nome)} · {formatDateTime(r.decidido_em)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+    </section>
   );
 }
 
@@ -333,7 +383,12 @@ export function EnviosPage() {
           ))}
         </div>
         {view === "envios" && <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={arquivados} onChange={(e) => setArquivados(e.target.checked)} /> Ver arquivados</label>}
-        {view === "envios" && !arquivados && <Button className="ml-auto" onClick={() => setEditing(null)} disabled={ctx.loading}><Plus className="size-4" aria-hidden /> Novo envio</Button>}
+        {view === "envios" && !arquivados && (
+          <div className="ml-auto flex flex-wrap gap-2">
+            <CopyAgentInstruction />
+            <Button onClick={() => setEditing(null)} disabled={ctx.loading}><Plus className="size-4" aria-hidden /> Novo envio</Button>
+          </div>
+        )}
       </div>
       {list.error ? <Alert tone="error">{errorMessage(list.error)}</Alert> : null}
       {view === "historico" ? <HistoricoView envios={envios} ctx={ctx} />

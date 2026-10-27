@@ -21,6 +21,17 @@ export interface OpsEnvioCliente {
   ja_enviado_nesta_semana: boolean;
 }
 
+export type EnvioSituacaoHoje = "nao_hoje" | "antes_da_janela" | "aguardando_aprovacao" | "aprovado" | "recusado" | "nao_aprovado_a_tempo";
+
+export interface OpsEnvioAprovacao {
+  decisao: "aprovado" | "recusado" | "sem_resposta";
+  versao_envio: number;
+  decidido_em: string;
+  decidido_por_nome: string | null;
+  origem: "manual" | "mcp" | "sistema";
+  valida: boolean;
+}
+
 export interface OpsEnvio {
   id: string;
   nome: string;
@@ -36,6 +47,23 @@ export interface OpsEnvio {
   atualizado_por_nome: string | null;
   toca_hoje: boolean;
   clientes: OpsEnvioCliente[];
+  /** 41.2: aprovação desta semana (segunda-feira, Brasília). */
+  semana: string;
+  aprovacao: OpsEnvioAprovacao | null;
+  situacao_hoje: EnvioSituacaoHoje;
+  pode_enviar_agora: boolean;
+}
+
+export interface OpsEnvioDecisao {
+  id: number;
+  envio_id: string;
+  envio_nome: string;
+  semana: string;
+  decisao: "aprovado" | "recusado" | "sem_resposta";
+  versao_envio: number;
+  decidido_em: string;
+  decidido_por_nome: string | null;
+  origem: "manual" | "mcp" | "sistema";
 }
 
 export interface OpsEnvioExecucao {
@@ -110,5 +138,42 @@ export function useArchiveEnvio() {
   return useEnviosMutation(async (v: { id: string; arquivar: boolean }) => {
     const { error } = await supabase.rpc("ops_envio_archive", { p_id: v.id, p_arquivar: v.arquivar });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos arquivar o envio."));
+  });
+}
+
+// ---------------------------------------------------------------- 41.2: aprovação semanal
+
+/** Envios de hoje esperando aprovação (das 7h até o horário). Confere a cada minuto, como o lembrete de tarefas. */
+export function useEnviosPendentes(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "pendentes"],
+    enabled,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("ops_envio_pendentes");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos ver os envios para aprovar."));
+      return (data as OpsEnvio[] | null) ?? [];
+    },
+  });
+}
+
+export function useDecidirEnvio() {
+  return useEnviosMutation(async (v: { id: string; versao: number; aprovar: boolean }) => {
+    const { data, error } = await supabase.rpc("ops_envio_decidir", { p_id: v.id, p_versao: v.versao, p_aprovar: v.aprovar });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos registrar a decisão."));
+    return data as { situacao_hoje: EnvioSituacaoHoje };
+  });
+}
+
+export function useEnvioAprovacoes(envioId?: string) {
+  return useQuery({
+    queryKey: [...KEY, "aprovacoes", envioId ?? null],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("ops_envio_aprovacoes", { f: envioId ? { envio_id: envioId } : {} });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as aprovações."));
+      return (data as OpsEnvioDecisao[] | null) ?? [];
+    },
   });
 }

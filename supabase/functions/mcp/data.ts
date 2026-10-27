@@ -88,6 +88,8 @@ export const OPS_RPCS = [
   "ops_lead_board", "ops_lead_get", "ops_lead_duplicates", "ops_lead_save", "ops_lead_move", "ops_lead_note_add", "ops_lead_archive",
   "ops_meeting_list", "ops_meeting_get", "ops_meeting_save", "ops_meeting_record", "ops_meeting_item_add", "ops_meeting_item_to_task",
   "ops_meeting_cancel",
+  // 41.2: Envios semanais (ler e registrar o resultado; aprovar é só na tela)
+  "ops_envio_list", "ops_envio_get", "ops_envio_execucao_add",
 ] as const;
 export type OpsRpc = (typeof OPS_RPCS)[number];
 
