@@ -10,3 +10,8 @@ revoke select on table public.ops_envios, public.ops_envio_clientes, public.ops_
 select cron.unschedule('envios-sem-resposta');
 revoke execute on function public.ops_envio_pendentes(), public.ops_envio_decidir(uuid, integer, boolean), public.ops_envio_aprovacoes(jsonb) from authenticated;
 revoke select on table public.ops_envio_aprovacoes from authenticated;
+
+-- Etapa 41.3 (grupo e @ padrão de cada cliente): parar a tela de padrões (os padrões e os desligados já gravados ficam).
+-- Salvar um envio continua gravando o padrão do cliente (inofensivo); o MCP continua recebendo só os @ ligados.
+revoke execute on function public.ops_envio_padroes(), public.ops_envio_padrao_save(uuid, jsonb) from authenticated;
+revoke select on table public.ops_envio_padroes from authenticated;

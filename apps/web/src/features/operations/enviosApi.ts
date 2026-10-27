@@ -14,11 +14,30 @@ export interface OpsEnvioCliente {
   cliente_id: string;
   cliente_nome: string;
   nome_grupo: string;
+  /** Só os ligados, na ordem (quem será marcado). */
   contatos_marcar: string[];
+  /** 41.3: todos os nomes, com ligado/desligado. */
+  contatos?: OpsEnvioContato[];
   ativo: boolean;
   observacao: string | null;
   ultima_execucao: { executado_em: string; status: EnvioStatus; detalhe: string | null } | null;
   ja_enviado_nesta_semana: boolean;
+}
+
+export interface OpsEnvioContato {
+  nome: string;
+  ativo: boolean;
+}
+
+/** 41.3: grupo e @ padrão de um cliente (preenche os envios novos). */
+export interface OpsEnvioPadrao {
+  cliente_id: string;
+  cliente_nome: string;
+  nome_grupo: string;
+  contatos: OpsEnvioContato[];
+  updated_at: string;
+  atualizado_por_nome: string | null;
+  envios: { id: string; nome: string }[];
 }
 
 export type EnvioSituacaoHoje = "nao_hoje" | "antes_da_janela" | "aguardando_aprovacao" | "aprovado" | "recusado" | "nao_aprovado_a_tempo";
@@ -175,5 +194,28 @@ export function useEnvioAprovacoes(envioId?: string) {
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as aprovações."));
       return (data as OpsEnvioDecisao[] | null) ?? [];
     },
+  });
+}
+
+// ---------------------------------------------------------------- 41.3: grupo e @ padrão de cada cliente
+
+export function useEnvioPadroes() {
+  return useQuery({
+    queryKey: [...KEY, "padroes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("ops_envio_padroes");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os grupos e @ dos clientes."));
+      return (data as OpsEnvioPadrao[] | null) ?? [];
+    },
+  });
+}
+
+/** Salva o padrão do cliente; vale também para os envios (não arquivados) em que ele está. */
+export function useSaveEnvioPadrao() {
+  return useEnviosMutation(async (v: { cliente_id: string; nome_grupo: string; contatos_marcar: string[]; contatos_desligados: string[] }) => {
+    const { data, error } = await supabase.rpc("ops_envio_padrao_save", { p_cliente: v.cliente_id,
+      p: { nome_grupo: v.nome_grupo, contatos_marcar: v.contatos_marcar, contatos_desligados: v.contatos_desligados } });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos salvar o grupo e os @ do cliente."));
+    return data as { envios_atualizados: number };
   });
 }

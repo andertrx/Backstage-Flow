@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEnvioCommand, cleanContacts, ENVIO_AGENT_INSTRUCTION, type EnvioInput, looksLikePhone, parseWhatsApp, validateEnvio } from "./envios.ts";
+import { buildEnvioCommand, cleanContacts, cleanDesligados, contatosLigados, ENVIO_AGENT_INSTRUCTION, type EnvioInput, looksLikePhone, parseWhatsApp, validateEnvio } from "./envios.ts";
 
 const base = (): EnvioInput => ({
   nome: "Feedback semanal",
@@ -85,5 +85,22 @@ describe("instrução da tarefa agendada (41.2)", () => {
     expect(ENVIO_AGENT_INSTRUCTION).toMatch(/vier vazia.*pare/);
     expect(ENVIO_AGENT_INSTRUCTION).toContain("SEGUNDA mensagem");
     expect(ENVIO_AGENT_INSTRUCTION).toContain("backstage_registrar_execucao_envio");
+  });
+});
+
+describe("ligar e desligar quem marcar (41.3)", () => {
+  it("só os ligados, na ordem; desligado fora da lista é ignorado", () => {
+    expect(contatosLigados({ contatos_marcar: ["Ana", "Bruno", " Caio "], contatos_desligados: ["Bruno"] })).toEqual(["Ana", "Caio"]);
+    expect(contatosLigados({ contatos_marcar: ["Ana"] })).toEqual(["Ana"]);
+    expect(cleanDesligados(["Ana", "Bruno"], ["Bruno", "Zé"])).toEqual(["Bruno"]);
+  });
+  it("o comando não marca quem está desligado", () => {
+    const t = buildEnvioCommand({ nome: "F", mensagem: "Oi", dia_semana: 1, horario: "09:00",
+      clientes: [{ cliente_nome: "Loja A", nome_grupo: "G", contatos_marcar: ["Ana", "Bruno"], contatos_desligados: ["Ana"], ativo: true }] });
+    expect(t).toContain('marcar @Bruno');
+    expect(t).not.toContain("@Ana");
+  });
+  it("desligado continua contando no limite e na regra do telefone", () => {
+    expect(validateEnvio({ ...base(), clientes: [{ ...base().clientes[0], contatos_marcar: ["11 98765-4321"], contatos_desligados: ["11 98765-4321"] }] })).toHaveLength(1);
   });
 });

@@ -15,7 +15,10 @@ export const ENVIO_LIMITS = { nome: 120, mensagem: 5000, grupo: 200, contato: 80
 export interface EnvioClienteInput {
   cliente_id: string;
   nome_grupo: string;
+  /** Todos os nomes, na ordem (ligados e desligados). */
   contatos_marcar: string[];
+  /** 41.3: nomes da lista que estão desligados (guardados, mas não marcados). */
+  contatos_desligados?: string[];
   ativo: boolean;
   observacao?: string | null;
 }
@@ -34,6 +37,18 @@ export const looksLikePhone = (name: string) => name.replace(/[^0-9]/g, "").leng
 
 /** Nomes limpos, na ordem, sem vazios. */
 export const cleanContacts = (names: readonly string[]) => names.map((n) => n.trim()).filter((n) => n !== "");
+
+/** 41.3: quem será marcado de fato — os nomes ligados, na ordem. */
+export const contatosLigados = (c: { contatos_marcar: readonly string[]; contatos_desligados?: readonly string[] }) => {
+  const off = new Set((c.contatos_desligados ?? []).map((n) => n.trim()));
+  return cleanContacts(c.contatos_marcar).filter((n) => !off.has(n));
+};
+
+/** 41.3: desligados válidos (só nomes que estão na lista), como o banco guarda. */
+export const cleanDesligados = (names: readonly string[], off: readonly string[] = []) => {
+  const set = new Set(off.map((n) => n.trim()));
+  return cleanContacts(names).filter((n) => set.has(n));
+};
 
 export interface EnvioError {
   field: "nome" | "mensagem" | "dia_semana" | "horario" | "clientes" | `cliente:${string}`;
@@ -78,7 +93,7 @@ export interface EnvioParaComando {
   mensagem: string;
   dia_semana: number;
   horario: string;
-  clientes: { cliente_nome: string; nome_grupo: string; contatos_marcar: readonly string[]; ativo: boolean }[];
+  clientes: { cliente_nome: string; nome_grupo: string; contatos_marcar: readonly string[]; contatos_desligados?: readonly string[]; ativo: boolean }[];
 }
 
 /** Texto do botão "Copiar comando": para colar no Claude. Só os grupos ativos. */
@@ -96,7 +111,7 @@ export function buildEnvioCommand(e: EnvioParaComando, envioId?: string): string
     "",
     "Grupos:",
     ...grupos.map((c, i) => {
-      const names = cleanContacts(c.contatos_marcar);
+      const names = contatosLigados(c);
       return `${i + 1}. Grupo "${c.nome_grupo.trim()}" (cliente ${c.cliente_nome}): ${names.length ? `marcar ${names.map((n) => `@${n}`).join(" ")}` : "sem marcação"}`;
     }),
   ];

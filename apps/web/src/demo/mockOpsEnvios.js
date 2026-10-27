@@ -3,7 +3,7 @@
 
 export function seedOpsEnvios() {
   // envioAgora: relógio dos testes (ISO); vazio = agora.
-  return { opsEnvios: [], opsEnvioClientes: [], opsEnvioExecucoes: [], opsEnvioAprovacoes: [], envioAgora: null };
+  return { opsEnvios: [], opsEnvioClientes: [], opsEnvioExecucoes: [], opsEnvioAprovacoes: [], opsEnvioPadroes: [], envioAgora: null };
 }
 
 const spNow = (iso) => {
@@ -17,6 +17,11 @@ const spNow = (iso) => {
     hora: `${parts.hour}:${parts.minute}` };
 };
 const digits = (t) => String(t ?? "").replace(/[^0-9]/g, "");
+const cleanNames = (list) => (Array.isArray(list) ? list : []).map((n) => String(n).trim()).filter(Boolean);
+// 41.3: desligados válidos (só nomes da lista, na ordem da lista)
+const cleanOff = (names, off) => { const set = new Set(cleanNames(off)); return names.filter((n) => set.has(n)); };
+const contatosJson = (names, off = []) => names.map((nome) => ({ nome, ativo: !off.includes(nome) }));
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
   if (!url.includes("/rest/v1/rpc/ops_envio")) return null;
@@ -44,12 +49,50 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
     ...e, ...situacao(e), criado_por_nome: name(e.criado_por), atualizado_por_nome: name(e.atualizado_por), toca_hoje: e.dia_semana === now.dow,
     clientes: db.opsEnvioClientes.filter((c) => c.envio_id === e.id && !c.removido_em && (!soAtivos || c.ativo)).map((c) => {
       const ex = db.opsEnvioExecucoes.filter((x) => x.envio_id === e.id && x.cliente_id === c.cliente_id).sort((a, b) => b.executado_em.localeCompare(a.executado_em));
-      return { ...c, cliente_nome: clientName(c.cliente_id),
+      const off = c.contatos_desligados ?? [];
+      return { ...c, cliente_nome: clientName(c.cliente_id), contatos_marcar: c.contatos_marcar.filter((n) => !off.includes(n)), contatos: contatosJson(c.contatos_marcar, off),
         ultima_execucao: ex[0] ? { executado_em: ex[0].executado_em, status: ex[0].status, detalhe: ex[0].detalhe } : null,
         ja_enviado_nesta_semana: ex.some((x) => x.status === "enviado" && x.executado_em >= now.weekStart) };
     }).sort((a, b) => (a.cliente_nome ?? "").localeCompare(b.cliente_nome ?? "")),
   });
 
+  // 41.3: grupo e @ padrão de cada cliente
+  function gravarPadrao(cliente_id, nome_grupo, names, off) {
+    const t = new Date().toISOString();
+    const ex = db.opsEnvioPadroes.find((x) => x.cliente_id === cliente_id);
+    const fields = { nome_grupo, contatos_marcar: names, contatos_desligados: off, atualizado_por: userId, updated_at: t };
+    if (ex) Object.assign(ex, fields); else db.opsEnvioPadroes.push({ cliente_id, created_at: t, ...fields });
+  }
+  if (rpc("ops_envio_padroes")) {
+    return res(200, db.opsEnvioPadroes.filter((x) => clientName(x.cliente_id)).map((x) => ({
+      cliente_id: x.cliente_id, cliente_nome: clientName(x.cliente_id), nome_grupo: x.nome_grupo, contatos: contatosJson(x.contatos_marcar, x.contatos_desligados),
+      updated_at: x.updated_at, atualizado_por_nome: name(x.atualizado_por),
+      envios: db.opsEnvioClientes.filter((c) => c.cliente_id === x.cliente_id && !c.removido_em)
+        .map((c) => db.opsEnvios.find((e) => e.id === c.envio_id)).filter((e) => e && !e.arquivado_em).map((e) => ({ id: e.id, nome: e.nome })),
+    })).sort((a, b) => a.cliente_nome.localeCompare(b.cliente_nome)));
+  }
+  if (rpc("ops_envio_padrao_save")) {
+    const i = p.p ?? {};
+    if (!db.clients.some((x) => x.id === p.p_cliente)) return bad("Cliente não encontrado.");
+    const grupo = String(i.nome_grupo ?? "").trim();
+    if (!grupo) return bad("Informe o nome do grupo.");
+    const names = cleanNames(i.contatos_marcar);
+    if (names.length > 20) return bad("No máximo 20 pessoas para marcar por grupo.");
+    if (names.some((n) => digits(n).length >= 8)) return bad('Em "Quem marcar" use só o nome como aparece no grupo, não o telefone.');
+    const off = cleanOff(names, i.contatos_desligados);
+    gravarPadrao(p.p_cliente, grupo, names, off);
+    const t = new Date().toISOString();
+    const mudou = new Set();
+    for (const c of db.opsEnvioClientes) {
+      const e = db.opsEnvios.find((x) => x.id === c.envio_id);
+      if (c.cliente_id !== p.p_cliente || c.removido_em || !e || e.arquivado_em) continue;
+      if (c.nome_grupo === grupo && same(c.contatos_marcar, names) && same(c.contatos_desligados ?? [], off)) continue;
+      Object.assign(c, { nome_grupo: grupo, contatos_marcar: names, contatos_desligados: off, updated_at: t });
+      mudou.add(e);
+    }
+    for (const e of mudou) Object.assign(e, { versao: e.versao + 1, atualizado_por: userId, updated_at: t });
+    return res(200, { envios_atualizados: mudou.size });
+  }
   if (rpc("ops_envio_list")) {
     const f = p.f ?? {};
     const out = db.opsEnvios.filter((e) => (f.arquivados ? e.arquivado_em : !e.arquivado_em) && (!f.so_ativos || e.ativo))
@@ -94,7 +137,7 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
       if (seen.has(c.cliente_id)) return bad("Um cliente aparece duas vezes no envio.");
       seen.add(c.cliente_id);
       if (!String(c.nome_grupo ?? "").trim()) return bad(`Informe o nome do grupo de "${clientName(c.cliente_id)}".`);
-      const names = (c.contatos_marcar ?? []).map((n) => String(n).trim()).filter(Boolean);
+      const names = cleanNames(c.contatos_marcar);
       if (names.length > 20) return bad("No máximo 20 pessoas para marcar por grupo.");
       if (names.some((n) => digits(n).length >= 8)) return bad('Em "Quem marcar" use só o nome como aparece no grupo, não o telefone.');
     }
@@ -114,11 +157,13 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
       for (const c of db.opsEnvioClientes) if (c.envio_id === e.id && !c.removido_em && !seen.has(c.cliente_id)) Object.assign(c, { removido_em: t, ativo: false });
     }
     for (const c of clientes) {
-      const fields = { nome_grupo: c.nome_grupo.trim(), contatos_marcar: (c.contatos_marcar ?? []).map((n) => String(n).trim()).filter(Boolean),
+      const names = cleanNames(c.contatos_marcar);
+      const fields = { nome_grupo: c.nome_grupo.trim(), contatos_marcar: names, contatos_desligados: cleanOff(names, c.contatos_desligados),
         ativo: c.ativo !== false, observacao: c.observacao?.trim() || null, removido_em: null, updated_at: t };
       const ex = db.opsEnvioClientes.find((x) => x.envio_id === e.id && x.cliente_id === c.cliente_id);
       if (ex) Object.assign(ex, fields);
       else db.opsEnvioClientes.push({ id: crypto.randomUUID(), envio_id: e.id, cliente_id: c.cliente_id, created_at: t, ...fields });
+      gravarPadrao(c.cliente_id, fields.nome_grupo, names, fields.contatos_desligados);
     }
     return res(200, e.id);
   }
