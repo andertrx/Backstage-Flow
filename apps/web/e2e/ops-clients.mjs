@@ -115,6 +115,7 @@ const waitFor = async (page, fn, what) => {
     "histórico operacional junta demanda, entrada no fluxo e atividade registrada");
   await drawer.getByRole("button", { name: "Tarefas", exact: true }).click();
   await drawer.getByTestId("ops-client-demands").getByText("#1 Lançamento").waitFor();
+  await drawer.getByTestId("ops-task-row").nth(1).waitFor();
   check(await drawer.getByTestId("ops-task-row").count() === 2, "ficha mostra as tarefas de todos os setores");
   await page.screenshot({ path: `${SHOTS}/ops-ficha-cliente.png` });
   await drawer.getByRole("button", { name: "Fechar ficha" }).click();
