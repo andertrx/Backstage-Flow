@@ -4,8 +4,9 @@ declare
   v_admin uuid; v_c1 uuid; v_c2 uuid; v_e uuid; v_ok integer := 0; v_j jsonb; v_cli jsonb; v_v int;
 begin
   select id into v_admin from public.profiles where role = 'admin' and active order by created_at limit 1;
-  select id into v_c1 from public.clients where excluded_at is null order by name limit 1;
-  select id into v_c2 from public.clients where excluded_at is null and id <> v_c1 order by name limit 1;
+  -- clientes sem grupo salvo (41.4: quem tem grupo salvo usa sempre o padrão)
+  select id into v_c1 from public.clients c where excluded_at is null and not exists (select 1 from public.ops_envio_padroes p where p.cliente_id = c.id) order by name limit 1;
+  select id into v_c2 from public.clients c where excluded_at is null and id <> v_c1 and not exists (select 1 from public.ops_envio_padroes p where p.cliente_id = c.id) order by name limit 1;
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
   perform set_config('request.headers', '{}', true);

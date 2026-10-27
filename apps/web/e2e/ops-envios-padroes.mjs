@@ -62,39 +62,59 @@ await page.getByTestId("envio-padrao").nth(1).waitFor();
 check(db.opsEnvioPadroes.some((x) => x.cliente_id === B && x.nome_grupo === "STG – Brisa" && x.contatos_marcar[0] === "Diego - Brisa"), "padrão do cliente novo salvo");
 await page.screenshot({ path: `${SHOTS}/envios-grupos-e-arrobas.png` });
 
-// Novo envio: marcar o cliente já preenche o grupo e os @ (com os desligados)
+// 41.4 — Novo envio: já vem com a lista toda (todos ligados), só para ligar/desligar; grupo e @ da configuração atual
 await page.getByRole("button", { name: "Envios", exact: true }).click();
 await page.getByRole("button", { name: "Novo envio" }).click();
 const form = page.getByTestId("envio-form");
+await form.getByTestId("envio-cliente").nth(1).waitFor();
+check(await form.getByLabel("Incluir Loja Aurora").isChecked() && await form.getByLabel("Incluir Loja Brisa").isChecked()
+  && (await form.innerText()).includes("2 de 2 ligados"), "envio novo já vem com todos os clientes ligados");
+const rowA = () => form.getByTestId("envio-cliente").first();
+check((await rowA().innerText()).includes("Acelera A. – Aurora · @Ana Paula") && !(await rowA().innerText()).includes("@Bruno") && await form.getByRole("switch", { name: /^Marcar/ }).count() === 0,
+  "mostra o grupo e os @ ligados, sem editar ali");
+await form.getByRole("button", { name: "Tirar todos" }).click();
+check((await form.innerText()).includes("0 de 2 ligados"), "Tirar todos");
+await form.getByRole("button", { name: "Selecionar todos" }).click();
+check((await form.innerText()).includes("2 de 2 ligados"), "Selecionar todos");
+
+// Editar abre a configuração do cliente (a mesma de "Grupos e @"): religar Carla
+await form.getByRole("button", { name: "Editar grupo e @ de Loja Aurora" }).click();
+const pe = page.getByTestId("envio-padrao-form");
+await pe.getByRole("switch", { name: "Marcar Carla" }).click();
+await pe.getByRole("button", { name: "Salvar" }).click();
+await pe.waitFor({ state: "detached" });
+await form.getByText("@Ana Paula @Carla").waitFor();
+check(JSON.stringify(db.opsEnvioPadroes.find((x) => x.cliente_id === A).contatos_desligados) === JSON.stringify(["Bruno"]), "Editar salva a configuração do cliente");
+check(db.opsEnvioClientes.find((x) => x.envio_id === ENVIO && x.cliente_id === A).contatos_desligados.join() === "Bruno", "e vale para o envio que já existe");
+
 await form.getByLabel("Nome do envio").fill("Feedback mensal");
 await form.getByLabel("Mensagem").fill("Oi!");
 await form.getByLabel("Dia da semana").selectOption({ label: "Sexta-feira" });
 await form.getByLabel("Horário (Brasília)").fill("10:30");
-await form.getByLabel("Incluir Loja Aurora").check();
-await form.getByLabel("Incluir Loja Brisa").check();
-check(await form.getByLabel("Nome do grupo").first().inputValue() === "Acelera A. – Aurora" && await form.getByLabel("Nome do grupo").nth(1).inputValue() === "STG – Brisa",
-  "grupo vem preenchido do padrão");
-check(await form.getByRole("switch", { name: "Marcar Bruno" }).getAttribute("aria-checked") === "false"
-  && await form.getByRole("switch", { name: "Marcar Ana Paula" }).getAttribute("aria-checked") === "true"
-  && (await form.getByRole("list", { name: "Quem marcar em Loja Brisa" }).innerText()).includes("@Diego - Brisa"), "@ vêm preenchidos, com ligado/desligado");
-
-// Religar Carla no envio: ao salvar, vira o padrão do cliente
-await form.getByRole("switch", { name: "Marcar Carla" }).click();
+await form.getByLabel("Incluir Loja Brisa").uncheck();
+await page.screenshot({ path: `${SHOTS}/envios-formulario-lista.png` });
 await form.getByRole("button", { name: "Salvar" }).click();
 await page.getByTestId("envio-card").nth(1).waitFor();
 const novo = db.opsEnvios.find((e) => e.nome === "Feedback mensal");
-const na = db.opsEnvioClientes.find((x) => x.envio_id === novo.id && x.cliente_id === A);
-check(JSON.stringify(na.contatos_desligados) === JSON.stringify(["Bruno"]), "envio novo guarda quem está desligado");
-check(JSON.stringify(db.opsEnvioPadroes.find((x) => x.cliente_id === A).contatos_desligados) === JSON.stringify(["Bruno"]), "salvar o envio atualiza o padrão do cliente");
+check(db.opsEnvioClientes.filter((x) => x.envio_id === novo.id).length === 1, "só o cliente ligado entra no envio novo");
 
-// Copiar comando: não marca quem está desligado
+// Copiar comando: só os @ ligados
 await page.getByRole("button", { name: "Copiar comando de Feedback mensal" }).click();
 const cmd = await page.evaluate(() => navigator.clipboard.readText());
-check(cmd.includes('marcar @Ana Paula @Carla') && !cmd.includes("@Bruno") && cmd.includes("marcar @Diego - Brisa"), "comando copiado só com os @ ligados");
+check(cmd.includes("marcar @Ana Paula @Carla") && !cmd.includes("@Bruno") && !cmd.includes("Brisa"), "comando copiado só com os @ ligados");
 
-// Editar o envio mostra os desligados de volta
+// Mudou em "Grupos e @": o envio puxa a última configuração
+await page.getByRole("button", { name: "Grupos e @ dos clientes" }).click();
+await page.getByTestId("envio-padrao").first().getByRole("switch", { name: "Marcar Bruno em Loja Aurora" }).click();
+await page.getByText("3 de 3 marcado(s)").waitFor();
+await page.getByRole("button", { name: "Envios", exact: true }).click();
+await page.getByRole("button", { name: "Copiar comando de Feedback mensal" }).click();
+check((await page.evaluate(() => navigator.clipboard.readText())).includes("marcar @Ana Paula @Bruno @Carla"), "envio sempre usa a última configuração");
+
+// Editar o envio: Brisa aparece desligada (não estava no envio)
 await page.getByRole("button", { name: "Editar Feedback mensal" }).click();
-check(await page.getByTestId("envio-form").getByRole("switch", { name: "Marcar Bruno" }).getAttribute("aria-checked") === "false", "editar mostra quem está desligado");
+check(!(await page.getByTestId("envio-form").getByLabel("Incluir Loja Brisa").isChecked()) && await page.getByTestId("envio-form").getByLabel("Incluir Loja Aurora").isChecked(),
+  "editar mostra quem está ligado e desligado");
 await page.getByTestId("envio-form").getByRole("button", { name: "Cancelar" }).click();
 
 await page.goto(`${BASE}/operacoes/envios`);

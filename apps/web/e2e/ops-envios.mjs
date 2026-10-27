@@ -21,10 +21,38 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
   check(tabs.includes("Envios semanais"), "aba Envios semanais na Central (admin)");
 
+  // 41.4: o grupo e os @ ficam em "Grupos e @ dos clientes" (o envio só liga/desliga cada cliente)
+  await page.getByRole("button", { name: "Grupos e @ dos clientes" }).click();
+  const novoPadrao = async (cliente) => {
+    await page.getByLabel("Adicionar cliente").selectOption({ label: cliente });
+    await page.getByRole("button", { name: "Adicionar", exact: true }).click();
+    return page.getByTestId("envio-padrao-form");
+  };
+  let pf = await novoPadrao("Loja Aurora");
+  await pf.getByRole("button", { name: "Salvar" }).click();
+  check((await pf.innerText()).includes('Informe o nome do grupo de "Loja Aurora".'), "nome do grupo obrigatório");
+  await pf.getByLabel("Nome do grupo").fill("Loja Aurora — Agência");
+  const add = (n) => pf.getByLabel("Adicionar pessoa para marcar em Loja Aurora").fill(n).then(() => pf.getByRole("button", { name: "Adicionar", exact: true }).click());
+  await add("Bruno");
+  await add("Ana Paula");
+  await pf.getByRole("button", { name: "Subir Ana Paula" }).click();
+  await add("11 98765-4321");
+  await pf.getByRole("button", { name: "Salvar" }).click();
+  check((await pf.innerText()).includes("não o telefone"), "telefone em Quem marcar é recusado");
+  await pf.getByRole("button", { name: "Tirar 11 98765-4321" }).click();
+  await pf.getByRole("button", { name: "Salvar" }).click();
+  await pf.waitFor({ state: "detached" });
+  pf = await novoPadrao("Loja Brisa");
+  await pf.getByLabel("Nome do grupo").fill("Brisa | Agência");
+  await pf.getByRole("button", { name: "Salvar" }).click();
+  await pf.waitFor({ state: "detached" });
+  await page.getByRole("button", { name: "Envios", exact: true }).click();
+
   // Validação: mensagem e cliente obrigatórios
   await page.getByRole("button", { name: "Novo envio" }).click();
   const form = page.getByTestId("envio-form");
   await form.getByLabel("Nome do envio").fill("Feedback semanal");
+  await form.getByRole("button", { name: "Tirar todos" }).click();
   await form.getByRole("button", { name: "Salvar" }).click();
   let errs = await page.getByTestId("envio-errors").innerText();
   check(errs.includes("Escreva a mensagem.") && errs.includes("Escolha pelo menos um cliente.") && errs.includes("Escolha o dia da semana."),
@@ -37,34 +65,20 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   await form.getByLabel("Dia da semana").selectOption({ label: "Sexta-feira" });
   await form.getByLabel("Horário (Brasília)").fill("10:30");
 
-  // Marcar cliente abre os campos; nome do grupo obrigatório
-  await form.getByLabel("Incluir Loja Aurora").check();
-  await form.getByRole("button", { name: "Salvar" }).click();
-  errs = await page.getByTestId("envio-errors").innerText();
-  check(errs.includes('Informe o nome do grupo de "Loja Aurora".'), "nome do grupo obrigatório");
-  await form.getByLabel("Nome do grupo").fill("Loja Aurora — Agência");
-  const add = (n) => form.getByLabel("Adicionar pessoa para marcar em Loja Aurora").fill(n).then(() => form.getByRole("button", { name: "Adicionar" }).click());
-  await add("Bruno");
-  await add("Ana Paula");
-  await form.getByRole("button", { name: "Subir Ana Paula" }).click();
-  await add("11 98765-4321");
-  await form.getByRole("button", { name: "Salvar" }).click();
-  errs = await page.getByTestId("envio-errors").innerText();
-  check(errs.includes("não o telefone"), "telefone em Quem marcar é recusado");
-  await form.getByRole("button", { name: "Tirar 11 98765-4321" }).click();
-
-  // Segundo cliente inativo
-  await form.getByLabel("Incluir Loja Brisa").check();
-  await form.getByLabel("Nome do grupo").nth(1).fill("Brisa | Agência");
-  await form.getByRole("switch", { name: "Loja Brisa ativo neste envio" }).click();
+  // Selecionar todos liga os dois; a lista mostra o grupo e os @ (só conferência); desligar a Brisa
+  await form.getByRole("button", { name: "Selecionar todos" }).click();
+  check(await form.getByLabel("Incluir Loja Aurora").isChecked() && await form.getByLabel("Incluir Loja Brisa").isChecked(), "Selecionar todos liga todos");
+  check((await form.getByTestId("envio-cliente").first().innerText()).includes("Loja Aurora — Agência · @Ana Paula @Bruno") && await form.getByLabel("Nome do grupo").count() === 0,
+    "lista só para ligar/desligar: grupo e @ aparecem para conferência, sem campos");
+  await form.getByLabel("Incluir Loja Brisa").uncheck();
   await page.screenshot({ path: `${SHOTS}/envios-formulario.png` });
   await form.getByRole("button", { name: "Salvar" }).click();
   await page.getByTestId("envio-card").waitFor();
   const saved = db.opsEnvios[0];
   const ca = db.opsEnvioClientes.find((c) => c.cliente_id === LOJA_A);
-  const cb = db.opsEnvioClientes.find((c) => c.cliente_id === LOJA_B);
   check(saved.mensagem === "Oi, pessoal! 👋\n*Como foi a semana?*" && saved.dia_semana === 5 && saved.horario === "10:30", "envio salvo com a mensagem exata, sexta 10:30");
-  check(JSON.stringify(ca.contatos_marcar) === JSON.stringify(["Ana Paula", "Bruno"]) && ca.ativo && !cb.ativo, "ordem de quem marcar e cliente inativo guardados");
+  check(JSON.stringify(ca.contatos_marcar) === JSON.stringify(["Ana Paula", "Bruno"]) && ca.ativo && !db.opsEnvioClientes.some((c) => c.cliente_id === LOJA_B),
+    "ordem de quem marcar guardada; cliente desligado não entra no envio novo");
   const card = await page.getByTestId("envio-card").innerText();
   check(card.includes("Sexta-feira às 10:30") && card.includes("1 grupo(s) ativo(s)"), "card com dia, horário e grupos ativos");
 
@@ -76,12 +90,18 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
     && !cmd.includes("Brisa"), "comando copiado com a mensagem e só os grupos ativos");
   await page.screenshot({ path: `${SHOTS}/envios-lista.png` });
 
-  // Editar: tirar a Loja Brisa fica guardado (não apaga)
+  // Editar: ligar a Brisa e depois desligar — fica guardada no envio (não apaga)
+  await page.getByRole("button", { name: "Editar Feedback semanal" }).click();
+  await page.getByTestId("envio-form").getByLabel("Incluir Loja Brisa").check();
+  await page.getByTestId("envio-form").getByRole("button", { name: "Salvar" }).click();
+  await page.getByTestId("envio-form").waitFor({ state: "detached" });
+  await page.getByText("2 grupo(s) ativo(s)").waitFor();
   await page.getByRole("button", { name: "Editar Feedback semanal" }).click();
   await page.getByTestId("envio-form").getByLabel("Incluir Loja Brisa").uncheck();
   await page.getByTestId("envio-form").getByRole("button", { name: "Salvar" }).click();
   await page.getByTestId("envio-form").waitFor({ state: "detached" });
-  check(Boolean(db.opsEnvioClientes.find((c) => c.cliente_id === LOJA_B).removido_em) && db.opsEnvios[0].versao === 2, "cliente tirado fica marcado; versão sobe");
+  const cb = db.opsEnvioClientes.find((c) => c.cliente_id === LOJA_B);
+  check(cb && !cb.ativo && !cb.removido_em && db.opsEnvios[0].versao === 3, "cliente desligado fica guardado no envio; versão sobe");
 
   // Histórico: execução registrada pelo agente aparece "via Claude (MCP)"
   db.opsEnvioExecucoes.push({ id: 1, envio_id: saved.id, cliente_id: LOJA_A, executado_em: new Date().toISOString(), status: "enviado",

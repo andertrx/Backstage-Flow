@@ -49,8 +49,12 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
     ...e, ...situacao(e), criado_por_nome: name(e.criado_por), atualizado_por_nome: name(e.atualizado_por), toca_hoje: e.dia_semana === now.dow,
     clientes: db.opsEnvioClientes.filter((c) => c.envio_id === e.id && !c.removido_em && (!soAtivos || c.ativo)).map((c) => {
       const ex = db.opsEnvioExecucoes.filter((x) => x.envio_id === e.id && x.cliente_id === c.cliente_id).sort((a, b) => b.executado_em.localeCompare(a.executado_em));
-      const off = c.contatos_desligados ?? [];
-      return { ...c, cliente_nome: clientName(c.cliente_id), contatos_marcar: c.contatos_marcar.filter((n) => !off.includes(n)), contatos: contatosJson(c.contatos_marcar, off),
+      // 41.4: grupo e @ vêm sempre da configuração atual do cliente (Grupos e @), quando existe
+      const pd = db.opsEnvioPadroes.find((x) => x.cliente_id === c.cliente_id);
+      const names = pd ? pd.contatos_marcar : c.contatos_marcar;
+      const off = (pd ? pd.contatos_desligados : c.contatos_desligados) ?? [];
+      return { ...c, cliente_nome: clientName(c.cliente_id), nome_grupo: pd ? pd.nome_grupo : c.nome_grupo, tem_padrao: Boolean(pd),
+        contatos_marcar: names.filter((n) => !off.includes(n)), contatos: contatosJson(names, off),
         ultima_execucao: ex[0] ? { executado_em: ex[0].executado_em, status: ex[0].status, detalhe: ex[0].detalhe } : null,
         ja_enviado_nesta_semana: ex.some((x) => x.status === "enviado" && x.executado_em >= now.weekStart) };
     }).sort((a, b) => (a.cliente_nome ?? "").localeCompare(b.cliente_nome ?? "")),
@@ -136,6 +140,7 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
       if (!db.clients.some((x) => x.id === c.cliente_id)) return bad("Cliente não encontrado.");
       if (seen.has(c.cliente_id)) return bad("Um cliente aparece duas vezes no envio.");
       seen.add(c.cliente_id);
+      if (db.opsEnvioPadroes.some((x) => x.cliente_id === c.cliente_id)) continue;
       if (!String(c.nome_grupo ?? "").trim()) return bad(`Informe o nome do grupo de "${clientName(c.cliente_id)}".`);
       const names = cleanNames(c.contatos_marcar);
       if (names.length > 20) return bad("No máximo 20 pessoas para marcar por grupo.");
@@ -157,13 +162,16 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
       for (const c of db.opsEnvioClientes) if (c.envio_id === e.id && !c.removido_em && !seen.has(c.cliente_id)) Object.assign(c, { removido_em: t, ativo: false });
     }
     for (const c of clientes) {
-      const names = cleanNames(c.contatos_marcar);
-      const fields = { nome_grupo: c.nome_grupo.trim(), contatos_marcar: names, contatos_desligados: cleanOff(names, c.contatos_desligados),
-        ativo: c.ativo !== false, observacao: c.observacao?.trim() || null, removido_em: null, updated_at: t };
+      const pd = db.opsEnvioPadroes.find((x) => x.cliente_id === c.cliente_id);
+      const names = pd ? pd.contatos_marcar : cleanNames(c.contatos_marcar);
+      const ex0 = db.opsEnvioClientes.find((x) => x.envio_id === e.id && x.cliente_id === c.cliente_id);
+      const fields = { nome_grupo: pd ? pd.nome_grupo : c.nome_grupo.trim(), contatos_marcar: names,
+        contatos_desligados: pd ? pd.contatos_desligados : cleanOff(names, c.contatos_desligados), ativo: c.ativo !== false,
+        observacao: "observacao" in c ? c.observacao?.trim() || null : ex0?.observacao ?? null, removido_em: null, updated_at: t };
       const ex = db.opsEnvioClientes.find((x) => x.envio_id === e.id && x.cliente_id === c.cliente_id);
       if (ex) Object.assign(ex, fields);
       else db.opsEnvioClientes.push({ id: crypto.randomUUID(), envio_id: e.id, cliente_id: c.cliente_id, created_at: t, ...fields });
-      gravarPadrao(c.cliente_id, fields.nome_grupo, names, fields.contatos_desligados);
+      if (!pd) gravarPadrao(c.cliente_id, fields.nome_grupo, names, fields.contatos_desligados);
     }
     return res(200, e.id);
   }

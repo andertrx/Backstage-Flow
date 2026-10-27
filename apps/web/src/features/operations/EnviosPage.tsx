@@ -91,41 +91,51 @@ function ContactsEditor({ names, off, onChange, label }: {
   );
 }
 
-function EnvioFormModal({ envio, ctx, onClose }: { envio: OpsEnvio | null; ctx: TasksContext; onClose: () => void }) {
+function EnvioFormModal({ envio, onClose }: { envio: OpsEnvio | null; onClose: () => void }) {
   const [nome, setNome] = useState(envio?.nome ?? "");
   const [mensagem, setMensagem] = useState(envio?.mensagem ?? "");
   const [dia, setDia] = useState<number | null>(envio?.dia_semana ?? null);
   const [horario, setHorario] = useState(envio?.horario ?? "");
   const [ativo, setAtivo] = useState(envio?.ativo ?? true);
-  const [clientes, setClientes] = useState<EnvioClienteInput[]>(() => (envio?.clientes ?? []).map((c) => ({
-    cliente_id: c.cliente_id, nome_grupo: c.nome_grupo, ativo: c.ativo, observacao: c.observacao ?? "",
-    contatos_marcar: c.contatos ? c.contatos.map((x) => x.nome) : c.contatos_marcar,
-    contatos_desligados: (c.contatos ?? []).filter((x) => !x.ativo).map((x) => x.nome) })));
   const padroes = useEnvioPadroes();
+  // 41.4: no envio só se liga/desliga cada cliente; o grupo e os @ vêm sempre de "Grupos e @" (editados à parte)
+  const [ligado, setLigado] = useState<Record<string, boolean>>(() => Object.fromEntries((envio?.clientes ?? []).map((c) => [c.cliente_id, c.ativo])));
+  const [iniciado, setIniciado] = useState(Boolean(envio));
+  const [editando, setEditando] = useState<{ id: string; nome: string } | null>(null);
   const [busca, setBusca] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const save = useSaveEnvio();
-  const clientName = (id: string) => ctx.directory.clients.find((c) => c.id === id)?.name ?? envio?.clientes.find((c) => c.cliente_id === id)?.cliente_nome ?? "cliente";
-  const allClients = useMemo(() => {
-    const list = ctx.directory.clients.map((c) => ({ id: c.id, name: c.name }));
-    for (const c of envio?.clientes ?? []) if (!list.some((x) => x.id === c.cliente_id)) list.push({ id: c.cliente_id, name: c.cliente_nome });
-    return list.sort((a, b) => a.name.localeCompare(b.name));
-  }, [ctx.directory.clients, envio]);
+  // Envio novo: começa com todos os clientes que têm grupo salvo, ligados
+  if (!iniciado && padroes.data) {
+    setIniciado(true);
+    setLigado(Object.fromEntries(padroes.data.map((x) => [x.cliente_id, true])));
+  }
+  /** Lista do envio: todos com grupo salvo + os que já estão no envio (casos antigos sem grupo salvo). */
+  const linhas = useMemo(() => {
+    const out = (padroes.data ?? []).map((x) => ({ cliente_id: x.cliente_id, nome: x.cliente_nome, nome_grupo: x.nome_grupo,
+      contatos: x.contatos, padrao: x as OpsEnvioPadrao | null }));
+    for (const c of envio?.clientes ?? []) {
+      if (!out.some((x) => x.cliente_id === c.cliente_id)) {
+        out.push({ cliente_id: c.cliente_id, nome: c.cliente_nome, nome_grupo: c.nome_grupo,
+          contatos: c.contatos ?? c.contatos_marcar.map((nome) => ({ nome, ativo: true })), padrao: null });
+      }
+    }
+    return out.sort((x, y) => x.nome.localeCompare(y.nome));
+  }, [padroes.data, envio]);
   const q = busca.trim().toLowerCase();
-  const shown = allClients.filter((c) => !q || c.name.toLowerCase().includes(q) || clientes.some((x) => x.cliente_id === c.id));
-  const patch = (id: string, v: Partial<EnvioClienteInput>) => setClientes((cs) => cs.map((c) => (c.cliente_id === id ? { ...c, ...v } : c)));
-  // 41.3: cliente marcado já vem com o grupo e os @ padrão dele
-  const toggle = (id: string, on: boolean) => {
-    const pd = padroes.data?.find((x) => x.cliente_id === id);
-    setClientes((cs) => on ? [...cs, { cliente_id: id, nome_grupo: pd?.nome_grupo ?? "", contatos_marcar: pd?.contatos.map((x) => x.nome) ?? [],
-      contatos_desligados: pd?.contatos.filter((x) => !x.ativo).map((x) => x.nome) ?? [], ativo: true, observacao: "" }] : cs.filter((c) => c.cliente_id !== id));
-  };
+  const shown = linhas.filter((c) => !q || c.nome.toLowerCase().includes(q) || c.nome_grupo.toLowerCase().includes(q));
+  const ligados = linhas.filter((c) => ligado[c.cliente_id]).length;
+  const setTodos = (on: boolean) => setLigado(Object.fromEntries(linhas.map((c) => [c.cliente_id, on])));
+  const clientName = (id: string) => linhas.find((c) => c.cliente_id === id)?.nome ?? "cliente";
+  // Vão para o envio: os ligados e os que já estavam nele (desligado fica guardado, não some)
+  const clientes: EnvioClienteInput[] = linhas
+    .filter((c) => ligado[c.cliente_id] || envio?.clientes.some((x) => x.cliente_id === c.cliente_id))
+    .map((c) => ({ cliente_id: c.cliente_id, ativo: Boolean(ligado[c.cliente_id]), nome_grupo: c.nome_grupo,
+      contatos_marcar: c.contatos.map((x) => x.nome), contatos_desligados: c.contatos.filter((x) => !x.ativo).map((x) => x.nome) }));
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const input = { nome, mensagem, dia_semana: dia, horario, ativo,
-      clientes: clientes.map((c) => ({ ...c, contatos_marcar: cleanContacts(c.contatos_marcar), contatos_desligados: cleanDesligados(c.contatos_marcar, c.contatos_desligados),
-        observacao: c.observacao?.trim() || null })) };
+    const input = { nome, mensagem, dia_semana: dia, horario, ativo, clientes };
     const found = validateEnvio(input, clientName);
     setErrors(found.map((x) => x.message));
     if (found.length) return;
@@ -160,55 +170,47 @@ function EnvioFormModal({ envio, ctx, onClose }: { envio: OpsEnvio | null; ctx: 
         </div>
 
         <fieldset className="space-y-3">
-          <legend className="text-sm font-semibold text-slate-800">Clientes e grupos ({clientes.filter((c) => c.ativo).length} ativo(s))</legend>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden />
-            <Input aria-label="Buscar cliente" placeholder="Buscar cliente" className="pl-9" value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <legend className="text-sm font-semibold text-slate-800">Clientes ({ligados} de {linhas.length} ligados)</legend>
+          <p className="text-xs text-slate-500">Aqui você só liga ou desliga cada cliente. O grupo e os @ vêm sempre da configuração atual em "Grupos e @ dos clientes"; use Editar para mudar.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-48 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden />
+              <Input aria-label="Buscar cliente" placeholder="Buscar cliente ou grupo" className="pl-9" value={busca} onChange={(e) => setBusca(e.target.value)} />
+            </div>
+            <Button type="button" variant="secondary" onClick={() => setTodos(true)} disabled={linhas.length === 0}>Selecionar todos</Button>
+            <Button type="button" variant="secondary" onClick={() => setTodos(false)} disabled={ligados === 0}>Tirar todos</Button>
           </div>
-          <ul className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
-            {shown.map((c) => {
-              const sel = clientes.find((x) => x.cliente_id === c.id);
-              return (
-                <li key={c.id} className={cn("rounded-xl ring-1", sel ? "bg-blue-50/40 ring-blue-200" : "ring-slate-200")} data-testid="envio-cliente">
-                  <label className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm font-medium text-slate-800">
-                    <input type="checkbox" checked={Boolean(sel)} onChange={(e) => toggle(c.id, e.target.checked)} aria-label={`Incluir ${c.name}`} />
-                    <span className="flex-1">{c.name}</span>
-                    {!sel && padroes.data?.some((x) => x.cliente_id === c.id) && <span className="text-xs font-normal text-slate-500">grupo e @ salvos</span>}
-                    {sel && !sel.ativo && <Badge>Inativo neste envio</Badge>}
-                  </label>
-                  {sel && (
-                    <div className="grid gap-3 border-t border-blue-100 px-3 py-3 md:grid-cols-2">
-                      <Field label="Nome do grupo" hint="Exatamente como aparece no WhatsApp.">
-                        {(id) => <Input id={id} value={sel.nome_grupo} maxLength={ENVIO_LIMITS.grupo} onChange={(e) => patch(c.id, { nome_grupo: e.target.value })} />}
-                      </Field>
-                      <div className="space-y-1.5">
-                        <p className="text-sm font-medium text-slate-700">Quem marcar (na ordem)</p>
-                        <ContactsEditor names={sel.contatos_marcar} off={sel.contatos_desligados ?? []} label={c.name}
-                          onChange={(v) => patch(c.id, { contatos_marcar: v.names, contatos_desligados: v.off })} />
-                        <p className="text-xs text-slate-500">Só o nome, como na lista de participantes do grupo. Telefone não é guardado. Desligado fica guardado, mas não é marcado.</p>
-                      </div>
-                      <Field label="Observação (opcional)">
-                        {(id) => <Input id={id} value={sel.observacao ?? ""} maxLength={ENVIO_LIMITS.observacao} onChange={(e) => patch(c.id, { observacao: e.target.value })} />}
-                      </Field>
-                      <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
-                        <Switch checked={sel.ativo} onChange={(v) => patch(c.id, { ativo: v })} label={`${c.name} ativo neste envio`} /> {sel.ativo ? "Ativo neste envio" : "Inativo (fica guardado)"}
-                      </label>
+          {padroes.isLoading ? <div className="h-32 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" /> : (
+            <ul className="max-h-[28rem] divide-y divide-slate-100 overflow-y-auto rounded-xl ring-1 ring-slate-200">
+              {shown.map((c) => {
+                const on = Boolean(ligado[c.cliente_id]);
+                const marcar = c.contatos.filter((x) => x.ativo).map((x) => `@${x.nome}`);
+                return (
+                  <li key={c.cliente_id} className={cn("flex items-center gap-3 px-3 py-2", on ? "bg-blue-50/40" : "bg-white")} data-testid="envio-cliente">
+                    <input type="checkbox" checked={on} onChange={(e) => setLigado((v) => ({ ...v, [c.cliente_id]: e.target.checked }))} aria-label={`Incluir ${c.nome}`} />
+                    <div className={cn("min-w-0 flex-1", !on && "opacity-60")}>
+                      <p className="text-sm font-medium text-slate-800">{c.nome}</p>
+                      <p className="truncate text-xs text-slate-500">{c.nome_grupo} · {marcar.length ? marcar.join(" ") : "sem marcação"}</p>
                     </div>
-                  )}
-                </li>
-              );
-            })}
-            {shown.length === 0 && <li className="p-4 text-center text-sm text-slate-500">Nenhum cliente encontrado.</li>}
-          </ul>
+                    <Button type="button" variant="ghost" className="px-2 py-1 text-xs" onClick={() => setEditando({ id: c.cliente_id, nome: c.nome })}
+                      aria-label={`Editar grupo e @ de ${c.nome}`}><Pencil className="size-3.5" aria-hidden /> Editar</Button>
+                  </li>
+                );
+              })}
+              {shown.length === 0 && <li className="p-4 text-center text-sm text-slate-500">{linhas.length ? "Nenhum cliente encontrado." : "Nenhum cliente com grupo salvo. Cadastre em \"Grupos e @ dos clientes\"."}</li>}
+            </ul>
+          )}
+          <p className="text-xs text-slate-500">Cliente que não aparece aqui: cadastre o grupo dele em "Grupos e @ dos clientes".</p>
         </fieldset>
 
-        <p className="text-xs text-slate-500">Ao salvar, o grupo e os @ de cada cliente ficam guardados como padrão dele: o próximo envio já vem preenchido.</p>
         {errors.length > 0 && <Alert tone="error"><ul className="list-disc space-y-0.5 pl-4" data-testid="envio-errors">{errors.map((m) => <li key={m}>{m}</li>)}</ul></Alert>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button type="submit" loading={save.isPending}>Salvar</Button>
         </div>
       </form>
+      {editando && <PadraoFormModal clienteId={editando.id} clienteNome={editando.nome} padrao={padroes.data?.find((x) => x.cliente_id === editando.id) ?? null}
+        onClose={() => setEditando(null)} />}
     </Modal>
   );
 }
@@ -555,7 +557,7 @@ export function EnviosPage() {
           </Card>
         ) : <div className="space-y-3">{envios.map((e) => <EnvioCard key={e.id} envio={e} onEdit={() => setEditing(e)} />)}</div>}
       <p className="text-xs text-slate-500">Dias e horários no fuso de Brasília. Só nomes são guardados (grupo e pessoas a marcar), nunca telefone.</p>
-      {editing !== undefined && <EnvioFormModal envio={editing} ctx={ctx} onClose={() => setEditing(undefined)} />}
+      {editing !== undefined && <EnvioFormModal envio={editing} onClose={() => setEditing(undefined)} />}
     </div>
   );
 }

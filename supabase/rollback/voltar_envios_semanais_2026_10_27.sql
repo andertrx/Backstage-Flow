@@ -15,3 +15,6 @@ revoke select on table public.ops_envio_aprovacoes from authenticated;
 -- Salvar um envio continua gravando o padrão do cliente (inofensivo); o MCP continua recebendo só os @ ligados.
 revoke execute on function public.ops_envio_padroes(), public.ops_envio_padrao_save(uuid, jsonb) from authenticated;
 revoke select on table public.ops_envio_padroes from authenticated;
+
+-- Etapa 41.4 (envio usa sempre a configuração de "Grupos e @"): sem tabela nem permissão nova. Para voltar ao comportamento da 41.3,
+-- reaplicar as definições de private.envio_json e private.ops_envio_save_impl de 20261027225456_envios_padroes.sql.
