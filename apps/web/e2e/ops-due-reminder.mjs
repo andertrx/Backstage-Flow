@@ -81,6 +81,8 @@ const pushStub = () => {
     "às 17h aparece de novo (e não oferece ativar: o aparelho já está ativo)");
   await pop.getByRole("button", { name: "Abrir" }).click();
   await page.waitForURL(`**/operacoes/tarefas?tarefa=${t2.id}`);
+  // O "visto" é gravado junto com a navegação: espera o pedido chegar (até 3 s) antes de conferir.
+  for (let i = 0; i < 30 && !db.dueSeen.includes(`${USER_ID}:2026-10-26:17`); i++) await page.waitForTimeout(100);
   check(db.dueSeen.includes(`${USER_ID}:2026-10-26:17`), "Abrir também conta como visto e leva para a tarefa");
 
   // Notificações: card do aparelho, teste e desativar
