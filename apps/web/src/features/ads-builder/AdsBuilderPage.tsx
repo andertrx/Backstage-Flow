@@ -3,7 +3,7 @@ import {
   DISTRIBUICAO_LABELS, faixaAviso, IA_RECURSOS, type IaRecurso, nomeAnuncio, resizeMapeamento, validateAdsBuilder,
 } from "@backstage/shared";
 import { AlertTriangle, Check, Copy, CopyPlus, FolderOpen, History, Plus, Save, Search, Trash2, Wand2, X } from "lucide-react";
-import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import {
-  type AdsPedido, type Opcao, useAdSetOptions, useAddAdsPedido, useAdsModelos, useAdsPedidos, useArchiveAdsModelo, useCampaignOptions, useMetaAccounts,
+  type AdsPedido, contaLabel, useAdSetOptions, useAddAdsPedido, useAdsModelos, useAdsPedidos, useArchiveAdsModelo, useCampaignOptions, useMetaAccounts,
   useSaveAdsModelo,
 } from "./api.ts";
 
@@ -43,23 +43,6 @@ function Section({ n, title, hint, children }: { n: number; title: string; hint?
       </div>
       {children}
     </Card>
-  );
-}
-
-/** Campo de texto com sugestões (lista do CRM) — dá para digitar qualquer coisa. */
-function SuggestInput({ label, value, onChange, options, placeholder, hint }: {
-  label: string; value: string; onChange: (v: string) => void; options: Opcao[]; placeholder?: string; hint?: ReactNode;
-}) {
-  const listId = useId();
-  return (
-    <Field label={label} hint={hint}>
-      {(id) => (
-        <>
-          <Input id={id} list={listId} value={value} placeholder={placeholder} maxLength={300} autoComplete="off" onChange={(e) => onChange(e.target.value)} />
-          <datalist id={listId}>{options.map((o) => <option key={o.id} value={o.label} />)}</datalist>
-        </>
-      )}
-    </Field>
   );
 }
 
@@ -105,16 +88,103 @@ function CopyButton({ text, label = "Copiar", testId }: { text: string; label?: 
   );
 }
 
+// ---------------------------------------------------------------- 42.1: onde criar (listas do CRM em cascata)
+
+const STATUS_SUFIXO: Record<string, string> = { pausada: " (pausada)", encerrada: " (encerrada)", erro: " (com erro)", desconhecida: "" };
+const vazio = { conta_ref: "", conta: "", campanha_ref: "", campanha: "", campanha_meta_id: "", conjunto_ref: "", conjunto: "", conjunto_meta_id: "" };
+
+function OndeCriar({ form, set }: { form: AdsBuilderForm; set: (patch: Partial<AdsBuilderForm>) => void }) {
+  const contas = useMetaAccounts();
+  const [manual, setManual] = useState(() => Boolean(form.conta && !form.conta_ref));
+  const all = contas.data ?? [];
+  const clientes = useMemo(() => [...new Map(all.map((a) => [a.client_id, a.client_name])).entries()].sort((x, y) => x[1].localeCompare(y[1])), [all]);
+  const clienteId = all.find((a) => a.id === form.conta_ref)?.client_id ?? clientes.find(([, n]) => n === form.cliente)?.[0] ?? "";
+  const doCliente = all.filter((a) => a.client_id === clienteId);
+  const bms = [...new Set(doCliente.map((a) => a.business_name ?? "Sem Business Manager"))].sort();
+  const bm = form.bm && bms.includes(form.bm) ? form.bm : bms.length === 1 ? bms[0] : "";
+  const contasBm = doCliente.filter((a) => (a.business_name ?? "Sem Business Manager") === bm);
+  const campanhas = useCampaignOptions(form.conta_ref || null);
+  const conjuntos = useAdSetOptions(form.campanha_ref || null);
+
+  function escolherConta(id: string) {
+    const a = all.find((x) => x.id === id);
+    set({ ...vazio, conta_ref: id, conta: a ? contaLabel(a) : "" });
+  }
+  function escolherCliente(id: string) {
+    const daqui = all.filter((a) => a.client_id === id);
+    const unicaBm = [...new Set(daqui.map((a) => a.business_name ?? "Sem Business Manager"))];
+    const unicaConta = daqui.length === 1 ? daqui[0] : null;
+    set({ ...vazio, cliente: clientes.find(([cid]) => cid === id)?.[1] ?? "", bm: unicaBm.length === 1 ? unicaBm[0] : "",
+      ...(unicaConta ? { conta_ref: unicaConta.id, conta: contaLabel(unicaConta) } : {}) });
+  }
+
+  if (manual) {
+    return (
+      <div className="space-y-3">
+        <div className="grid gap-4 md:grid-cols-3">
+          <Field label="Conta de anúncios (nome ou ID)">{(id) => <Input id={id} value={form.conta} maxLength={300} placeholder="Ex.: Loja Aurora (act_123…)" onChange={(e) => set({ conta: e.target.value, conta_ref: "" })} />}</Field>
+          <Field label="Campanha de destino (nome completo)">{(id) => <Input id={id} value={form.campanha} maxLength={300} onChange={(e) => set({ campanha: e.target.value, campanha_ref: "", campanha_meta_id: "" })} />}</Field>
+          <Field label="Conjunto de destino (nome completo)">{(id) => <Input id={id} value={form.conjunto} maxLength={300} onChange={(e) => set({ conjunto: e.target.value, conjunto_ref: "", conjunto_meta_id: "" })} />}</Field>
+        </div>
+        <Button type="button" variant="ghost" className="px-2 py-1 text-xs text-blue-700" onClick={() => { setManual(false); set({ ...vazio, cliente: "", bm: "" }); }}>Escolher nas listas do CRM</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {contas.error ? <Alert tone="error">{errorMessage(contas.error)}</Alert> : null}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Field label="Cliente">{(id) => (
+          <Select id={id} value={clienteId} disabled={contas.isLoading} onChange={(e) => escolherCliente(e.target.value)}>
+            <option value="">{contas.isLoading ? "Carregando…" : `Escolha… (${clientes.length})`}</option>
+            {clientes.map(([cid, n]) => <option key={cid} value={cid}>{n}</option>)}
+          </Select>
+        )}</Field>
+        <Field label="Business Manager (BM)">{(id) => (
+          <Select id={id} value={bm} disabled={!clienteId} onChange={(e) => set({ ...vazio, bm: e.target.value })}>
+            <option value="">Escolha…</option>
+            {bms.map((b) => <option key={b} value={b}>{b}</option>)}
+          </Select>
+        )}</Field>
+        <Field label="Conta de anúncios">{(id) => (
+          <Select id={id} value={form.conta_ref} disabled={!bm} onChange={(e) => escolherConta(e.target.value)}>
+            <option value="">Escolha…</option>
+            {contasBm.map((a) => <option key={a.id} value={a.id}>{contaLabel(a)}</option>)}
+          </Select>
+        )}</Field>
+        <Field label="Campanha de destino" hint={form.conta_ref && campanhas.data ? `${campanhas.data.length} campanha(s); as ativas primeiro.` : undefined}>{(id) => (
+          <Select id={id} value={form.campanha_ref} disabled={!form.conta_ref || campanhas.isLoading} onChange={(e) => {
+            const c = campanhas.data?.find((x) => x.id === e.target.value);
+            set({ campanha_ref: e.target.value, campanha: c?.name ?? "", campanha_meta_id: c?.external_id ?? "", conjunto_ref: "", conjunto: "", conjunto_meta_id: "" });
+          }}>
+            <option value="">{campanhas.isLoading ? "Carregando…" : "Escolha…"}</option>
+            {(campanhas.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}{STATUS_SUFIXO[c.status] ?? ""}</option>)}
+          </Select>
+        )}</Field>
+        <Field label="Conjunto de destino" hint={form.campanha_ref && conjuntos.data ? `${conjuntos.data.length} conjunto(s); os ativos primeiro.` : undefined}>{(id) => (
+          <Select id={id} value={form.conjunto_ref} disabled={!form.campanha_ref || conjuntos.isLoading} onChange={(e) => {
+            const g = conjuntos.data?.find((x) => x.id === e.target.value);
+            set({ conjunto_ref: e.target.value, conjunto: g?.name ?? "", conjunto_meta_id: g?.external_id ?? "" });
+          }}>
+            <option value="">{conjuntos.isLoading ? "Carregando…" : "Escolha…"}</option>
+            {(conjuntos.data ?? []).map((g) => <option key={g.id} value={g.id}>{g.name}{STATUS_SUFIXO[g.status] ?? ""}</option>)}
+          </Select>
+        )}</Field>
+      </div>
+      <p className="text-xs text-slate-500">
+        Não achou a campanha ou o conjunto (ex.: criado agora no Meta, antes da próxima sincronização)?{" "}
+        <button type="button" className="font-medium text-blue-700 hover:underline" onClick={() => setManual(true)}>Digitar à mão</button>
+      </p>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- formulário
 
 function Formulario({ form, set, origem, onClearOrigem }: {
   form: AdsBuilderForm; set: (patch: Partial<AdsBuilderForm>) => void; origem: AdsPedido | null; onClearOrigem: () => void;
 }) {
-  const contas = useMetaAccounts();
-  const contaId = contas.data?.find((o) => o.label === form.conta.trim())?.id ?? null;
-  const campanhas = useCampaignOptions(contaId);
-  const campanhaId = campanhas.data?.find((o) => o.label === form.campanha.trim())?.id ?? null;
-  const conjuntos = useAdSetOptions(campanhaId);
   const [errors, setErrors] = useState<string[]>([]);
   const [pedido, setPedido] = useState<string | null>(null);
   const addPedido = useAddAdsPedido();
@@ -150,17 +220,11 @@ function Formulario({ form, set, origem, onClearOrigem }: {
         </Alert>
       )}
 
-      <Section n={1} title="Onde criar" hint="Escolha da lista (contas, campanhas e conjuntos que o CRM já tem do Meta) ou digite o nome completo.">
-        <div className="grid gap-4 md:grid-cols-2">
-          <SuggestInput label="Conta de anúncios (nome ou ID)" value={form.conta} onChange={(v) => set({ conta: v })} options={contas.data ?? []} placeholder="Ex.: Loja Aurora (act_123…)" />
-          <SuggestInput label="Campanha de destino (nome completo)" value={form.campanha} onChange={(v) => set({ campanha: v })} options={campanhas.data ?? []}
-            hint={contaId ? `${campanhas.data?.length ?? 0} campanha(s) desta conta no CRM.` : undefined} />
-          <SuggestInput label="Conjunto de destino (nome completo)" value={form.conjunto} onChange={(v) => set({ conjunto: v })} options={conjuntos.data ?? []}
-            hint={campanhaId ? `${conjuntos.data?.length ?? 0} conjunto(s) desta campanha no CRM.` : undefined} />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Página do Facebook">{(id) => <Input id={id} value={form.pagina} maxLength={200} onChange={(e) => set({ pagina: e.target.value })} />}</Field>
-            <Field label="Perfil do Instagram">{(id) => <Input id={id} value={form.instagram} maxLength={200} placeholder="@perfil" onChange={(e) => set({ instagram: e.target.value })} />}</Field>
-          </div>
+      <Section n={1} title="Onde criar" hint="Escolha nas listas do CRM (as contas do Meta que você já tem conectadas): cliente → BM → conta → campanha → conjunto.">
+        <OndeCriar form={form} set={set} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Página do Facebook">{(id) => <Input id={id} value={form.pagina} maxLength={200} onChange={(e) => set({ pagina: e.target.value })} />}</Field>
+          <Field label="Perfil do Instagram">{(id) => <Input id={id} value={form.instagram} maxLength={200} placeholder="@perfil" onChange={(e) => set({ instagram: e.target.value })} />}</Field>
         </div>
       </Section>
 

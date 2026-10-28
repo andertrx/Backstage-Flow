@@ -86,25 +86,53 @@ export function useAddAdsPedido() {
   });
 }
 
-// ---------------------------------------------------------------- sugestões do que o CRM já tem do Meta
+// ---------------------------------------------------------------- listas do que o CRM já tem do Meta (42.1)
 
 export interface Opcao {
   id: string;
   label: string;
 }
 
-/** Contas do Meta que você pode ver (o RLS limita aos clientes liberados). */
+export interface MetaConta {
+  id: string;
+  name: string;
+  external_id: string;
+  client_id: string;
+  client_name: string;
+  business_id: string | null;
+  business_name: string | null;
+}
+
+export interface MetaItem {
+  id: string;
+  name: string;
+  external_id: string;
+  status: string;
+}
+
+/** Contas do Meta que você pode ver (o RLS limita aos clientes liberados), com o cliente e a BM. */
 export function useMetaAccounts() {
   return useQuery({
     queryKey: [...KEY, "contas"],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.from("ad_accounts").select("id, name, external_id").eq("platform_id", "meta").is("unlinked_at", null).order("name").limit(500);
-      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as contas."));
-      return ((data ?? []) as { id: string; name: string; external_id: string }[]).map((a) => ({ id: a.id, label: `${a.name} (act_${a.external_id})` }));
+      const [a, c] = await Promise.all([
+        supabase.from("ad_accounts").select("id, name, external_id, client_id, business_id, business_name").eq("platform_id", "meta").is("unlinked_at", null).order("name").limit(1000),
+        supabase.from("clients").select("id, name").is("excluded_at", null).order("name").limit(1000),
+      ]);
+      if (a.error || c.error) throw new FriendlyError(friendlyDbError((a.error ?? c.error)!, "Não conseguimos carregar as contas."));
+      const names = new Map(((c.data ?? []) as { id: string; name: string }[]).map((x) => [x.id, x.name]));
+      return ((a.data ?? []) as Omit<MetaConta, "client_name">[])
+        .filter((x) => names.has(x.client_id))
+        .map((x) => ({ ...x, client_name: names.get(x.client_id) as string }));
     },
   });
 }
+
+/** Rótulo da conta no pedido: "Nome (act_123)". */
+export const contaLabel = (a: Pick<MetaConta, "name" | "external_id">) => `${a.name} (act_${a.external_id})`;
+
+const ativoPrimeiro = (rows: MetaItem[]) => [...rows].sort((x, y) => Number(y.status === "ativa") - Number(x.status === "ativa") || x.name.localeCompare(y.name));
 
 export function useCampaignOptions(accountId: string | null) {
   return useQuery({
@@ -112,9 +140,9 @@ export function useCampaignOptions(accountId: string | null) {
     enabled: !!accountId,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.from("campaigns").select("id, name").eq("ad_account_id", accountId!).order("name").limit(500);
+      const { data, error } = await supabase.from("campaigns").select("id, name, external_id, status").eq("ad_account_id", accountId!).order("name").limit(1000);
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as campanhas."));
-      return ((data ?? []) as { id: string; name: string }[]).map((c) => ({ id: c.id, label: c.name }));
+      return ativoPrimeiro((data ?? []) as MetaItem[]);
     },
   });
 }
@@ -125,9 +153,9 @@ export function useAdSetOptions(campaignId: string | null) {
     enabled: !!campaignId,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.from("ad_groups").select("id, name").eq("campaign_id", campaignId!).order("name").limit(500);
+      const { data, error } = await supabase.from("ad_groups").select("id, name, external_id, status").eq("campaign_id", campaignId!).order("name").limit(1000);
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os conjuntos."));
-      return ((data ?? []) as { id: string; name: string }[]).map((c) => ({ id: c.id, label: c.name }));
+      return ativoPrimeiro((data ?? []) as MetaItem[]);
     },
   });
 }

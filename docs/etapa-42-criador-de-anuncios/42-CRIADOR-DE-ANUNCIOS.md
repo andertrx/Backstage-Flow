@@ -118,3 +118,21 @@ revoke select on table public.ads_builder_modelos, public.ads_builder_pedidos fr
 ```
 
 Depois, tirar o item do menu.
+
+## 42.1 — Escolher cliente, BM, conta, campanha e conjunto nas listas (28/10)
+**Pedido do Ander:** aproveitar as contas que o CRM já tem conectadas. Ele escolhe o cliente, a BM, a conta e o conjunto; depois preenche os anúncios.
+
+- **"Onde criar" virou uma escolha em cascata:** Cliente → Business Manager (BM) → Conta de anúncios → Campanha → Conjunto.
+  - As listas vêm do CRM: são as 31 contas do Meta conectadas, todas com a BM registrada, e as campanhas e conjuntos sincronizados.
+  - Cliente com uma só BM e uma só conta já vem com tudo escolhido.
+  - Trocar o cliente, a BM ou a conta limpa o que vem depois.
+  - Campanhas e conjuntos ativos aparecem primeiro; os pausados ou encerrados vêm marcados.
+- **O pedido leva também** "Cliente: … | BM: …" e o **ID do Meta** da campanha e do conjunto, assim o Claude acha exatamente onde criar.
+- **"Digitar à mão":** para campanha ou conjunto criados agora no Meta, antes da próxima sincronização. Mantém o que já estava escolhido.
+- **Duplicar do histórico** volta com as listas preenchidas: troque só o conjunto ou a campanha.
+- **Sem mudança no banco.** Os campos novos (cliente, BM e IDs) ficam dentro dos dados do pedido e do modelo.
+- **Testes:**
+  - regras: +1 (cliente, BM e IDs no pedido), 12 no total;
+  - navegador: BMs do cliente, conta só depois da BM, campanhas com as ativas primeiro, limpar ao trocar o cliente, ID no pedido, duplicar trocando o conjunto pela lista, digitar à mão.
+
+![Onde criar](criador-anuncios-onde-criar.png)

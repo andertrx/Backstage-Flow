@@ -6,17 +6,25 @@ import { BASE, check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
 const CLI = "c4200000-0000-4000-8000-0000000000c4";
 const ACC = "a4200000-0000-4000-8000-0000000000a4";
 const CAMP = "b4200000-0000-4000-8000-0000000000b4";
+const CLI2 = "c4200000-0000-4000-8000-0000000000c5";
+const ACC2 = "a4200000-0000-4000-8000-0000000000a5";
 const client = (id, name) => ({ id, name, company: null, cnpj: null, owner_name: null, phone: null, email: null, notes: null, status: "ativo",
   timezone: "America/Sao_Paulo", is_demo: false, created_at: "2026-09-01T10:00:00Z", updated_at: "2026-09-01T10:00:00Z" });
 
 function seed(db) {
   db.clients.push(client(CLI, "Loja Aurora"));
-  db.adAccounts.push({ id: ACC, platform_id: "meta", external_id: "111", client_id: CLI, name: "Loja Aurora", currency: "BRL", status: "ativa", unlinked_at: null });
-  db.campaigns.push(
-    { id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "c1", name: "[MSG] Aurora | Outubro", status: "ativa" },
-    { id: crypto.randomUUID(), ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "c2", name: "[LEADS] Aurora", status: "ativa" },
+  db.clients.push(client(CLI2, "Loja Brisa"));
+  db.adAccounts.push(
+    { id: ACC, platform_id: "meta", external_id: "111", client_id: CLI, name: "Loja Aurora", currency: "BRL", status: "ativa", unlinked_at: null, business_id: "9001", business_name: "BM Aurora" },
+    { id: ACC2, platform_id: "meta", external_id: "112", client_id: CLI, name: "Aurora Atacado", currency: "BRL", status: "ativa", unlinked_at: null, business_id: "9002", business_name: "BM Aurora 2" },
+    { id: crypto.randomUUID(), platform_id: "meta", external_id: "211", client_id: CLI2, name: "Loja Brisa", currency: "BRL", status: "ativa", unlinked_at: null, business_id: "9003", business_name: "BM Brisa" },
   );
-  db.adGroups.push({ id: crypto.randomUUID(), campaign_id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "g1", name: "Aberto 25-45", status: "ativa" });
+  db.campaigns.push(
+    { id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "120001", name: "[MSG] Aurora | Outubro", status: "ativa" },
+    { id: crypto.randomUUID(), ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "120002", name: "[LEADS] Aurora", status: "pausada" },
+  );
+  db.adGroups.push({ id: crypto.randomUUID(), campaign_id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "130001", name: "Aberto 25-45", status: "ativa" },
+    { id: crypto.randomUUID(), campaign_id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "130002", name: "Remarketing 7d", status: "ativa" });
 }
 
 // ---------------------------------------------------------------- Admin no computador
@@ -40,13 +48,27 @@ function seed(db) {
     "não gera sem conta, campanha, conjunto, pasta e texto");
   check(db.adsPedidos.length === 0, "nada guardado com erro");
 
-  // Onde criar: sugestões do CRM (conta → campanhas → conjuntos)
-  await form.getByLabel("Conta de anúncios (nome ou ID)").fill("Loja Aurora (act_111)");
-  await page.getByText("2 campanha(s) desta conta no CRM.").waitFor();
-  await form.getByLabel("Campanha de destino (nome completo)").fill("[MSG] Aurora | Outubro");
-  await page.getByText("1 conjunto(s) desta campanha no CRM.").waitFor();
-  check(await form.locator("datalist").nth(2).locator("option").getAttribute("value") === "Aberto 25-45", "sugere os conjuntos da campanha escolhida");
-  await form.getByLabel("Conjunto de destino (nome completo)").fill("Aberto 25-45");
+  // 42.1 — Onde criar: cliente → BM → conta → campanha → conjunto (listas do CRM)
+  await form.getByLabel("Cliente").selectOption({ label: "Loja Aurora" });
+  check(await form.getByLabel("Business Manager (BM)").locator("option").allInnerTexts().then((o) => o.join("|")) === "Escolha…|BM Aurora|BM Aurora 2", "BMs do cliente");
+  check(await form.getByLabel("Conta de anúncios").isDisabled(), "conta só depois de escolher a BM");
+  await form.getByLabel("Business Manager (BM)").selectOption("BM Aurora");
+  await form.getByLabel("Conta de anúncios").selectOption({ label: "Loja Aurora (act_111)" });
+  await page.getByText("2 campanha(s); as ativas primeiro.").waitFor();
+  check((await form.getByLabel("Campanha de destino").locator("option").allInnerTexts()).join("|") === "Escolha…|[MSG] Aurora | Outubro|[LEADS] Aurora (pausada)", "campanhas da conta, ativas primeiro e pausadas marcadas");
+  await form.getByLabel("Campanha de destino").selectOption({ label: "[MSG] Aurora | Outubro" });
+  await page.getByText("2 conjunto(s); os ativos primeiro.").waitFor();
+  await form.getByLabel("Conjunto de destino").selectOption({ label: "Aberto 25-45" });
+  await form.getByLabel("Cliente").selectOption({ label: "Loja Brisa" });
+  check(await form.getByLabel("Conta de anúncios").inputValue() !== "" && await form.getByLabel("Campanha de destino").inputValue() === "", "trocar o cliente limpa o resto (cliente com uma só BM e conta já vem escolhido)");
+  await form.getByLabel("Cliente").selectOption({ label: "Loja Aurora" });
+  await form.getByLabel("Business Manager (BM)").selectOption("BM Aurora");
+  await form.getByLabel("Conta de anúncios").selectOption({ label: "Loja Aurora (act_111)" });
+  await page.getByText("2 campanha(s); as ativas primeiro.").waitFor();
+  await form.getByLabel("Campanha de destino").selectOption({ label: "[MSG] Aurora | Outubro" });
+  await page.getByText("2 conjunto(s); os ativos primeiro.").waitFor();
+  await form.getByLabel("Conjunto de destino").selectOption({ label: "Aberto 25-45" });
+  await page.getByTestId("ads-secao-1").screenshot({ path: `${SHOTS}/criador-anuncios-onde-criar.png` });
   await form.getByLabel("Página do Facebook").fill("Loja Aurora");
   await form.getByLabel("Perfil do Instagram").fill("@lojaaurora");
 
@@ -88,7 +110,8 @@ function seed(db) {
   await page.getByRole("button", { name: "Gerar pedido" }).click();
   await page.getByTestId("ads-pedido").waitFor();
   const pedido = await page.getByTestId("ads-pedido").locator("pre").innerText();
-  check(pedido.startsWith("Crie anúncios no Meta Ads com os dados abaixo.") && pedido.includes("Conta: Loja Aurora (act_111) | Campanha: [MSG] Aurora | Outubro | Conjunto: Aberto 25-45")
+  check(pedido.startsWith("Crie anúncios no Meta Ads com os dados abaixo.") && pedido.includes("Conta: Loja Aurora (act_111) | Campanha:")
+    && pedido.includes("Cliente: Loja Aurora | BM: BM Aurora") && pedido.includes("Campanha: [MSG] Aurora | Outubro (ID 120001) | Conjunto: Aberto 25-45 (ID 130001)")
     && pedido.includes("Quantidade: 2 (faixa ADS-01 até ADS-02).") && pedido.includes("ADS-02 → texto 2, título 1")
     && pedido.includes("WhatsApp — número: (11) 98765-4321") && pedido.includes("(ex.: ADS-01 | Promo | 28-10-2026)")
     && pedido.includes("recursos de IA LIGADOS a pedido: Música automática") && pedido.includes("Crie PRIMEIRO apenas um anúncio"), "pedido gerado no formato, com a IA ligada destacada");
@@ -104,10 +127,10 @@ function seed(db) {
   await page.getByTestId("ads-salvar-modelo").waitFor({ state: "detached" });
   check(db.adsModelos.length === 1 && db.adsModelos[0].dados.textos.length === 2, "modelo salvo com os dados");
   await page.getByRole("button", { name: "Limpar" }).click();
-  check(await page.getByTestId("ads-form").getByLabel("Conta de anúncios (nome ou ID)").inputValue() === "", "Limpar zera o formulário");
+  check(await page.getByTestId("ads-form").getByLabel("Cliente").inputValue() === "", "Limpar zera o formulário");
   await page.getByRole("button", { name: "Carregar modelo" }).click();
   await page.getByRole("button", { name: "Carregar WhatsApp — Loja Aurora" }).click();
-  check(await page.getByTestId("ads-form").getByLabel("Conjunto de destino (nome completo)").inputValue() === "Aberto 25-45"
+  check(await page.getByTestId("ads-form").getByLabel("Conjunto de destino").locator("option:checked").innerText() === "Aberto 25-45"
     && await page.getByTestId("ads-form").getByLabel("Texto principal 2", { exact: true }).inputValue() === "Frete grátis para todo o Brasil", "Carregar modelo preenche o formulário");
 
   // Histórico: copiar de novo e duplicar mudando o conjunto
@@ -118,11 +141,16 @@ function seed(db) {
   check((await page.evaluate(() => navigator.clipboard.readText())) === pedido, "copiar de novo do histórico");
   await page.getByRole("button", { name: "Duplicar o pedido 1" }).click();
   await page.getByText("Duplicado do pedido de").waitFor();
-  await page.getByTestId("ads-form").getByLabel("Conjunto de destino (nome completo)").fill("Remarketing 7d");
+  await page.getByText("2 conjunto(s); os ativos primeiro.").waitFor();
+  await page.getByTestId("ads-form").getByLabel("Conjunto de destino").selectOption({ label: "Remarketing 7d" });
   await page.getByRole("button", { name: "Gerar pedido" }).click();
   await page.getByTestId("ads-pedido").waitFor();
   check(db.adsPedidos.length === 2 && db.adsPedidos[1].conjunto === "Remarketing 7d" && db.adsPedidos[1].origem_pedido_id === 1
-    && db.adsPedidos[1].texto.includes("Conjunto: Remarketing 7d") && db.adsPedidos[1].texto.includes("Frete grátis"), "duplicar reaproveita tudo e muda só o conjunto");
+    && db.adsPedidos[1].texto.includes("Conjunto: Remarketing 7d (ID 130002)") && db.adsPedidos[1].texto.includes("Frete grátis"), "duplicar reaproveita tudo e muda só o conjunto");
+  // Digitar à mão (campanha criada agora no Meta)
+  await page.getByRole("button", { name: "Digitar à mão" }).click();
+  await page.getByTestId("ads-form").getByLabel("Conjunto de destino (nome completo)").fill("Conjunto novo");
+  check(await page.getByTestId("ads-form").getByLabel("Conta de anúncios (nome ou ID)").inputValue() === "Loja Aurora (act_111)", "digitar à mão mantém o que já estava escolhido");
   await page.getByRole("button", { name: "Histórico" }).click();
   await page.getByTestId("ads-historico-item").nth(1).waitFor();
   await page.screenshot({ path: `${SHOTS}/criador-anuncios-historico.png` });

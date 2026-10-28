@@ -108,7 +108,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [41.3 — grupo e @ padrão de cada cliente, com ligar/desligar por pessoa](docs/etapa-41-envios-semanais/41.3-GRUPOS-E-ARROBAS.md) ✅ 27/10
   - [41.4 — no envio, só ligar/desligar clientes (Selecionar todos / Tirar todos), sempre com a última configuração](docs/etapa-41-envios-semanais/41.4-LISTA-DE-CLIENTES-NO-ENVIO.md) ✅ 27/10
   - [41.5 — código de cada envio (ENV-001) na instrução da tarefa; MCP 1.5.0](docs/etapa-41-envios-semanais/41.5-CODIGO-DO-ENVIO.md) ✅ 28/10
-- [Etapa 42 — Criador de Anúncios (monta o pedido em texto para o Claude criar anúncios no Meta; modelos e histórico)](docs/etapa-42-criador-de-anuncios/42-CRIADOR-DE-ANUNCIOS.md) ✅ 28/10
+- [Etapa 42 — Criador de Anúncios (monta o pedido em texto para o Claude criar anúncios no Meta; modelos e histórico; 42.1: cliente → BM → conta → campanha → conjunto nas listas do CRM)](docs/etapa-42-criador-de-anuncios/42-CRIADOR-DE-ANUNCIOS.md) ✅ 28/10
 - [Política de Privacidade e Termos de Serviço (páginas públicas)](docs/POLITICA-E-TERMOS.md) ✅ 22/10
 - [Desativar cliente (para sincronização, alertas, planilha, e-mail, acesso e tracking)](docs/CLIENTE-DESATIVADO.md) ✅ 23/10
 - [Contas ativas × clientes desativados e Excluir cliente](docs/CLIENTE-DESATIVADO.md#contas-ativas--desativadas-e-excluir-cliente-23102026-à-tarde) ✅ 23/10

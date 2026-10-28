@@ -65,6 +65,12 @@ describe("pedido gerado", () => {
     expect(t).toContain("Crie PRIMEIRO apenas um anúncio");
     expect(t).not.toContain("ATENÇÃO");
   });
+  it("cliente, BM e IDs do Meta quando escolhidos nas listas (42.1)", () => {
+    const t = buildAdsPedido(fill({ cliente: "Loja Aurora", bm: "BM Aurora", campanha_meta_id: "120001", conjunto_meta_id: "120009" }));
+    expect(t).toContain("Cliente: Loja Aurora | BM: BM Aurora");
+    expect(t).toContain("Campanha: [MSG] Aurora | Out (ID 120001) | Conjunto: Aberto 25-45 (ID 120009)");
+    expect(buildAdsPedido(fill())).not.toContain("Cliente:");
+  });
   it("IA ligada e status ATIVO aparecem destacados", () => {
     const t = buildAdsPedido(fill({ ia_ligados: ["musica"], status: "ATIVO" }));
     expect(t).toContain("⚠️ ATENÇÃO — recursos de IA LIGADOS a pedido: Música automática.");

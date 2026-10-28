@@ -50,7 +50,14 @@ export interface MapeamentoLinha {
 
 export interface AdsBuilderForm {
   tipo: AdsBuilderTipo;
-  // 1. Onde criar
+  // 1. Onde criar (42.1: escolhidos nas listas do CRM — cliente → BM → conta → campanha → conjunto)
+  cliente: string;
+  bm: string;
+  conta_ref: string;
+  campanha_ref: string;
+  conjunto_ref: string;
+  campanha_meta_id: string;
+  conjunto_meta_id: string;
   conta: string;
   campanha: string;
   conjunto: string;
@@ -95,6 +102,7 @@ export function adsBuilderDefaults(hoje = new Date()): AdsBuilderForm {
   const d = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" }).format(hoje);
   return {
     tipo: "anuncios",
+    cliente: "", bm: "", conta_ref: "", campanha_ref: "", conjunto_ref: "", campanha_meta_id: "", conjunto_meta_id: "",
     conta: "", campanha: "", conjunto: "", pagina: "", instagram: "",
     pastas: [{ link: "", rotulo: "Vídeos verticais", tipo: "video" }],
     padrao_nome_arquivo: ADS_BUILDER_PADRAO_ARQUIVO,
@@ -243,7 +251,8 @@ export function buildAdsPedido(f: AdsBuilderForm): string {
   const lines: (string | null)[] = [
     "Crie anúncios no Meta Ads com os dados abaixo.",
     "",
-    `Conta: ${f.conta.trim()} | Campanha: ${f.campanha.trim()} | Conjunto: ${f.conjunto.trim()}`,
+    f.cliente.trim() || f.bm.trim() ? `Cliente: ${f.cliente.trim() || "—"} | BM: ${f.bm.trim() || "—"}` : null,
+    `Conta: ${f.conta.trim()} | Campanha: ${f.campanha.trim()}${f.campanha_meta_id ? ` (ID ${f.campanha_meta_id})` : ""} | Conjunto: ${f.conjunto.trim()}${f.conjunto_meta_id ? ` (ID ${f.conjunto_meta_id})` : ""}`,
     `Página / Instagram: ${f.pagina.trim() || "—"} / ${f.instagram.trim() || "—"}`,
     "",
     "Mídia (Google Drive):",
