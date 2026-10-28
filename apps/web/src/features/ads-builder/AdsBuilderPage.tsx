@@ -15,7 +15,7 @@ import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import {
-  type AdsPedido, contaLabel, useAdSetOptions, useAddAdsPedido, useAdsModelos, useAdsPedidos, useArchiveAdsModelo, useCampaignOptions, useMetaAccounts,
+  type AdsPedido, contaLabel, type MetaAsset, useAccountAssets, useAdSetOptions, useAddAdsPedido, useAdsModelos, useAdsPedidos, useArchiveAdsModelo, useCampaignOptions, useMetaAccounts,
   useSaveAdsModelo,
 } from "./api.ts";
 
@@ -91,7 +91,8 @@ function CopyButton({ text, label = "Copiar", testId }: { text: string; label?: 
 // ---------------------------------------------------------------- 42.1: onde criar (listas do CRM em cascata)
 
 const STATUS_SUFIXO: Record<string, string> = { pausada: " (pausada)", encerrada: " (encerrada)", erro: " (com erro)", desconhecida: "" };
-const vazio = { conta_ref: "", conta: "", campanha_ref: "", campanha: "", campanha_meta_id: "", conjunto_ref: "", conjunto: "", conjunto_meta_id: "" };
+const vazio = { conta_ref: "", conta: "", campanha_ref: "", campanha: "", campanha_meta_id: "", conjunto_ref: "", conjunto: "", conjunto_meta_id: "",
+  pagina: "", pagina_id: "", instagram: "", instagram_id: "" };
 
 function OndeCriar({ form, set }: { form: AdsBuilderForm; set: (patch: Partial<AdsBuilderForm>) => void }) {
   const contas = useMetaAccounts();
@@ -180,6 +181,63 @@ function OndeCriar({ form, set }: { form: AdsBuilderForm; set: (patch: Partial<A
   );
 }
 
+/** 42.1: página do Facebook e perfil do Instagram da conta escolhida (o CRM guarda ao vincular a conta). */
+function PaginaInstagram({ form, set }: { form: AdsBuilderForm; set: (patch: Partial<AdsBuilderForm>) => void }) {
+  const ativos = useAccountAssets(form.conta_ref || null);
+  const paginas = (ativos.data ?? []).filter((a) => a.asset_type === "page");
+  const igs = (ativos.data ?? []).filter((a) => a.asset_type === "instagram");
+  const igDaPagina = (pageId: string) => igs.filter((i) => i.parent_external_id === pageId);
+  const nome = (a: MetaAsset) => a.name ?? `ID ${a.external_id}`;
+  function escolherPagina(extId: string) {
+    const p = paginas.find((x) => x.external_id === extId);
+    const ig = igDaPagina(extId);
+    set({ pagina: p ? nome(p) : "", pagina_id: p?.external_id ?? "",
+      ...(ig.length === 1 ? { instagram: nome(ig[0]), instagram_id: ig[0].external_id } : { instagram: "", instagram_id: "" }) });
+  }
+  // Conta com uma só página: já vem escolhida (com o Instagram dela)
+  const autoKey = useRef("");
+  useEffect(() => {
+    if (!form.conta_ref || !ativos.data || autoKey.current === form.conta_ref) return;
+    autoKey.current = form.conta_ref;
+    if (!form.pagina_id && paginas.length === 1) escolherPagina(paginas[0].external_id);
+  });
+
+  const manual = !form.conta_ref || (ativos.isSuccess && paginas.length === 0 && igs.length === 0);
+  if (manual) {
+    return (
+      <div className="space-y-1.5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Página do Facebook">{(id) => <Input id={id} value={form.pagina} maxLength={200} onChange={(e) => set({ pagina: e.target.value, pagina_id: "" })} />}</Field>
+          <Field label="Perfil do Instagram">{(id) => <Input id={id} value={form.instagram} maxLength={200} placeholder="@perfil" onChange={(e) => set({ instagram: e.target.value, instagram_id: "" })} />}</Field>
+        </div>
+        {form.conta_ref && <p className="text-xs text-slate-500">Esta conta não tem páginas nem perfis registrados no CRM: digite os nomes.</p>}
+      </div>
+    );
+  }
+  const ligados = form.pagina_id ? igDaPagina(form.pagina_id) : [];
+  const outros = igs.filter((i) => !ligados.includes(i));
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Field label="Página do Facebook" hint={ativos.isSuccess ? `${paginas.length} página(s) desta conta.` : undefined}>{(id) => (
+        <Select id={id} value={form.pagina_id} disabled={ativos.isLoading} onChange={(e) => escolherPagina(e.target.value)}>
+          <option value="">{ativos.isLoading ? "Carregando…" : "Escolha…"}</option>
+          {paginas.map((p) => <option key={p.id} value={p.external_id}>{nome(p)}</option>)}
+        </Select>
+      )}</Field>
+      <Field label="Perfil do Instagram" hint={ativos.isSuccess ? `${igs.length} perfil(is) desta conta; os da página escolhida primeiro.` : undefined}>{(id) => (
+        <Select id={id} value={form.instagram_id} disabled={ativos.isLoading} onChange={(e) => {
+          const ig = igs.find((x) => x.external_id === e.target.value);
+          set({ instagram: ig ? nome(ig) : "", instagram_id: ig?.external_id ?? "" });
+        }}>
+          <option value="">{ativos.isLoading ? "Carregando…" : "Sem Instagram / escolha…"}</option>
+          {ligados.length > 0 && <optgroup label="Da página escolhida">{ligados.map((i) => <option key={i.id} value={i.external_id}>{nome(i)}</option>)}</optgroup>}
+          {outros.length > 0 && <optgroup label={ligados.length ? "Outros perfis da conta" : "Perfis da conta"}>{outros.map((i) => <option key={i.id} value={i.external_id}>{nome(i)}</option>)}</optgroup>}
+        </Select>
+      )}</Field>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- formulário
 
 function Formulario({ form, set, origem, onClearOrigem }: {
@@ -222,10 +280,7 @@ function Formulario({ form, set, origem, onClearOrigem }: {
 
       <Section n={1} title="Onde criar" hint="Escolha nas listas do CRM (as contas do Meta que você já tem conectadas): cliente → BM → conta → campanha → conjunto.">
         <OndeCriar form={form} set={set} />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Página do Facebook">{(id) => <Input id={id} value={form.pagina} maxLength={200} onChange={(e) => set({ pagina: e.target.value })} />}</Field>
-          <Field label="Perfil do Instagram">{(id) => <Input id={id} value={form.instagram} maxLength={200} placeholder="@perfil" onChange={(e) => set({ instagram: e.target.value })} />}</Field>
-        </div>
+        <PaginaInstagram form={form} set={set} />
       </Section>
 
       <Section n={2} title="Mídia (Google Drive)">

@@ -1957,6 +1957,11 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       }));
     }
 
+    // Páginas e Instagram das contas (Etapa 42.1: Criador de Anúncios)
+    if (url.includes("/rest/v1/ad_account_assets")) {
+      const accountId = eqParam(url, "ad_account_id");
+      return res(200, (db.adAccountAssets ?? []).filter((x) => !accountId || x.ad_account_id === accountId).sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "")));
+    }
     if (url.includes("/rest/v1/ad_groups")) {
       const id = eqParam(url, "id");
       const campaignId = eqParam(url, "campaign_id");

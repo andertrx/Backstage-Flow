@@ -160,3 +160,25 @@ export function useAdSetOptions(campaignId: string | null) {
     },
   });
 }
+
+export interface MetaAsset {
+  id: string;
+  asset_type: "page" | "instagram";
+  external_id: string;
+  name: string | null;
+  parent_external_id: string | null;
+}
+
+/** Páginas do Facebook e perfis do Instagram da conta (o CRM atualiza ao vincular a conta). */
+export function useAccountAssets(accountId: string | null) {
+  return useQuery({
+    queryKey: [...KEY, "ativos", accountId],
+    enabled: !!accountId,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("ad_account_assets").select("id, asset_type, external_id, name, parent_external_id").eq("ad_account_id", accountId!).order("name");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as páginas e perfis do Instagram."));
+      return (data ?? []) as MetaAsset[];
+    },
+  });
+}

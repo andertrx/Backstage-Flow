@@ -3,7 +3,7 @@
 const findSecret = (text) => /EAA[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.|(senha|password|token|secret|api[_-]?key)\s*[:=]\s*\S{4,}/i.test(text);
 
 export function seedAdsBuilder() {
-  return { adsModelos: [], adsPedidos: [] };
+  return { adsModelos: [], adsPedidos: [], adAccountAssets: [] };
 }
 
 export function handleAdsBuilder({ db, url, parse, userId, role, res }) {

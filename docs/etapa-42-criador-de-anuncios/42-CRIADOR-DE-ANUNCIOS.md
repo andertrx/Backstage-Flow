@@ -128,7 +128,11 @@ Depois, tirar o item do menu.
   - Cliente com uma só BM e uma só conta já vem com tudo escolhido.
   - Trocar o cliente, a BM ou a conta limpa o que vem depois.
   - Campanhas e conjuntos ativos aparecem primeiro; os pausados ou encerrados vêm marcados.
-- **O pedido leva também** "Cliente: … | BM: …" e o **ID do Meta** da campanha e do conjunto, assim o Claude acha exatamente onde criar.
+- **Página do Facebook e perfil do Instagram em listas:** são os da conta escolhida, que o CRM guarda ao vincular a conta (`ad_account_assets`). Hoje 29 das 31 contas têm página e 28 têm Instagram.
+  - Conta com uma só página: a página e o Instagram ligado a ela já vêm escolhidos.
+  - Escolher a página escolhe junto o Instagram dela; os outros perfis da conta continuam na lista.
+  - Conta sem página registrada: os campos voltam a ser de digitar.
+- **O pedido leva também** "Cliente: … | BM: …" e o **ID do Meta** da campanha, do conjunto, da página e do Instagram, assim o Claude acha exatamente onde criar.
 - **"Digitar à mão":** para campanha ou conjunto criados agora no Meta, antes da próxima sincronização. Mantém o que já estava escolhido.
 - **Duplicar do histórico** volta com as listas preenchidas: troque só o conjunto ou a campanha.
 - **Sem mudança no banco.** Os campos novos (cliente, BM e IDs) ficam dentro dos dados do pedido e do modelo.

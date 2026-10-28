@@ -70,6 +70,7 @@ describe("pedido gerado", () => {
     expect(t).toContain("Cliente: Loja Aurora | BM: BM Aurora");
     expect(t).toContain("Campanha: [MSG] Aurora | Out (ID 120001) | Conjunto: Aberto 25-45 (ID 120009)");
     expect(buildAdsPedido(fill())).not.toContain("Cliente:");
+    expect(buildAdsPedido(fill({ pagina_id: "555", instagram_id: "777" }))).toContain("Página / Instagram: Loja Aurora (ID 555) / @lojaaurora (ID 777)");
   });
   it("IA ligada e status ATIVO aparecem destacados", () => {
     const t = buildAdsPedido(fill({ ia_ligados: ["musica"], status: "ATIVO" }));

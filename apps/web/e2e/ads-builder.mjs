@@ -9,6 +9,7 @@ const CAMP = "b4200000-0000-4000-8000-0000000000b4";
 const CLI2 = "c4200000-0000-4000-8000-0000000000c5";
 const ACC2 = "a4200000-0000-4000-8000-0000000000a5";
 const CLI3 = "c4200000-0000-4000-8000-0000000000c6";
+const ACC_BRISA = "a4200000-0000-4000-8000-0000000000a6";
 const client = (id, name) => ({ id, name, company: null, cnpj: null, owner_name: null, phone: null, email: null, notes: null, status: "ativo",
   timezone: "America/Sao_Paulo", is_demo: false, created_at: "2026-09-01T10:00:00Z", updated_at: "2026-09-01T10:00:00Z" });
 
@@ -18,12 +19,18 @@ function seed(db) {
   db.adAccounts.push(
     { id: ACC, platform_id: "meta", external_id: "111", client_id: CLI, name: "Loja Aurora", currency: "BRL", status: "ativa", unlinked_at: null, business_id: "9001", business_name: "BM Aurora" },
     { id: ACC2, platform_id: "meta", external_id: "112", client_id: CLI, name: "Aurora Atacado", currency: "BRL", status: "ativa", unlinked_at: null, business_id: "9002", business_name: "BM Aurora 2" },
-    { id: crypto.randomUUID(), platform_id: "meta", external_id: "211", client_id: CLI2, name: "Loja Brisa", currency: "BRL", status: "ativa", unlinked_at: null, business_id: "9003", business_name: "BM Brisa" },
+    { id: ACC_BRISA, platform_id: "meta", external_id: "211", client_id: CLI2, name: "Loja Brisa", currency: "BRL", status: "ativa", unlinked_at: null, business_id: "9003", business_name: "BM Brisa" },
     { id: crypto.randomUUID(), platform_id: "meta", external_id: "311", client_id: CLI3, name: "Loja Encerrada", currency: "BRL", status: "ativa", unlinked_at: null, business_id: "9004", business_name: "BM Encerrada" },
   );
   db.campaigns.push(
     { id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "120001", name: "[MSG] Aurora | Outubro", status: "ativa" },
     { id: crypto.randomUUID(), ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "120002", name: "[LEADS] Aurora", status: "pausada" },
+  );
+  const asset = (ad_account_id, asset_type, external_id, name, parent_external_id = null) => ({ id: crypto.randomUUID(), ad_account_id, asset_type, external_id, name, parent_external_id });
+  db.adAccountAssets.push(
+    asset(ACC, "page", "555", "Loja Aurora"), asset(ACC, "instagram", "777", "@lojaaurora", "555"),
+    asset(ACC, "page", "556", "Aurora Outlet"), asset(ACC, "instagram", "778", "@auroraoutlet", "556"),
+    asset(ACC_BRISA, "page", "655", "Loja Brisa"), asset(ACC_BRISA, "instagram", "677", "@lojabrisa", "655"),
   );
   db.adGroups.push({ id: crypto.randomUUID(), campaign_id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "130001", name: "Aberto 25-45", status: "ativa" },
     { id: crypto.randomUUID(), campaign_id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "130002", name: "Remarketing 7d", status: "ativa" });
@@ -65,6 +72,9 @@ function seed(db) {
   await form.getByLabel("Conjunto de destino").selectOption({ label: "Aberto 25-45" });
   await form.getByLabel("Cliente").selectOption({ label: "Loja Brisa" });
   check(await form.getByLabel("Conta de anúncios").inputValue() !== "" && await form.getByLabel("Campanha de destino").inputValue() === "", "trocar o cliente limpa o resto (cliente com uma só BM e conta já vem escolhido)");
+  await page.getByText("1 página(s) desta conta.").waitFor();
+  check(await form.getByLabel("Página do Facebook").locator("option:checked").innerText() === "Loja Brisa"
+    && await form.getByLabel("Perfil do Instagram").locator("option:checked").innerText() === "@lojabrisa", "conta com uma só página: página e Instagram já vêm escolhidos");
   await form.getByLabel("Cliente").selectOption({ label: "Loja Aurora" });
   await form.getByLabel("Business Manager (BM)").selectOption("BM Aurora");
   await form.getByLabel("Conta de anúncios").selectOption({ label: "Loja Aurora (act_111)" });
@@ -72,9 +82,12 @@ function seed(db) {
   await form.getByLabel("Campanha de destino").selectOption({ label: "[MSG] Aurora | Outubro" });
   await page.getByText("2 conjunto(s); os ativos primeiro.").waitFor();
   await form.getByLabel("Conjunto de destino").selectOption({ label: "Aberto 25-45" });
+  await page.getByText("2 página(s) desta conta.").waitFor();
+  const paginas = (await form.getByLabel("Página do Facebook").locator("option").allInnerTexts()).join("|");
+  check(paginas === "Escolha…|Aurora Outlet|Loja Aurora", `páginas do Facebook da conta (${paginas})`);
+  await form.getByLabel("Página do Facebook").selectOption({ label: "Loja Aurora" });
+  check(await form.getByLabel("Perfil do Instagram").locator("option:checked").innerText() === "@lojaaurora", "escolher a página já escolhe o Instagram ligado a ela");
   await page.getByTestId("ads-secao-1").screenshot({ path: `${SHOTS}/criador-anuncios-onde-criar.png` });
-  await form.getByLabel("Página do Facebook").fill("Loja Aurora");
-  await form.getByLabel("Perfil do Instagram").fill("@lojaaurora");
 
   // Mídia
   check((await page.getByTestId("ads-secao-2").innerText()).includes("permissão de leitura para o Claude"), "aviso fixo da permissão de leitura do Drive");
@@ -115,7 +128,7 @@ function seed(db) {
   await page.getByTestId("ads-pedido").waitFor();
   const pedido = await page.getByTestId("ads-pedido").locator("pre").innerText();
   check(pedido.startsWith("Crie anúncios no Meta Ads com os dados abaixo.") && pedido.includes("Conta: Loja Aurora (act_111) | Campanha:")
-    && pedido.includes("Cliente: Loja Aurora | BM: BM Aurora") && pedido.includes("Campanha: [MSG] Aurora | Outubro (ID 120001) | Conjunto: Aberto 25-45 (ID 130001)")
+    && pedido.includes("Cliente: Loja Aurora | BM: BM Aurora") && pedido.includes("Página / Instagram: Loja Aurora (ID 555) / @lojaaurora (ID 777)") && pedido.includes("Campanha: [MSG] Aurora | Outubro (ID 120001) | Conjunto: Aberto 25-45 (ID 130001)")
     && pedido.includes("Quantidade: 2 (faixa ADS-01 até ADS-02).") && pedido.includes("ADS-02 → texto 2, título 1")
     && pedido.includes("WhatsApp — número: (11) 98765-4321") && pedido.includes("(ex.: ADS-01 | Promo | 28-10-2026)")
     && pedido.includes("recursos de IA LIGADOS a pedido: Música automática") && pedido.includes("Crie PRIMEIRO apenas um anúncio"), "pedido gerado no formato, com a IA ligada destacada");

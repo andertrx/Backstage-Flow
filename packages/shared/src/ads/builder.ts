@@ -58,6 +58,9 @@ export interface AdsBuilderForm {
   conjunto_ref: string;
   campanha_meta_id: string;
   conjunto_meta_id: string;
+  /** 42.1: IDs da página e do Instagram escolhidos nas listas da conta. */
+  pagina_id: string;
+  instagram_id: string;
   conta: string;
   campanha: string;
   conjunto: string;
@@ -102,7 +105,7 @@ export function adsBuilderDefaults(hoje = new Date()): AdsBuilderForm {
   const d = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" }).format(hoje);
   return {
     tipo: "anuncios",
-    cliente: "", bm: "", conta_ref: "", campanha_ref: "", conjunto_ref: "", campanha_meta_id: "", conjunto_meta_id: "",
+    cliente: "", bm: "", conta_ref: "", campanha_ref: "", conjunto_ref: "", campanha_meta_id: "", conjunto_meta_id: "", pagina_id: "", instagram_id: "",
     conta: "", campanha: "", conjunto: "", pagina: "", instagram: "",
     pastas: [{ link: "", rotulo: "Vídeos verticais", tipo: "video" }],
     padrao_nome_arquivo: ADS_BUILDER_PADRAO_ARQUIVO,
@@ -253,7 +256,7 @@ export function buildAdsPedido(f: AdsBuilderForm): string {
     "",
     f.cliente.trim() || f.bm.trim() ? `Cliente: ${f.cliente.trim() || "—"} | BM: ${f.bm.trim() || "—"}` : null,
     `Conta: ${f.conta.trim()} | Campanha: ${f.campanha.trim()}${f.campanha_meta_id ? ` (ID ${f.campanha_meta_id})` : ""} | Conjunto: ${f.conjunto.trim()}${f.conjunto_meta_id ? ` (ID ${f.conjunto_meta_id})` : ""}`,
-    `Página / Instagram: ${f.pagina.trim() || "—"} / ${f.instagram.trim() || "—"}`,
+    `Página / Instagram: ${f.pagina.trim() || "—"}${f.pagina_id ? ` (ID ${f.pagina_id})` : ""} / ${f.instagram.trim() || "—"}${f.instagram_id ? ` (ID ${f.instagram_id})` : ""}`,
     "",
     "Mídia (Google Drive):",
     ...pastas.map((p, i) => `  ${i + 1}. ${p.rotulo.trim() || "Pasta"} (${p.tipo === "video" ? "vídeo" : "imagem"}): ${p.link.trim()}`),
