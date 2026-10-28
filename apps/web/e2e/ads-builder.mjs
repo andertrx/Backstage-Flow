@@ -1,0 +1,162 @@
+/**
+ * Teste de navegador da Etapa 42 — Criador de Anúncios (monta o pedido em texto para o Claude). Supabase SIMULADO.
+ */
+import { BASE, check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
+
+const CLI = "c4200000-0000-4000-8000-0000000000c4";
+const ACC = "a4200000-0000-4000-8000-0000000000a4";
+const CAMP = "b4200000-0000-4000-8000-0000000000b4";
+const client = (id, name) => ({ id, name, company: null, cnpj: null, owner_name: null, phone: null, email: null, notes: null, status: "ativo",
+  timezone: "America/Sao_Paulo", is_demo: false, created_at: "2026-09-01T10:00:00Z", updated_at: "2026-09-01T10:00:00Z" });
+
+function seed(db) {
+  db.clients.push(client(CLI, "Loja Aurora"));
+  db.adAccounts.push({ id: ACC, platform_id: "meta", external_id: "111", client_id: CLI, name: "Loja Aurora", currency: "BRL", status: "ativa", unlinked_at: null });
+  db.campaigns.push(
+    { id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "c1", name: "[MSG] Aurora | Outubro", status: "ativa" },
+    { id: crypto.randomUUID(), ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "c2", name: "[LEADS] Aurora", status: "ativa" },
+  );
+  db.adGroups.push({ id: crypto.randomUUID(), campaign_id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "g1", name: "Aberto 25-45", status: "ativa" });
+}
+
+// ---------------------------------------------------------------- Admin no computador
+{
+  const { browser, page, errors } = await launch();
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  const db = await mockSupabase(page, { role: "admin" });
+  seed(db);
+  await login(page, "/criador-de-anuncios");
+  await page.getByTestId("ads-builder").waitFor();
+  check((await page.getByRole("navigation", { name: "Menu principal" }).first().innerText()).includes("Criador de Anúncios"), "item Criador de Anúncios no menu (Anúncios)");
+  await page.evaluate(() => localStorage.removeItem("adsBuilder.rascunho"));
+  await page.reload();
+  const form = page.getByTestId("ads-form");
+  await form.waitFor();
+
+  // Validação: conta, campanha, conjunto, pasta e texto obrigatórios
+  await page.getByRole("button", { name: "Gerar pedido" }).click();
+  const errs = await page.getByTestId("ads-erros").innerText();
+  check(["Informe a conta", "Informe a campanha", "Informe o conjunto", "pelo menos uma pasta", "pelo menos um texto"].every((m) => errs.includes(m)),
+    "não gera sem conta, campanha, conjunto, pasta e texto");
+  check(db.adsPedidos.length === 0, "nada guardado com erro");
+
+  // Onde criar: sugestões do CRM (conta → campanhas → conjuntos)
+  await form.getByLabel("Conta de anúncios (nome ou ID)").fill("Loja Aurora (act_111)");
+  await page.getByText("2 campanha(s) desta conta no CRM.").waitFor();
+  await form.getByLabel("Campanha de destino (nome completo)").fill("[MSG] Aurora | Outubro");
+  await page.getByText("1 conjunto(s) desta campanha no CRM.").waitFor();
+  check(await form.locator("datalist").nth(2).locator("option").getAttribute("value") === "Aberto 25-45", "sugere os conjuntos da campanha escolhida");
+  await form.getByLabel("Conjunto de destino (nome completo)").fill("Aberto 25-45");
+  await form.getByLabel("Página do Facebook").fill("Loja Aurora");
+  await form.getByLabel("Perfil do Instagram").fill("@lojaaurora");
+
+  // Mídia
+  check((await page.getByTestId("ads-secao-2").innerText()).includes("permissão de leitura para o Claude"), "aviso fixo da permissão de leitura do Drive");
+  await form.getByLabel("Link da pasta 1").fill("https://drive.google.com/drive/folders/verticais");
+  await form.getByRole("button", { name: "adicionar pasta" }).click();
+  await form.getByLabel("Link da pasta 2").fill("https://drive.google.com/drive/folders/feed");
+  await form.getByLabel("Quantidade de anúncios").fill("2");
+  await form.getByLabel("até").fill("ADS-02");
+
+  // Textos: 2 textos + 1 título, mapeamento manual
+  await form.getByLabel("Texto principal 1", { exact: true }).fill("Promoção de outubro!\nSó esta semana.");
+  await form.getByRole("button", { name: "adicionar texto" }).click();
+  await form.getByLabel("Texto principal 2", { exact: true }).fill("Frete grátis para todo o Brasil");
+  await form.getByRole("button", { name: "adicionar título" }).click();
+  await form.getByLabel("Título 1", { exact: true }).fill("Compre já");
+  await form.getByLabel("Mapeamento manual").check();
+  await page.getByTestId("ads-mapeamento").waitFor();
+  check(await page.getByTestId("ads-mapeamento").locator("tbody tr").count() === 2, "tabela anúncio → texto/título com uma linha por anúncio");
+  await form.getByLabel("Texto do anúncio 2").selectOption("2");
+
+  // Destino e nome
+  await form.getByLabel("Número do WhatsApp (com DDD)").fill("(11) 98765-4321");
+  await form.getByLabel("Mensagem pré-preenchida").fill("Olá! Quero saber da promoção");
+  await form.getByLabel("Tema").fill("Promo");
+  await form.getByLabel("Data").fill("28-10-2026");
+  check((await page.getByTestId("ads-nome-previa").innerText()) === "ADS-01 | Promo | 28-10-2026", "prévia do primeiro nome");
+
+  // Segredo recusado
+  await form.getByLabel("Observações (opcional)").fill("token: EAABwzLixnjYBAKZCZB1234567890abcdef");
+  await page.getByRole("button", { name: "Gerar pedido" }).click();
+  check((await page.getByTestId("ads-erros").innerText()).includes("Não coloque senhas, tokens nem dados de pagamento"), "token num campo é recusado");
+  await form.getByLabel("Observações (opcional)").fill("Usar a copy aprovada pelo cliente.");
+
+  // IA: ligar uma aparece destacado
+  await form.getByRole("switch", { name: "Música automática" }).click();
+  await page.screenshot({ path: `${SHOTS}/criador-anuncios-formulario.png`, fullPage: true });
+  await page.getByRole("button", { name: "Gerar pedido" }).click();
+  await page.getByTestId("ads-pedido").waitFor();
+  const pedido = await page.getByTestId("ads-pedido").locator("pre").innerText();
+  check(pedido.startsWith("Crie anúncios no Meta Ads com os dados abaixo.") && pedido.includes("Conta: Loja Aurora (act_111) | Campanha: [MSG] Aurora | Outubro | Conjunto: Aberto 25-45")
+    && pedido.includes("Quantidade: 2 (faixa ADS-01 até ADS-02).") && pedido.includes("ADS-02 → texto 2, título 1")
+    && pedido.includes("WhatsApp — número: (11) 98765-4321") && pedido.includes("(ex.: ADS-01 | Promo | 28-10-2026)")
+    && pedido.includes("recursos de IA LIGADOS a pedido: Música automática") && pedido.includes("Crie PRIMEIRO apenas um anúncio"), "pedido gerado no formato, com a IA ligada destacada");
+  await page.getByTestId("ads-copiar").click();
+  check((await page.evaluate(() => navigator.clipboard.readText())) === pedido, "botão Copiar copia o pedido");
+  check(db.adsPedidos.length === 1 && db.adsPedidos[0].campanha === "[MSG] Aurora | Outubro", "pedido guardado no histórico");
+  await page.getByTestId("ads-pedido").screenshot({ path: `${SHOTS}/criador-anuncios-pedido.png` });
+
+  // Modelos: salvar, limpar, carregar
+  await page.getByRole("button", { name: "Salvar como modelo" }).click();
+  await page.getByTestId("ads-salvar-modelo").getByLabel("Nome do modelo").fill("WhatsApp — Loja Aurora");
+  await page.getByTestId("ads-salvar-modelo").getByRole("button", { name: "Salvar modelo" }).click();
+  await page.getByTestId("ads-salvar-modelo").waitFor({ state: "detached" });
+  check(db.adsModelos.length === 1 && db.adsModelos[0].dados.textos.length === 2, "modelo salvo com os dados");
+  await page.getByRole("button", { name: "Limpar" }).click();
+  check(await page.getByTestId("ads-form").getByLabel("Conta de anúncios (nome ou ID)").inputValue() === "", "Limpar zera o formulário");
+  await page.getByRole("button", { name: "Carregar modelo" }).click();
+  await page.getByRole("button", { name: "Carregar WhatsApp — Loja Aurora" }).click();
+  check(await page.getByTestId("ads-form").getByLabel("Conjunto de destino (nome completo)").inputValue() === "Aberto 25-45"
+    && await page.getByTestId("ads-form").getByLabel("Texto principal 2", { exact: true }).inputValue() === "Frete grátis para todo o Brasil", "Carregar modelo preenche o formulário");
+
+  // Histórico: copiar de novo e duplicar mudando o conjunto
+  await page.getByRole("button", { name: "Histórico" }).click();
+  await page.getByTestId("ads-historico-item").first().waitFor();
+  check((await page.getByTestId("ads-historico-item").first().innerText()).includes("[MSG] Aurora | Outubro"), "histórico lista o pedido com data");
+  await page.getByRole("button", { name: "Copiar de novo o pedido 1" }).click();
+  check((await page.evaluate(() => navigator.clipboard.readText())) === pedido, "copiar de novo do histórico");
+  await page.getByRole("button", { name: "Duplicar o pedido 1" }).click();
+  await page.getByText("Duplicado do pedido de").waitFor();
+  await page.getByTestId("ads-form").getByLabel("Conjunto de destino (nome completo)").fill("Remarketing 7d");
+  await page.getByRole("button", { name: "Gerar pedido" }).click();
+  await page.getByTestId("ads-pedido").waitFor();
+  check(db.adsPedidos.length === 2 && db.adsPedidos[1].conjunto === "Remarketing 7d" && db.adsPedidos[1].origem_pedido_id === 1
+    && db.adsPedidos[1].texto.includes("Conjunto: Remarketing 7d") && db.adsPedidos[1].texto.includes("Frete grátis"), "duplicar reaproveita tudo e muda só o conjunto");
+  await page.getByRole("button", { name: "Histórico" }).click();
+  await page.getByTestId("ads-historico-item").nth(1).waitFor();
+  await page.screenshot({ path: `${SHOTS}/criador-anuncios-historico.png` });
+  check(errors.length === 0, `sem erros no navegador ${errors.join(" | ")}`);
+  await browser.close();
+}
+
+// ---------------------------------------------------------------- Celular (operador)
+{
+  const { browser, page, errors } = await launch();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const db = await mockSupabase(page, { role: "operador" });
+  seed(db);
+  await login(page, "/criador-de-anuncios");
+  await page.getByTestId("ads-form").waitFor();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  check(overflow <= 1, `celular: sem rolagem para os lados (${overflow}px)`);
+  check(await page.getByRole("button", { name: "Gerar pedido" }).isVisible(), "celular: botão Gerar pedido visível (fixo embaixo)");
+  await page.screenshot({ path: `${SHOTS}/criador-anuncios-celular.png` });
+  check(errors.length === 0, `sem erros (celular) ${errors.join(" | ")}`);
+  await browser.close();
+}
+
+// ---------------------------------------------------------------- Visualizador: sem acesso
+{
+  const { browser, page, errors } = await launch();
+  await mockSupabase(page, { role: "visualizador" });
+  await login(page, "/");
+  await page.getByRole("navigation", { name: "Menu principal" }).first().waitFor();
+  check(!(await page.getByRole("navigation", { name: "Menu principal" }).first().innerText()).includes("Criador de Anúncios"), "visualizador não vê o item no menu");
+  await page.goto(`${BASE}/criador-de-anuncios`);
+  await page.waitForTimeout(800);
+  check(await page.getByTestId("ads-builder").count() === 0, "visualizador não entra pela URL");
+  check(errors.length === 0, `sem erros (visualizador) ${errors.join(" | ")}`);
+  await browser.close();
+}
+console.log("Criador de Anúncios (Etapa 42): tudo certo.");

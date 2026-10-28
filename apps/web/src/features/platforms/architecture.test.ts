@@ -23,6 +23,8 @@ const PLATFORM_SPECIFIC = new Set([
   "features/integrations/GoogleCallbackPage.tsx",
   "features/integrations/ConnectionAccountsModal.tsx",
   "features/ad-accounts/api.ts",
+  // Etapa 42: o Criador de Anúncios monta pedidos para o Meta Ads (lista as contas do Meta).
+  "features/ads-builder/api.ts",
 ]);
 
 function sourceFiles(dir: string): string[] {
@@ -58,7 +60,7 @@ describe("arquitetura preparada para novas plataformas", () => {
 
   it("a ordem do menu não mudou", () => {
     expect(NAV_ITEMS.map((n) => n.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Central de Operações", "Meta Ads", "Google Ads", "Campanhas",
+      "Dashboard", "Clientes", "Contas", "Central de Operações", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
       "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações",
     ]);
   });

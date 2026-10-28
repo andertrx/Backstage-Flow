@@ -4,6 +4,7 @@
  * do site (Etapa 27): as mesmas regras das funções do banco, em JavaScript.
  */
 import { handleOpsEnvios, seedOpsEnvios } from "./mockOpsEnvios.js";
+import { handleAdsBuilder, seedAdsBuilder } from "./mockAdsBuilder.js";
 import { handleOpsTasks, seedOpsTasks } from "./mockOpsTasks.js";
 
 export const USER_ID = "11111111-1111-1111-1111-111111111111";
@@ -169,6 +170,7 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     ...seedOpsTasks(),
     /** Envios semanais (Etapa 41). */
     ...seedOpsEnvios(),
+    ...seedAdsBuilder(),
   };
 }
 
@@ -722,6 +724,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/ops_push_subscriptions")) {
       return res(200, db.pushSubs.filter((x) => x.user_id === userId).map(({ id, device, created_at, last_sent_at, last_error, disabled_at }) => ({ id, device, created_at, last_sent_at, last_error, disabled_at })));
     }
+    const adsBuilder = handleAdsBuilder({ db, url, parse, userId, role, res });
+    if (adsBuilder) return adsBuilder;
     const opsEnvio = handleOpsEnvios({ db, url, parse, userId, opsPerms, res });
     if (opsEnvio) return opsEnvio;
     const opsTask = handleOpsTasks({ db, url, method, parse, rawBody, role, userId, opsPerms, res });
@@ -1954,6 +1958,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
 
     if (url.includes("/rest/v1/ad_groups")) {
       const id = eqParam(url, "id");
+      const campaignId = eqParam(url, "campaign_id");
+      if (campaignId) return res(200, db.adGroups.filter((g) => g.campaign_id === campaignId));
       return res(200, db.adGroups.find((g) => g.id === id) ?? null);
     }
     if (url.includes("/rest/v1/entity_changes")) {

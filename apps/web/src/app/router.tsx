@@ -21,6 +21,7 @@ const ExecutivePage = lazy(() => import("@/features/executive/ExecutivePage.tsx"
 const ComparisonPage = lazy(() => import("@/features/comparison/ComparisonPage.tsx").then((m) => ({ default: m.ComparisonPage })));
 const MonitoringPage = lazy(() => import("@/features/monitoring/MonitoringPage.tsx").then((m) => ({ default: m.MonitoringPage })));
 const ResultsPage = lazy(() => import("@/features/results/ResultsPage.tsx").then((m) => ({ default: m.ResultsPage })));
+const AdsBuilderPage = lazy(() => import("@/features/ads-builder/AdsBuilderPage.tsx").then((m) => ({ default: m.AdsBuilderPage })));
 const AlertsPage = lazy(() => import("@/features/alerts/AlertsPage.tsx").then((m) => ({ default: m.AlertsPage })));
 const OpsLayout = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsLayout })));
 const OpsIndexRedirect = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsIndexRedirect })));
@@ -133,6 +134,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="internal.view">
             <CampaignsPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "criador-de-anuncios",
+        element: (
+          <RequirePermission permission="ads.builder">
+            <AdsBuilderPage />
           </RequirePermission>
         ),
       },

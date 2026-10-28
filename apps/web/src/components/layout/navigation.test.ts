@@ -37,6 +37,11 @@ describe("menu lateral", () => {
     expect(navItemsFor("vendedor", ["ops.access"]).map((i) => i.label)).toEqual([]);
   });
 
+  it("Criador de Anúncios: administrador, gestor e operador (Etapa 42)", () => {
+    for (const r of ["admin", "gestor", "operador"] as const) expect(labels(r)).toContain("Criador de Anúncios");
+    for (const r of ["visualizador", "equipe", "vendedor", "cliente"] as const) expect(labels(r)).not.toContain("Criador de Anúncios");
+  });
+
   it("operador não vê Logs", () => {
     expect(labels("operador")).not.toContain("Logs");
     expect(labels("gestor")).toContain("Logs");
@@ -44,9 +49,9 @@ describe("menu lateral", () => {
 });
 
 describe("grupos do menu", () => {
-  it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36; Monitoramento antes de Alertas na Etapa 37; Inteligência de Resultados depois de Monitoramento na Etapa 39)", () => {
+  it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36; Monitoramento antes de Alertas na Etapa 37; Inteligência de Resultados depois de Monitoramento na Etapa 39; Criador de Anúncios depois de Campanhas na Etapa 42)", () => {
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Central de Operações", "Meta Ads", "Google Ads", "Campanhas",
+      "Dashboard", "Clientes", "Contas", "Central de Operações", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
       "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações",
     ]);
   });

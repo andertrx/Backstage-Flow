@@ -15,8 +15,9 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   await login(page, "/configuracoes/permissoes");
   await page.getByRole("heading", { name: "Papéis e permissões", level: 1 }).waitFor();
   check(await page.getByRole("link", { name: "Papéis e permissões" }).count() === 1, "aba nova nas Configurações");
-  check(await page.getByTestId("permission-row").count() === 22, "22 permissões explicadas em português (4 do Monitoramento, Etapa 37; 2 da Inteligência de Resultados, Etapa 39; 3 dos Contatos, T3.1)");
+  check(await page.getByTestId("permission-row").count() === 23, "23 permissões explicadas em português (4 do Monitoramento, Etapa 37; 2 da Inteligência de Resultados, Etapa 39; 3 dos Contatos, T3.1; Criador de Anúncios, Etapa 42)");
   const cell = (perm, role) => page.locator(`[data-testid=permission-row][data-permission="${perm}"] td[data-role=${role}] svg`).getAttribute("aria-label");
+  check(await cell("ads.builder", "operador") === "Sim" && await cell("ads.builder", "visualizador") === "Não", "Criador de Anúncios: operador sim, visualizador não");
   check(await cell("logs.view", "gestor") === "Sim" && await cell("logs.view", "operador") === "Não", "logs: gestor sim, operador não");
   check(await cell("clients.edit", "gestor") === "Sim" && await cell("clients.edit", "operador") === "Não", "editar clientes: gestor sim, operador não");
   check(await cell("sync.run", "operador") === "Sim" && await cell("sync.run", "visualizador") === "Não", "sincronizar: operador sim, visualizador não");
@@ -47,6 +48,7 @@ const ROUTES = [
   ["/meta-ads", "Meta Ads", ["admin", "gestor", "operador", "visualizador"]],
   ["/google-ads", "Google Ads", ["admin", "gestor", "operador", "visualizador"]],
   ["/campanhas", "Campanhas", ["admin", "gestor", "operador", "visualizador"]],
+  ["/criador-de-anuncios", "Criador de Anúncios", ["admin", "gestor", "operador"]],
   ["/relatorios", "Relatórios", ["admin", "gestor", "operador"]],
   ["/alertas", "Alertas", ["admin", "gestor", "operador", "visualizador"]],
   ["/tracking", "Tracking", ["admin", "gestor", "operador", "visualizador"]],

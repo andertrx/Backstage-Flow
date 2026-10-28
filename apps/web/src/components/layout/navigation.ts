@@ -14,6 +14,7 @@ import {
   Settings,
   Target,
   Wallet,
+  Wand2,
 } from "lucide-react";
 import { platformLook } from "@/features/platforms/look.ts";
 
@@ -42,6 +43,8 @@ export const NAV_ITEMS: NavItem[] = [
   // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...), na ordem do catálogo.
   ...PLATFORMS.map((p): NavItem => ({ label: p.name, path: p.path, icon: platformLook(p.id).icon, group: "Anúncios", permission: "internal.view" })),
   { label: "Campanhas", path: "/campanhas", icon: Target, group: "Anúncios", permission: "internal.view" },
+  // Etapa 42: monta o pedido em texto para o Claude criar anúncios no Meta (a página não cria nada no Meta).
+  { label: "Criador de Anúncios", path: "/criador-de-anuncios", icon: Wand2, group: "Anúncios", permission: "ads.builder" },
   { label: "Relatórios", path: "/relatorios", icon: FileBarChart, group: "Análise", permission: "reports.generate" },
   { label: "Monitoramento", path: "/monitoramento", icon: Activity, group: "Análise", permission: "monitor.view" },
   { label: "Inteligência de Resultados", path: "/inteligencia-resultados", icon: ChartPie, group: "Análise", permission: "results.view" },

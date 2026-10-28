@@ -29,6 +29,7 @@ export const PERMISSIONS = [
   "contacts.view",
   "contacts.mark",
   "contacts.setup",
+  "ads.builder",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -54,8 +55,9 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "contacts.view",
     "contacts.mark",
     "contacts.setup",
+    "ads.builder",
   ],
-  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view", "tracking.whatsapp", "monitor.view", "monitor.handle", "results.view", "contacts.view", "contacts.mark"],
+  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view", "tracking.whatsapp", "monitor.view", "monitor.handle", "results.view", "contacts.view", "contacts.mark", "ads.builder"],
   visualizador: ["clients.view", "internal.view", "tracking.view", "monitor.view", "results.view", "contacts.view"],
   // Etapa 36: só a Central de Operações (permissões próprias, por pessoa).
   equipe: [],
@@ -93,6 +95,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "contacts.view": "Ver os contatos dos clientes (de onde veio, perfil, etapa e vendas)",
   "contacts.mark": "Marcar contatos: perfil (Lojista...), etapa e venda — o que vai ao Meta",
   "contacts.setup": "Configurar os perfis e as etapas dos contatos de cada cliente (e o que vai ao Meta)",
+  "ads.builder": "Usar o Criador de Anúncios (montar pedidos para o Claude criar anúncios no Meta)",
 };
 
 /** Quais clientes cada papel enxerga (a regra que o banco aplica em toda consulta). */
