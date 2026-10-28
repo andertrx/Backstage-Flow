@@ -2,6 +2,7 @@ import type { AdsBuilderForm } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
+import { callAdAccounts } from "@/features/ad-accounts/api.ts";
 
 // ---------------------------------------------------------------------------
 // Etapa 42 — Criador de Anúncios. Só guarda modelos e o histórico dos pedidos;
@@ -180,5 +181,14 @@ export function useAccountAssets(accountId: string | null) {
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as páginas e perfis do Instagram."));
       return (data ?? []) as MetaAsset[];
     },
+  });
+}
+
+/** Busca agora no Meta as páginas e o Instagram da conta (e guarda no CRM). */
+export function useRefreshAccountAssets() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (adAccountId: string) => callAdAccounts<{ adAccountId: string; warning: string | null }>({ action: "refresh_assets", adAccountId }),
+    onSettled: (_d, _e, adAccountId) => queryClient.invalidateQueries({ queryKey: [...KEY, "ativos", adAccountId] }),
   });
 }

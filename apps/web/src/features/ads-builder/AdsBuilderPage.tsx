@@ -15,7 +15,7 @@ import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import {
-  type AdsPedido, contaLabel, type MetaAsset, useAccountAssets, useAdSetOptions, useAddAdsPedido, useAdsModelos, useAdsPedidos, useArchiveAdsModelo, useCampaignOptions, useMetaAccounts,
+  type AdsPedido, contaLabel, type MetaAsset, useAccountAssets, useAdSetOptions, useRefreshAccountAssets, useAddAdsPedido, useAdsModelos, useAdsPedidos, useArchiveAdsModelo, useCampaignOptions, useMetaAccounts,
   useSaveAdsModelo,
 } from "./api.ts";
 
@@ -184,6 +184,24 @@ function OndeCriar({ form, set }: { form: AdsBuilderForm; set: (patch: Partial<A
 /** 42.1: página do Facebook e perfil do Instagram da conta escolhida (o CRM guarda ao vincular a conta). */
 function PaginaInstagram({ form, set }: { form: AdsBuilderForm; set: (patch: Partial<AdsBuilderForm>) => void }) {
   const ativos = useAccountAssets(form.conta_ref || null);
+  // 42.1: ao escolher a conta, busca na hora no Meta (páginas, Instagram de cada página e os perfis da própria conta)
+  const atualizar = useRefreshAccountAssets();
+  const [aviso, setAviso] = useState<string | null>(null);
+  const buscadas = useRef(new Set<string>());
+  async function buscarNoMeta(contaId: string) {
+    setAviso(null);
+    try {
+      const r = await atualizar.mutateAsync(contaId);
+      if (r.warning) setAviso(r.warning);
+    } catch (err) { setAviso(`${errorMessage(err)} Mostrando o que o CRM já tinha.`); }
+  }
+  useEffect(() => {
+    if (form.conta_ref && !buscadas.current.has(form.conta_ref)) {
+      buscadas.current.add(form.conta_ref);
+      void buscarNoMeta(form.conta_ref);
+    }
+  });
+  const buscando = atualizar.isPending;
   const paginas = (ativos.data ?? []).filter((a) => a.asset_type === "page");
   const igs = (ativos.data ?? []).filter((a) => a.asset_type === "instagram");
   const igDaPagina = (pageId: string) => igs.filter((i) => i.parent_external_id === pageId);
@@ -197,12 +215,22 @@ function PaginaInstagram({ form, set }: { form: AdsBuilderForm; set: (patch: Par
   // Conta com uma só página: já vem escolhida (com o Instagram dela)
   const autoKey = useRef("");
   useEffect(() => {
-    if (!form.conta_ref || !ativos.data || autoKey.current === form.conta_ref) return;
+    if (!form.conta_ref || !ativos.data || buscando || autoKey.current === form.conta_ref) return;
     autoKey.current = form.conta_ref;
     if (!form.pagina_id && paginas.length === 1) escolherPagina(paginas[0].external_id);
   });
 
-  const manual = !form.conta_ref || (ativos.isSuccess && paginas.length === 0 && igs.length === 0);
+  const manual = !form.conta_ref || (ativos.isSuccess && !buscando && paginas.length === 0 && igs.length === 0);
+  const status = form.conta_ref ? (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:col-span-2" data-testid="ads-ativos-status">
+      {buscando ? <span>Buscando no Meta as páginas e os perfis do Instagram desta conta…</span>
+        : aviso ? <span className="text-amber-700">{aviso}</span>
+        : <span>Páginas e Instagram desta conta, direto do Meta.</span>}
+      <button type="button" className="font-medium text-blue-700 hover:underline disabled:opacity-50" disabled={buscando} onClick={() => void buscarNoMeta(form.conta_ref)}>
+        Atualizar do Meta
+      </button>
+    </div>
+  ) : null;
   if (manual) {
     return (
       <div className="space-y-1.5">
@@ -210,7 +238,8 @@ function PaginaInstagram({ form, set }: { form: AdsBuilderForm; set: (patch: Par
           <Field label="Página do Facebook">{(id) => <Input id={id} value={form.pagina} maxLength={200} onChange={(e) => set({ pagina: e.target.value, pagina_id: "" })} />}</Field>
           <Field label="Perfil do Instagram">{(id) => <Input id={id} value={form.instagram} maxLength={200} placeholder="@perfil" onChange={(e) => set({ instagram: e.target.value, instagram_id: "" })} />}</Field>
         </div>
-        {form.conta_ref && <p className="text-xs text-slate-500">Esta conta não tem páginas nem perfis registrados no CRM: digite os nomes.</p>}
+        {form.conta_ref && <p className="text-xs text-slate-500">O Meta não informou páginas nem perfis do Instagram para esta conta: digite os nomes.</p>}
+        {status}
       </div>
     );
   }
@@ -219,13 +248,13 @@ function PaginaInstagram({ form, set }: { form: AdsBuilderForm; set: (patch: Par
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Página do Facebook" hint={ativos.isSuccess ? `${paginas.length} página(s) desta conta.` : undefined}>{(id) => (
-        <Select id={id} value={form.pagina_id} disabled={ativos.isLoading} onChange={(e) => escolherPagina(e.target.value)}>
+        <Select id={id} value={form.pagina_id} disabled={ativos.isLoading || buscando} onChange={(e) => escolherPagina(e.target.value)}>
           <option value="">{ativos.isLoading ? "Carregando…" : "Escolha…"}</option>
           {paginas.map((p) => <option key={p.id} value={p.external_id}>{nome(p)}</option>)}
         </Select>
       )}</Field>
       <Field label="Perfil do Instagram" hint={ativos.isSuccess ? `${igs.length} perfil(is) desta conta; os da página escolhida primeiro.` : undefined}>{(id) => (
-        <Select id={id} value={form.instagram_id} disabled={ativos.isLoading} onChange={(e) => {
+        <Select id={id} value={form.instagram_id} disabled={ativos.isLoading || buscando} onChange={(e) => {
           const ig = igs.find((x) => x.external_id === e.target.value);
           set({ instagram: ig ? nome(ig) : "", instagram_id: ig?.external_id ?? "" });
         }}>
@@ -234,6 +263,7 @@ function PaginaInstagram({ form, set }: { form: AdsBuilderForm; set: (patch: Par
           {outros.length > 0 && <optgroup label={ligados.length ? "Outros perfis da conta" : "Perfis da conta"}>{outros.map((i) => <option key={i.id} value={i.external_id}>{nome(i)}</option>)}</optgroup>}
         </Select>
       )}</Field>
+      {status}
     </div>
   );
 }

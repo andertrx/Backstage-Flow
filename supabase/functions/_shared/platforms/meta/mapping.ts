@@ -77,3 +77,20 @@ export function mapPages(pages: RawPage[]): PlatformAsset[] {
   }
   return assets;
 }
+
+export interface RawInstagram {
+  id: string;
+  username?: string;
+}
+
+/** Junta os perfis do Instagram da própria conta de anúncio (sem repetir os que já vieram das páginas). */
+export function mergeInstagram(assets: PlatformAsset[], igs: RawInstagram[]): PlatformAsset[] {
+  const seen = new Set(assets.filter((a) => a.type === "instagram").map((a) => a.externalId));
+  const out = [...assets];
+  for (const ig of igs) {
+    if (!ig?.id || seen.has(ig.id)) continue;
+    seen.add(ig.id);
+    out.push({ type: "instagram", externalId: ig.id, name: ig.username ? `@${ig.username}` : null, parentExternalId: null });
+  }
+  return out;
+}

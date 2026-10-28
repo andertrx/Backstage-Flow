@@ -33,6 +33,8 @@ import type { AccountFunding, CredentialOwner, PlatformAccount } from "../_share
 import { FRESH_MINUTES } from "../../../packages/shared/src/sync/freshness.ts";
 
 const MANAGERS = ["admin", "gestor"] as const;
+/** Etapa 42: quem usa o Criador de Anúncios (só pode atualizar páginas e Instagram das contas que vê). */
+const ADS_BUILDER = ["admin", "gestor", "operador"] as const;
 const ADMIN_ONLY = new Set(["connect", "disconnect", "google_status", "google_start", "google_complete"]);
 const GOOGLE_CALLBACK_PATH = "/configuracoes/integracoes/google/callback";
 
@@ -77,6 +79,8 @@ const schema = z.discriminatedUnion("action", [
     managerCustomerId: z.string().regex(/^\d{1,20}$/, "Id da conta administradora inválido.").nullish(),
   }),
   z.object({ action: z.literal("refresh"), adAccountId: z.guid("Identificador inválido.") }),
+  // Etapa 42.1: Criador de Anúncios busca na hora as páginas e o Instagram da conta (admin, gestor e operador)
+  z.object({ action: z.literal("refresh_assets"), adAccountId: z.guid("Identificador inválido.") }),
   z.object({ action: z.literal("unlink"), adAccountId: z.guid("Identificador inválido.") }),
   z.object({
     action: z.literal("refresh_balance"),
@@ -431,6 +435,16 @@ async function refresh(ctx: Ctx, input: Of<"refresh">) {
   return { adAccountId: account.id, warning };
 }
 
+/** Só páginas e Instagram da conta, direto da plataforma (Criador de Anúncios). Não mexe nos outros dados da conta. */
+async function refreshAssets(ctx: Ctx, input: Of<"refresh_assets">) {
+  const account = await loadAccountForManager(ctx, input.adAccountId);
+  if (!account.connection_id) throw new AppError(400, "NO_CONNECTION", "Esta conta não tem conexão ativa. Vincule novamente.");
+  const { connection, token } = await loadConnection(ctx, account.connection_id);
+  const adapter = adapterFor(connection.platform_id);
+  const warning = await syncAssets(ctx, adapter, token, account.id, account.external_id);
+  return { adAccountId: account.id, warning };
+}
+
 async function unlink(ctx: Ctx, input: Of<"unlink">) {
   const account = await loadAccountForManager(ctx, input.adAccountId);
   const { error } = await ctx.db
@@ -547,7 +561,7 @@ Deno.serve(
       throw new AppError(400, "INVALID_INPUT", parsed.error.issues[0]?.message ?? "Dados inválidos.", parsed.error.message);
     }
     const input = parsed.data;
-    const caller = await requireRole(req, db, ADMIN_ONLY.has(input.action) ? ["admin"] : MANAGERS);
+    const caller = await requireRole(req, db, ADMIN_ONLY.has(input.action) ? ["admin"] : input.action === "refresh_assets" ? ADS_BUILDER : MANAGERS);
     await enforceRateLimit(db, rateBucket(input.action), caller.id);
     const ctx: Ctx = { req, db, caller };
 
@@ -561,6 +575,7 @@ Deno.serve(
         case "list_available": return listAvailable(ctx, input);
         case "link": return link(ctx, input);
         case "refresh": return refresh(ctx, input);
+        case "refresh_assets": return refreshAssets(ctx, input);
         case "unlink": return unlink(ctx, input);
         case "refresh_balance": return refreshBalance(ctx, input);
         case "balance_settings": return balanceSettings(ctx, input);

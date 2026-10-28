@@ -141,3 +141,18 @@ Depois, tirar o item do menu.
   - navegador: BMs do cliente, conta só depois da BM, campanhas com as ativas primeiro, limpar ao trocar o cliente, ID no pedido, duplicar trocando o conjunto pela lista, digitar à mão.
 
 ![Onde criar](criador-anuncios-onde-criar.png)
+
+## 42.1 (continuação) — Página e Instagram direto do Meta (28/10)
+**Pedido do Ander:** alguns Instagram que ele usa nos anúncios não apareciam. Ele escolheu buscar **só da conta de anúncios** (opção "b"), não da BM inteira.
+
+- **Por que faltavam:** a lista era uma foto tirada quando a conta foi vinculada (quase todas em 25/09) e só olhava as páginas da conta e o Instagram ligado a cada página.
+- **O que mudou:**
+  - ao escolher a conta, o CRM busca **na hora** no Meta as páginas e os perfis do Instagram da conta e guarda a nova lista (uma vez por conta, enquanto a página estiver aberta);
+  - além do Instagram ligado à página, agora entram os **perfis do Instagram liberados na própria conta de anúncios** (`act_.../instagram_accounts`), mesmo sem página;
+  - botão **"Atualizar do Meta"** para buscar de novo;
+  - enquanto busca aparece "Buscando no Meta…"; se o Meta falhar, a lista guardada continua valendo e aparece o aviso.
+- **Quem pode:** admin, gestor e operador (os mesmos do Criador). Conferido no servidor (`ad-accounts`, ação `refresh_assets`), com o limite de uso de sempre.
+- **Sem tabela nova.** Usa a `ad_account_assets` que já existia.
+- **Publicado:** servidor `ad-accounts` versão 15 (leva junto a mensagem do Google "API desativada", que estava no código desde 27/09 e ainda não tinha ido para o ar).
+- **Não testado com conta real:** o servidor só aceita login de usuário, então a busca real acontece na primeira vez que alguém escolher cada conta no Criador. Testado: chamada sem login recusada (401), testes do servidor (167) e de navegador com o simulador.
+- **Contas sem Instagram hoje no CRM:** Balloon Kids, Drika Variedades e Droga Rocha. No Meta, a Drika também não tem Instagram liberado na conta; se depois de "Atualizar do Meta" continuar vazio, o perfil precisa ser liberado na conta de anúncios (Configurações da BM → Contas do Instagram → Contas de anúncios atribuídas).

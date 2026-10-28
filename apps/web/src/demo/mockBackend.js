@@ -2343,6 +2343,13 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         }
         case "refresh":
           return res(200, { data: { adAccountId: body.adAccountId, warning: null } });
+        // Etapa 42.1: o "Meta" do simulador (db.assetsNoMeta) passa a valer como a foto da conta
+        case "refresh_assets": {
+          if (!["admin", "gestor", "operador"].includes(role)) return res(403, { error: { code: "FORBIDDEN", message: "Sem permissão." } });
+          const live = db.assetsNoMeta?.[body.adAccountId];
+          if (live) db.adAccountAssets = [...(db.adAccountAssets ?? []).filter((x) => x.ad_account_id !== body.adAccountId), ...live];
+          return res(200, { data: { adAccountId: body.adAccountId, warning: null } });
+        }
         case "refresh_balance": {
           const results = body.adAccountIds.map((id) => {
             // Cache: fotografia de menos de 10 minutos já responde.

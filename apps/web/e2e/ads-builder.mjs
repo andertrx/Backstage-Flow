@@ -32,6 +32,12 @@ function seed(db) {
     asset(ACC, "page", "556", "Aurora Outlet"), asset(ACC, "instagram", "778", "@auroraoutlet", "556"),
     asset(ACC_BRISA, "page", "655", "Loja Brisa"), asset(ACC_BRISA, "instagram", "677", "@lojabrisa", "655"),
   );
+  // 42.1: no "Meta" a conta Aurora tem também um perfil do Instagram ligado direto na conta (não está na foto do CRM)
+  db.assetsNoMeta = { [ACC]: [
+    asset(ACC, "page", "555", "Loja Aurora"), asset(ACC, "instagram", "777", "@lojaaurora", "555"),
+    asset(ACC, "page", "556", "Aurora Outlet"), asset(ACC, "instagram", "778", "@auroraoutlet", "556"),
+    asset(ACC, "instagram", "779", "@aurora.kids"),
+  ] };
   db.adGroups.push({ id: crypto.randomUUID(), campaign_id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "130001", name: "Aberto 25-45", status: "ativa" },
     { id: crypto.randomUUID(), campaign_id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "130002", name: "Remarketing 7d", status: "ativa" });
 }
@@ -87,6 +93,11 @@ function seed(db) {
   check(paginas === "Escolha…|Aurora Outlet|Loja Aurora", `páginas do Facebook da conta (${paginas})`);
   await form.getByLabel("Página do Facebook").selectOption({ label: "Loja Aurora" });
   check(await form.getByLabel("Perfil do Instagram").locator("option:checked").innerText() === "@lojaaurora", "escolher a página já escolhe o Instagram ligado a ela");
+  check(db.adAccountCalls.some((c) => c.action === "refresh_assets" && c.adAccountId === ACC), "ao escolher a conta, busca na hora no Meta");
+  check((await form.getByLabel("Perfil do Instagram").locator("option").allInnerTexts()).includes("@aurora.kids"), "traz o Instagram ligado direto na conta (não só o da página)");
+  await page.getByRole("button", { name: "Atualizar do Meta" }).click();
+  await page.getByText("Páginas e Instagram desta conta, direto do Meta.").waitFor();
+  check(db.adAccountCalls.filter((c) => c.action === "refresh_assets" && c.adAccountId === ACC).length >= 2, "botão Atualizar do Meta busca de novo");
   await page.getByTestId("ads-secao-1").screenshot({ path: `${SHOTS}/criador-anuncios-onde-criar.png` });
 
   // Mídia

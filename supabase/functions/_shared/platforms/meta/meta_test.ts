@@ -123,6 +123,19 @@ Deno.test("listAssets: sem permissão de Instagram, busca só as páginas", asyn
   assertEquals(calls[1].searchParams.get("fields"), "id,name");
 });
 
+Deno.test("listAssets (42.1): junta os perfis do Instagram da própria conta, sem repetir", async () => {
+  const { impl } = fakeFetch({
+    "/act_123/promote_pages": [{ data: [{ id: "p1", name: "Página", instagram_business_account: { id: "ig1", username: "loja" } }] }],
+    "/act_123/instagram_accounts": [{ data: [{ id: "ig1", username: "loja" }, { id: "ig2", username: "loja.outlet" }] }],
+  });
+  const assets = await createMetaAdapter(impl).listAssets("TOKEN", "123");
+  assertEquals(assets, [
+    { type: "page", externalId: "p1", name: "Página", parentExternalId: null },
+    { type: "instagram", externalId: "ig1", name: "@loja", parentExternalId: "p1" },
+    { type: "instagram", externalId: "ig2", name: "@loja.outlet", parentExternalId: null },
+  ]);
+});
+
 Deno.test("getAccount: recusa id que não é numérico (evita montar URL arbitrária)", async () => {
   const { impl, calls } = fakeFetch({});
   await assertRejects(() => createMetaAdapter(impl).getAccount("TOKEN", "../me"), AppError);

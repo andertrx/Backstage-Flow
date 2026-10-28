@@ -1,8 +1,9 @@
 import { AppError } from "../../http.ts";
 import type { PlatformAdapter } from "../adapter.ts";
+import type { PlatformAsset } from "../types.ts";
 import { graphGet, graphGetAll } from "./client.ts";
 import { mapMetaFunding, type RawFundingAccount } from "./funding.ts";
-import { mapAccount, mapPages, type RawAdAccount, type RawPage } from "./mapping.ts";
+import { mapAccount, mapPages, mergeInstagram, type RawAdAccount, type RawInstagram, type RawPage } from "./mapping.ts";
 import { fetchMetaBreakdowns } from "./breakdowns.ts";
 import { fetchMetaDailyMetrics, fetchMetaPeriodReach, fetchMetaStructure } from "./sync.ts";
 
@@ -64,16 +65,24 @@ export function createMetaAdapter(fetchImpl: typeof fetch = fetch): PlatformAdap
 
     async listAssets(token, externalId) {
       const path = `act_${externalId}/promote_pages`;
+      let assets: PlatformAsset[];
       try {
         const pages = await graphGetAll<RawPage>(path, { fields: "id,name,instagram_business_account{id,username}" }, token, fetchImpl);
-        return mapPages(pages);
+        assets = mapPages(pages);
       } catch (err) {
         // Sem permissão para ler o Instagram: busca só as páginas.
-        if (err instanceof AppError && err.code === "PERMISSION_DENIED") {
-          return mapPages(await graphGetAll<RawPage>(path, { fields: "id,name" }, token, fetchImpl));
-        }
-        throw err;
+        if (!(err instanceof AppError && err.code === "PERMISSION_DENIED")) throw err;
+        assets = mapPages(await graphGetAll<RawPage>(path, { fields: "id,name" }, token, fetchImpl));
       }
+      // Etapa 42.1: perfis do Instagram autorizados direto na conta de anúncio (não só o ligado a cada página).
+      // Se o Meta recusar (permissão), fica só o que veio das páginas.
+      try {
+        const igs = await graphGetAll<RawInstagram>(`act_${externalId}/instagram_accounts`, { fields: "id,username" }, token, fetchImpl);
+        assets = mergeInstagram(assets, igs);
+      } catch {
+        // sem permissão para esta lista: segue com as páginas
+      }
+      return assets;
     },
   };
 }
