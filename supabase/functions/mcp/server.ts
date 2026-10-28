@@ -87,7 +87,7 @@ export function buildServer(
         "CRM Backstage Flow (agência de tráfego pago). Métricas e campanhas são só leitura. Dá para mexer, com as permissões da pessoa, " +
         "na Central de Operações (tarefas, onboarding dos clientes, Comercial/leads, reuniões e, administrador, configurações) e no Monitoramento (tratar alertas, regras). " +
         "Contatos dos leads (nome do contato, telefone, e-mail, CNPJ) podem ser gravados quando a pessoa ditar, mas nunca são mostrados. " +
-        "Envios semanais para grupos de WhatsApp: só envie o que backstage_list_envios (liberados_agora) devolver como aprovado, e registre cada grupo. " +
+        "Envios semanais para grupos de WhatsApp: só envie o que backstage_list_envios (envio = código do envio, liberados_agora) devolver como aprovado, e registre cada grupo. " +
         "Antes de criar ou editar, leia os IDs em backstage_central_reference e a versão no item (get). Respeite as moedas separadas e não invente números. " +
         "Leia o recurso backstage://guia para as regras.",
     },

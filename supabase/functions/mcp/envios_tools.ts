@@ -25,6 +25,8 @@ interface EnvioCliente {
 }
 interface Envio {
   id: string;
+  /** 41.5: identificação curta (ENV-001). */
+  codigo?: string;
   nome: string;
   mensagem: string;
   dia_semana: number;
@@ -51,6 +53,7 @@ function envioOut(e: Envio, soPendentes: boolean) {
   const grupos = e.clientes.filter((c) => c.ativo && (!soPendentes || !c.ja_enviado_nesta_semana));
   return {
     envio_id: e.id,
+    codigo: e.codigo ?? null,
     nome: e.nome,
     quando: `${WEEKDAYS[e.dia_semana]} às ${e.horario} (Brasília)`,
     versao: e.versao,
@@ -84,20 +87,35 @@ export const ENVIO_TOOLS: ToolSpec[] = [
   {
     name: "backstage_list_envios",
     title: "Envios semanais (mensagens para grupos de WhatsApp)",
-    description: "Lista os envios semanais ativos: mensagem, dia e horário, situação de hoje (aprovado ou não), e para cada grupo ativo o nome exato do grupo e quem marcar, na ordem. "
+    description: "Lista os envios semanais ativos: código (ENV-001), mensagem, dia e horário, situação de hoje (aprovado ou não), e para cada grupo ativo o nome exato do grupo e quem marcar, na ordem. "
+      + "Use envio = \"ENV-001\" para trazer só aquele envio (é o que a tarefa agendada de cada envio faz). "
       + "Use liberados_agora = true para receber só o que está aprovado e no horário, e só os grupos que ainda não receberam nesta semana (econômico).",
-    input: { liberados_agora: z.boolean().optional().describe("true = só o que pode ser enviado agora (aprovado nesta semana e no horário).") },
+    input: {
+      envio: z.string().trim().min(1).max(60).optional().describe("Código do envio (ex.: ENV-001). Com ele, só esse envio."),
+      liberados_agora: z.boolean().optional().describe("true = só o que pode ser enviado agora (aprovado nesta semana e no horário)."),
+    },
     allowed: has("ops.envios"),
     async run(ctx, a) {
       const liberados = a.liberados_agora === true;
-      const r = (await ctx.data.opsRpc("ops_envio_list", { f: { so_ativos: true } })) as { hoje?: { data?: string; hora?: string }; envios?: Envio[] } | null;
-      const envios = (r?.envios ?? []).filter((e) => !liberados || e.pode_enviar_agora);
+      const codigo = typeof a.envio === "string" ? a.envio.trim().toUpperCase() : "";
+      const r = (await ctx.data.opsRpc("ops_envio_list", { f: { so_ativos: true, ...(codigo ? { codigo } : {}) } })) as
+        { hoje?: { data?: string; hora?: string }; envios?: Envio[] } | null;
+      const todos = r?.envios ?? [];
+      const envios = todos.filter((e) => !liberados || e.pode_enviar_agora);
       const out = envios.map((e) => envioOut(e, liberados)).filter((e) => !liberados || e.grupos.length > 0);
+      let aviso: string | undefined;
+      if (codigo && todos.length === 0) aviso = `Envio ${codigo} não encontrado, pausado ou arquivado. Não envie nada.`;
+      else if (liberados && out.length === 0) {
+        aviso = codigo && todos[0] && todos[0].pode_enviar_agora
+          ? `Todos os grupos do envio ${codigo} já receberam nesta semana. Não envie nada.`
+          : codigo && todos[0] ? `O envio ${codigo} não está liberado agora (${SITUACAO[todos[0].situacao_hoje] ?? todos[0].situacao_hoje}). Não envie nada.`
+          : "Nada liberado para enviar agora. Não envie nada.";
+      }
       return {
         agora_em_brasilia: r?.hoje ? `${r.hoje.data} ${r.hoje.hora}` : null,
         total: out.length,
         envios: out,
-        ...(liberados && out.length === 0 ? { aviso: "Nada liberado para enviar agora. Não envie nada." } : {}),
+        ...(aviso ? { aviso } : {}),
         como_enviar: COMO_ENVIAR,
         tela: link(),
       };

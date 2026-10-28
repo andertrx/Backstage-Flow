@@ -159,7 +159,13 @@ function fakeData(user: Caller, opts: { slow?: boolean; broken?: boolean } = {},
       }
       if (name === "ops_meeting_save") return Promise.resolve(args.p_id ?? MEETING);
       if (name === "ops_meeting_item_to_task" || name === "ops_meeting_item_add") return Promise.resolve(TASK);
-      if (name === "ops_envio_list") return Promise.resolve({ hoje: { data: "2026-11-02", hora: "10:05" }, envios: [envioFake(ENVIO_OK, "Feedback", true), envioFake(ENVIO_ESPERA, "Outro", false)] });
+      if (name === "ops_envio_list") {
+        // 41.5: filtro pelo código do envio (como o banco)
+        const codigo = ((args.f as Record<string, unknown> | undefined)?.codigo as string | undefined) ?? "";
+        const envios = [{ ...envioFake(ENVIO_OK, "Feedback", true), codigo: "ENV-001" }, { ...envioFake(ENVIO_ESPERA, "Outro", false), codigo: "ENV-002" }]
+          .filter((e) => !codigo || e.codigo === codigo);
+        return Promise.resolve({ hoje: { data: "2026-11-02", hora: "10:05" }, envios });
+      }
       if (name === "ops_envio_get") return Promise.resolve(args.p_id === ENVIO_OK ? envioFake(ENVIO_OK, "Feedback", true) : null);
       if (name === "ops_envio_execucao_add") {
         return args.p_status === "enviado" && args.p_envio === ENVIO_ESPERA
@@ -263,7 +269,7 @@ Deno.test("status: sem segredos; banco fora do ar aparece como indisponível", a
   const s = json(await client.callTool({ name: "backstage_status", arguments: {} }));
   assertEquals(s.sistema, "Backstage Flow");
   assertEquals(s.banco.estado, "funcionando");
-  assertEquals(s.servidor_mcp.versao, "1.4.0");
+  assertEquals(s.servidor_mcp.versao, "1.5.0");
   assert(!/key|secret|token|senha|password/i.test(JSON.stringify(s)), "sem segredos");
   assertEquals(logs.at(-1)?.tool, "backstage_status");
   assertEquals(logs.at(-1)?.ok, true);
@@ -652,6 +658,20 @@ Deno.test("Envios semanais: só o liberado (aprovado e no horário), grupos pend
   assert(!names.some((n: string) => /aprov|decid/.test(n)), "aprovar é só na tela do CRM");
   const cap = json(await client.callTool({ name: "backstage_capabilities", arguments: {} }));
   assert(cap.modulos_liberados_no_crm.includes("Envios semanais (grupos de WhatsApp)"));
+  await client.close();
+});
+
+Deno.test("Envios semanais (41.5): a tarefa de cada envio busca só o código dela", async () => {
+  const central = newCentral();
+  const { client } = await connect("tok-admin", {}, central);
+  const um = json(await client.callTool({ name: "backstage_list_envios", arguments: { envio: "env-001", liberados_agora: true } }));
+  assertEquals([um.total, um.envios[0].codigo, um.envios[0].envio_id], [1, "ENV-001", ENVIO_OK]);
+  assertEquals((central.calls.filter((c) => c.name === "ops_envio_list").at(-1)!.args.f as Record<string, unknown>).codigo, "ENV-001");
+  const espera = json(await client.callTool({ name: "backstage_list_envios", arguments: { envio: "ENV-002", liberados_agora: true } }));
+  assertEquals(espera.total, 0);
+  assertMatch(espera.aviso, /ENV-002 não está liberado agora.*Não envie nada/);
+  const nada = json(await client.callTool({ name: "backstage_list_envios", arguments: { envio: "ENV-999", liberados_agora: true } }));
+  assertMatch(nada.aviso, /ENV-999 não encontrado/);
   await client.close();
 });
 

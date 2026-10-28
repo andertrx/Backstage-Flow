@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEnvioCommand, cleanContacts, cleanDesligados, contatosLigados, ENVIO_AGENT_INSTRUCTION, type EnvioInput, looksLikePhone, parseWhatsApp, validateEnvio } from "./envios.ts";
+import { buildEnvioCommand, cleanContacts, cleanDesligados, contatosLigados, envioAgentInstruction, type EnvioInput, looksLikePhone, parseWhatsApp, validateEnvio } from "./envios.ts";
 
 const base = (): EnvioInput => ({
   nome: "Feedback semanal",
@@ -79,12 +79,15 @@ describe("parseWhatsApp", () => {
   });
 });
 
-describe("instrução da tarefa agendada (41.2)", () => {
-  it("consulta só o liberado, para cedo quando não há nada e registra cada grupo", () => {
-    expect(ENVIO_AGENT_INSTRUCTION).toContain("backstage_list_envios com liberados_agora = true");
-    expect(ENVIO_AGENT_INSTRUCTION).toMatch(/vier vazia.*pare/);
-    expect(ENVIO_AGENT_INSTRUCTION).toContain("SEGUNDA mensagem");
-    expect(ENVIO_AGENT_INSTRUCTION).toContain("backstage_registrar_execucao_envio");
+describe("instrução da tarefa agendada (41.2/41.5)", () => {
+  it("uma por envio: busca só o código dele, para cedo quando não está liberado e registra cada grupo", () => {
+    const t = envioAgentInstruction("ENV-007", "Feedback semanal");
+    expect(t).toContain('backstage_list_envios com envio = "ENV-007" e liberados_agora = true');
+    expect(t).toContain("Trate SOMENTE o envio ENV-007");
+    expect(t).toMatch(/vier vazia.*pare/);
+    expect(t).toContain("SEGUNDA mensagem");
+    expect(t).toContain("backstage_registrar_execucao_envio");
+    expect(t).not.toContain("ENV-001");
   });
 });
 

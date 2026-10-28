@@ -77,9 +77,13 @@ function seed(db) {
   await page.getByRole("button", { name: "Copiar comando de Feedback semanal" }).click();
   const cmd = await page.evaluate(() => navigator.clipboard.readText());
   check(cmd.includes(`backstage_registrar_execucao_envio (envio ${ENVIO})`), "comando copiado com o ID do envio para registrar pelo MCP");
-  await page.getByRole("button", { name: "Copiar instrução da tarefa agendada" }).click();
+  // 41.5: cada envio tem o seu código e a sua instrução (a tarefa busca só aquele envio)
+  check((await page.getByTestId("envio-codigo").innerText()) === "ENV-001", "card mostra o código do envio (ENV-001)");
+  check(await page.getByRole("button", { name: "Copiar instrução da tarefa agendada" }).count() === 0, "sem a instrução geral");
+  await page.getByRole("button", { name: "Copiar instrução da tarefa de Feedback semanal" }).click();
   const instr = await page.evaluate(() => navigator.clipboard.readText());
-  check(instr.includes("backstage_list_envios com liberados_agora = true") && instr.includes("Não abra o navegador"), "instrução da tarefa agendada copiada");
+  check(instr.includes('backstage_list_envios com envio = "ENV-001" e liberados_agora = true') && instr.includes("Trate SOMENTE o envio ENV-001")
+    && instr.includes("Não abra o navegador"), "instrução da tarefa copiada com o código do envio");
 
   // Editou depois de aprovar: pede aprovação de novo
   await page.getByRole("button", { name: "Editar Feedback semanal" }).click();

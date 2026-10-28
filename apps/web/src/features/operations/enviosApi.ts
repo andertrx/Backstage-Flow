@@ -53,6 +53,8 @@ export interface OpsEnvioAprovacao {
 
 export interface OpsEnvio {
   id: string;
+  /** 41.5: identificação curta (ENV-001), usada na instrução da tarefa agendada. */
+  codigo: string;
   nome: string;
   mensagem: string;
   dia_semana: number;

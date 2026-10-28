@@ -18,3 +18,5 @@ revoke select on table public.ops_envio_padroes from authenticated;
 
 -- Etapa 41.4 (envio usa sempre a configuração de "Grupos e @"): sem tabela nem permissão nova. Para voltar ao comportamento da 41.3,
 -- reaplicar as definições de private.envio_json e private.ops_envio_save_impl de 20261027225456_envios_padroes.sql.
+
+-- Etapa 41.5 (código ENV-001): o campo ops_envios.codigo fica (inofensivo). Para o MCP voltar a ignorar o código, republicar a função mcp anterior (1.4.0).

@@ -13,7 +13,7 @@
 ## Envios semanais (Etapa 41, 27/10/2026)
 - [ ] Em Central → Equipe, marcar a permissão **"Envios semanais"** para quem mais deve configurar os envios (o administrador já tem).
 - [ ] Mandar **a mensagem, o dia e o horário** do envio semanal: os 25 grupos com quem marcar já estão conferidos; eu crio o envio.
-- [ ] No app do Claude **no computador**: criar a **tarefa agendada** no dia do envio, ~5 min depois do horário, colando a "Instrução da tarefa agendada" (botão na aba Envios semanais). Precisa: conector do Backstage Flow, Claude no Chrome e WhatsApp Web logado (passo a passo em `docs/etapa-41-envios-semanais/41.2-APROVACAO-E-MCP.md`, seção 5).
+- [ ] No app do Claude **no computador**: criar **uma tarefa agendada por envio** (ex.: ENV-001), no dia do envio ~5 min depois do horário (ou todo dia), colando a instrução do botão **"Instrução da tarefa"** do card daquele envio. Precisa: conector do Backstage Flow, Claude no Chrome e WhatsApp Web logado (ver `docs/etapa-41-envios-semanais/41.5-CODIGO-DO-ENVIO.md`).
 
 ## Central — aviso de tarefa vencida no aparelho (36.17, 26/10/2026)
 - [ ] Em cada aparelho (computador e celular): abrir o CRM → Central → Notificações → **Ativar neste aparelho** → Permitir → **Enviar teste**. Me diga se o aviso chegou (ainda não foi testado num aparelho real).

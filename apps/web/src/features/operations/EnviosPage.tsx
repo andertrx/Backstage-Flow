@@ -1,5 +1,5 @@
 import {
-  buildEnvioCommand, cleanContacts, cleanDesligados, ENVIO_AGENT_INSTRUCTION, ENVIO_LIMITS, ENVIO_STATUS_LABELS, ENVIO_STATUSES, ENVIO_WEEKDAYS, type EnvioClienteInput, type EnvioStatus,
+  buildEnvioCommand, cleanContacts, cleanDesligados, ENVIO_LIMITS, envioAgentInstruction, ENVIO_STATUS_LABELS, ENVIO_STATUSES, ENVIO_WEEKDAYS, type EnvioClienteInput, type EnvioStatus,
   validateEnvio,
 } from "@backstage/shared";
 import { ArrowDown, ArrowUp, Archive, ArchiveRestore, AtSign, Check, Copy, History, Pencil, Plus, Search, Send, X } from "lucide-react";
@@ -233,17 +233,17 @@ function CopyCommand({ envio }: { envio: OpsEnvio }) {
   );
 }
 
-/** 41.2: a instrução fixa para colar na tarefa agendada do Claude no computador (ver a documentação da fase). */
-function CopyAgentInstruction() {
+/** 41.2/41.5: a instrução da tarefa agendada DESTE envio (leva o código dele). Ver a documentação da fase 41.5. */
+function CopyAgentInstruction({ envio }: { envio: OpsEnvio }) {
   const [copied, setCopied] = useState<"ok" | "erro" | null>(null);
   async function copy() {
-    try { await navigator.clipboard.writeText(ENVIO_AGENT_INSTRUCTION); setCopied("ok"); } catch { setCopied("erro"); }
+    try { await navigator.clipboard.writeText(envioAgentInstruction(envio.codigo, envio.nome)); setCopied("ok"); } catch { setCopied("erro"); }
     setTimeout(() => setCopied(null), 2500);
   }
   return (
-    <Button variant="secondary" onClick={copy} aria-label="Copiar instrução da tarefa agendada">
-      {copied === "ok" ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
-      {copied === "ok" ? "Instrução copiada" : copied === "erro" ? "Não deu para copiar" : "Instrução da tarefa agendada"}
+    <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={copy} aria-label={`Copiar instrução da tarefa de ${envio.nome}`}>
+      {copied === "ok" ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+      {copied === "ok" ? "Instrução copiada" : copied === "erro" ? "Não deu para copiar" : "Instrução da tarefa"}
     </Button>
   );
 }
@@ -265,6 +265,8 @@ function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md bg-blue-50 px-2 py-0.5 font-mono text-xs font-semibold text-blue-700 ring-1 ring-blue-100" data-testid="envio-codigo"
+              title="Identificação do envio: vai na instrução da tarefa agendada">{envio.codigo}</span>
             <h3 className="font-semibold text-slate-900">{envio.nome}</h3>
             {arquivado ? <Badge>Arquivado</Badge> : envio.ativo ? <Badge tone="success">Ativo</Badge> : <Badge tone="warning">Pausado</Badge>}
             {!arquivado && sit && <Badge tone={sit.tone}>{sit.label}</Badge>}
@@ -276,6 +278,7 @@ function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
             <Button className="px-3 py-1.5 text-xs" variant={envio.situacao_hoje === "aguardando_aprovacao" ? "primary" : "secondary"} onClick={() => setReviewing(true)}
               aria-label={`Revisar e aprovar ${envio.nome}`}>Revisar e aprovar</Button>
           )}
+          {!arquivado && <CopyAgentInstruction envio={envio} />}
           {!arquivado && <CopyCommand envio={envio} />}
           {!arquivado && <Button variant="ghost" className="px-2 py-1 text-xs" onClick={onEdit} aria-label={`Editar ${envio.nome}`}><Pencil className="size-3.5" aria-hidden /> Editar</Button>}
           <Button variant="ghost" className="px-2 py-1 text-xs" onClick={toggleArchive} loading={archive.isPending} aria-label={`${arquivado ? "Desarquivar" : "Arquivar"} ${envio.nome}`}>
@@ -540,7 +543,6 @@ export function EnviosPage() {
         {view === "envios" && <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={arquivados} onChange={(e) => setArquivados(e.target.checked)} /> Ver arquivados</label>}
         {view === "envios" && !arquivados && (
           <div className="ml-auto flex flex-wrap gap-2">
-            <CopyAgentInstruction />
             <Button onClick={() => setEditing(null)} disabled={ctx.loading}><Plus className="size-4" aria-hidden /> Novo envio</Button>
           </div>
         )}

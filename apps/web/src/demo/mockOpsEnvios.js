@@ -45,8 +45,16 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
       aprovacao: a ? { decisao: a.decisao, versao_envio: a.versao_envio, decidido_em: a.decidido_em, decidido_por_nome: name(a.decidido_por), origem: a.origem, valida } : null };
   };
 
+  // 41.5: código curto do envio (ENV-001…), em sequência; envios semeados nos testes ganham o seu na primeira leitura
+  const codigoDe = (e) => {
+    if (!e.codigo) {
+      const max = Math.max(0, ...db.opsEnvios.map((x) => Number(String(x.codigo ?? "").slice(4)) || 0));
+      e.codigo = `ENV-${String(max + 1).padStart(3, "0")}`;
+    }
+    return e.codigo;
+  };
   const json = (e, soAtivos) => ({
-    ...e, ...situacao(e), criado_por_nome: name(e.criado_por), atualizado_por_nome: name(e.atualizado_por), toca_hoje: e.dia_semana === now.dow,
+    ...e, codigo: codigoDe(e), ...situacao(e), criado_por_nome: name(e.criado_por), atualizado_por_nome: name(e.atualizado_por), toca_hoje: e.dia_semana === now.dow,
     clientes: db.opsEnvioClientes.filter((c) => c.envio_id === e.id && !c.removido_em && (!soAtivos || c.ativo)).map((c) => {
       const ex = db.opsEnvioExecucoes.filter((x) => x.envio_id === e.id && x.cliente_id === c.cliente_id).sort((a, b) => b.executado_em.localeCompare(a.executado_em));
       // 41.4: grupo e @ vêm sempre da configuração atual do cliente (Grupos e @), quando existe
@@ -99,7 +107,8 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
   }
   if (rpc("ops_envio_list")) {
     const f = p.f ?? {};
-    const out = db.opsEnvios.filter((e) => (f.arquivados ? e.arquivado_em : !e.arquivado_em) && (!f.so_ativos || e.ativo))
+    const cod = String(f.codigo ?? "").trim().toUpperCase();
+    const out = db.opsEnvios.filter((e) => (f.arquivados ? e.arquivado_em : !e.arquivado_em) && (!f.so_ativos || e.ativo) && (!cod || codigoDe(e) === cod || e.id === cod.toLowerCase()))
       .sort((a, b) => a.dia_semana - b.dia_semana || a.horario.localeCompare(b.horario) || a.nome.localeCompare(b.nome)).map((e) => json(e, f.so_ativos));
     return res(200, { hoje: { dia_semana: now.dow, inicio_semana: now.weekStart }, envios: out });
   }
@@ -152,6 +161,7 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
     if (!p.p_id) {
       e = { id: crypto.randomUUID(), nome, mensagem: msg, dia_semana: i.dia_semana, horario: i.horario, ativo: i.ativo !== false, arquivado_em: null, versao: 1,
         criado_por: userId, atualizado_por: userId, created_at: t, updated_at: t };
+      codigoDe(e);
       db.opsEnvios.push(e);
     } else {
       e = db.opsEnvios.find((x) => x.id === p.p_id);

@@ -1,8 +1,11 @@
 -- Teste da Etapa 41.4 — o envio usa sempre a configuração atual de "Grupos e @". Transação desfeita (termina com "R: N verificações OK").
 do $$
 declare
+  v_seq bigint; v_seq_called boolean;
   v_admin uuid; v_c1 uuid; v_c2 uuid; v_e uuid; v_ok integer := 0; v_cli jsonb; v_j jsonb;
 begin
+  -- 41.5: guardar a sequência dos códigos (ENV-001…), que não volta com a transação desfeita
+  select last_value, is_called into v_seq, v_seq_called from public.ops_envios_codigo_seq;
   select id into v_admin from public.profiles where role = 'admin' and active order by created_at limit 1;
   select id into v_c1 from public.clients c where excluded_at is null and not exists (select 1 from public.ops_envio_padroes p where p.cliente_id = c.id) order by name limit 1;
   select id into v_c2 from public.clients c where excluded_at is null and id <> v_c1 and not exists (select 1 from public.ops_envio_padroes p where p.cliente_id = c.id) order by name limit 1;
@@ -43,5 +46,7 @@ begin
   if (select nome_grupo from public.ops_envio_clientes where envio_id = v_e and cliente_id = v_c2) <> 'Grupo antigo' then raise exception 'c2 usa o padrão dele'; end if;
   v_ok := v_ok + 1;
 
+  perform set_config('role', 'postgres', true);
+  perform setval('public.ops_envios_codigo_seq', v_seq, v_seq_called);
   raise exception 'R: % verificações OK', v_ok;
 end $$;

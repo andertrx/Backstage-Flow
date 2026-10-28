@@ -2,12 +2,15 @@
 -- Monta envios para HOJE com horário relativo a agora (Brasília); precisa rodar entre 7h e 22h de Brasília.
 do $$
 declare
+  v_seq bigint; v_seq_called boolean;
   v_admin uuid; v_c1 uuid; e1 uuid; e2 uuid; e3 uuid; v_ok integer := 0; v_s jsonb;
   v_dow int := extract(dow from now() at time zone 'America/Sao_Paulo')::int;
   v_futuro text := to_char((now() at time zone 'America/Sao_Paulo') + interval '90 minutes', 'HH24:MI');
   v_passado text := to_char((now() at time zone 'America/Sao_Paulo') - interval '10 minutes', 'HH24:MI');
   mk jsonb;
 begin
+  -- 41.5: guardar a sequência dos códigos (ENV-001…), que não volta com a transação desfeita
+  select last_value, is_called into v_seq, v_seq_called from public.ops_envios_codigo_seq;
   if (now() at time zone 'America/Sao_Paulo')::time not between time '07:15' and time '22:00' then
     raise exception 'Rode este teste entre 7h15 e 22h de Brasília.';
   end if;
@@ -82,5 +85,7 @@ begin
   if jsonb_array_length(public.ops_envio_aprovacoes(jsonb_build_object('envio_id', e3))) <> 1 then raise exception 'histórico de aprovações'; end if;
   v_ok := v_ok + 1;
 
+  perform set_config('role', 'postgres', true);
+  perform setval('public.ops_envios_codigo_seq', v_seq, v_seq_called);
   raise exception 'R: % verificações OK', v_ok;
 end $$;

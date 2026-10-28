@@ -1,8 +1,11 @@
 -- Teste da Etapa 41.3 — grupo e @ padrão de cada cliente, com ligar/desligar. Transação desfeita (termina com "R: N verificações OK").
 do $$
 declare
+  v_seq bigint; v_seq_called boolean;
   v_admin uuid; v_c1 uuid; v_c2 uuid; v_e uuid; v_ok integer := 0; v_j jsonb; v_cli jsonb; v_v int;
 begin
+  -- 41.5: guardar a sequência dos códigos (ENV-001…), que não volta com a transação desfeita
+  select last_value, is_called into v_seq, v_seq_called from public.ops_envios_codigo_seq;
   select id into v_admin from public.profiles where role = 'admin' and active order by created_at limit 1;
   -- clientes sem grupo salvo (41.4: quem tem grupo salvo usa sempre o padrão)
   select id into v_c1 from public.clients c where excluded_at is null and not exists (select 1 from public.ops_envio_padroes p where p.cliente_id = c.id) order by name limit 1;
@@ -81,5 +84,7 @@ begin
   if exists (select 1 from public.ops_envio_padroes) then raise exception 'RLS: sem permissão não vê a tabela'; end if;
   v_ok := v_ok + 1;
 
+  perform set_config('role', 'postgres', true);
+  perform setval('public.ops_envios_codigo_seq', v_seq, v_seq_called);
   raise exception 'R: % verificações OK', v_ok;
 end $$;

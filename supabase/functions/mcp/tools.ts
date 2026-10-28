@@ -11,7 +11,7 @@ import { type DataPort, type SummaryRow } from "./data.ts";
  */
 
 export const MCP_NAME = "backstage-flow";
-export const MCP_VERSION = "1.4.0";
+export const MCP_VERSION = "1.5.0";
 export const MAX_DAYS = 400;
 
 export interface Caller {
