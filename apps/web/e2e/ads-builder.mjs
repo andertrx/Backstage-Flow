@@ -8,16 +8,18 @@ const ACC = "a4200000-0000-4000-8000-0000000000a4";
 const CAMP = "b4200000-0000-4000-8000-0000000000b4";
 const CLI2 = "c4200000-0000-4000-8000-0000000000c5";
 const ACC2 = "a4200000-0000-4000-8000-0000000000a5";
+const CLI3 = "c4200000-0000-4000-8000-0000000000c6";
 const client = (id, name) => ({ id, name, company: null, cnpj: null, owner_name: null, phone: null, email: null, notes: null, status: "ativo",
   timezone: "America/Sao_Paulo", is_demo: false, created_at: "2026-09-01T10:00:00Z", updated_at: "2026-09-01T10:00:00Z" });
 
 function seed(db) {
   db.clients.push(client(CLI, "Loja Aurora"));
-  db.clients.push(client(CLI2, "Loja Brisa"));
+  db.clients.push(client(CLI2, "Loja Brisa"), { ...client(CLI3, "Loja Encerrada"), status: "encerrado" });
   db.adAccounts.push(
     { id: ACC, platform_id: "meta", external_id: "111", client_id: CLI, name: "Loja Aurora", currency: "BRL", status: "ativa", unlinked_at: null, business_id: "9001", business_name: "BM Aurora" },
     { id: ACC2, platform_id: "meta", external_id: "112", client_id: CLI, name: "Aurora Atacado", currency: "BRL", status: "ativa", unlinked_at: null, business_id: "9002", business_name: "BM Aurora 2" },
     { id: crypto.randomUUID(), platform_id: "meta", external_id: "211", client_id: CLI2, name: "Loja Brisa", currency: "BRL", status: "ativa", unlinked_at: null, business_id: "9003", business_name: "BM Brisa" },
+    { id: crypto.randomUUID(), platform_id: "meta", external_id: "311", client_id: CLI3, name: "Loja Encerrada", currency: "BRL", status: "ativa", unlinked_at: null, business_id: "9004", business_name: "BM Encerrada" },
   );
   db.campaigns.push(
     { id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "120001", name: "[MSG] Aurora | Outubro", status: "ativa" },
@@ -49,6 +51,8 @@ function seed(db) {
   check(db.adsPedidos.length === 0, "nada guardado com erro");
 
   // 42.1 — Onde criar: cliente → BM → conta → campanha → conjunto (listas do CRM)
+  await form.getByLabel("Cliente").locator("option").nth(2).waitFor({ state: "attached" });
+  check((await form.getByLabel("Cliente").locator("option").allInnerTexts()).join("|") === "Escolha… (2)|Loja Aurora|Loja Brisa", "só clientes ativos na lista (encerrado não aparece)");
   await form.getByLabel("Cliente").selectOption({ label: "Loja Aurora" });
   check(await form.getByLabel("Business Manager (BM)").locator("option").allInnerTexts().then((o) => o.join("|")) === "Escolha…|BM Aurora|BM Aurora 2", "BMs do cliente");
   check(await form.getByLabel("Conta de anúncios").isDisabled(), "conta só depois de escolher a BM");

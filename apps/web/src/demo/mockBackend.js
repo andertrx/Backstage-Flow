@@ -978,7 +978,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       const id = eqParam(url, "id");
       if (method === "GET") {
         if (id) return res(200, clientVisible(id) ? db.clients.find((c) => c.id === id) ?? null : null);
-        return res(200, db.clients.filter((c) => clientVisible(c.id)).sort((a, b) => a.name.localeCompare(b.name)));
+        const status = eqParam(url, "status");
+        return res(200, db.clients.filter((c) => clientVisible(c.id) && (!status || c.status === status)).sort((a, b) => a.name.localeCompare(b.name)));
       }
       if (method === "POST") {
         const row = parse();

@@ -110,7 +110,7 @@ export interface MetaItem {
   status: string;
 }
 
-/** Contas do Meta que você pode ver (o RLS limita aos clientes liberados), com o cliente e a BM. */
+/** Contas do Meta que você pode ver (o RLS limita aos clientes liberados), com o cliente e a BM. Só de clientes ativos. */
 export function useMetaAccounts() {
   return useQuery({
     queryKey: [...KEY, "contas"],
@@ -118,7 +118,8 @@ export function useMetaAccounts() {
     queryFn: async () => {
       const [a, c] = await Promise.all([
         supabase.from("ad_accounts").select("id, name, external_id, client_id, business_id, business_name").eq("platform_id", "meta").is("unlinked_at", null).order("name").limit(1000),
-        supabase.from("clients").select("id, name").is("excluded_at", null).order("name").limit(1000),
+        // Só clientes ativos (encerrados não aparecem na lista)
+        supabase.from("clients").select("id, name").is("excluded_at", null).eq("status", "ativo").order("name").limit(1000),
       ]);
       if (a.error || c.error) throw new FriendlyError(friendlyDbError((a.error ?? c.error)!, "Não conseguimos carregar as contas."));
       const names = new Map(((c.data ?? []) as { id: string; name: string }[]).map((x) => [x.id, x.name]));

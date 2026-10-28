@@ -124,6 +124,7 @@ Depois, tirar o item do menu.
 
 - **"Onde criar" virou uma escolha em cascata:** Cliente → Business Manager (BM) → Conta de anúncios → Campanha → Conjunto.
   - As listas vêm do CRM: são as 31 contas do Meta conectadas, todas com a BM registrada, e as campanhas e conjuntos sincronizados.
+  - Só aparecem os clientes ativos (os encerrados ficam de fora).
   - Cliente com uma só BM e uma só conta já vem com tudo escolhido.
   - Trocar o cliente, a BM ou a conta limpa o que vem depois.
   - Campanhas e conjuntos ativos aparecem primeiro; os pausados ou encerrados vêm marcados.
