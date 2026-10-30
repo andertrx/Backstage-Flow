@@ -94,3 +94,17 @@ e um usuário com papel "cliente" de uma empresa desativada não vê mais nada.
 - **Banco:** `20261025164801_clientes_desativar_sync_manual.sql` — a trava de execução (`sync_lock`) pula cliente desativado. Testado no banco real: conta da Abraço recusada, conta de cliente ativo aceita.
 - **Telas:** sem filtro de cliente, Dashboard, Meta/Google, Relatórios, Comparativo e Saldo **não somam** cliente desativado, e a conta dele sai da escolha de "Conta". O **Histórico** continua mostrando o passado de todos (decisão de 23/10).
 - **Testes de navegador:** `client-deactivate` (25), `dashboard` (39), `history` (23), `balance` (32), `health` (33), `reports` (28), `comparison` (38), `meta-view` (44), `google-view` (31) — todos OK.
+
+## Alertas de cliente desativado (30/10/2026)
+**Problema (Ander):** o Abraço de Algodão, desativado, ainda gerava aviso.
+
+- **Causa:** o sistema de Alertas (página Alertas e selo do menu) olhava todas as contas, inclusive as de cliente desativado. Como a sincronização dele está parada, aparecia "sincronização atrasada" (Abraço de Algodão em 27/10 e Look Oito Oito).
+- **O que mudou (só no banco):**
+  - a verificação de alertas (a cada 15 minutos) ignora cliente desativado;
+  - os dois alertas abertos foram encerrados com o motivo `cliente_desativado` (nada foi apagado);
+  - ao desativar um cliente, os alertas abertos dele são encerrados na hora;
+  - ao reativar, a verificação volta a avaliar a conta sozinha.
+- **Sem tabela nova.** Migração `20261030192054_alertas_cliente_desativado.sql`; ponto de volta em `supabase/rollback/voltar_alertas_cliente_desativado_2026_10_30.sql`.
+- **Teste:** `supabase/tests/alertas_cliente_desativado.sql` (5 verificações OK, desfeito no fim).
+- **Lista de clientes:** mantida como está (filtro "encerrado" = desativados).
+- **Já cobertos desde 23/10:** Monitoramento novo, Central (repetições), e-mail semanal, tracking, sincronização.
