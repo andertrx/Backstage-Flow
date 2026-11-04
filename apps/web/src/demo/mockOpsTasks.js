@@ -1124,7 +1124,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
 
   // --- 36.6: notificações (sino) e repetição (mesmas regras de ops_notification*/ops_recurrence* no banco)
   const KINDS = ["tarefa.atribuida", "tarefa.mencao", "tarefa.comentario", "tarefa.concluida", "tarefa.prazo", "tarefa.atrasada",
-    "reuniao.convite", "reuniao.hoje", "reuniao.item", "cliente.am", "lead.responsavel"];
+    "reuniao.convite", "reuniao.hoje", "reuniao.item", "cliente.am", "lead.responsavel", "envio.aprovar"];
   const mine = () => db.opsNotifications.filter((n) => n.user_id === userId);
   if (rpc("ops_notifications_unread")) return res(200, opsPerms.includes("ops.access") ? mine().filter((n) => !n.read_at).length : 0);
   if (rpc("ops_notifications_list")) {

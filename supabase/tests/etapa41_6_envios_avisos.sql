@@ -58,7 +58,7 @@ begin
   perform public.ops_envio_decidir(e1, 1, true);
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
-  delete from public.ops_envio_avisos where envio_id = e1;
+  update public.ops_envio_avisos set momento = 'inicio' where envio_id = e1;   -- se não fosse a aprovação, um aviso "meio" novo seria criado
   if private.envio_avisar() <> 0 then raise exception 'avisou envio já aprovado'; end if;
   v_ok := v_ok + 1;
 

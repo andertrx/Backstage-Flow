@@ -5,7 +5,7 @@
  */
 export const OPS_NOTIFICATION_KINDS = [
   "tarefa.atribuida", "tarefa.mencao", "tarefa.comentario", "tarefa.concluida", "tarefa.prazo", "tarefa.atrasada",
-  "reuniao.convite", "reuniao.hoje", "reuniao.item", "cliente.am", "lead.responsavel",
+  "reuniao.convite", "reuniao.hoje", "reuniao.item", "cliente.am", "lead.responsavel", "envio.aprovar",
 ] as const;
 export type OpsNotificationKind = (typeof OPS_NOTIFICATION_KINDS)[number];
 export const OPS_NOTIFICATION_LABELS: Record<OpsNotificationKind, string> = {
@@ -20,6 +20,7 @@ export const OPS_NOTIFICATION_LABELS: Record<OpsNotificationKind, string> = {
   "reuniao.item": "Pendência para mim numa reunião",
   "cliente.am": "Virei Account Manager de um cliente",
   "lead.responsavel": "Um lead ficou comigo",
+  "envio.aprovar": "Aprovar o envio semanal",
 };
 
 export const OPS_RECURRENCE_FREQUENCIES = ["diaria", "dias_uteis", "semanal", "mensal"] as const;
