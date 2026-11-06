@@ -5,6 +5,7 @@
  */
 import { handleOpsEnvios, seedOpsEnvios } from "./mockOpsEnvios.js";
 import { handleAdsBuilder, seedAdsBuilder } from "./mockAdsBuilder.js";
+import { handleWaGateway, seedWaGateway } from "./mockWaGateway.js";
 import { handleOpsTasks, seedOpsTasks } from "./mockOpsTasks.js";
 
 export const USER_ID = "11111111-1111-1111-1111-111111111111";
@@ -171,6 +172,7 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     /** Envios semanais (Etapa 41). */
     ...seedOpsEnvios(),
     ...seedAdsBuilder(),
+    ...seedWaGateway(),
   };
 }
 
@@ -726,6 +728,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     }
     const adsBuilder = handleAdsBuilder({ db, url, parse, userId, role, res });
     if (adsBuilder) return adsBuilder;
+    const waGateway = handleWaGateway({ db, url, parse, role, res });
+    if (waGateway) return waGateway;
     const opsEnvio = handleOpsEnvios({ db, url, parse, userId, opsPerms, res });
     if (opsEnvio) return opsEnvio;
     const opsTask = handleOpsTasks({ db, url, method, parse, rawBody, role, userId, opsPerms, res });

@@ -4,6 +4,7 @@ import { EmailSettingsCard } from "./EmailSettingsCard.tsx";
 import { GoogleIntegrationCard } from "./GoogleIntegrationCard.tsx";
 import { GoogleSheetsCard } from "./GoogleSheetsCard.tsx";
 import { MetaIntegrationCard } from "./MetaIntegrationCard.tsx";
+import { WaGatewayCard } from "./WaGatewayCard.tsx";
 import { WhatsAppAppCard } from "./WhatsAppAppCard.tsx";
 
 /**
@@ -29,6 +30,7 @@ export function IntegrationsPage() {
       <EmailSettingsCard />
       <GoogleSheetsCard />
       <WhatsAppAppCard />
+      <WaGatewayCard />
     </div>
   );
 }

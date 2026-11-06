@@ -70,3 +70,9 @@
 - [ ] Criar a conta de serviço no Google Cloud, colar a chave JSON em **Configurações → Integrações → Google Sheets** e clicar em **Testar conexão**. Passo a passo em `docs/etapa-39-inteligencia-de-resultados/39.1-CONEXAO-COM-A-PLANILHA.md`. **Nunca mande a chave por chat.**
 - [ ] Compartilhar cada planilha de cliente com o e-mail que o CRM mostra, como **Leitor**.
 - [ ] Em **Inteligência de Resultados**, escolher o cliente, conectar a planilha dele e clicar em **Atualizar agora**. Essa primeira leitura real é o teste final da Etapa 39 (depois disso, conferir a aba **Qualidade dos dados**).
+
+## WhatsApp por API não oficial (Etapa 44, 06/11/2026)
+- [ ] **Contratar o servidor de conexão** e apontar um endereço https para ele (passo a passo em `docs/etapa-43-organizacao/44.1-CONEXAO-WHATSAPP-NAO-OFICIAL.md`). Eu preparo a instalação quando você tiver o servidor.
+- [ ] Ter o **chip separado** à mão para ler o QR Code (ou digitar o código) na primeira conexão. Cole a chave de acesso **só no campo do CRM**, nunca no chat.
+- [ ] **Decidir como marcar pessoas (@)** no envio automático: guardar o identificador (com telefone) em tabela protegida (recomendo), achar pelo nome na hora, ou enviar sem marcar. Ver seção "Para decidir" do documento 44.1.
+- [ ] (opcional) Colar aqui imagens das telas de WhatsApp e de agentes do sistema `itsmovcrm.com.br` para eu mapear o que ele tem.
