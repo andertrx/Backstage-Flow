@@ -149,3 +149,4 @@
 - **04/11 (41.6):** Ander não foi avisado do envio de terça (03/11) e a semana fechou sem resposta. Pediu aviso por sino, celular e e-mail ("pelas 3 opções"). Quem recebe: todos com a permissão Envios semanais (ele não respondeu a segunda pergunta).
 - **06/11 (43.0/43.1):** Ander pediu levantamento, organização (tela de entrada) e otimização; respondeu "pode" à 43.1. Pergunta da API não oficial (qual plataforma) segue sem resposta; nada feito nela.
 - **06/11 (43.2):** Ander disse "pode" à tela Hoje. Feita como pré-visualização em /hoje (regra: mudança visual grande pede aprovação); tornar entrada do sistema aguarda o OK dele.
+- **06/11 (44.0):** Ander escolheu o WhatsApp para a conexão por API não oficial e aceitou o risco (ban do número, quebra de Termos, privacidade). Tela Hoje: sem mudanças e continua em /hoje (não vira entrada). Plano em docs/etapa-43-organizacao/44.0-PLANO-WHATSAPP-NAO-OFICIAL.md; falta responder objetivo e onde roda.
