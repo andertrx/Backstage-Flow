@@ -56,3 +56,16 @@ html.pdf-mode .pdf-width { width: 186mm; max-width: 186mm; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-avoid-break { break-inside: avoid; }
 }
+
+/* Tela "Hoje" (Etapa 43.2): entrada suave dos blocos e um pulso no que é urgente.
+   Quem usa "reduzir movimento" não vê nada se mexer (regra acima). */
+@keyframes hoje-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes hoje-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0.35); }
+  100% { box-shadow: 0 0 0 14px rgb(239 68 68 / 0); }
+}
+.hoje-rise { animation: hoje-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.hoje-pulse { animation: hoje-pulse 1.3s ease-out 1 0.6s; }
