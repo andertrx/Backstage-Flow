@@ -22,6 +22,8 @@ begin
   if exists (select 1 from private.alert_candidates() c where c.client_id = v_client) then raise exception 'FALHOU: candidato de cliente desativado'; end if; v_ok := v_ok + 1;
 
   -- 4) rodar a verificação não cria alerta novo para ele
+  insert into private.app_settings (key, value) values ('alerts_refreshed_at', (now() - interval '1 hour')::text)
+    on conflict (key) do update set value = excluded.value;   -- 43.1: o sistema não repete a verificação em menos de 4 minutos
   perform private.refresh_alerts_impl();
   if exists (select 1 from public.alerts where client_id = v_client and status <> 'resolvido') then raise exception 'FALHOU: alerta novo para desativado'; end if; v_ok := v_ok + 1;
 

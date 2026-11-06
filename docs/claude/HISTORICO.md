@@ -147,3 +147,4 @@
 - **28/10 (42.1):** listas de cliente/BM/conta/campanha/conjunto; só clientes ativos; página e Instagram nas listas. Ander notou Instagram faltando: decisão "b" = buscar no Meta só da conta de anúncios (não da BM), na hora de escolher a conta, com botão "Atualizar do Meta".
 - **30/10 (alertas de desativado):** Ander recebia aviso do Abraço de Algodão (desativado). Causa: Alertas antigos não checavam o cliente. Corrigido; lista de clientes mantida (opção A por omissão: ele disse só "pode").
 - **04/11 (41.6):** Ander não foi avisado do envio de terça (03/11) e a semana fechou sem resposta. Pediu aviso por sino, celular e e-mail ("pelas 3 opções"). Quem recebe: todos com a permissão Envios semanais (ele não respondeu a segunda pergunta).
+- **06/11 (43.0/43.1):** Ander pediu levantamento, organização (tela de entrada) e otimização; respondeu "pode" à 43.1. Pergunta da API não oficial (qual plataforma) segue sem resposta; nada feito nela.
