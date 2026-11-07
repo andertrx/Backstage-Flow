@@ -156,4 +156,5 @@
 - **07/11 (45.1):** Ander disse "pode avancar" após a 44.3; fiz a 45.1 (motor dos avisos no WhatsApp), sem tela, nasce desligada.
 - **07/11 (45.2):** Ander disse "pode"; fiz a regra de "sem gasto" (só motor), com janela 8h–22h e liga/desliga por cliente.
 - **07/11 (45.3):** Ander disse "pode"; fiz a tela de configuração dos avisos no WhatsApp.
+- **07/11 (43.3):** Ander disse "pode"; como é fase grande e mexe no menu, fiz só a auditoria e a proposta (2 perguntas) e parei.
 - **07/11 (plano 44.3/45):** Ander pediu: disparos pelo número conectado, avisos no WhatsApp para um grupo dele (ex.: 1h sem gastar, saldo vencendo em 2 dias), foco nos gestores, cliente depois, e dividir o sistema. Entreguei o passo a passo do servidor, arquivos prontos e o plano; aguardo o servidor e o OK.
