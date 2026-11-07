@@ -1,4 +1,4 @@
-import { CalendarPlus, ClipboardPlus, Link2, Unlink } from "lucide-react";
+import { CalendarPlus, ClipboardCheck, ClipboardPlus, Link2, Unlink } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -7,8 +7,8 @@ import { Modal } from "@/components/ui/modal.tsx";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { type OpsBoardClient, useLinkClientMeeting, useUnlinkClientMeeting } from "./clientsApi.ts";
-import { MeetingFormModal, meetingWhen } from "./Meetings.tsx";
-import { useMeetingCategories, useMeetingList } from "./meetingsApi.ts";
+import { MeetingFormModal, meetingWhen, RecordModal } from "./Meetings.tsx";
+import { useMeeting, useMeetingCategories, useMeetingList } from "./meetingsApi.ts";
 import { OnboardingTasksModal } from "./OnboardingTasksModal.tsx";
 import { TaskFormModal } from "./TaskFormModal.tsx";
 import { type TasksContext, useOpenTask } from "./tasksContext.tsx";
@@ -80,6 +80,34 @@ function LinkModal({ c, onClose }: { c: OpsBoardClient; onClose: () => void }) {
   );
 }
 
+/**
+ * 51.4: "Reunião realizada" no cartão — abre a mesma janela do menu Reuniões (ata, presença, "Marcar como realizada")
+ * sem sair do Onboarding. Ao salvar, a janela fecha e o quadro atualiza.
+ */
+const stopDrag = (e: { stopPropagation: () => void }) => e.stopPropagation();
+
+function MeetingDoneButton({ meetingId }: { meetingId: string }) {
+  const [open, setOpen] = useState(false);
+  const q = useMeeting(open ? meetingId : null);
+  return (
+    <>
+      <Button type="button" className="px-2 py-1 text-xs" onClick={() => setOpen(true)} loading={open && q.isLoading}>
+        <ClipboardCheck className="size-3.5" aria-hidden /> Reunião realizada
+      </Button>
+      {open && q.error && <p className="w-full text-[11px] text-red-700" role="alert">{errorMessage(q.error)}</p>}
+      {open && q.data && !q.data.can.edit && (
+        <p className="w-full text-[11px] text-red-700" role="alert">Só quem organiza a reunião (ou tem "Criar reuniões e Dailies") pode registrá-la.</p>
+      )}
+      {open && q.data?.can.edit && (
+        // a janela fica dentro do cartão: não deixa clicar/selecionar texto nela começar o arrastar do cartão
+        <div onPointerDown={stopDrag} onMouseDown={stopDrag} onTouchStart={stopDrag} onKeyDown={stopDrag}>
+          <RecordModal d={q.data} onClose={() => setOpen(false)} />
+        </div>
+      )}
+    </>
+  );
+}
+
 /** Botões do cartão em "Onboarding Pendente": vincular, criar e (se já vinculada) trocar. */
 export function OnboardingMeetingActions({ c, ctx }: { c: OpsBoardClient; ctx: TasksContext }) {
   const [mode, setMode] = useState<"link" | "create" | null>(null);
@@ -96,6 +124,7 @@ export function OnboardingMeetingActions({ c, ctx }: { c: OpsBoardClient; ctx: T
   return (
     <>
     <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2" data-testid="ops-onboarding-actions">
+      {c.onboarding_meeting?.status === "agendada" && <MeetingDoneButton meetingId={c.onboarding_meeting.id} />}
       <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setMode("link")}>
         <Link2 className="size-3.5" aria-hidden /> {has ? "Trocar reunião" : "Vincular reunião"}
       </Button>

@@ -160,7 +160,8 @@ export function MeetingFormModal({ meeting, people, categories, ctx, defaults, o
   );
 }
 
-function RecordModal({ d, onClose }: { d: OpsMeetingDetail; onClose: () => void }) {
+/** Registrar a reunião (ata, presença, "Marcar como realizada"). 51.4: também usado no cartão do Onboarding. */
+export function RecordModal({ d, onClose }: { d: OpsMeetingDetail; onClose: () => void }) {
   const done = d.meeting.status === "realizada";
   const [notes, setNotes] = useState(d.meeting.notes ?? "");
   const [present, setPresent] = useState<Set<string>>(new Set(d.people.filter((p) => (done ? p.attended : true)).map((p) => p.user_id)));
