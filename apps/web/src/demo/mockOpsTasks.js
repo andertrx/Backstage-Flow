@@ -71,6 +71,7 @@ export function seedOpsTasks() {
       ["planejamento", "Planejamento", "#F59E0B"], ["alinhamento", "Alinhamento interno", "#06B6D4"], ["outra", "Outra", "#64748B"]]
       .map(([id, name, color], i) => ({ id, name, color, position: i + 1, active: true })),
     opsMeetings: [],
+    opsOnboardingTemplates: [],
     opsMeetingSeq: 0,
     opsMeetingItems: [],
     // 36.6
@@ -267,6 +268,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   if (url.includes("/rest/v1/ops_activity_types")) return res(200, sorted(db.opsActivityTypes));
   if (url.includes("/rest/v1/ops_lead_stages")) return res(200, can("ops.commercial") ? sorted(db.opsLeadStages) : []);
   if (url.includes("/rest/v1/ops_loss_reasons")) return res(200, can("ops.commercial") ? sorted(db.opsLossReasons) : []);
+  if (url.includes("/rest/v1/ops_onboarding_task_templates")) return res(200, sorted(db.opsOnboardingTemplates));
   if (url.includes("/rest/v1/ops_meeting_categories")) return res(200, sorted(db.opsMeetingCategories));
   if (url.includes("/rest/v1/ops_notification_prefs")) return res(200, db.opsNotificationPrefs[userId] ? { muted: db.opsNotificationPrefs[userId] } : null);
   if (url.includes("/rest/v1/ops_saved_views")) {
@@ -275,7 +277,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   }
   const prefixes = ["ops_task", "ops_comment", "ops_attachment", "ops_directory", "ops_team_counts", "ops_status", "ops_client", "ops_demand",
     "ops_queue", "ops_activity_type", "ops_lead", "ops_loss_reason", "ops_meeting", "ops_notification", "ops_recurrence",
-    "ops_saved_view", "ops_my_summary", "ops_dashboard", "ops_search"];
+    "ops_saved_view", "ops_my_summary", "ops_dashboard", "ops_search", "ops_onboarding_template"];
   if (!prefixes.some((x) => url.includes(`/rest/v1/rpc/${x}`))) return null;
   const p = parse();
   db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
@@ -611,6 +613,38 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
         : to.position > from.position ? "Avanço manual: nenhuma tarefa obrigatória aberta" : "Retorno manual de etapa" });
     Object.assign(o, { stage_id: to.id, stage_since: new Date().toISOString(), version: o.version + 1 });
     return res(200, o.version);
+  }
+  if (rpc("ops_onboarding_template_save")) {
+    if (role !== "admin") return deny("Só administrador altera as tarefas padrão.");
+    const v = p.p ?? {};
+    if ((v.title ?? "").trim().length < 3) return bad("Dê um título à tarefa padrão (mínimo 3 letras).");
+    if (!db.opsSectors.some((s) => s.id === v.sector_id && s.status === "ativo")) return bad("Escolha um setor ativo.");
+    const fields = { title: v.title.trim(), description: (v.description ?? "").trim() || null, sector_id: v.sector_id, priority: v.priority || "media",
+      due_days: v.due_days === "" || v.due_days == null ? null : Number(v.due_days) };
+    if (db.opsOnboardingTemplates.some((t) => t.active && t.id !== p.p_id && t.sector_id === v.sector_id && t.title.toLowerCase() === fields.title.toLowerCase())) {
+      return bad("Já existe uma tarefa padrão com esse título neste setor.");
+    }
+    if (p.p_id) {
+      const t = db.opsOnboardingTemplates.find((x) => x.id === p.p_id);
+      if (!t) return bad("Tarefa padrão não encontrada.");
+      Object.assign(t, fields);
+      return res(200, t.id);
+    }
+    const t = { id: crypto.randomUUID(), ...fields, position: db.opsOnboardingTemplates.length + 1, active: true };
+    db.opsOnboardingTemplates.push(t);
+    return res(200, t.id);
+  }
+  if (rpc("ops_onboarding_template_set_active")) {
+    if (role !== "admin") return deny("Só administrador altera as tarefas padrão.");
+    const t = db.opsOnboardingTemplates.find((x) => x.id === p.p_id);
+    if (!t) return bad("Tarefa padrão não encontrada.");
+    t.active = Boolean(p.p_active);
+    return res(204);
+  }
+  if (rpc("ops_onboarding_template_reorder")) {
+    if (role !== "admin") return deny("Só administrador altera as tarefas padrão.");
+    (p.p_ids ?? []).forEach((id, i) => { const t = db.opsOnboardingTemplates.find((x) => x.id === id); if (t) t.position = i + 1; });
+    return res(204);
   }
   if (rpc("ops_client_meeting_link")) {
     const o = db.opsClientOps[p.p_client];

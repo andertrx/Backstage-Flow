@@ -4,6 +4,7 @@ import { StatusSettings } from "./StatusSettings.tsx";
 import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { MeetingCategoriesSettings } from "./MeetingSettings.tsx";
+import { OnboardingTemplatesSettings } from "./OnboardingTemplatesSettings.tsx";
 import { ActivityTypesSettings, ClientStagesSettings, QueueSettings } from "./FlowSettings.tsx";
 
 /**
@@ -22,6 +23,7 @@ export function OpsSettingsPage() {
         <SectorsSettingsPage />
         <StatusSettings />
         <ClientStagesSettings />
+        <OnboardingTemplatesSettings />
         <QueueSettings />
         <ActivityTypesSettings />
         <MeetingCategoriesSettings />

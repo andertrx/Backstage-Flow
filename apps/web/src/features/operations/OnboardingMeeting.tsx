@@ -9,6 +9,7 @@ import { errorMessage } from "@/lib/errors.ts";
 import { type OpsBoardClient, useLinkClientMeeting, useUnlinkClientMeeting } from "./clientsApi.ts";
 import { MeetingFormModal, meetingWhen } from "./Meetings.tsx";
 import { useMeetingCategories, useMeetingList } from "./meetingsApi.ts";
+import { OnboardingTasksModal } from "./OnboardingTasksModal.tsx";
 import { TaskFormModal } from "./TaskFormModal.tsx";
 import { type TasksContext, useOpenTask } from "./tasksContext.tsx";
 
@@ -87,10 +88,13 @@ export function OnboardingMeetingActions({ c, ctx }: { c: OpsBoardClient; ctx: T
   const link = useLinkClientMeeting();
   const unlink = useUnlinkClientMeeting();
   if (!isOnboardingStage(c.stage_id) || !c.can_move) return null;
-  if (c.meeting_ok) return c.ops_task_ok ? null : <OpsTaskAction c={c} ctx={ctx} />;
+  // 50.1: as tarefas do onboarding ficam disponíveis em Agendado (ou com a reunião já realizada), mesmo depois de a primeira ser criada.
+  const tasks = c.stage_id === ONBOARDING_SCHEDULED_STAGE || c.meeting_ok ? <OpsTaskAction c={c} ctx={ctx} /> : null;
+  if (c.meeting_ok) return tasks;
   const canCreate = ctx.can("ops.meetings.manage");
   const has = Boolean(c.onboarding_meeting && c.onboarding_meeting.status !== "cancelada");
   return (
+    <>
     <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2" data-testid="ops-onboarding-actions">
       <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setMode("link")}>
         <Link2 className="size-3.5" aria-hidden /> {has ? "Trocar reunião" : "Vincular reunião"}
@@ -114,23 +118,28 @@ export function OnboardingMeetingActions({ c, ctx }: { c: OpsBoardClient; ctx: T
           onSaved={(id) => link.mutate({ clientId: c.client_id, meetingId: id }, { onError: (e) => setError(errorMessage(e)) })} />
       )}
     </div>
+    {tasks}
+    </>
   );
 }
 
-/** Etapa 49.4: com a reunião realizada, falta a tarefa para o time de operação (próximos passos do cliente). */
+/** Etapa 49.4/50.1: tarefas do onboarding (padrão marcáveis ou outras) para o time de operação. */
 function OpsTaskAction({ c, ctx }: { c: OpsBoardClient; ctx: TasksContext }) {
-  const [creating, setCreating] = useState(false);
+  const [mode, setMode] = useState<"lista" | "completo" | null>(null);
+  const [done, setDone] = useState<number | null>(null);
   const { open } = useOpenTask();
   if (!ctx.can("ops.tasks.create")) return null;
   const mine = ctx.sectors.find((s) => s.id === ctx.mySector);
   return (
     <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2" data-testid="ops-onboarding-task-action">
-      <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setCreating(true)}>
-        <ClipboardPlus className="size-3.5" aria-hidden /> Criar tarefa para a operação
+      <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setMode("lista")}>
+        <ClipboardPlus className="size-3.5" aria-hidden /> Tarefas do onboarding
       </Button>
-      {creating && (
+      {done !== null && <p className="w-full text-[11px] text-emerald-700" role="status">{done} tarefa(s) criada(s).</p>}
+      {mode === "lista" && <OnboardingTasksModal c={c} ctx={ctx} onClose={() => setMode(null)} onDone={setDone} onFullForm={() => setMode("completo")} />}
+      {mode === "completo" && (
         <TaskFormModal detail={null} sectors={ctx.sectors} statuses={ctx.statuses} directory={ctx.directory} me={ctx.me} mySector={ctx.mySector}
-          canAssign={ctx.can("ops.tasks.assign")} canChangeSector onClose={() => setCreating(false)} onSaved={open}
+          canAssign={ctx.can("ops.tasks.assign")} canChangeSector onClose={() => setMode(null)} onSaved={open}
           defaults={{ client_id: c.client_id, title: `Próximos passos: ${c.name}`, sector_id: mine && !isCommercialSector(mine.name) ? mine.id : "" }}
           note="Para o cliente ir para Onboarding Realizado, ele precisa de ao menos 1 tarefa para o time de operação: qualquer setor, menos Comercial." />
       )}

@@ -131,8 +131,17 @@ await dragTo(page, aurora3, col("briefing"));
 await page.getByText(/Crie pelo menos uma tarefa para o time de operação/).first().waitFor();
 check(db.opsClientOps[AURORA].stage_id === "coleta_acessos", "49.4: reunião realizada sem tarefa da operação não vai para Realizado");
 
-// 8) tarefa do Comercial não conta; "Criar tarefa para a operação" abre já preenchida e libera
+// 8) tarefa do Comercial não conta; as tarefas padrão (50.1) são marcadas no cartão e liberam
 const SECTOR = (n) => db.opsSectors.find((x) => x.name === n).id;
+const member = (id, name, sector) => {
+  db.profiles.push({ id, email: `${id.slice(0, 4)}@agencia.com`, full_name: name, role: "equipe", active: true, created_at: now, updated_at: "" });
+  db.opsMembers[id] = { primary: SECTOR(sector), secondary: [], job_title: sector, active: true, joins_meetings: true, permissions: ["ops.access", "ops.tasks.create"] };
+};
+const TIAGO = "55555555-5555-4555-8555-555555555555", RITA = "66666666-6666-4666-8666-666666666666", CAIO = "77777777-7777-4777-8777-777777777777";
+member(TIAGO, "Tiago Tráfego", "Gestão de Tráfego"); member(RITA, "Rita Tráfego", "Gestão de Tráfego"); member(CAIO, "Caio Copy", "Copy");
+[["Pegar acessos (Meta, Google)", "Gestão de Tráfego"], ["Solicitar material de marca para site/catálogo", "Desenvolvimento (Dev)"],
+  ["Solicitar material de B-roll e agendar gravação", "Design"], ["Copy de vendas", "Copy"]].forEach(([title, sector], i) =>
+  db.opsOnboardingTemplates.push({ id: crypto.randomUUID(), title, description: null, sector_id: SECTOR(sector), priority: "media", due_days: null, position: i + 1, active: true }));
 db.opsTaskSeq = (db.opsTaskSeq ?? 0) + 1;
 db.opsTasks.push({ id: crypto.randomUUID(), number: db.opsTaskSeq, title: "Contrato (comercial)", description: null, client_id: AURORA, sector_id: SECTOR("Comercial"),
   status_id: "nao_iniciado", priority: "media", start_date: null, due_date: null, effort_hours: null, visibility: "setor", created_by: null, created_at: now,
@@ -141,25 +150,56 @@ await page.reload();
 const aurora4 = col("coleta_acessos").locator("[data-testid=ops-kanban-card]").filter({ hasText: "Loja Aurora" });
 await aurora4.getByText(/falta 1 tarefa para a operação/).waitFor();
 check(true, "49.4: tarefa do setor Comercial não conta");
-await aurora4.getByRole("button", { name: "Criar tarefa para a operação" }).click();
-dialog = page.getByRole("dialog", { name: "Nova tarefa" });
-check(await dialog.getByLabel("Título").inputValue() === "Próximos passos: Loja Aurora", "49.4: tarefa já vem com o título dos próximos passos");
-await dialog.getByText(/qualquer setor, menos Comercial/).waitFor();
-await dialog.getByLabel("Setor").selectOption(SECTOR("Gestão de Tráfego"));
-await page.screenshot({ path: `${SHOTS}/49.4-onboarding-tarefa-operacao.png`, fullPage: true });
-await dialog.getByRole("button", { name: /Criar tarefa|Salvar/ }).click();
+await aurora4.getByRole("button", { name: "Tarefas do onboarding" }).click();
+dialog = page.getByRole("dialog", { name: /Tarefas do onboarding: Loja Aurora/ });
+await dialog.getByTestId("ops-onb-template").first().waitFor();
+check(await dialog.getByTestId("ops-onb-template").count() === 4, "50.1: as 4 tarefas padrão aparecem para marcar");
+check(await dialog.locator("[data-testid=ops-onb-template] input[type=checkbox]:checked").count() === 0, "50.1: vêm desmarcadas");
+const tpl = (title) => dialog.getByTestId("ops-onb-template").filter({ hasText: title });
+check((await tpl("Pegar acessos").innerText()).includes("Gestão de Tráfego"), "50.1: cada tarefa já mostra o setor");
+await tpl("Pegar acessos").getByRole("checkbox").check();
+check((await tpl("Pegar acessos").innerText()).includes("Todo o setor (2 pessoas)"), "50.1: opção Todo o setor com a contagem de pessoas");
+await tpl("Copy de vendas").getByRole("checkbox").check();
+await tpl("Copy de vendas").getByLabel("Uma pessoa do setor").check();
+await tpl("Copy de vendas").getByLabel(/^Pessoa:/).selectOption({ label: "Caio Copy" });
+await dialog.getByRole("button", { name: "Criar outra tarefa" }).click();
+await dialog.getByLabel("Título da outra tarefa").fill("Reunião de alinhamento com o cliente");
+await dialog.getByLabel("Setor da outra tarefa").selectOption({ label: "Design" });
+await page.screenshot({ path: `${SHOTS}/50.1-tarefas-do-onboarding.png`, fullPage: true });
+await dialog.getByTestId("ops-onb-tasks-submit").click();
 await dialog.waitFor({ state: "detached" });
-await waitFor(page, () => db.opsTasks.some((t) => t.client_id === AURORA && t.sector_id === SECTOR("Gestão de Tráfego")), "tarefa da operação criada");
-const task = db.opsTasks.find((t) => t.client_id === AURORA && t.sector_id === SECTOR("Gestão de Tráfego"));
-check(task.title === "Próximos passos: Loja Aurora", "49.4: tarefa criada ligada ao cliente");
-await page.getByTestId("ops-task-detail").getByRole("button", { name: "Fechar" }).click().catch(() => {});
+await waitFor(page, () => db.opsTasks.filter((t) => t.client_id === AURORA && t.sector_id !== SECTOR("Comercial")).length === 3, "3 tarefas criadas");
+const gt = db.opsTasks.find((t) => t.title === "Pegar acessos (Meta, Google)");
+check(gt.sector_id === SECTOR("Gestão de Tráfego") && gt.people.length === 2 && gt.people.some((x) => x.user_id === TIAGO) && gt.people.some((x) => x.user_id === RITA), "50.1: Todo o setor = todos do setor marcados na mesma tarefa");
+const cp = db.opsTasks.find((t) => t.title === "Copy de vendas");
+check(cp.people.length === 1 && cp.people[0].user_id === CAIO && cp.sector_id === SECTOR("Copy"), "50.1: uma pessoa específica do setor");
+check(db.opsTasks.some((t) => t.title === "Reunião de alinhamento com o cliente" && t.sector_id === SECTOR("Design")), "50.1: outra tarefa criada do zero");
 await page.goto(`${new URL(page.url()).origin}/onboarding`);
 const aurora5 = col("coleta_acessos").locator("[data-testid=ops-kanban-card]").filter({ hasText: "Loja Aurora" });
 await aurora5.getByText(/pode ir para Realizado/).waitFor();
-check(await aurora5.getByRole("button", { name: "Criar tarefa para a operação" }).count() === 0, "49.4: com a tarefa o botão some e o selo fica verde");
+check(true, "49.4: com a tarefa o selo fica verde");
 await dragTo(page, aurora5, col("briefing"));
 await waitFor(page, () => db.opsClientOps[AURORA].stage_id === "briefing", "cliente foi para Realizado");
 check(db.opsClientOps[AURORA].stage_id === "briefing", "com reunião realizada e tarefa da operação o cliente vai para Realizado");
+
+// 9) Configurações: tarefas padrão (cadastro e criar mais)
+await page.goto(`${new URL(page.url()).origin}/operacoes/configuracoes`);
+const tplBox = page.getByTestId("ops-onboarding-templates");
+await tplBox.waitFor();
+check(await tplBox.getByTestId("ops-template-row").count() === 4, "50.1: Configurações lista as 4 tarefas padrão");
+await tplBox.getByRole("button", { name: "Nova tarefa padrão" }).click();
+dialog = page.getByRole("dialog", { name: "Nova tarefa padrão" });
+await dialog.getByLabel("Título").fill("Criar pasta compartilhada do cliente");
+await dialog.getByLabel("Setor", { exact: true }).selectOption({ label: "Design" });
+await dialog.getByLabel("Prazo em dias (opcional)").fill("5");
+await dialog.getByRole("button", { name: "Salvar" }).click();
+await dialog.waitFor({ state: "detached" });
+await tplBox.getByText("Criar pasta compartilhada do cliente").waitFor();
+check(db.opsOnboardingTemplates.some((t) => t.title === "Criar pasta compartilhada do cliente" && t.due_days === 5), "50.1: criar mais uma tarefa padrão");
+await tplBox.getByRole("button", { name: "Desativar tarefa padrão Copy de vendas" }).click();
+await waitFor(page, () => db.opsOnboardingTemplates.find((t) => t.title === "Copy de vendas").active === false, "desativada");
+check(true, "50.1: desativar tarefa padrão");
+await page.screenshot({ path: `${SHOTS}/50.1-configuracoes-tarefas-padrao.png`, fullPage: true });
 
 check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
 await browser.close();
