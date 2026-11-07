@@ -226,7 +226,9 @@ async function dragTo(page, card, column) {
 
   await page.goto(`${BASE}/operacoes/tarefas?tarefa=${mine.id}`);
   await page.getByTestId("ops-task-detail").getByText("Arte do post").first().waitFor();
-  check(await page.getByRole("button", { name: "Arquivar" }).count() === 0, "sem 'arquivar': botão não aparece");
+  // 51.3: quem está com a tarefa (responsável) pode arquivar, mesmo sem a permissão "Arquivar tarefas"; excluir só quem criou
+  check(await page.getByRole("button", { name: "Arquivar" }).count() === 1, "51.3: responsável pela tarefa pode arquivar");
+  check(await page.getByRole("button", { name: "Excluir" }).count() === (mine.created_by === USER_ID ? 1 : 0), "51.3: excluir só para quem criou");
   check(await page.getByTestId("ops-task-detail").getByLabel("Mencionar pessoa").locator("option", { hasText: "Maria Gestora" }).count() === 1, "lista de menções");
   await page.getByTestId("ops-task-detail").getByLabel("Mencionar pessoa").selectOption({ label: "Maria Gestora" });
   await page.getByTestId("ops-task-detail").getByRole("button", { name: "Comentar" }).click();

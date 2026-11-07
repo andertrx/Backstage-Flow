@@ -29,7 +29,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   await page.getByTestId("ops-my-tasks").waitFor();
   check(await page.getByRole("heading", { name: "Central de Operações", level: 1 }).count() === 1, "abre a Central em Minhas tarefas");
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Arquivados e excluídos"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
   await page.getByRole("link", { name: "Configurações da Central" }).click(); // 50.7: Equipe fica dentro das configurações da Central
   await page.getByTestId("ops-team").waitFor();
   // Espera a lista carregar antes de ler o texto (sem isso, às vezes lia a tela ainda vazia).
@@ -144,7 +144,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   const labels = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
   check(JSON.stringify(labels) === JSON.stringify(["Onboarding", "Central de Operações", "Notificações", "Reuniões"]), `menu só com Onboarding, Central, Notificações e Reuniões (${labels.join(", ")})`);
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas"]), `sem a aba Equipe nem Configurações (só admin): ${tabs.join(", ")}`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Arquivados e excluídos"]), `sem a aba Equipe nem Configurações (só admin): ${tabs.join(", ")}`);
   for (const path of ["/clientes", "/contas", "/meta-ads", "/campanhas", "/relatorios"]) {
     await page.goto(`${BASE}${path}`);
     await page.waitForURL("**/operacoes/**");

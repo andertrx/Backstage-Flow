@@ -30,7 +30,7 @@ const card = page.locator("[data-testid=ops-kanban-column][data-status=coleta_ac
 await card.waitFor();
 
 // 1) cartão com reunião agendada tem o botão; abre a janela de registro do menu Reuniões
-await card.getByRole("button", { name: "Reunião realizada" }).click();
+await card.getByRole("button", { name: "Reunião realizada", exact: true }).click();
 const dialog = page.getByRole("dialog", { name: "Registrar reunião" });
 await dialog.getByLabel("Ata / resumo").fill("Cliente aprovou o cronograma. Próximos passos: acessos até sexta.");
 await page.screenshot({ path: `${SHOTS}/51.4-reuniao-realizada-no-cartao.png`, fullPage: true });
@@ -43,7 +43,7 @@ await waitFor(page, () => meeting.status === "realizada", "reunião marcada como
 check(meeting.notes?.startsWith("Cliente aprovou"), "ata salva");
 check(new URL(page.url()).pathname === "/onboarding", "continua na tela do Onboarding");
 await card.getByText(/Reunião realizada #\d+/).waitFor();
-check(await card.getByRole("button", { name: "Reunião realizada" }).count() === 0, "com a reunião realizada o botão some e o selo muda");
+check(await card.getByRole("button", { name: "Reunião realizada", exact: true }).count() === 0, "com a reunião realizada o botão some e o selo muda");
 check(db.opsClientOps[AURORA].stage_id === "coleta_acessos", "o cartão não muda de coluna sozinho (as regras continuam)");
 
 check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
