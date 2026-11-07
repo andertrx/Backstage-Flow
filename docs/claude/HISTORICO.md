@@ -175,3 +175,4 @@
 - **07/11 (48.1):** Ander: histórico do lead do mais recente ao mais antigo e, no cartão, o último contato em vez de "Sem próxima ação". A causa da ordem estranha era o horário sem segundos nos registros.
 - **07/11 (49.1):** Ander pediu Painel antes de Comercial e Notificações abaixo de Central de Operações (cada login escolhe seus avisos).
 - **07/11 (49.2):** Ander: em Contrato Pago a liberação é para o Onboarding, não para a operação. Já funcionava assim; ajustei os textos.
+- **07/11 (49.3):** Ander: só Cancelado pode ser alcançado sem reunião; liberado o movimento direto. Segunda frase do pedido (sobre a "demanda" na primeira etapa) ficou em dúvida e foi perguntada.

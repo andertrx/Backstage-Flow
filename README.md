@@ -134,6 +134,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [48.1 — Comercial: histórico do lead do mais recente ao mais antigo e "Último contato" no cartão](docs/etapa-43-organizacao/48.1-COMERCIAL-ULTIMO-CONTATO.md) ✅ 07/11
   - [49.1 — Painel e Notificações com menu próprio](docs/etapa-43-organizacao/49.1-PAINEL-NOTIFICACOES-MENU.md) ✅ 07/11
   - [49.2 — Contrato Pago libera para o Onboarding (textos do Comercial)](docs/etapa-43-organizacao/49.2-CONTRATO-PAGO-LIBERA-ONBOARDING.md) ✅ 07/11
+  - [49.3 — Onboarding Cancelado é livre (sem reunião)](docs/etapa-43-organizacao/49.3-ONBOARDING-CANCELADO-LIVRE.md) ✅ 07/11
   - [46.1 — conectar o Google Agenda de cada pessoa (Reuniões e Minha conta)](docs/etapa-43-organizacao/46.1-CONECTAR-GOOGLE-AGENDA.md) ✅ 07/11 (testado só com Google simulado)
   - [47.0 — plano: Onboarding Pendente exige reunião realizada (só plano)](docs/etapa-43-organizacao/47.0-PLANO-ONBOARDING-EXIGE-REUNIAO.md) 📝 07/11 (respondido)
   - [47.1 — Onboarding Pendente exige reunião realizada (vincular/criar, avisos, lembrete diário)](docs/etapa-43-organizacao/47.1-ONBOARDING-EXIGE-REUNIAO.md) ✅ 07/11

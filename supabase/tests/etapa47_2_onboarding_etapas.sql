@@ -22,14 +22,20 @@ begin
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
 
-  -- 1) Pendente sem reunião: não vai para Agendado, nem Realizado, nem Cancelado
+  -- 1) Pendente sem reunião: não vai para Agendado nem Realizado
   select version into v_ver from public.ops_client_ops where client_id = v_cli;
   begin perform public.ops_client_stage_move(v_cli, v_ver, 'coleta_acessos'); raise exception 'foi para Agendado sem reunião';
   exception when sqlstate '22023' then null; end;
   begin perform public.ops_client_stage_move(v_cli, v_ver, 'briefing'); raise exception 'foi para Realizado sem reunião';
   exception when sqlstate '22023' then null; end;
-  begin perform public.ops_client_stage_move(v_cli, v_ver, 'configuracao_inicial'); raise exception 'foi para Cancelado na mão';
-  exception when sqlstate '22023' then null; end;
+  v_ok := v_ok + 1;
+
+  -- 1b) 49.3: Cancelado é livre (sem reunião): vai direto e volta
+  perform public.ops_client_stage_move(v_cli, v_ver, 'configuracao_inicial');
+  if (select stage_id from public.ops_client_ops where client_id = v_cli) <> 'configuracao_inicial' then raise exception 'Cancelado não é livre'; end if;
+  select version into v_ver from public.ops_client_ops where client_id = v_cli;
+  perform public.ops_client_stage_move(v_cli, v_ver, 'onboarding_pendente');
+  select version into v_ver from public.ops_client_ops where client_id = v_cli;
   v_ok := v_ok + 1;
 
   -- 2) reunião agendada vinculada: vai para Agendado, mas não para Realizado

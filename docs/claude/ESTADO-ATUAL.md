@@ -129,3 +129,4 @@ A lista completa está em [`docs/PENDENCIAS.md`](../PENDENCIAS.md). Lembre nos r
 - **07/11/2026 — 48.1:** cartão do lead mostra o "Último contato" (data, hora, o que foi feito) e o histórico do lead ordena por minuto, mais recente primeiro (`ops_lead_board.last_contact`).
 - **07/11/2026 — 49.1:** menu Operações: Painel · Comercial · Onboarding · Central de Operações · Notificações · Reuniões · Envios semanais. Painel (`/painel`) e Notificações (`/notificacoes`) saíram das abas da Central; endereços antigos redirecionam.
 - **07/11/2026 — 49.2:** no Comercial, "Liberar para a operação" virou "Liberar para o onboarding" (só textos; o cliente já entrava em Onboarding Pendente).
+- **07/11/2026 — 49.3:** Onboarding Cancelado é livre: o cliente vai direto para lá, sem reunião e sem exigir tarefas obrigatórias.

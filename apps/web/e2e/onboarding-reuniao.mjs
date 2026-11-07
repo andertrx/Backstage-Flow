@@ -35,6 +35,7 @@ const beta = { id: crypto.randomUUID(), number: db.opsMeetingSeq, title: "Kickof
   sector_id: null, client_id: BETA, location: null, agenda: null, notes: null, cancel_reason: null, held_at: null, organizer_id: null, created_at: now, version: 1, people: [] };
 db.opsMeetings.push(beta);
 
+await page.setViewportSize({ width: 1900, height: 900 });
 await login(page, "/onboarding");
 const col = (id) => page.locator(`[data-testid=ops-kanban-column][data-status=${id}]`);
 await col("onboarding_pendente").getByText("Loja Aurora").waitFor();
@@ -49,6 +50,15 @@ await page.screenshot({ path: `${SHOTS}/47.1-onboarding-sem-reuniao.png`, fullPa
 await dragTo(page, aurora, col("coleta_acessos"));
 await page.getByText(/Vincule uma reunião de onboarding agendada/).first().waitFor();
 check(db.opsClientOps[AURORA].stage_id === "onboarding_pendente", "sem reunião o cliente não vai para Agendado (o cartão volta)");
+
+// 2b) 49.3: Onboarding Cancelado é livre: vai direto, sem reunião, e pode voltar
+await dragTo(page, aurora, col("configuracao_inicial"));
+await waitFor(page, () => db.opsClientOps[AURORA].stage_id === "configuracao_inicial", "foi direto para Cancelado");
+const auroraCanc = col("configuracao_inicial").locator("[data-testid=ops-kanban-card]").filter({ hasText: "Loja Aurora" });
+await auroraCanc.waitFor();
+check(db.opsActivity.some((a) => a.client_id === AURORA && String(a.after?.regra ?? "").includes("Onboarding cancelado")), "49.3: cancelar direto sem reunião, registrado no histórico");
+await dragTo(page, auroraCanc, col("onboarding_pendente"));
+await waitFor(page, () => db.opsClientOps[AURORA].stage_id === "onboarding_pendente", "voltou para Pendente");
 
 // 3) criar reunião: já abre com cliente, tipo e título; ao salvar, vincula sozinha
 await aurora.getByRole("button", { name: "Criar reunião" }).click();

@@ -145,10 +145,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   const onbGate = (cid, from, to) => {
     if (to.position <= from.position) return null;
     const m = onbMeeting(cid);
-    if (to.id === "configuracao_inicial") {
-      return m?.status === "cancelada" && m.cancel_kind === "cliente_desistiu" ? null
-        : 'Para cancelar o onboarding, cancele a reunião do cliente marcando "Cliente não fará mais onboarding".';
-    }
+    if (to.id === "configuracao_inicial") return null; // 49.3: Onboarding Cancelado é livre
     const pend = stageOf("onboarding_pendente");
     const real = stageOf("briefing");
     if (pend && from.position <= pend.position && to.position > pend.position && !onbMeetingScheduled(cid)) {
@@ -596,14 +593,15 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     if (!to?.active) return bad("Escolha uma etapa ativa.");
     if (to.id === o.stage_id) return res(200, o.version);
     const from = stageOf(o.stage_id);
-    if (to.position > from.position) {
+    if (to.position > from.position && to.id !== "configuracao_inicial") {
       const gate = onbGate(p.p_client, from, to);
       if (gate) return bad(gate);
       const n = pending(p.p_client, from.position, to.position);
       if (n > 0) return bad(`Há ${n} tarefa(s) obrigatória(s) aberta(s) nesta etapa. Conclua antes de avançar o cliente.`);
     }
     logClient(p.p_client, "cliente.etapa", { etapa: from.id },
-      { etapa: to.id, regra: to.position > from.position ? "Avanço manual: nenhuma tarefa obrigatória aberta" : "Retorno manual de etapa" });
+      { etapa: to.id, regra: to.id === "configuracao_inicial" ? "Onboarding cancelado (movido direto, sem exigência de reunião)"
+        : to.position > from.position ? "Avanço manual: nenhuma tarefa obrigatória aberta" : "Retorno manual de etapa" });
     Object.assign(o, { stage_id: to.id, stage_since: new Date().toISOString(), version: o.version + 1 });
     return res(200, o.version);
   }
