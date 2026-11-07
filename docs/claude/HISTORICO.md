@@ -167,4 +167,5 @@
 - **07/11 (43.8):** Ander pediu só trocar a ordem: Comercial, Onboarding (menu separado) e depois Central de Operações. Reuniões e Envios ficaram depois da Central.
 - **07/11 (46.0):** Ander respondeu as 3 perguntas do Google Agenda: agenda de cada pessoa (ver e cadastrar), convidar participantes, dois sentidos. Fiz só o plano (fase grande) com 2 perguntas.
 - **07/11 (46.0b):** Ander respondeu: equipe usa Google Workspace; convidar só a equipe; Meet automático. Perguntou como ativar a Calendar API (passo a passo no plano, seção 9).
+- **07/11 (46.1):** Ander: "pode avançar"; Google pediu vídeo (tela Externa) e ele não achava onde conectar. Construí a conexão (Reuniões e Minha conta) e expliquei que "Interno" dispensa o vídeo.
 - **07/11 (plano 44.3/45):** Ander pediu: disparos pelo número conectado, avisos no WhatsApp para um grupo dele (ex.: 1h sem gastar, saldo vencendo em 2 dias), foco nos gestores, cliente depois, e dividir o sistema. Entreguei o passo a passo do servidor, arquivos prontos e o plano; aguardo o servidor e o OK.

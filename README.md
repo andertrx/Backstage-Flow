@@ -129,6 +129,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [43.7 — Reuniões separadas, aba Onboarding e botões Google Agenda/.ics (sincronização automática depende de você)](docs/etapa-43-organizacao/43.7-REUNIOES-ONBOARDING-E-GOOGLE-AGENDA.md) ✅ 07/11
   - [43.8 — ordem do menu (Comercial, Onboarding, Central de Operações, Reuniões, Envios) e Onboarding como menu separado](docs/etapa-43-organizacao/43.8-ORDEM-DO-MENU-E-ONBOARDING-SEPARADO.md) ✅ 07/11
   - [46.0 — plano: Google Agenda de cada pessoa, nos dois sentidos (só plano)](docs/etapa-43-organizacao/46.0-PLANO-GOOGLE-AGENDA.md) 📝 07/11 (aguarda 2 respostas)
+  - [46.1 — conectar o Google Agenda de cada pessoa (Reuniões e Minha conta)](docs/etapa-43-organizacao/46.1-CONECTAR-GOOGLE-AGENDA.md) ✅ 07/11 (testado só com Google simulado)
   - [44.1 — passo a passo do servidor do WhatsApp (arquivos prontos em `infra/whatsapp-evolution/`)](docs/etapa-43-organizacao/44.1-SERVIDOR-PASSO-A-PASSO.md) 📝 07/11
   - [45.0 — plano: disparos e avisos pelo WhatsApp + divisão empresa × cliente (só plano)](docs/etapa-43-organizacao/45.0-PLANO-DISPAROS-E-AVISOS-NO-WHATSAPP.md) 📝 07/11
 - [Etapa 42 — Criador de Anúncios (monta o pedido em texto para o Claude criar anúncios no Meta; modelos e histórico; 42.1: cliente → BM → conta → campanha → conjunto nas listas do CRM)](docs/etapa-42-criador-de-anuncios/42-CRIADOR-DE-ANUNCIOS.md) ✅ 28/10

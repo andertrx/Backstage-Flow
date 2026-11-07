@@ -15,6 +15,7 @@ export function seedWaGateway() {
       silencio_inicio: 22, silencio_fim: 7, repetir_horas: 12, sem_gasto_inicio: 8, sem_gasto_fim: 22, sem_gasto_minutos: 60 },
     waSemGasto: [],
     waAvisos: [],
+    gcal: { configured: true, conexao: null, estados: [], falhar: null },
   };
 }
 
@@ -62,6 +63,32 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
         ok += 1;
       }
       return res(200, { enfileirados: ok, pulados });
+    }
+  }
+  // Etapa 46.1 — Google Agenda de cada pessoa (função google-agenda simulada)
+  if (url.includes("/functions/v1/google-agenda")) {
+    const body = parse();
+    db.functionCalls.push({ fn: "google-agenda", ...body });
+    if (role === "cliente" || role === "vendedor") return res(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para esta ação." } });
+    const g2 = db.gcal;
+    if (body.action === "status") return res(200, { data: { configured: g2.configured, conexao: g2.conexao } });
+    if (body.action === "start") {
+      if (!g2.configured) return res(400, { error: { code: "INVALID_STATE", message: "O login do Google ainda não foi configurado no servidor (falta o cliente OAuth). Fale com o administrador." } });
+      const state = "a".repeat(63) + String(g2.estados.length % 10);
+      g2.estados.push({ state, redirectUri: body.redirectUri });
+      return res(200, { data: { url: `${body.redirectUri}?code=codigo-de-teste-123456&state=${state}` } }); // o "Google" devolve direto
+    }
+    if (body.action === "complete") {
+      const i = g2.estados.findIndex((e) => e.state === body.state && e.redirectUri === body.redirectUri);
+      if (i < 0) return res(400, { error: { code: "INVALID_STATE", message: "Autorização inválida ou expirada. Tente conectar de novo." } });
+      g2.estados.splice(i, 1);
+      if (g2.falhar) return res(400, { error: { code: "INVALID_STATE", message: g2.falhar } });
+      g2.conexao = { google_email: "ander@empresa.com.br", status: "conectada", connected_at: new Date().toISOString(), last_sync_at: null, last_error: null };
+      return res(200, { data: { conexao: g2.conexao } });
+    }
+    if (body.action === "disconnect") {
+      if (g2.conexao) g2.conexao = { ...g2.conexao, status: "desconectada" };
+      return res(200, { data: { conexao: g2.conexao } });
     }
   }
   // Etapa 45.3 — avisos no WhatsApp (só administrador)

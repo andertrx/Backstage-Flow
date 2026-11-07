@@ -2,6 +2,7 @@ import { OPS_MEETING_STATUSES, OPS_MEETING_STATUS_LABELS, opsAddDays, opsGroupMe
 import { CalendarDays, History, ListTodo, Plus, Search, Users } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router";
+import { GoogleAgendaCard } from "@/features/google-agenda/GoogleAgendaCard.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
@@ -93,6 +94,7 @@ export function MeetingsPage() {
   return (
     <div className="space-y-4" data-testid="ops-meetings">
       <OpsModuleHeader icon={CalendarDays} title="Dailies e reuniões" description="Agenda, pauta, ata e presença. Pendências viram tarefa com um clique, no setor e com o responsável certo." />
+      <GoogleAgendaCard />
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-lg bg-white p-1 ring-1 ring-slate-200" role="group" aria-label="Visão das reuniões">
           {([["agenda", "Agenda", CalendarDays], ["historico", "Histórico", History]] as const).map(([id, label, Icon]) => (

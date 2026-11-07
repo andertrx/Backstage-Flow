@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card.tsx";
 import { Field, Input } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { ChangePasswordForm } from "@/features/auth/ChangePasswordForm.tsx";
+import { GoogleAgendaCard } from "@/features/google-agenda/GoogleAgendaCard.tsx";
 import { supabase } from "@/lib/supabase.ts";
 
 function ProfileForm() {
@@ -47,6 +48,8 @@ function ProfileForm() {
 }
 
 export function AccountPage() {
+  const { profile } = useAuth();
+  const usaAgenda = profile && profile.role !== "cliente" && profile.role !== "vendedor"; // quem usa a Central de Operações
   return (
     <div className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Minha conta</h1>
@@ -54,6 +57,7 @@ export function AccountPage() {
         <h2 className="mb-4 text-base font-semibold">Dados pessoais</h2>
         <ProfileForm />
       </Card>
+      {usaAgenda && <GoogleAgendaCard />}
       <Card className="p-6">
         <h2 className="mb-4 text-base font-semibold">Alterar senha</h2>
         <ChangePasswordForm />

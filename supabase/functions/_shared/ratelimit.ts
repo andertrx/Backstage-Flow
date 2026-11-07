@@ -21,6 +21,7 @@ export const RATE_LIMITS = {
   "tracking.whatsapp": { max: 120, windowSeconds: 600 },
   "reports.email": { max: 20, windowSeconds: 600 },
   "wa.gateway": { max: 60, windowSeconds: 600 },
+  "google.agenda": { max: 40, windowSeconds: 600 },
   "sheets.read": { max: 60, windowSeconds: 600 },
 } as const satisfies Record<string, RateRule>;
 

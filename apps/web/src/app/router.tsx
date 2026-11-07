@@ -41,6 +41,7 @@ const OpsDashboardRoute = lazy(() => import("@/features/operations/DashboardPage
 const OpsSettingsPage = lazy(() => import("@/features/operations/OpsSettingsPage.tsx").then((m) => ({ default: m.OpsSettingsPage })));
 const TrackingPage = lazy(() => import("@/features/tracking/TrackingPage.tsx").then((m) => ({ default: m.TrackingPage })));
 const WhatsAppCallbackPage = lazy(() => import("@/features/tracking/WhatsAppCallbackPage.tsx").then((m) => ({ default: m.WhatsAppCallbackPage })));
+const GoogleAgendaCallbackPage = lazy(() => import("@/features/google-agenda/GoogleAgendaCallbackPage.tsx").then((m) => ({ default: m.GoogleAgendaCallbackPage })));
 const SyncPage = lazy(() => import("@/features/sync/SyncPage.tsx").then((m) => ({ default: m.SyncPage })));
 const LogsPage = lazy(() => import("@/features/logs/LogsPage.tsx").then((m) => ({ default: m.LogsPage })));
 const ReportsPage = lazy(() => import("@/features/reports/ReportsPage.tsx").then((m) => ({ default: m.ReportsPage })));
@@ -110,6 +111,8 @@ export const router = createBrowserRouter([
         ),
       },
       { path: "minha-conta", element: <AccountPage /> },
+      // 46.1: o Google devolve a pessoa para cá depois de autorizar o Google Agenda dela
+      { path: "google-agenda/retorno", element: <GoogleAgendaCallbackPage /> },
       {
         path: "clientes",
         element: (
