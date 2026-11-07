@@ -135,3 +135,4 @@ A lista completa está em [`docs/PENDENCIAS.md`](../PENDENCIAS.md). Lembre nos r
 - **07/11/2026 — 50.1:** tarefas padrão do onboarding (tabela `ops_onboarding_task_templates`, cadastro em Configurações). No cartão, botão "Tarefas do onboarding": marcar as padrão ou criar outras, para o setor inteiro ou uma pessoa. Substitui "Criar tarefa para a operação".
 - **07/11/2026 — 50.2:** em "Tarefas do onboarding", tarefa nova tem título + descrição grande; tarefa padrão tem "Adicionar/Editar descrição" opcional.
 - **07/11/2026 — 50.3:** arrastar cartões no celular corrigido (MouseSensor + TouchSensor com segurar 250 ms no `DndBoard`); vale para Onboarding, Comercial, Tarefas e Filas.
+- **07/11/2026 — 50.4:** nome do cliente maior e em negrito nos cartões do Onboarding.

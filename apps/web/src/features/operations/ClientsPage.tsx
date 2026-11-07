@@ -27,8 +27,8 @@ function ClientCard({ c, ctx, onOpen }: { c: OpsBoardClient; ctx: TasksContext; 
   return (
     <div className="space-y-2 rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200 transition hover:ring-blue-400">
       <button type="button" onClick={onOpen} data-testid="ops-client-card" className="block w-full space-y-2 text-left focus-visible:outline-2 focus-visible:outline-blue-600">
-        <p className="text-sm font-semibold text-slate-900">{c.name}</p>
-        <p className="text-xs text-slate-500">AM: {c.am_name ?? "sem Account Manager"}</p>
+        <p className="break-words text-base font-bold leading-tight text-slate-950" data-testid="ops-client-card-name">{c.name}</p>
+        <p className="text-[11px] text-slate-500">AM: {c.am_name ?? "sem Account Manager"}</p>
         {isOnboardingStage(c.stage_id) && <MeetingSeal c={c} />}
         <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{s.abertas} abertas</span>

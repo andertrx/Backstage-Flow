@@ -188,7 +188,7 @@ const waitFor = async (page, fn, what) => {
   await login(page, "/operacoes/clientes");
   await page.getByTestId("ops-clients").waitFor();
   await page.getByTestId("ops-client-card").first().waitFor();
-  const names = await page.getByTestId("ops-client-card").locator("p.text-sm.font-semibold").allInnerTexts();
+  const names = await page.getByTestId("ops-client-card-name").allInnerTexts();
   check(JSON.stringify(names) === JSON.stringify(["Loja Aurora"]), `AM vê só os clientes dele (${names.join(", ")})`);
   check(await page.getByRole("button", { name: "Colocar cliente no fluxo" }).count() === 0, "sem permissão, não coloca clientes no fluxo");
   await page.getByTestId("ops-client-card").first().click();
