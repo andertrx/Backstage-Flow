@@ -2,8 +2,11 @@ import { type ComponentProps, type InputHTMLAttributes, type ReactNode, type Sel
 import { cn } from "@/lib/cn.ts";
 
 const control =
-  "block w-full rounded-lg border-0 bg-white px-3 py-2 text-sm text-slate-900 ring-1 ring-inset ring-slate-300 " +
-  "placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 disabled:bg-slate-50 disabled:text-slate-500";
+  "block w-full rounded-lg border-0 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 transition-shadow duration-150 " +
+  "placeholder:text-slate-400 hover:ring-slate-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:shadow-none";
+
+// Seta própria dos selects (classe `.select-arrow` em index.css). Continuam sendo o select nativo: seguro no celular e nos testes.
+const selectArrow = "select-arrow";
 
 interface FieldProps {
   label: string;
@@ -30,7 +33,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
 }
 
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(control, "pr-8", className)} {...props} />;
+  return <select className={cn(control, selectArrow, className)} {...props} />;
 }
 
 export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
