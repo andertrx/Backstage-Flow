@@ -154,4 +154,5 @@
 - **07/11 (44.2):** Ander disse "pode avançar" sem responder servidor nem @; fiz só o que não dependia deles (ligar grupos). Conferi no código aberto do Evolution API: lista de grupos, estado, criação, e que a marcação usa números.
 - **07/11 (44.3):** Ander mandou "pode avançar só a 4 não": fiz tudo menos mapear o itsmovcrm. Padrões assumidos: silêncio 22h–7h, janela do "sem gasto" 8h–22h, disparos sem marcar @ (opção C).
 - **07/11 (45.1):** Ander disse "pode avancar" após a 44.3; fiz a 45.1 (motor dos avisos no WhatsApp), sem tela, nasce desligada.
+- **07/11 (45.2):** Ander disse "pode"; fiz a regra de "sem gasto" (só motor), com janela 8h–22h e liga/desliga por cliente.
 - **07/11 (plano 44.3/45):** Ander pediu: disparos pelo número conectado, avisos no WhatsApp para um grupo dele (ex.: 1h sem gastar, saldo vencendo em 2 dias), foco nos gestores, cliente depois, e dividir o sistema. Entreguei o passo a passo do servidor, arquivos prontos e o plano; aguardo o servidor e o OK.
