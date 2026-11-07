@@ -33,7 +33,7 @@ import { useMonitorNotifications } from "@/features/monitoring/notifyApi.ts";
 import { useMyOpsPermissions } from "@/features/operations/api.ts";
 import { useUnreadNotifications } from "@/features/operations/notificationsApi.ts";
 import { AvisosCampanhas, AvisosTarefas } from "./AvisosAbas.tsx";
-import { type AlertRow, type AlertSituation, type RefreshAlertsResult, useAlerts, useRefreshAlerts, useSetAlertStatus, useUnseenAlertsCount } from "./api.ts";
+import { type AlertRow, type AlertSituation, type RefreshAlertsResult, useAlerts, useMarkAllAlertsSeen, useRefreshAlerts, useSetAlertStatus, useUnseenAlertsCount } from "./api.ts";
 
 const SITUATIONS: { value: AlertSituation; label: string }[] = [
   { value: "abertos", label: "Abertos" },
@@ -73,6 +73,8 @@ function AlertasContas() {
   const { data: clients = [] } = useActiveClients();
   const { data = [], isLoading, error } = useAlerts(situation);
   const refresh = useRefreshAlerts();
+  const markAll = useMarkAllAlertsSeen();
+  const unseenAll = useUnseenAlertsCount(true).data ?? 0;
   const [lastCheck, setLastCheck] = useState<RefreshAlertsResult | null>(null);
 
   const alerts = useMemo(
@@ -90,6 +92,11 @@ function AlertasContas() {
         <p className="text-sm text-slate-500">
           Problemas encontrados nas contas (saldo, pagamento, restrição, conexão). A verificação roda sozinha a cada 15 minutos.
         </p>
+        {canManage && unseenAll > 0 && (
+          <Button variant="secondary" loading={markAll.isPending} onClick={() => markAll.mutate()} data-testid="alerts-mark-all-seen">
+            {!markAll.isPending && <Eye className="size-4" aria-hidden />} Marcar todos como vistos
+          </Button>
+        )}
         {canManage && (
           <Button
             variant="secondary"

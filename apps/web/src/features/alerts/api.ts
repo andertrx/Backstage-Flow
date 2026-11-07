@@ -92,3 +92,20 @@ export function useSetAlertStatus() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ALERTS_KEY }),
   });
 }
+
+/** "Marcar todos como vistos": passa os alertas ainda não vistos (status aberto) para "visto". Nada é resolvido nem apagado. */
+export function useMarkAllAlertsSeen() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.from("alerts").select("id").eq("status", "aberto").limit(1000);
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos listar os alertas."));
+      for (const row of data as { id: number }[]) {
+        const r = await supabase.rpc("set_alert_status", { p_id: row.id, p_status: "visto" });
+        if (r.error) throw new FriendlyError(friendlyDbError(r.error, "Não conseguimos marcar os alertas como vistos."));
+      }
+      return data.length;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ALERTS_KEY }),
+  });
+}

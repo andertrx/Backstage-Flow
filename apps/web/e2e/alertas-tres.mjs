@@ -45,6 +45,10 @@ function seed(db) {
   const painel = page.getByTestId("accounts-bell-panel");
   await painel.waitFor();
   check(await painel.getByTestId("accounts-bell-item").count() === 2, "sininho Contas lista os alertas abertos");
+  await painel.getByTestId("accounts-bell-read-all").click();
+  await page.waitForFunction(() => !document.querySelector("[data-testid=accounts-bell-count]"), null, { timeout: 8000 });
+  check(db.alerts.every((a) => a.status === "visto") && db.rpcCalls.filter((c) => c.fn === "set_alert_status").length === 2, "\"Marcar todos como vistos\" passa os 2 alertas para visto (nada é resolvido)");
+  check(await page.getByTestId("nav-alerts-sub-contas").innerText().then((t) => t.replace(/\s+/g, "") === "Contas"), "o número de Contas some no menu");
   await page.keyboard.press("Escape");
 
   // tela Alertas em 3 abas
@@ -61,6 +65,7 @@ function seed(db) {
   await page.screenshot({ path: `${SHOTS}/alertas-tres-abas.png` });
   await page.getByTestId("alert-tab-contas").click();
   await page.getByTestId("alert-card").first().waitFor();
+  check(await page.getByTestId("alerts-mark-all-seen").count() === 0, "sem alertas novos, o botão \"Marcar todos como vistos\" some da aba Contas");
   check(await page.getByTestId("alert-card").count() >= 2 && !page.url().includes("aba="), "aba Contas é a tela de alertas de sempre");
   check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);
   await browser.close();

@@ -1,9 +1,10 @@
-import { ALERT_SEVERITY_EMOJI, ALERT_TYPE_LABELS, compareAlerts } from "@backstage/shared";
+import { ALERT_SEVERITY_EMOJI, ALERT_TYPE_LABELS, can, compareAlerts } from "@backstage/shared";
 import { Wallet } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { formatRelative } from "@/lib/format.ts";
-import { useAlerts, useUnseenAlertsCount } from "./api.ts";
+import { useAuth } from "@/features/auth/AuthProvider.tsx";
+import { useAlerts, useMarkAllAlertsSeen, useUnseenAlertsCount } from "./api.ts";
 
 /**
  * Sininho "Contas" no topo (43.5): os alertas das contas de anúncio (saldo, pagamento, conta restrita, erro de conexão...).
@@ -13,6 +14,8 @@ export function AlertsBell() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const markAll = useMarkAllAlertsSeen();
   const count = useUnseenAlertsCount(true).data ?? 0;
   const list = useAlerts("abertos");
   const top = [...(list.data ?? [])].filter((a) => a.status === "aberto").sort(compareAlerts).slice(0, 8);
@@ -42,7 +45,14 @@ export function AlertsBell() {
       {open && (
         <div className="fixed inset-x-2 top-[4.5rem] z-50 overflow-hidden rounded-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[22rem] bg-white shadow-xl ring-1 ring-slate-200"
           role="dialog" aria-label="Alertas das contas" data-testid="accounts-bell-panel">
-          <div className="border-b border-slate-100 px-3 py-2"><p className="text-sm font-semibold text-slate-900">Alertas das contas</p></div>
+          <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+            <p className="text-sm font-semibold text-slate-900">Alertas das contas</p>
+            {count > 0 && can(profile?.role, "alerts.manage") && (
+              <button type="button" className="text-xs font-medium text-blue-700 hover:underline disabled:opacity-50" disabled={markAll.isPending} onClick={() => markAll.mutate()} data-testid="accounts-bell-read-all">
+                Marcar todos como vistos
+              </button>
+            )}
+          </div>
           <div className="max-h-[min(24rem,calc(100dvh-12rem))] divide-y divide-slate-100 overflow-y-auto">
             {list.isLoading && <p className="px-3 py-4 text-sm text-slate-500">Carregando…</p>}
             {!list.isLoading && top.length === 0 && <p className="px-3 py-6 text-center text-sm text-slate-500">Nenhum alerta novo nas contas.</p>}
