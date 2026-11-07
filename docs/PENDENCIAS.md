@@ -79,3 +79,4 @@
 - [ ] **Avisos no WhatsApp (45.x):** criar um grupo só seu no WhatsApp para os avisos; na tela Integrações → Avisos no WhatsApp você escolhe o grupo e liga.
 - [ ] (opcional) Colar aqui imagens das telas de WhatsApp e de agentes do sistema `itsmovcrm.com.br` para eu mapear o que ele tem.
 - [ ] **Google Agenda (43.7):** responder 3 perguntas para eu fazer a sincronização automática das reuniões: agenda da empresa ou de cada pessoa; convidar os participantes pelo Google; só CRM → Google ou nos dois sentidos (recomendo só CRM → Google). Detalhes em `docs/etapa-43-organizacao/43.7-REUNIOES-ONBOARDING-E-GOOGLE-AGENDA.md`.
+- [ ] **Google Agenda (46.0):** ler `docs/etapa-43-organizacao/46.0-PLANO-GOOGLE-AGENDA.md` e responder 2 perguntas (Workspace ou Gmail comum; convidar clientes e Meet automático). Antes da construção: ativar a Calendar API e o acesso `calendar.events` no Google Cloud.

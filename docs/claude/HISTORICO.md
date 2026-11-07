@@ -165,4 +165,5 @@
 - **07/11 (43.6):** Ander pediu para separar Comercial e Envios semanais da Central (3 menus), sem quebrar nada; mantive endereços antigos com redirecionamento.
 - **07/11 (43.7):** Ander pediu Reuniões separada + Google Agenda, "Operação"→"Onboarding" e nova ordem das abas. Fiz tudo menos a sincronização automática com o Google (precisa da conta Google e de 3 decisões); entreguei o botão Google Agenda e o .ics.
 - **07/11 (43.8):** Ander pediu só trocar a ordem: Comercial, Onboarding (menu separado) e depois Central de Operações. Reuniões e Envios ficaram depois da Central.
+- **07/11 (46.0):** Ander respondeu as 3 perguntas do Google Agenda: agenda de cada pessoa (ver e cadastrar), convidar participantes, dois sentidos. Fiz só o plano (fase grande) com 2 perguntas.
 - **07/11 (plano 44.3/45):** Ander pediu: disparos pelo número conectado, avisos no WhatsApp para um grupo dele (ex.: 1h sem gastar, saldo vencendo em 2 dias), foco nos gestores, cliente depois, e dividir o sistema. Entreguei o passo a passo do servidor, arquivos prontos e o plano; aguardo o servidor e o OK.
