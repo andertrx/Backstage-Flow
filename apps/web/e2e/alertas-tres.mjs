@@ -44,6 +44,7 @@ function seed(db) {
   await page.getByTestId("accounts-bell").click();
   const painel = page.getByTestId("accounts-bell-panel");
   await painel.waitFor();
+  await painel.getByTestId("accounts-bell-item").first().waitFor();
   check(await painel.getByTestId("accounts-bell-item").count() === 2, "sininho Contas lista os alertas abertos");
   await painel.getByTestId("accounts-bell-read-all").click();
   await page.waitForFunction(() => !document.querySelector("[data-testid=accounts-bell-count]"), null, { timeout: 8000 });

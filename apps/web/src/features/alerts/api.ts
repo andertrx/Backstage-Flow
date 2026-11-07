@@ -33,9 +33,10 @@ const COLUMNS =
   "first_seen_at, last_seen_at, seen_at, resolved_at, resolution, clients(name), ad_accounts(name, external_id), campaigns(name)";
 
 /** Alertas que o usuário pode ver (o RLS decide), mais recentes primeiro. */
-export function useAlerts(situation: AlertSituation) {
+export function useAlerts(situation: AlertSituation, enabled = true) {
   return useQuery({
     queryKey: [...ALERTS_KEY, "list", situation],
+    enabled,
     placeholderData: (prev) => prev,
     queryFn: async () => {
       let query = supabase.from("alerts").select(COLUMNS).order("first_seen_at", { ascending: false }).limit(500);

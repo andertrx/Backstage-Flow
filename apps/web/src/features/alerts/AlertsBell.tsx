@@ -17,7 +17,7 @@ export function AlertsBell() {
   const { profile } = useAuth();
   const markAll = useMarkAllAlertsSeen();
   const count = useUnseenAlertsCount(true).data ?? 0;
-  const list = useAlerts("abertos");
+  const list = useAlerts("abertos", open);
   const top = [...(list.data ?? [])].filter((a) => a.status === "aberto").sort(compareAlerts).slice(0, 8);
 
   useEffect(() => {
