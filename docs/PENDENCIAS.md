@@ -76,5 +76,5 @@
 - [ ] Ter o **chip separado** à mão para ler o QR Code (ou digitar o código) na primeira conexão. Cole a chave de acesso **só no campo do CRM**, nunca no chat.
 - [ ] **Decidir como marcar pessoas (@)** no envio automático: guardar o identificador (com telefone) em tabela protegida (recomendo), achar pelo nome na hora, ou enviar sem marcar. Ver seção "Para decidir" do documento 44.1.
 - [ ] **Testar o envio real** (44.3) assim que o servidor existir: conectar, ligar a trava, usar "Enviar agora" para um grupo de teu.
-- [ ] **Avisos no WhatsApp (45.x):** criar um grupo só seu no WhatsApp para os avisos; depois da 45.3 você escolhe o grupo e liga.
+- [ ] **Avisos no WhatsApp (45.x):** criar um grupo só seu no WhatsApp para os avisos; na tela Integrações → Avisos no WhatsApp você escolhe o grupo e liga.
 - [ ] (opcional) Colar aqui imagens das telas de WhatsApp e de agentes do sistema `itsmovcrm.com.br` para eu mapear o que ele tem.

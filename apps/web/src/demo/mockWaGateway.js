@@ -11,6 +11,10 @@ export function seedWaGateway() {
     waGrupos: [],
     waAuto: [],
     waDisparos: [],
+    waAvisosCfg: { ativo: false, grupo_id: null, grupo_nome: null, tipos: ["sem_saldo", "saldo_baixo", "conta_restrita", "pagamento_pendente", "erro_api", "envio_aprovar"],
+      silencio_inicio: 22, silencio_fim: 7, repetir_horas: 12, sem_gasto_inicio: 8, sem_gasto_fim: 22, sem_gasto_minutos: 60 },
+    waSemGasto: [],
+    waAvisos: [],
   };
 }
 
@@ -59,6 +63,31 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
       }
       return res(200, { enfileirados: ok, pulados });
     }
+  }
+  // Etapa 45.3 — avisos no WhatsApp (só administrador)
+  if (url.includes("/rest/v1/wa_avisos_config")) return res(200, role === "admin" ? db.waAvisosCfg : null);
+  if (url.includes("/rest/v1/wa_sem_gasto_silenciados")) return res(200, role === "admin" ? db.waSemGasto.map((cliente_id) => ({ cliente_id })) : []);
+  if (url.includes("/rest/v1/wa_avisos")) return res(200, role === "admin" ? [...db.waAvisos].sort((a, b) => b.id - a.id).slice(0, 8) : []);
+  if (url.includes("/rest/v1/rpc/wa_avisos_config_save") || url.includes("/rest/v1/rpc/wa_sem_gasto_")) {
+    const p = parse();
+    db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
+    if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador configura os avisos no WhatsApp." });
+    const bad = (message) => res(400, { code: "22023", message });
+    const c = db.waAvisosCfg;
+    if (url.includes("/rpc/wa_avisos_config_save")) {
+      if (p.p_grupo_id != null && !/^[0-9A-Za-z._-]{5,60}@g\.us$/.test(p.p_grupo_id)) return bad("Grupo inválido. Escolha o grupo na lista do WhatsApp.");
+      if (p.p_ativo && p.p_grupo_id == null) return bad("Escolha o grupo de avisos antes de ligar.");
+      Object.assign(c, { ativo: p.p_ativo, grupo_id: p.p_grupo_id, grupo_nome: p.p_grupo_nome, tipos: p.p_tipos ?? [], silencio_inicio: p.p_ini, silencio_fim: p.p_fim, repetir_horas: p.p_repetir });
+      return res(204);
+    }
+    if (url.includes("/rpc/wa_sem_gasto_config_save")) {
+      if (p.p_fim <= p.p_ini || p.p_minutos < 30) return bad("Janela ou tempo inválidos (início antes do fim; tempo de 30 minutos a 12 horas).");
+      Object.assign(c, { sem_gasto_inicio: p.p_ini, sem_gasto_fim: p.p_fim, sem_gasto_minutos: p.p_minutos });
+      return res(204);
+    }
+    db.waSemGasto = db.waSemGasto.filter((id) => id !== p.p_cliente);
+    if (p.p_silenciar) db.waSemGasto.push(p.p_cliente);
+    return res(204);
   }
   if (isGrupos) return res(200, podeEnvios ? db.waGrupos.filter((x) => !x.desvinculado_em).map(({ cliente_id, grupo_id, grupo_nome }) => ({ cliente_id, grupo_id, grupo_nome })) : []);
   if (isGrupoRpc) {
