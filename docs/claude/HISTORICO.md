@@ -178,3 +178,4 @@
 - **07/11 (49.3):** Ander: só Cancelado pode ser alcançado sem reunião; liberado o movimento direto. Segunda frase do pedido (sobre a "demanda" na primeira etapa) ficou em dúvida e foi perguntada.
 - **07/11 (49.5):** Ander respondeu "Né?" à pergunta sobre a demanda; li como a opção A (etapa padrão = primeira) e implementei, avisando que é fácil ajustar.
 - **07/11 (50.1):** Ander corrigiu o entendimento: as tarefas padrão devem ser marcáveis no lugar de criar do zero, com opção de setor inteiro ou pessoa específica, e cadastro em Configurações. Refeito.
+- **07/11 (50.2):** Ander pediu título + descrição maior nas tarefas novas e descrição opcional nas padrão.

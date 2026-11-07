@@ -3,7 +3,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Input, Select } from "@/components/ui/field.tsx";
+import { Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
@@ -22,6 +22,8 @@ interface Row {
   sectorId: string;
   mode: Mode;
   person: string;
+  description: string;
+  showDesc: boolean;
 }
 
 const isCommercial = (name: string | undefined) => (name ?? "").trim().toLowerCase() === "comercial";
@@ -50,19 +52,28 @@ export function OnboardingTasksModal({ c, ctx, onClose, onDone, onFullForm }: {
   const peopleOf = (sectorId: string) => ctx.directory.people.filter((p) => p.sectors.includes(sectorId) || p.sector_id === sectorId);
 
   const rowFor = (t: OpsOnboardingTemplate): Row =>
-    state[t.id] ?? { key: t.id, template: t, checked: false, title: t.title, sectorId: t.sector_id, mode: "setor", person: "" };
+    state[t.id] ?? { key: t.id, template: t, checked: false, title: t.title, sectorId: t.sector_id, mode: "setor", person: "", description: t.description ?? "", showDesc: false };
   const patch = (r: Row, p: Partial<Row>) => {
     if (r.template) setState((s) => ({ ...s, [r.key]: { ...r, ...p } }));
     else setExtras((l) => l.map((x) => (x.key === r.key ? { ...x, ...p } : x)));
   };
-  const addExtra = () => setExtras((l) => [...l, { key: crypto.randomUUID(), template: null, checked: true, title: "", sectorId: "", mode: "setor", person: "" }]);
+  const addExtra = () => setExtras((l) => [...l, { key: crypto.randomUUID(), template: null, checked: true, title: "", sectorId: "", mode: "setor", person: "", description: "", showDesc: true }]);
 
   const selected = [...activeTemplates.map(rowFor).filter((r) => r.checked), ...extras];
 
-  function RowBody({ r }: { r: Row }) {
+  const rowBody = (r: Row) => {
     const people = peopleOf(r.sectorId);
     return (
       <div className="mt-2 space-y-2 border-t border-slate-100 pt-2" data-testid="ops-onb-task-assign">
+        {r.template && !r.showDesc && (
+          <button type="button" className="text-xs font-medium text-blue-700 hover:underline" onClick={() => patch(r, { showDesc: true })}>
+            {r.description.trim() ? "Editar descrição" : "Adicionar descrição"}
+          </button>
+        )}
+        {(r.showDesc || !r.template) && (
+          <Textarea aria-label={`Descrição: ${r.title || "nova tarefa"}`} className={r.template ? "min-h-20" : "min-h-28"} value={r.description} maxLength={5000}
+            placeholder="Descreva o que precisa ser feito, o que o setor deve pedir ou entregar…" onChange={(e) => patch(r, { description: e.target.value })} />
+        )}
         {canAssign ? (
           <>
             <div className="flex flex-wrap gap-4 text-sm text-slate-700" role="radiogroup" aria-label={`Quem recebe: ${r.title || "nova tarefa"}`}>
@@ -108,7 +119,7 @@ export function OnboardingTasksModal({ c, ctx, onClose, onDone, onFullForm }: {
           : { principal: ids[0] ?? null, adicionais: ids.slice(1), aprovadores: [], observadores: [] };
         const t = r.template;
         const input: OpsTaskInput = {
-          title: r.title.trim(), description: t?.description ?? "", client_id: c.client_id, sector_id: r.sectorId, priority: t?.priority ?? "media",
+          title: r.title.trim(), description: r.description.trim(), client_id: c.client_id, sector_id: r.sectorId, priority: t?.priority ?? "media",
           start_date: "", due_date: t?.due_days != null ? opsAddDays(opsToday(), t.due_days) : "", effort_hours: "", visibility: "setor", tags: [],
           client_stage_id: "", mandatory: false, status_id: statusId, people,
         };
@@ -149,7 +160,7 @@ export function OnboardingTasksModal({ c, ctx, onClose, onDone, onFullForm }: {
                     <span className="block text-xs text-slate-500">Setor: {sector?.name ?? "—"}{t.due_days != null ? ` · prazo ${t.due_days} dia(s)` : ""}</span>
                   </span>
                 </label>
-                {r.checked && <RowBody r={r} />}
+                {r.checked && rowBody(r)}
               </div>
             );
           })}
@@ -170,7 +181,7 @@ export function OnboardingTasksModal({ c, ctx, onClose, onDone, onFullForm }: {
                 </Select>
                 <Button type="button" variant="ghost" className="px-2" onClick={() => setExtras((l) => l.filter((x) => x.key !== r.key))} aria-label="Retirar esta tarefa"><Trash2 className="size-4" aria-hidden /></Button>
               </div>
-              <RowBody r={r} />
+              {rowBody(r)}
             </div>
           ))}
           {extras.length === 0 && <p className="text-xs text-slate-500">Não achou a tarefa certa? Use "Criar outra tarefa".</p>}

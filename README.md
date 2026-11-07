@@ -139,6 +139,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [49.5 — Liberar demanda já vem na primeira etapa do onboarding](docs/etapa-43-organizacao/49.5-DEMANDA-ETAPA-PADRAO.md) ✅ 07/11
   - [50.0 — plano: tarefas padrão do onboarding (só plano)](docs/etapa-43-organizacao/50.0-PLANO-TAREFAS-PADRAO-ONBOARDING.md) 📝 07/11 (substituído pela 50.1)
   - [50.1 — Tarefas padrão do onboarding (marcar no cartão, setor inteiro ou pessoa; cadastro em Configurações)](docs/etapa-43-organizacao/50.1-TAREFAS-PADRAO-ONBOARDING.md) ✅ 07/11
+  - [50.2 — Descrição nas tarefas do onboarding (campo maior na nova, opcional nas padrão)](docs/etapa-43-organizacao/50.2-TAREFAS-DESCRICAO.md) ✅ 07/11
   - [46.1 — conectar o Google Agenda de cada pessoa (Reuniões e Minha conta)](docs/etapa-43-organizacao/46.1-CONECTAR-GOOGLE-AGENDA.md) ✅ 07/11 (testado só com Google simulado)
   - [47.0 — plano: Onboarding Pendente exige reunião realizada (só plano)](docs/etapa-43-organizacao/47.0-PLANO-ONBOARDING-EXIGE-REUNIAO.md) 📝 07/11 (respondido)
   - [47.1 — Onboarding Pendente exige reunião realizada (vincular/criar, avisos, lembrete diário)](docs/etapa-43-organizacao/47.1-ONBOARDING-EXIGE-REUNIAO.md) ✅ 07/11
