@@ -55,8 +55,12 @@ begin
   exception when sqlstate '22023' then null; end;
   v_ok := v_ok + 1;
 
-  -- 3) reunião realizada: vai para Realizado; voltar é livre
+  -- 3) reunião realizada (+ 49.4: 1 tarefa para o time de operação): vai para Realizado; voltar é livre
   perform public.ops_meeting_record(v_m1, (select version from public.ops_meetings where id = v_m1), 'Ata', '{}');
+  perform set_config('role', 'postgres', true);
+  insert into public.ops_tasks (title, client_id, sector_id, created_by)
+    values ('Próximos passos (teste 47.2)', v_cli, (select id from public.ops_sectors where lower(name) <> 'comercial' order by position limit 1), v_admin);
+  perform set_config('role', 'authenticated', true);
   select version into v_ver from public.ops_client_ops where client_id = v_cli;
   perform public.ops_client_stage_move(v_cli, v_ver, 'briefing');
   if (select stage_id from public.ops_client_ops where client_id = v_cli) <> 'briefing' then raise exception 'não foi para Realizado'; end if;

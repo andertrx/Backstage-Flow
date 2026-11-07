@@ -141,7 +141,11 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   };
   const onbMeetingOk = (cid) => onbMeeting(cid)?.status === "realizada";
   const onbMeetingScheduled = (cid) => ["agendada", "realizada"].includes(onbMeeting(cid)?.status);
-  /** Etapa 47.2: mesma regra de private.ops_onboarding_gate_msg (só para quem avança). */
+  /** Etapa 49.4: mesma regra de private.ops_onboarding_tem_tarefa_operacao (setor diferente de Comercial, não cancelada, não arquivada). */
+  const onbOpsTaskOk = (cid) => db.opsTasks.some((t) => t.client_id === cid && !t.archived_at
+    && statusOf(t.status_id)?.category !== "cancelado"
+    && (db.opsSectors.find((x) => x.id === t.sector_id)?.name ?? "").trim().toLowerCase() !== "comercial");
+  /** Etapas 47.2 e 49.4: mesma regra de private.ops_onboarding_gate_msg (só para quem avança). */
   const onbGate = (cid, from, to) => {
     if (to.position <= from.position) return null;
     const m = onbMeeting(cid);
@@ -151,8 +155,11 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     if (pend && from.position <= pend.position && to.position > pend.position && !onbMeetingScheduled(cid)) {
       return "Vincule uma reunião de onboarding agendada a este cliente antes de avançar para Onboarding Agendado.";
     }
-    if (real && from.position < real.position && to.position >= real.position && m?.status !== "realizada") {
-      return 'Marque a reunião de onboarding como "Realizada" antes de avançar para Onboarding Realizado.';
+    if (real && from.position < real.position && to.position >= real.position) {
+      if (m?.status !== "realizada") return 'Marque a reunião de onboarding como "Realizada" antes de avançar para Onboarding Realizado.';
+      if (!onbOpsTaskOk(cid)) {
+        return "Crie pelo menos uma tarefa para o time de operação (qualquer setor, menos Comercial) com os próximos passos do cliente antes de avançar para Onboarding Realizado.";
+      }
     }
     return null;
   };
@@ -520,7 +527,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     const st = stageOf(o.stage_id);
     return { client_id: cid, name: c?.name ?? "", client_status: c?.status ?? "ativo", stage_id: o.stage_id, stage_since: o.stage_since, version: o.version,
       am_user_id: o.am_user_id, am_name: name(o.am_user_id), stage_pending: pending(cid, st.position, st.position + 1), can_move: canMoveClient(cid),
-      onboarding_meeting: onbMeeting(cid), meeting_ok: onbMeetingOk(cid), meeting_scheduled: onbMeetingScheduled(cid), summary: summary(cid) };
+      onboarding_meeting: onbMeeting(cid), meeting_ok: onbMeetingOk(cid), meeting_scheduled: onbMeetingScheduled(cid), ops_task_ok: onbOpsTaskOk(cid), summary: summary(cid) };
   };
   const clientConflict = () => res(409, { code: "40001", message: "Alguém alterou este cliente antes de você. Recarregue para ver a versão atual." });
   if (rpc("ops_client_board")) {
