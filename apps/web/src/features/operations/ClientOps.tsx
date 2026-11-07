@@ -1,6 +1,6 @@
 import { originLabel } from "./origin.ts";
 import { opsProgress, opsToday } from "@backstage/shared";
-import { CalendarClock, ClipboardList, FileText, History, Megaphone, NotebookPen, Plus, Trash2, X } from "lucide-react";
+import { CalendarClock, ClipboardList, FileText, History, Megaphone, NotebookPen, Plus, Trash2, UserRoundCheck, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -16,6 +16,7 @@ import {
   useRemoveClientNote, useSetClientAm, useStartClient,
 } from "./clientsApi.ts";
 import { DemandReleaseModal } from "./DemandReleaseModal.tsx";
+import { ClientOnboardingPanel } from "./OnboardingFicha.tsx";
 import { TaskTable } from "./TasksPage.tsx";
 import { OPS_FILE_ACCEPT, openAttachment, useOpsTasks } from "./tasksApi.ts";
 import { TaskDetailHost, type TasksContext, useOpenTask, useTasksContext } from "./tasksContext.tsx";
@@ -409,12 +410,13 @@ export function ClientOpsActions({ detail, ctx }: { detail: OpsClientDetail; ctx
   );
 }
 
-type PanelTab = "resumo" | "tarefas" | "historico";
+type PanelTab = "onboarding" | "resumo" | "tarefas" | "historico";
 
 /** Ficha operacional do cliente (painel lateral na Central). */
 export function ClientOpsDrawer({ clientId, ctx, onClose }: { clientId: string; ctx: TasksContext; onClose: () => void }) {
   const q = useOpsClient(clientId);
-  const [tab, setTab] = useState<PanelTab>("resumo");
+  // Etapa 51.1: a ficha abre na aba Onboarding (dados, o que veio do Comercial, contatos e observações)
+  const [tab, setTab] = useState<PanelTab>("onboarding");
   const d = q.data;
   const tabBtn = (id: PanelTab, label: string, Icon: typeof History) => (
     <button key={id} type="button" onClick={() => setTab(id)} aria-pressed={tab === id}
@@ -442,8 +444,9 @@ export function ClientOpsDrawer({ clientId, ctx, onClose }: { clientId: string; 
             <>
               <ClientOpsActions detail={d} ctx={ctx} />
               <div className="flex flex-wrap gap-2">
-                {tabBtn("resumo", "Resumo", CalendarClock)}{tabBtn("tarefas", "Tarefas", ClipboardList)}{tabBtn("historico", "Histórico Operacional", History)}
+                {tabBtn("onboarding", "Onboarding", UserRoundCheck)}{tabBtn("resumo", "Resumo", CalendarClock)}{tabBtn("tarefas", "Tarefas", ClipboardList)}{tabBtn("historico", "Histórico Operacional", History)}
               </div>
+              {tab === "onboarding" && <ClientOnboardingPanel detail={d} ctx={ctx} />}
               {tab === "resumo" && <ClientOpsSummary detail={d} ctx={ctx} />}
               {tab === "tarefas" && <ClientOpsTasks detail={d} ctx={ctx} />}
               {tab === "historico" && <ClientOpsHistory detail={d} ctx={ctx} />}

@@ -41,7 +41,7 @@ await page.reload();
 await page.getByText("Olá, Ander!").waitFor();
 check(true, "sessão persiste após recarregar a página");
 
-await page.getByRole("link", { name: "Configurações" }).click();
+await page.getByRole("link", { name: "Configurações", exact: true }).click();
 await page.waitForURL("**/configuracoes/usuarios");
 await page.getByText("Maria Gestora").waitFor();
 check(true, "lista de usuários carrega");

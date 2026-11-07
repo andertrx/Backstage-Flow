@@ -52,6 +52,8 @@ export function seedOpsTasks() {
       ["envio_criativos", "Envio de criativos"], ["aprovacao", "Aprovação de material"], ["alteracao", "Alteração operacional"], ["entrega", "Entrega realizada"],
     ].map(([id, name], i) => ({ id, name, position: i + 1, active: true })),
     opsClientNotes: [],
+    // 51.1: contatos do onboarding
+    opsOnbContacts: [],
     // 36.4
     opsLeadStages: [
       ["prospeccao", "Prospecção", "#64748B", "aberto"], ["primeiro_contato", "Primeiro Contato", "#06B6D4", "aberto"],
@@ -142,6 +144,62 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   };
   const onbMeetingOk = (cid) => onbMeeting(cid)?.status === "realizada";
   const onbMeetingScheduled = (cid) => ["agendada", "realizada"].includes(onbMeeting(cid)?.status);
+  // --- 51.1: helpers da ficha do onboarding
+  const ONB_KINDS = ["contato", "nao_atendeu", "reagendado", "reuniao", "observacao"];
+  db.opsOnbContacts ??= [];
+  const sectorNamed = (sid, n) => (db.opsSectors.find((x) => x.id === sid)?.name ?? "").trim().toLowerCase() === n;
+  /** private.ops_is_account_manager: AM de algum cliente ou no setor "Account Manager". */
+  const isAccountManager = () => opsPerms.includes("ops.access") && (Object.values(db.opsClientOps).some((o) => o.am_user_id === userId)
+    || [db.opsMembers[userId]?.primary, ...(db.opsMembers[userId]?.secondary ?? [])].some((sid) => sid && sectorNamed(sid, "account manager")));
+  const canCreateClient = () => role === "admin" || (role === "gestor" && opsPerms.includes("ops.access")) || isAccountManager();
+  const canEditClientData = (cid) => clientVisible(cid) && (role === "admin" || role === "gestor" || isAm(cid) || canManageClients());
+  const cnpjOk = (c) => {
+    if (!/^[0-9A-Z]{12}[0-9]{2}$/.test(c) || /^(.)\1{13}$/.test(c)) return false;
+    const dv = (base, w) => { const r = w.reduce((a, x, i) => a + (base.charCodeAt(i) - 48) * x, 0) % 11; return r < 2 ? 0 : 11 - r; };
+    const d1 = dv(c.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    return d1 === Number(c[12]) && dv(c.slice(0, 13), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === Number(c[13]);
+  };
+  const normName = (t) => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  /** private.ops_client_data_clean: devolve os dados limpos ou a mensagem de erro. */
+  const cleanClientData = (x, except) => {
+    const name = String(x.name ?? "").trim();
+    const company = String(x.company ?? "").trim() || null;
+    const cnpj = String(x.cnpj ?? "").replace(/[^0-9a-zA-Z]/g, "").toUpperCase() || null;
+    const owner = String(x.owner_name ?? "").trim() || null;
+    const raw = String(x.phone ?? "").trim();
+    let phone = raw.replace(/\D/g, "") || null;
+    const email = String(x.email ?? "").trim().toLowerCase() || null;
+    if (name.length < 2 || name.length > 120) return "Escreva o nome do cliente (2 a 120 letras).";
+    if (company && company.length > 160) return "Empresa: no máximo 160 letras.";
+    if (cnpj && !cnpjOk(cnpj)) return "CNPJ inválido. Confira os 14 caracteres.";
+    if (owner && owner.length > 120) return "Responsável: no máximo 120 letras.";
+    if (phone && !raw.startsWith("+") && (phone.length === 10 || phone.length === 11)) phone = `55${phone}`;
+    if (phone && !/^[0-9]{10,15}$/.test(phone)) return "Telefone: use DDD e número (10 a 15 dígitos).";
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return "E-mail inválido.";
+    const dup = db.clients.find((c) => c.id !== except && !c.excluded_at && ((cnpj && c.cnpj === cnpj) || normName(c.name) === normName(name)));
+    if (dup) return `Já existe o cliente "${dup.name}" com este nome ou CNPJ. Use o cliente que já existe.`;
+    return { name, company, cnpj, owner_name: owner, phone, email };
+  };
+  const byMinuteDesc = (at) => (a, b) => b[at].slice(0, 16).localeCompare(a[at].slice(0, 16)) || b.created_at.localeCompare(a.created_at) || b.id - a.id;
+  const onbLastContact = (cid) => {
+    const k = db.opsOnbContacts.filter((x) => x.client_id === cid && !x.removed_at).sort(byMinuteDesc("happened_at"))[0];
+    return k ? { kind: k.kind, body: k.body.slice(0, 140), at: k.happened_at } : null;
+  };
+  /** Bloco "onboarding" de ops_client_get (resumo do lead sem contato, telefone, e-mail ou CNPJ). */
+  const onbFicha = (cid, o) => {
+    const l = (db.opsLeads ?? []).filter((x) => x.client_id === cid).sort((a, b) => String(b.converted_at ?? "").localeCompare(String(a.converted_at ?? "")))[0];
+    return {
+      notes: o?.onboarding_notes ?? null, notes_at: o?.onboarding_notes_at ?? null, notes_by: o?.onboarding_notes_by ? name(o.onboarding_notes_by) : null,
+      contacts: db.opsOnbContacts.filter((x) => x.client_id === cid && !x.removed_at).sort(byMinuteDesc("happened_at"))
+        .map((k) => ({ id: k.id, kind: k.kind, body: k.body, happened_at: k.happened_at, created_by: k.created_by, author: name(k.created_by), created_at: k.created_at })),
+      lead: l ? { number: l.number, company_name: l.company_name, origin: l.origin ?? null, service_interest: l.service_interest ?? null, segment: l.segment ?? null,
+        city: l.city ?? null, state: l.state ?? null, notes: l.notes ?? null, potential_value: l.potential_value ?? null, currency: l.currency ?? null,
+        owner_name: name(l.owner_id), entered_at: l.entered_at ?? null, converted_at: l.converted_at ?? null,
+        contacts: db.opsLeadEvents.filter((e) => e.lead_id === l.id && e.action === "lead.interacao")
+          .map((e) => ({ kind: e.kind, body: e.body, at: e.happened_at ?? e.created_at, actor: name(e.actor_id), created_at: e.created_at, id: e.id }))
+          .sort(byMinuteDesc("at")).map(({ kind, body, at, actor }) => ({ kind, body, at, actor })) } : null,
+    };
+  };
   /** Etapa 49.4: mesma regra de private.ops_onboarding_tem_tarefa_operacao (setor diferente de Comercial, não cancelada, não arquivada). */
   const onbOpsTaskOk = (cid) => db.opsTasks.some((t) => t.client_id === cid && !t.archived_at
     && statusOf(t.status_id)?.category !== "cancelado"
@@ -529,7 +587,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     const st = stageOf(o.stage_id);
     return { client_id: cid, name: c?.name ?? "", client_status: c?.status ?? "ativo", stage_id: o.stage_id, stage_since: o.stage_since, version: o.version,
       am_user_id: o.am_user_id, am_name: name(o.am_user_id), stage_pending: pending(cid, st.position, st.position + 1), can_move: canMoveClient(cid),
-      onboarding_meeting: onbMeeting(cid), meeting_ok: onbMeetingOk(cid), meeting_scheduled: onbMeetingScheduled(cid), ops_task_ok: onbOpsTaskOk(cid), summary: summary(cid) };
+      onboarding_meeting: onbMeeting(cid), meeting_ok: onbMeetingOk(cid), meeting_scheduled: onbMeetingScheduled(cid), ops_task_ok: onbOpsTaskOk(cid), last_contact: onbLastContact(cid), summary: summary(cid) };
   };
   const clientConflict = () => res(409, { code: "40001", message: "Alguém alterou este cliente antes de você. Recarregue para ver a versão atual." });
   if (rpc("ops_client_board")) {
@@ -542,7 +600,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     return res(200, {
       clients: rows,
       available: canManageClients() ? db.clients.filter((c) => c.status !== "encerrado" && !db.opsClientOps[c.id]).map((c) => ({ id: c.id, name: c.name })) : [],
-      can: { manage: canManageClients(), release: can("ops.tasks.create"), note: can("ops.history.edit") },
+      can: { manage: canManageClients(), release: can("ops.tasks.create"), note: can("ops.history.edit"), create_client: canCreateClient() },
     });
   }
   if (rpc("ops_client_get")) {
@@ -567,8 +625,77 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
         return { ...a, actor: name(a.actor_id), task_number: t?.number ?? null, task_visible: Boolean(t && visible(t)), task_title: t && visible(t) ? t.title : null,
           sector_id: t?.sector_id ?? null };
       }),
-      can: { move: canMoveClient(cid), manage: canManageClients(), note: can("ops.history.edit"), release: can("ops.tasks.create"), admin: role === "admin" },
+      onboarding: onbFicha(cid, o),
+      can: { move: canMoveClient(cid), manage: canManageClients(), note: can("ops.history.edit"), release: can("ops.tasks.create"), admin: role === "admin",
+        contact: canMoveClient(cid) || can("ops.history.edit"), edit_data: canEditClientData(cid) },
     });
+  }
+  // --- 51.1: ficha do cliente no onboarding (mesmas regras de ops_client_data_* / ops_client_create_start / ops_client_onb_*)
+  if (rpc("ops_client_data_get")) {
+    const c = db.clients.find((x) => x.id === p.p_client && !x.excluded_at);
+    if (!c || !clientVisible(p.p_client)) return res(200, null);
+    return res(200, { id: c.id, name: c.name, company: c.company ?? null, cnpj: c.cnpj ?? null, owner_name: c.owner_name ?? null,
+      phone: c.phone ?? null, email: c.email ?? null, created_at: c.created_at, can_edit: canEditClientData(c.id) });
+  }
+  if (rpc("ops_client_data_save")) {
+    if (!canEditClientData(p.p_client)) return deny("Você não tem permissão para editar os dados deste cliente.");
+    const c = db.clients.find((x) => x.id === p.p_client && !x.excluded_at);
+    if (!c) return bad("Cliente não encontrado.");
+    const v = cleanClientData(p.p ?? {}, c.id);
+    if (typeof v === "string") return bad(v);
+    const labels = { name: "nome", company: "empresa", cnpj: "CNPJ", owner_name: "responsável", phone: "telefone", email: "e-mail" };
+    const changed = Object.keys(labels).filter((k) => (c[k] ?? null) !== v[k]).map((k) => labels[k]);
+    if (!changed.length) return res(204);
+    Object.assign(c, v);
+    logClient(c.id, "cliente.dados", null, { campos: changed });
+    return res(204);
+  }
+  if (rpc("ops_client_create_start")) {
+    if (!canCreateClient()) return deny("Cadastrar cliente novo no onboarding é para administrador, gestor ou Account Manager.");
+    const v = cleanClientData(p.p ?? {}, null);
+    if (typeof v === "string") return bad(v);
+    const st = p.p_stage ? stageOf(p.p_stage) : db.opsClientStages.filter((x) => x.active).sort((a, b) => a.position - b.position)[0];
+    if (!st?.active) return bad("Escolha uma etapa ativa.");
+    const am = canManageClients() ? p.p_am ?? null : userId;
+    if (am && !memberOk(am) && am !== userId) return bad("O Account Manager precisa estar ativo na Central.");
+    const now = new Date().toISOString();
+    const id = crypto.randomUUID();
+    db.clients.push({ id, ...v, notes: "Cadastrado direto no onboarding.", status: "ativo", timezone: "America/Sao_Paulo", is_demo: false,
+      created_at: now, updated_at: now, created_by: userId });
+    db.opsClientOps[id] = { stage_id: st.id, am_user_id: am, started_at: now, stage_since: now, version: 1, onboarding_meeting_id: null };
+    logClient(id, "cliente.fluxo_iniciado", null, { etapa: st.id, am, cadastro: "direto no onboarding (sem Comercial)" });
+    return res(200, id);
+  }
+  if (rpc("ops_client_onb_contact_add")) {
+    const cid = p.p_client;
+    if (!db.opsClientOps[cid] || !clientVisible(cid)) return bad("Este cliente não está no onboarding.");
+    if (!(canMoveClient(cid) || can("ops.history.edit"))) return deny("Você não tem permissão para registrar contatos deste cliente.");
+    if (!ONB_KINDS.includes(p.p_kind)) return bad("Escolha o tipo do registro.");
+    const body = String(p.p_body ?? "").trim();
+    if (body.length < 3) return bad("Escreva o que aconteceu (mínimo 3 letras).");
+    const at = p.p_happened_at ? new Date(p.p_happened_at).toISOString() : new Date().toISOString();
+    if (Date.parse(at) > Date.now() + 86_400_000) return bad("A data do contato não pode ser no futuro.");
+    const id = (db.opsOnbContacts.at(-1)?.id ?? 0) + 1;
+    db.opsOnbContacts.push({ id, client_id: cid, kind: p.p_kind, body, happened_at: at, created_by: userId, created_at: new Date().toISOString(), removed_at: null });
+    return res(200, id);
+  }
+  if (rpc("ops_client_onb_contact_remove")) {
+    const k = db.opsOnbContacts.find((x) => x.id === p.p_id && !x.removed_at);
+    if (!k || !clientVisible(k.client_id)) return bad("Registro não encontrado.");
+    if (k.created_by !== userId && role !== "admin") return deny("Só quem registrou (ou um administrador) pode retirar este contato.");
+    Object.assign(k, { removed_at: new Date().toISOString(), removed_by: userId });
+    return res(204);
+  }
+  if (rpc("ops_client_onb_notes_save")) {
+    const o = db.opsClientOps[p.p_client];
+    if (!o || !clientVisible(p.p_client)) return bad("Este cliente não está no onboarding.");
+    if (!canMoveClient(p.p_client)) return deny("Você não tem permissão para editar as observações deste cliente.");
+    if (o.version !== p.p_version) return clientConflict();
+    const next = String(p.p_notes ?? "").trim() || null;
+    if ((o.onboarding_notes ?? null) === next) return res(200, o.version);
+    logClient(p.p_client, "cliente.observacoes", { texto: o.onboarding_notes ?? null }, { texto: next });
+    Object.assign(o, { onboarding_notes: next, onboarding_notes_at: new Date().toISOString(), onboarding_notes_by: userId, version: o.version + 1 });
+    return res(200, o.version);
   }
   if (rpc("ops_client_start")) {
     if (!canManageClients()) return deny("Você não tem permissão para colocar clientes no fluxo operacional.");

@@ -98,6 +98,9 @@ const waitFor = async (page, fn, what) => {
   // Ficha operacional: resumo, registro manual e histórico
   await card.click();
   const drawer = page.getByTestId("ops-client-drawer");
+  // 51.1: a ficha abre na aba Onboarding; o resumo fica na aba "Resumo"
+  await drawer.getByTestId("ops-client-onboarding").waitFor();
+  await drawer.getByRole("button", { name: "Resumo", exact: true }).click();
   await drawer.getByTestId("ops-client-summary").waitFor();
   const summaryText = await drawer.getByTestId("ops-client-summary").innerText();
   check(summaryText.includes("0% · 0/2 obrigatórias") && summaryText.includes("Design") && summaryText.includes("Copy"), "resumo com progresso e setores envolvidos");

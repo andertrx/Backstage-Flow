@@ -19,6 +19,25 @@
 -- =============================================================================
 begin;
 
+-- Etapa 51.1 (ficha do cliente no onboarding): contatos do onboarding, observações, dados e cliente novo.
+drop function if exists public.ops_client_onb_notes_save(uuid, integer, text);
+drop function if exists private.ops_client_onb_notes_save_impl(uuid, integer, text);
+drop function if exists public.ops_client_onb_contact_remove(bigint);
+drop function if exists private.ops_client_onb_contact_remove_impl(bigint);
+drop function if exists public.ops_client_onb_contact_add(uuid, text, text, timestamptz);
+drop function if exists private.ops_client_onb_contact_add_impl(uuid, text, text, timestamptz);
+drop function if exists public.ops_client_create_start(jsonb, text, uuid);
+drop function if exists private.ops_client_create_start_impl(jsonb, text, uuid);
+drop function if exists public.ops_client_data_save(uuid, jsonb);
+drop function if exists private.ops_client_data_save_impl(uuid, jsonb);
+drop function if exists public.ops_client_data_get(uuid);
+drop function if exists private.ops_client_data_get_impl(uuid);
+drop table if exists public.ops_client_onb_contacts;
+drop function if exists private.ops_client_data_clean(jsonb, uuid);
+drop function if exists private.ops_can_edit_client_data(uuid);
+drop function if exists private.ops_can_create_client();
+drop function if exists private.ops_is_account_manager();
+
 do $$ begin
   if exists (select 1 from public.profiles where role = 'equipe') then
     raise exception 'Ainda há usuários com papel Equipe. Troque o papel deles antes de remover a Central.';

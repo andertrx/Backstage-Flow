@@ -1,4 +1,4 @@
-import { ArrowRight, Building2, Layers, Megaphone, Plus, Search } from "lucide-react";
+import { ArrowRight, Building2, Layers, Megaphone, PhoneCall, Plus, Search, UserPlus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -6,17 +6,18 @@ import { Card } from "@/components/ui/card.tsx";
 import { Input, Select } from "@/components/ui/field.tsx";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
-import { formatDate } from "@/lib/format.ts";
+import { formatDate, formatDateTime } from "@/lib/format.ts";
 import { useDebouncedValue } from "@/lib/useDebouncedValue.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { ClientOpsDrawer, ProgressBar, StagePill, StartClientModal } from "./ClientOps.tsx";
-import { type OpsBoardClient, useMoveClientStage, useOpsClientBoard, useOpsClientStages } from "./clientsApi.ts";
+import { OPS_ONB_CONTACT_LABELS, type OpsBoardClient, useMoveClientStage, useOpsClientBoard, useOpsClientStages } from "./clientsApi.ts";
 import { DemandReleaseModal } from "./DemandReleaseModal.tsx";
 import { DndBoard } from "./KanbanBoard.tsx";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { useMyOpsPermissions } from "./api.ts";
 import { RequireOps, tabAllowed } from "./OpsLayout.tsx";
+import { NewClientModal } from "./OnboardingFicha.tsx";
 import { isOnboardingStage, MeetingSeal, OnboardingMeetingActions } from "./OnboardingMeeting.tsx";
 import { QueuesPage } from "./QueuesPage.tsx";
 import { type TaskView, ViewToggle } from "./TasksPage.tsx";
@@ -30,6 +31,14 @@ function ClientCard({ c, ctx, onOpen }: { c: OpsBoardClient; ctx: TasksContext; 
         <p className="break-words text-base font-bold leading-tight text-slate-950" data-testid="ops-client-card-name">{c.name}</p>
         <p className="text-[11px] text-slate-500">AM: {c.am_name ?? "sem Account Manager"}</p>
         {isOnboardingStage(c.stage_id) && <MeetingSeal c={c} />}
+        {c.last_contact ? (
+          <div className="space-y-0.5 rounded-lg bg-blue-50/70 px-2 py-1.5" data-testid="ops-client-last-contact">
+            <p className="flex items-center gap-1 text-[11px] font-semibold text-blue-800">
+              <PhoneCall className="size-3" aria-hidden /> Último contato: {formatDateTime(c.last_contact.at)}
+            </p>
+            <p className="line-clamp-2 text-[11px] text-slate-600">{OPS_ONB_CONTACT_LABELS[c.last_contact.kind]}: {c.last_contact.body}</p>
+          </div>
+        ) : isOnboardingStage(c.stage_id) && <p className="text-[11px] text-slate-400">Nenhum contato registrado</p>}
         <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{s.abertas} abertas</span>
           {s.atrasadas > 0 && <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">{s.atrasadas} atrasadas</span>}
@@ -92,6 +101,7 @@ export function ClientsPage() {
   const [mine, setMine] = useState(false);
   const [am, setAm] = useState("");
   const [starting, setStarting] = useState(false);
+  const [creatingClient, setCreatingClient] = useState(false);
   const [releasing, setReleasing] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const debounced = useDebouncedValue(q.trim(), 300);
@@ -128,6 +138,9 @@ export function ClientsPage() {
         {board.data?.can.manage && (board.data.available.length ?? 0) > 0 && (
           <Button variant="secondary" onClick={() => setStarting(true)}><Plus className="size-4" aria-hidden /> Colocar cliente no fluxo</Button>
         )}
+        {board.data?.can.create_client && (
+          <Button variant="secondary" onClick={() => setCreatingClient(true)}><UserPlus className="size-4" aria-hidden /> Cliente novo</Button>
+        )}
         {board.data?.can.release && <Button onClick={() => setReleasing(true)}><Megaphone className="size-4" aria-hidden /> Liberar demanda</Button>}
       </div>
       {done && <Alert tone="success">{done}</Alert>}
@@ -150,6 +163,7 @@ export function ClientsPage() {
       )}
 
       {starting && board.data && <StartClientModal ctx={ctx} clients={board.data.available} onClose={() => setStarting(false)} />}
+      {creatingClient && <NewClientModal ctx={ctx} canPickAm={Boolean(board.data?.can.manage)} onClose={() => setCreatingClient(false)} onCreated={open} />}
       {releasing && <DemandReleaseModal ctx={ctx} onClose={() => setReleasing(false)} onDone={(r) => setDone(`Demanda #${r.number} liberada.`)} />}
       {openId && <ClientOpsDrawer key={openId} clientId={openId} ctx={ctx} onClose={close} />}
       <TaskDetailHost ctx={ctx} />

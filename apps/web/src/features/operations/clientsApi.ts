@@ -68,14 +68,77 @@ export interface OpsBoardClient {
   meeting_scheduled: boolean;
   /** Etapa 49.4: tem ao menos 1 tarefa para o time de operação (setor diferente de Comercial, não cancelada/arquivada). */
   ops_task_ok: boolean;
+  /** Etapa 51.1: último contato registrado no onboarding (mais recente). */
+  last_contact: { kind: OpsOnbContactKind; body: string; at: string } | null;
   summary: OpsClientSummary;
 }
 
 export interface OpsClientBoard {
   clients: OpsBoardClient[];
   available: { id: string; name: string }[];
-  can: { manage: boolean; release: boolean; note: boolean };
+  can: { manage: boolean; release: boolean; note: boolean; create_client?: boolean };
 }
+
+// ------------------------------------------------------------ Etapa 51.1: ficha do cliente no onboarding
+export const OPS_ONB_CONTACT_KINDS = ["contato", "nao_atendeu", "reagendado", "reuniao", "observacao"] as const;
+export type OpsOnbContactKind = (typeof OPS_ONB_CONTACT_KINDS)[number];
+export const OPS_ONB_CONTACT_LABELS: Record<OpsOnbContactKind, string> = {
+  contato: "Contato realizado",
+  nao_atendeu: "Não atendeu",
+  reagendado: "Reagendado",
+  reuniao: "Reunião",
+  observacao: "Observação",
+};
+
+export interface OpsOnbContact {
+  id: number;
+  kind: OpsOnbContactKind;
+  body: string;
+  happened_at: string;
+  created_by: string | null;
+  author: string | null;
+  created_at: string;
+}
+
+/** Resumo do que veio do Comercial (sem contato, telefone, e-mail ou CNPJ do lead). */
+export interface OpsOnbLeadSummary {
+  number: number;
+  company_name: string;
+  origin: string | null;
+  service_interest: string | null;
+  segment: string | null;
+  city: string | null;
+  state: string | null;
+  notes: string | null;
+  potential_value: number | null;
+  currency: string | null;
+  owner_name: string | null;
+  entered_at: string | null;
+  converted_at: string | null;
+  contacts: { kind: string | null; body: string | null; at: string; actor: string | null }[];
+}
+
+export interface OpsClientOnboarding {
+  notes: string | null;
+  notes_at: string | null;
+  notes_by: string | null;
+  contacts: OpsOnbContact[];
+  lead: OpsOnbLeadSummary | null;
+}
+
+/** Dados do cadastro do cliente (só o site lê; não vão para a ficha geral nem para o MCP). */
+export interface OpsClientData {
+  id: string;
+  name: string;
+  company: string | null;
+  cnpj: string | null;
+  owner_name: string | null;
+  phone: string | null;
+  email: string | null;
+  created_at: string;
+  can_edit: boolean;
+}
+export type OpsClientDataInput = Pick<OpsClientData, "name"> & { company: string; cnpj: string; owner_name: string; phone: string; email: string };
 
 export interface OpsClientNote {
   id: string;
@@ -117,7 +180,9 @@ export interface OpsClientDetail {
   demands: { id: string; number: number; title: string; created_at: string; total: number; done: number }[];
   notes: OpsClientNote[];
   timeline: OpsTimelineEvent[];
-  can: { move: boolean; manage: boolean; note: boolean; release: boolean; admin: boolean };
+  /** Etapa 51.1 (pode faltar em respostas antigas). */
+  onboarding?: OpsClientOnboarding;
+  can: { move: boolean; manage: boolean; note: boolean; release: boolean; admin: boolean; contact?: boolean; edit_data?: boolean };
 }
 
 export interface OpsDemandItem {
@@ -329,6 +394,56 @@ export function useAddClientNote() {
       },
     });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos registrar a atividade."));
+  });
+}
+
+export function useOpsClientData(id: string | null | undefined) {
+  return useQuery({
+    queryKey: [...CLIENTS_KEY, "data", id],
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("ops_client_data_get", { p_client: id });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os dados do cliente."));
+      return data as OpsClientData | null;
+    },
+  });
+}
+
+export function useSaveClientData() {
+  return useOpsMutation(async (v: { clientId: string; input: OpsClientDataInput }) => {
+    const { error } = await supabase.rpc("ops_client_data_save", { p_client: v.clientId, p: v.input });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos salvar os dados do cliente."));
+  });
+}
+
+export function useCreateStartClient() {
+  return useOpsMutation(async (v: { input: OpsClientDataInput; stageId: string; amId: string }) => {
+    const { data, error } = await supabase.rpc("ops_client_create_start", { p: v.input, p_stage: v.stageId || null, p_am: v.amId || null });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos cadastrar o cliente."));
+    return data as string;
+  });
+}
+
+export function useAddOnbContact() {
+  return useOpsMutation(async (v: { clientId: string; kind: OpsOnbContactKind; body: string; when: string }) => {
+    const { error } = await supabase.rpc("ops_client_onb_contact_add", {
+      p_client: v.clientId, p_kind: v.kind, p_body: v.body, p_happened_at: v.when ? new Date(v.when).toISOString() : null,
+    });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos registrar o contato."));
+  });
+}
+
+export function useRemoveOnbContact() {
+  return useOpsMutation(async (id: number) => {
+    const { error } = await supabase.rpc("ops_client_onb_contact_remove", { p_id: id });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos retirar o contato."));
+  });
+}
+
+export function useSaveOnbNotes() {
+  return useOpsMutation(async (v: { clientId: string; version: number; notes: string }) => {
+    const { error } = await supabase.rpc("ops_client_onb_notes_save", { p_client: v.clientId, p_version: v.version, p_notes: v.notes });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos salvar as observações."));
   });
 }
 
