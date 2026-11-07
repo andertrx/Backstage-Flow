@@ -158,11 +158,11 @@ async function newLead(page, fields) {
   check(!JSON.stringify(db.opsLeadEvents).match(/4599999|4598888|ana@sol/), "telefone e e-mail nunca vão para o histórico");
   await drawer.getByLabel("Coluna do lead").selectOption("contrato_pago");
   await drawer.getByTestId("ops-lead-convert").waitFor();
-  // 38.2: no cartão em Contrato Pago aparece "Liberar para a operação", que abre o lead já na parte de liberar.
+  // 38.2: no cartão em Contrato Pago aparece "Liberar para o onboarding", que abre o lead já na parte de liberar.
   await drawer.getByRole("button", { name: "Fechar lead" }).click();
   const releaseBtn = page.getByTestId("ops-lead-release");
   await releaseBtn.waitFor();
-  check(await releaseBtn.count() === 1 && (await releaseBtn.innerText()).includes("Liberar para a operação"), "38.2: botão Liberar para a operação no cartão em Contrato Pago");
+  check(await releaseBtn.count() === 1 && (await releaseBtn.innerText()).includes("Liberar para o onboarding"), "38.2: botão Liberar para o onboarding no cartão em Contrato Pago");
   await releaseBtn.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${SHOTS}/38.2-cartao-liberar.png` });
   await releaseBtn.click();
@@ -193,7 +193,7 @@ async function newLead(page, fields) {
   await drawer.getByRole("button", { name: "Criar cliente novo com os dados do lead" }).click();
   await drawer.getByText('Já existe o cliente "Loja Existente"').waitFor();
   check(db.clients.filter((c) => c.name === "Loja Existente").length === 1, "criar duplicado é recusado");
-  await drawer.getByLabel("Colocar no Onboarding (onboarding)").uncheck();
+  await drawer.getByLabel("Liberar para o Onboarding").uncheck();
   await drawer.getByRole("button", { name: "Vincular a Loja Existente" }).click();
   await drawer.getByText("Lead vinculado ao cliente.").waitFor();
   check(l3.client_id === EXISTENTE, "lead vinculado ao cliente existente");
@@ -226,7 +226,7 @@ async function newLead(page, fields) {
   const text = await drawer.getByTestId("ops-lead-convert").innerText();
   check(await drawer.getByRole("button", { name: "Criar cliente novo com os dados do lead" }).count() === 0 && text.includes("só para administrador ou gestor"),
     "sem papel admin/gestor: não cria cliente (só vincula)");
-  check(await drawer.getByLabel("Colocar no Onboarding (onboarding)").count() === 0, "sem permissão de fluxo: não inicia onboarding");
+  check(await drawer.getByLabel("Liberar para o Onboarding").count() === 0, "sem permissão de fluxo: não inicia onboarding");
   check(errors.length === 0, `sem erros (vendedor) ${errors.join(" | ")}`);
   await browser.close();
 }

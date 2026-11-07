@@ -63,7 +63,7 @@ function LeadCard({ l, onOpen, onRelease }: { l: OpsLeadCard; onOpen: () => void
     {onRelease && (
       <button type="button" onClick={onRelease} data-testid="ops-lead-release"
         className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
-        <Rocket className="size-4" aria-hidden /> Liberar para a operação
+        <Rocket className="size-4" aria-hidden /> Liberar para o onboarding
       </button>
     )}
     </div>
@@ -174,7 +174,7 @@ export function CommercialPage() {
     const total = totalsText(leads.filter((l) => l.stage_id === s.id));
     const rules = [s.require_previous && "só da anterior", s.require_next_action && "exige próxima ação"].filter(Boolean).join(" · ");
     if (s.category === "perdido") return { id: s.id, name: s.name, color: s.color, hint: "Solte aqui para marcar como perdido (pede o motivo)", empty: "Os perdidos ficam em “Ganhos e perdidos”" };
-    const won = s.category === "ganho" ? "Use “Liberar para a operação” no cartão" : "";
+    const won = s.category === "ganho" ? "Use “Liberar para o onboarding” no cartão" : "";
     return { id: s.id, name: s.name, color: s.color, hint: [total, rules, won].filter(Boolean).join(" · ") || undefined };
   });
   const openTotal = totalsText(leads.filter((l) => stageList.find((s) => s.id === l.stage_id)?.category === "aberto"));
@@ -202,7 +202,7 @@ export function CommercialPage() {
 
   return (
     <div className="space-y-4" data-testid="ops-commercial">
-      <OpsModuleHeader icon={Handshake} title="Comercial" description="Vendas, separadas da operação: leads da prospecção ao contrato pago. Quem fecha contrato é liberado para a aba Operação." />
+      <OpsModuleHeader icon={Handshake} title="Comercial" description="Vendas, separadas do onboarding e da operação: leads da prospecção ao contrato pago. Quem fecha contrato é liberado para o Onboarding." />
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" role="tablist" aria-label="Partes do comercial">
         {SUB_VIEWS.filter((v) => !v.adminOnly || isAdmin).map(({ id, label, icon: Icon }) => (
           <button key={id} type="button" role="tab" aria-selected={sub === id} onClick={() => setSub(id)} data-testid={`ops-commercial-tab-${id}`}
