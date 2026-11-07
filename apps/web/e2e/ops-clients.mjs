@@ -124,7 +124,7 @@ const waitFor = async (page, fn, what) => {
   await drawer.getByRole("button", { name: "Fechar ficha" }).click();
 
   // Regra de avanço automático ligada na etapa
-  await page.goto(`${new URL(page.url()).origin}/operacoes/configuracoes`); // as configurações da Central ficam na aba própria (o Onboarding não é mais aba dela)
+  await page.goto(`${new URL(page.url()).origin}/operacoes/configuracoes?ver=estrutura`); // as configurações da Central ficam na aba própria (o Onboarding não é mais aba dela)
   await page.getByTestId("ops-client-stages").waitFor();
   await page.getByRole("button", { name: "Editar etapa Contrato Pago" }).click();
   dialog = page.getByRole("dialog", { name: "Editar etapa" });

@@ -189,7 +189,7 @@ await waitFor(page, () => db.opsClientOps[AURORA].stage_id === "briefing", "clie
 check(db.opsClientOps[AURORA].stage_id === "briefing", "com reunião realizada e tarefa da operação o cliente vai para Realizado");
 
 // 9) Configurações: tarefas padrão (cadastro e criar mais)
-await page.goto(`${new URL(page.url()).origin}/operacoes/configuracoes`);
+await page.goto(`${new URL(page.url()).origin}/operacoes/configuracoes?ver=estrutura`);
 const tplBox = page.getByTestId("ops-onboarding-templates");
 await tplBox.waitFor();
 check(await tplBox.getByTestId("ops-template-row").count() === 4, "50.1: Configurações lista as 4 tarefas padrão");

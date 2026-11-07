@@ -144,6 +144,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [50.4 — Nome do cliente em evidência nos cartões do Onboarding](docs/etapa-43-organizacao/50.4-NOMES-EM-EVIDENCIA.md) ✅ 07/11
   - [50.5 — Nome da empresa em evidência nas tarefas e no Comercial](docs/etapa-43-organizacao/50.5-EMPRESA-EM-EVIDENCIA.md) ✅ 07/11
   - [50.6 — Configurações da Central com menu próprio (abaixo de Reuniões)](docs/etapa-43-organizacao/50.6-CONFIGURACOES-DA-CENTRAL-NO-MENU.md) ✅ 07/11
+  - [50.7 — Equipe dentro das Configurações da Central](docs/etapa-43-organizacao/50.7-EQUIPE-DENTRO-DAS-CONFIGURACOES.md) ✅ 07/11
   - [46.1 — conectar o Google Agenda de cada pessoa (Reuniões e Minha conta)](docs/etapa-43-organizacao/46.1-CONECTAR-GOOGLE-AGENDA.md) ✅ 07/11 (testado só com Google simulado)
   - [47.0 — plano: Onboarding Pendente exige reunião realizada (só plano)](docs/etapa-43-organizacao/47.0-PLANO-ONBOARDING-EXIGE-REUNIAO.md) 📝 07/11 (respondido)
   - [47.1 — Onboarding Pendente exige reunião realizada (vincular/criar, avisos, lembrete diário)](docs/etapa-43-organizacao/47.1-ONBOARDING-EXIGE-REUNIAO.md) ✅ 07/11

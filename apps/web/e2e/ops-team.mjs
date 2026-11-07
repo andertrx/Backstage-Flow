@@ -29,8 +29,8 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   await page.getByTestId("ops-my-tasks").waitFor();
   check(await page.getByRole("heading", { name: "Central de Operações", level: 1 }).count() === 1, "abre a Central em Minhas tarefas");
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Equipe"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
-  await page.getByRole("link", { name: "Equipe" }).last().click();
+  check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
+  await page.getByRole("link", { name: "Configurações da Central" }).click(); // 50.7: Equipe fica dentro das configurações da Central
   await page.getByTestId("ops-team").waitFor();
   // Espera a lista carregar antes de ler o texto (sem isso, às vezes lia a tela ainda vazia).
   await page.getByTestId("ops-team").getByText("Maria Gestora").first().waitFor();
@@ -39,7 +39,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
     "admin vê a equipe e quem ainda está fora (papel Cliente nunca aparece)");
 
   // Configurações → Setores
-  await page.getByRole("link", { name: "Configurações da Central" }).click();
+  await page.getByTestId("ops-settings-tab-estrutura").click();
   await page.getByTestId("ops-sectors").waitFor();
   check(await page.getByTestId("ops-sector-row").count() === 10, "10 setores iniciais");
   const names = await page.getByTestId("ops-sector-row").locator("p.font-medium").allInnerTexts();
@@ -113,7 +113,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   await page.screenshot({ path: `${SHOTS}/ops-equipe.png`, fullPage: true });
 
   // Desativar setor com gente: pede o destino
-  await page.getByRole("link", { name: "Configurações da Central" }).click();
+  await page.getByTestId("ops-settings-tab-estrutura").click();
   await page.getByRole("button", { name: "Situação de Design" }).click();
   dialog = page.getByRole("dialog", { name: "Situação: Design" });
   await dialog.getByRole("button", { name: "Confirmar" }).click();
@@ -144,10 +144,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   const labels = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
   check(JSON.stringify(labels) === JSON.stringify(["Onboarding", "Central de Operações", "Notificações", "Reuniões"]), `menu só com Onboarding, Central, Notificações e Reuniões (${labels.join(", ")})`);
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Equipe"]), `sem a aba Configurações (só admin): ${tabs.join(", ")}`);
-  await page.getByRole("link", { name: "Equipe" }).last().click();
-  await page.getByTestId("ops-team").waitFor();
-  check(await page.getByRole("button", { name: /na Central$/ }).count() === 0, "não edita a equipe");
+  check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas"]), `sem a aba Equipe nem Configurações (só admin): ${tabs.join(", ")}`);
   for (const path of ["/clientes", "/contas", "/meta-ads", "/campanhas", "/relatorios"]) {
     await page.goto(`${BASE}${path}`);
     await page.waitForURL("**/operacoes/**");

@@ -150,14 +150,14 @@ async function dragTo(page, card, column) {
   await page.screenshot({ path: `${SHOTS}/ops-minhas-tarefas.png`, fullPage: true });
 
   // Equipe: contagens
-  await page.getByRole("link", { name: "Equipe" }).last().click();
+  await page.getByRole("link", { name: "Configurações da Central" }).click(); // 50.7: Equipe dentro das configurações
   await page.getByTestId("ops-team").waitFor();
   const maria = page.getByTestId("ops-team-row").filter({ hasText: "Maria Gestora" });
   await maria.getByText("1 abertas").waitFor();
   check((await maria.innerText()).includes("1 atrasadas"), "Equipe mostra abertas, em andamento e atrasadas por pessoa");
 
   // Configurações → Status
-  await page.getByRole("link", { name: "Configurações da Central" }).click();
+  await page.getByTestId("ops-settings-tab-estrutura").click();
   await page.getByTestId("ops-statuses").waitFor();
   check(await page.getByTestId("ops-status-row").count() === 8, "8 status iniciais");
   db.opsTasks[0].status_id = "em_revisao";

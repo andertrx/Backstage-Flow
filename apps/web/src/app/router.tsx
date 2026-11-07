@@ -29,7 +29,6 @@ const OpsLayout = lazy(() => import("@/features/operations/OpsLayout.tsx").then(
 const OpsStandalone = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsStandalone })));
 const RedirectKeep = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.RedirectKeep })));
 const OpsIndexRedirect = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsIndexRedirect })));
-const OpsTeamPage = lazy(() => import("@/features/operations/TeamPage.tsx").then((m) => ({ default: m.TeamPage })));
 const OpsTasksPage = lazy(() => import("@/features/operations/TasksPage.tsx").then((m) => ({ default: m.TasksPage })));
 const OpsMyTasksPage = lazy(() => import("@/features/operations/MyTasksPage.tsx").then((m) => ({ default: m.MyTasksPage })));
 const OpsClientsRoute = lazy(() => import("@/features/operations/ClientsPage.tsx").then((m) => ({ default: m.ClientsRoute })));
@@ -214,7 +213,7 @@ export const router = createBrowserRouter([
           { path: "clientes", element: <RedirectKeep to="/onboarding" /> },
           // 38.2: as Filas ficam dentro de Operação (links antigos continuam funcionando).
           { path: "filas", element: <Navigate to="/onboarding?ver=filas" replace /> },
-          { path: "equipe", element: <OpsTeamPage /> },
+          { path: "equipe", element: <RedirectKeep to="/config-central?ver=equipe" /> },
           { path: "configuracoes", element: <RedirectKeep to="/config-central" /> },
         ],
       },

@@ -147,7 +147,7 @@ async function addItem(drawer, kind, text, { owner, sector, due } = {}) {
     "aba Reuniões na ficha do cliente");
 
   // Configurações: tipos de reunião
-  await page.goto(page.url().split("/clientes")[0] + "/operacoes/configuracoes");
+  await page.goto(page.url().split("/clientes")[0] + "/operacoes/configuracoes?ver=estrutura");
   await page.getByTestId("ops-meeting-category-row").first().waitFor();
   const catCount = await page.getByTestId("ops-meeting-category-row").count();
   check(catCount === 6, `6 tipos de reunião iniciais (${catCount})`);

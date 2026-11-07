@@ -138,3 +138,4 @@ A lista completa está em [`docs/PENDENCIAS.md`](../PENDENCIAS.md). Lembre nos r
 - **07/11/2026 — 50.4:** nome do cliente maior e em negrito nos cartões do Onboarding.
 - **07/11/2026 — 50.5:** nome do cliente em destaque (acima do título) nos cartões de tarefa e nome da empresa maior nos cartões do Comercial.
 - **07/11/2026 — 50.6:** menu Operações: Painel · Comercial · Onboarding · Central de Operações · Notificações · Reuniões · Configurações da Central (`/config-central`) · Envios semanais. A aba saiu da Central; endereço antigo redireciona.
+- **07/11/2026 — 50.7:** Equipe passou para dentro de "Configurações da Central" (partes: Equipe e Setores/fluxos/tarefas padrão, `?ver=estrutura`); a Central ficou com Tarefas e Minhas tarefas; só admin vê a Equipe.

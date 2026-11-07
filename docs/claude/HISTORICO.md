@@ -183,3 +183,4 @@
 - **07/11 (50.4):** Ander pediu o nome do cliente em evidência nos cartões.
 - **07/11 (50.5):** Ander mandou foto do celular e pediu o nome da empresa em evidência também nos cartões de tarefa.
 - **07/11 (50.6):** Ander pediu Configurações fora da Central, abaixo de Reuniões.
+- **07/11 (50.7):** Ander pediu Equipe dentro das configurações da Central.
