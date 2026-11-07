@@ -105,3 +105,24 @@ export function gatewayProblem(status: number | "sem_conexao"): string {
   if (status >= 500) return "O servidor do WhatsApp deu erro agora. Tente de novo em instantes.";
   return `O servidor do WhatsApp respondeu de um jeito inesperado (código ${status}).`;
 }
+
+export interface WaGroup {
+  id: string;
+  name: string;
+  size: number | null;
+}
+
+/** Lista de grupos do servidor de conexão: só id (@g.us) e nome; nunca participantes. Até 1000, em ordem de nome. */
+export function parseGroups(body: unknown): WaGroup[] {
+  if (!Array.isArray(body)) return [];
+  const out: WaGroup[] = [];
+  for (const g of body) {
+    const o = obj(g);
+    const id = typeof o?.id === "string" ? o.id : "";
+    const name = typeof o?.subject === "string" ? o.subject.trim().slice(0, 200) : "";
+    if (!/^[0-9A-Za-z._-]{5,60}@g\.us$/.test(id) || !name) continue;
+    out.push({ id, name, size: typeof o?.size === "number" && Number.isFinite(o.size) ? o.size : null });
+    if (out.length >= 1000) break;
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+}

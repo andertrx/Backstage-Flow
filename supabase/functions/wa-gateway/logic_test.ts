@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
-import { callGateway, gatewayProblem, gatewayUrl, mapConnectionState, normalizePhone, parseConnectResponse, safeBaseUrl } from "./logic.ts";
+import { callGateway, gatewayProblem, gatewayUrl, mapConnectionState, normalizePhone, parseConnectResponse, parseGroups, safeBaseUrl } from "./logic.ts";
 
 const cfg = { baseUrl: "https://whats.exemplo.com.br", instance: "meu chip", key: "CHAVE-SECRETA-123456" };
 
@@ -59,4 +59,18 @@ Deno.test("mensagens de problema em português", () => {
   assert(gatewayProblem(401).includes("recusou a chave"));
   assert(gatewayProblem("sem_conexao").includes("Confira o endereço"));
   assert(gatewayProblem(503).includes("deu erro"));
+});
+
+Deno.test("grupos: só id @g.us e nome; sem participantes; ordenados", () => {
+  const body = [
+    { id: "120363000000000002@g.us", subject: "Zeta Kids", size: 12, participants: [{ id: "5511999999999@s.whatsapp.net" }], desc: "x" },
+    { id: "120363000000000001@g.us", subject: "  Acelera A. - Aurora ", size: 5 },
+    { id: "5511999999999@s.whatsapp.net", subject: "Contato" },
+    { id: "120363000000000003@g.us", subject: "" },
+    "lixo",
+  ];
+  const g = parseGroups(body);
+  assertEquals(g, [{ id: "120363000000000001@g.us", name: "Acelera A. - Aurora", size: 5 }, { id: "120363000000000002@g.us", name: "Zeta Kids", size: 12 }]);
+  assert(!JSON.stringify(g).includes("5511999999999"));
+  assertEquals(parseGroups(null), []);
 });

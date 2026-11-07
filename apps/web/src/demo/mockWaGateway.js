@@ -6,16 +6,41 @@ export function seedWaGateway() {
   return {
     waGw: { enabled: false, base_url: null, instance_name: "backstage", has_key: false, key_updated_at: null, risk_accepted_at: null,
       connection_state: "desconhecido", connected_at: null, last_check_at: null, last_error: null },
-    waSim: { state: "close", exists: false, up: true, keyOk: true },
+    waSim: { state: "close", exists: false, up: true, keyOk: true, groups: [] },
     waKey: null,
+    waGrupos: [],
   };
 }
 
-export function handleWaGateway({ db, url, parse, role, res }) {
+export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
   const g = db.waGw;
   const isRest = url.includes("/rest/v1/wa_gateway_settings");
   const isRpc = url.includes("/rest/v1/rpc/wa_gateway_");
   const isFn = url.includes("/functions/v1/wa-gateway");
+  const isGrupos = url.includes("/rest/v1/wa_grupos");
+  const isGrupoRpc = url.includes("/rest/v1/rpc/wa_grupo_");
+  const podeEnvios = role === "admin" || (opsPerms.includes("ops.access") && opsPerms.includes("ops.envios"));
+  if (isGrupos) return res(200, podeEnvios ? db.waGrupos.filter((x) => !x.desvinculado_em).map(({ cliente_id, grupo_id, grupo_nome }) => ({ cliente_id, grupo_id, grupo_nome })) : []);
+  if (isGrupoRpc) {
+    const p = parse();
+    db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
+    if (!podeEnvios) return res(403, { code: "42501", message: "Você não tem permissão para esta ação na Central de Operações." });
+    const bad = (message) => res(400, { code: "22023", message });
+    if (url.includes("/rpc/wa_grupo_vincular")) {
+      if (!db.clients.some((c) => c.id === p.p_cliente)) return bad("Cliente não encontrado.");
+      if (!/^[0-9A-Za-z._-]{5,60}@g\.us$/.test(String(p.p_grupo_id ?? "").trim())) return bad("Identificador de grupo inválido. Escolha o grupo na lista do WhatsApp.");
+      const outro = db.waGrupos.find((x) => !x.desvinculado_em && x.grupo_id === p.p_grupo_id && x.cliente_id !== p.p_cliente);
+      if (outro) return bad(`Este grupo já está ligado a outro cliente (${db.clients.find((c) => c.id === outro.cliente_id)?.name}). Desligue lá primeiro.`);
+      const mesmo = db.waGrupos.find((x) => !x.desvinculado_em && x.cliente_id === p.p_cliente && x.grupo_id === p.p_grupo_id);
+      if (mesmo) { mesmo.grupo_nome = p.p_grupo_nome; return res(200, mesmo.id); }
+      for (const x of db.waGrupos) if (!x.desvinculado_em && x.cliente_id === p.p_cliente) x.desvinculado_em = new Date().toISOString();
+      const novo = { id: crypto.randomUUID(), cliente_id: p.p_cliente, grupo_id: p.p_grupo_id, grupo_nome: p.p_grupo_nome ?? null, desvinculado_em: null };
+      db.waGrupos.push(novo);
+      return res(200, novo.id);
+    }
+    for (const x of db.waGrupos) if (!x.desvinculado_em && x.cliente_id === p.p_cliente) x.desvinculado_em = new Date().toISOString();
+    return res(204);
+  }
   if (!isRest && !isRpc && !isFn) return null;
   if (isRest) return res(200, role === "admin" ? g : null);
 
@@ -66,6 +91,7 @@ export function handleWaGateway({ db, url, parse, role, res }) {
     };
     const mapState = () => (sim.state === "open" ? "conectado" : sim.state === "connecting" ? "aguardando_leitura" : sim.exists ? "desconectado" : "desconhecido");
     if (body.action === "status") { set(mapState()); return res(200, { data: { state: g.connection_state, message: null } }); }
+    if (body.action === "groups") return res(200, { data: { groups: sim.groups ?? [] } });
     if (body.action === "logout") { sim.state = "close"; set("desconectado"); return res(200, { data: { state: "desconectado", message: null } }); }
     if (body.action === "connect") {
       const digits = String(body.number ?? "").replace(/\D/g, "");

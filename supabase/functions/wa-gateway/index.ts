@@ -4,6 +4,7 @@
  *   status  → confere se o WhatsApp está conectado e anota o estado
  *   connect → mostra o QR Code ou, se vier o telefone do chip, o código de pareamento (cria a instância se não existir)
  *   logout  → desconecta o WhatsApp (a trava dos envios automáticos desliga sozinha)
+ *   groups  → lista os grupos do WhatsApp (só id e nome; nunca os participantes) para ligar cada grupo a um cliente
  *
  * A chave do servidor de conexão fica no cofre (Vault) e só este servidor lê; ela nunca volta na resposta.
  * Nada daqui envia mensagem. O QR Code só é devolvido a quem está logado como administrador e nunca vai para log.
@@ -13,12 +14,13 @@ import { z } from "npm:zod@4";
 import { adminClient, requireRole } from "../_shared/auth.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { enforceRateLimit } from "../_shared/ratelimit.ts";
-import { callGateway, type ConnState, type GatewayCfg, type GatewayReply, gatewayProblem, mapConnectionState, normalizePhone, parseConnectResponse } from "./logic.ts";
+import { callGateway, type ConnState, type GatewayCfg, type GatewayReply, gatewayProblem, mapConnectionState, normalizePhone, parseConnectResponse, parseGroups } from "./logic.ts";
 
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("status") }),
   z.object({ action: z.literal("connect"), number: z.string().max(30).optional() }),
   z.object({ action: z.literal("logout") }),
+  z.object({ action: z.literal("groups") }),
 ]);
 
 async function loadCfg(db: SupabaseClient): Promise<GatewayCfg> {
@@ -82,6 +84,12 @@ Deno.serve(handle(async (req) => {
     if (r.status >= 400 && r.status !== 404) throw new AppError(502, "GATEWAY_ERROR", gatewayProblem(r.status));
     await setState(db, "desconectado", null);
     return json(req, 200, { data: { state: "desconectado" as ConnState, message: null } });
+  }
+
+  if (input.action === "groups") {
+    const r = await gw(cfg, "GET", "/group/fetchAllGroups/{instance}", { query: { getParticipants: "false" } });
+    if (r.status >= 400) throw new AppError(502, "GATEWAY_ERROR", gatewayProblem(r.status));
+    return json(req, 200, { data: { groups: parseGroups(r.body) } });
   }
 
   // connect

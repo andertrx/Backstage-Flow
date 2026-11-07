@@ -114,6 +114,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [43.2 — tela "Hoje" (pré-visualização em /hoje)](docs/etapa-43-organizacao/43.2-TELA-HOJE.md) ✅ 06/11
   - [44.0 — plano: WhatsApp por API não oficial (só plano)](docs/etapa-43-organizacao/44.0-PLANO-WHATSAPP-NAO-OFICIAL.md) 📝 06/11
   - [44.1 — conexão do WhatsApp não oficial (QR Code/código, trava geral)](docs/etapa-43-organizacao/44.1-CONEXAO-WHATSAPP-NAO-OFICIAL.md) ✅ 06/11 (nada é enviado ainda)
+  - [44.2 — ligar o grupo do WhatsApp de cada cliente (nada é enviado)](docs/etapa-43-organizacao/44.2-LIGAR-GRUPOS-DO-WHATSAPP.md) ✅ 07/11
 - [Etapa 42 — Criador de Anúncios (monta o pedido em texto para o Claude criar anúncios no Meta; modelos e histórico; 42.1: cliente → BM → conta → campanha → conjunto nas listas do CRM)](docs/etapa-42-criador-de-anuncios/42-CRIADOR-DE-ANUNCIOS.md) ✅ 28/10
 - [Política de Privacidade e Termos de Serviço (páginas públicas)](docs/POLITICA-E-TERMOS.md) ✅ 22/10
 - [Desativar cliente (para sincronização, alertas, planilha, e-mail, acesso e tracking)](docs/CLIENTE-DESATIVADO.md) ✅ 23/10

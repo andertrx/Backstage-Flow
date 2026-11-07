@@ -728,7 +728,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     }
     const adsBuilder = handleAdsBuilder({ db, url, parse, userId, role, res });
     if (adsBuilder) return adsBuilder;
-    const waGateway = handleWaGateway({ db, url, parse, role, res });
+    const waGateway = handleWaGateway({ db, url, parse, role, res, opsPerms });
     if (waGateway) return waGateway;
     const opsEnvio = handleOpsEnvios({ db, url, parse, userId, opsPerms, res });
     if (opsEnvio) return opsEnvio;

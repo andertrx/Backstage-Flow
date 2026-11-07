@@ -23,6 +23,7 @@ import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { RequireOps } from "./OpsLayout.tsx";
 import { EnvioApprovalModal } from "./EnvioApproval.tsx";
 import { originLabel } from "./origin.ts";
+import { WaGruposCard } from "./WaGruposCard.tsx";
 import { WhatsAppPreview } from "./WhatsAppPreview.tsx";
 import { type TasksContext, useTasksContext } from "./tasksContext.tsx";
 
@@ -503,6 +504,7 @@ function PadroesView({ ctx }: { ctx: TasksContext }) {
           setNovo("");
         }}><Plus className="size-4" aria-hidden /> Adicionar</Button>
       </div>
+      {rows.length > 0 && <WaGruposCard padroes={rows} />}
       {list.error ? <Alert tone="error">{errorMessage(list.error)}</Alert> : null}
       {list.isLoading ? <div className="h-40 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
         : shown.length === 0 ? (
