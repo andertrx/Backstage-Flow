@@ -45,6 +45,43 @@ export const OPS_DEFAULT_PERMISSIONS: (typeof OPS_PERMISSIONS)[number][] = [
   "ops.access", "ops.kanban.view", "ops.tasks.create", "ops.tasks.edit", "ops.cards.move", "ops.dashboard.view",
 ];
 
+/**
+ * Modelos de função (43.3): só PRÉ-MARCAM as permissões da Central na tela da equipe; o administrador confere e salva.
+ * Não mudam o papel do sistema (o papel sugerido é só uma dica) e não mexem no banco.
+ */
+export interface OpsRoleTemplate {
+  id: "gestor_trafego" | "operacao" | "comercial" | "administrador";
+  label: string;
+  description: string;
+  /** Papel do sistema que costuma combinar (dica; quem muda o papel é a aba Usuários). */
+  suggestedRole: "admin" | "gestor" | "operador" | "equipe";
+  permissions: (typeof OPS_PERMISSIONS)[number][];
+}
+
+export const OPS_ROLE_TEMPLATES: readonly OpsRoleTemplate[] = [
+  {
+    id: "gestor_trafego", label: "Gestor de tráfego", suggestedRole: "gestor",
+    description: "Cuida das contas e campanhas: tarefas, ficha dos clientes, reuniões, painel e envios semanais.",
+    permissions: ["ops.access", "ops.kanban.view", "ops.tasks.create", "ops.tasks.edit", "ops.tasks.assign", "ops.cards.move", "ops.clients.view",
+      "ops.history.edit", "ops.meetings.manage", "ops.dashboard.view", "ops.envios"],
+  },
+  {
+    id: "operacao", label: "Operação", suggestedRole: "equipe",
+    description: "Executa as tarefas do dia: Kanban, tarefas, ficha dos clientes, histórico e reuniões.",
+    permissions: ["ops.access", "ops.kanban.view", "ops.tasks.create", "ops.tasks.edit", "ops.cards.move", "ops.clients.view", "ops.history.edit", "ops.meetings.manage"],
+  },
+  {
+    id: "comercial", label: "Comercial", suggestedRole: "equipe",
+    description: "Cuida dos leads e da conversão em cliente, com tarefas e reuniões.",
+    permissions: ["ops.access", "ops.kanban.view", "ops.tasks.create", "ops.tasks.edit", "ops.cards.move", "ops.commercial", "ops.clients.view", "ops.meetings.manage"],
+  },
+  {
+    id: "administrador", label: "Administrador", suggestedRole: "admin",
+    description: "Todas as permissões da Central. Setores, equipe e configurações só funcionam para quem tem o papel Administrador.",
+    permissions: [...OPS_PERMISSIONS],
+  },
+];
+
 export function opsCan(granted: readonly string[] | null | undefined, permission: OpsPermission): boolean {
   if (!granted) return false;
   if (granted.includes("ops.admin")) return true;

@@ -1,4 +1,4 @@
-import { can, PERMISSION_LABELS, PERMISSIONS, ROLE_DESCRIPTIONS, ROLE_LABELS, ROLE_SCOPE, ROLES } from "@backstage/shared";
+import { can, OPS_PERMISSION_LABELS, OPS_ROLE_TEMPLATES, PERMISSION_LABELS, PERMISSIONS, ROLE_DESCRIPTIONS, ROLE_LABELS, ROLE_SCOPE, ROLES } from "@backstage/shared";
 import { Check, Minus } from "lucide-react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Card } from "@/components/ui/card.tsx";
@@ -79,6 +79,22 @@ export function PermissionsPage() {
             </Card>
           );
         })}
+      </div>
+
+      <div className="space-y-3" data-testid="role-templates">
+        <div>
+          <h2 className="text-lg font-semibold">Modelos de função na Central</h2>
+          <p className="text-sm text-slate-500">Atalhos para marcar as permissões da Central de uma pessoa (em Central → Equipe → editar → "Modelo de função"). Eles não mudam o papel do sistema; o papel sugerido é só uma dica.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {OPS_ROLE_TEMPLATES.map((t) => (
+            <Card key={t.id} className="p-4" data-testid="role-template" data-template={t.id}>
+              <p className="font-medium text-slate-900">{t.label} <span className="text-xs font-normal text-slate-500">· papel sugerido: {ROLE_LABELS[t.suggestedRole]}</span></p>
+              <p className="mt-1 text-sm text-slate-600">{t.description}</p>
+              <p className="mt-2 text-xs text-slate-500">{t.permissions.map((p) => OPS_PERMISSION_LABELS[p]).join(" · ")}</p>
+            </Card>
+          ))}
+        </div>
       </div>
 
       <Card className="space-y-2 p-4 text-sm text-slate-600" data-testid="never-list">

@@ -1,4 +1,4 @@
-import { OPS_DEFAULT_PERMISSIONS, OPS_PERMISSION_LABELS, OPS_PERMISSIONS, type Role } from "@backstage/shared";
+import { OPS_DEFAULT_PERMISSIONS, OPS_PERMISSION_LABELS, OPS_PERMISSIONS, OPS_ROLE_TEMPLATES, type Role } from "@backstage/shared";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
 import type { OpsSector, OpsTeamMember } from "./api.ts";
 
@@ -91,6 +91,15 @@ export function MemberFields({ value, onChange, sectors, role, inOps }: {
           ) : (
             <fieldset className="space-y-1.5" data-testid="member-permissions">
               <legend className="text-sm font-medium text-slate-700">Permissões na Central</legend>
+              <div className="flex flex-wrap items-center gap-2" data-testid="member-templates">
+                <label htmlFor="member-template" className="text-xs text-slate-500">Modelo de função:</label>
+                <select id="member-template" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm" value=""
+                  onChange={(e) => { const t = OPS_ROLE_TEMPLATES.find((x) => x.id === e.target.value); if (t) set({ permissions: [...t.permissions] }); }}>
+                  <option value="">Escolha para pré-marcar…</option>
+                  {OPS_ROLE_TEMPLATES.filter((t) => t.id !== "administrador").map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+                <span className="text-xs text-slate-500">Só marca as caixas abaixo; você confere e salva. Não muda o papel da pessoa.</span>
+              </div>
               <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
                 {OPS_PERMISSIONS.map((p) => (
                   <label key={p} className="flex items-center gap-2 text-sm text-slate-700">
