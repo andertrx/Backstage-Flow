@@ -19,6 +19,13 @@ async function dragTo(page, card, column) {
   await page.mouse.move(b.x + b.width / 2, b.y + 80, { steps: 12 });
   await page.mouse.up();
 }
+/** 51.2: fecha o pop-up "Não dá para mover…" que explica a regra. */
+const closeBlocked = async (page) => {
+  const d = page.getByTestId("ops-client-move-blocked");
+  await d.waitFor();
+  await d.getByRole("button", { name: "Entendi" }).click();
+  await d.waitFor({ state: "detached" });
+};
 const waitFor = async (page, fn, what) => {
   for (let i = 0; i < 40; i++) { if (fn()) return; await page.waitForTimeout(100); }
   throw new Error(`FALHOU: ${what}`);
@@ -50,6 +57,7 @@ await page.screenshot({ path: `${SHOTS}/47.1-onboarding-sem-reuniao.png`, fullPa
 // 2) sem reunião não vai para Agendado
 await dragTo(page, aurora, col("coleta_acessos"));
 await page.getByText(/Vincule uma reunião de onboarding agendada/).first().waitFor();
+await closeBlocked(page); // 51.2: a regra aparece num pop-up
 check(db.opsClientOps[AURORA].stage_id === "onboarding_pendente", "sem reunião o cliente não vai para Agendado (o cartão volta)");
 
 // 2b) 49.3: Onboarding Cancelado é livre: vai direto, sem reunião, e pode voltar
@@ -77,6 +85,7 @@ check(true, "selo amarelo: reunião marcada");
 // 4) com a reunião agendada vai para Agendado, mas não pula para Realizado
 await dragTo(page, aurora, col("briefing"));
 await page.getByText(/Marque a reunião de onboarding como "Realizada"/).first().waitFor();
+await closeBlocked(page); // 51.2: a regra aparece num pop-up
 check(db.opsClientOps[AURORA].stage_id === "onboarding_pendente", "reunião só agendada não leva a Realizado");
 await dragTo(page, aurora, col("coleta_acessos"));
 await waitFor(page, () => db.opsClientOps[AURORA].stage_id === "coleta_acessos", "foi para Agendado");
@@ -84,6 +93,7 @@ const auroraAg = col("coleta_acessos").locator("[data-testid=ops-kanban-card]").
 await auroraAg.getByText(/Aguardando a reunião/).waitFor();
 await dragTo(page, auroraAg, col("briefing"));
 await page.getByText(/Marque a reunião de onboarding como "Realizada"/).first().waitFor();
+await closeBlocked(page); // 51.2: a regra aparece num pop-up
 check(db.opsClientOps[AURORA].stage_id === "coleta_acessos", "em Agendado só avança com reunião realizada");
 await page.screenshot({ path: `${SHOTS}/47.2-onboarding-agendado.png`, fullPage: true });
 
@@ -129,6 +139,7 @@ await col("configuracao_inicial").getByText("Studio Beta").waitFor();
 await page.screenshot({ path: `${SHOTS}/47.2-onboarding-realizado-cancelado.png`, fullPage: true });
 await dragTo(page, aurora3, col("briefing"));
 await page.getByText(/Crie pelo menos uma tarefa para o time de operação/).first().waitFor();
+await closeBlocked(page); // 51.2: a regra aparece num pop-up
 check(db.opsClientOps[AURORA].stage_id === "coleta_acessos", "49.4: reunião realizada sem tarefa da operação não vai para Realizado");
 
 // 8) tarefa do Comercial não conta; as tarefas padrão (50.1) são marcadas no cartão e liberam

@@ -61,10 +61,12 @@ const waitFor = async (page, fn, what) => {
   check(db.opsClientOps[AURORA]?.am_user_id === MARIA && db.opsClientOps[AURORA].stage_id === "contrato_pago", "cliente entra no fluxo com o Account Manager");
   check(await page.getByTestId("ops-kanban-column").count() === 9, "9 etapas do onboarding no Kanban");
 
-  // Liberar demanda: Design + Copy (Copy depende do Design), obrigatórias da etapa, com anexo
-  await page.getByRole("button", { name: "Liberar demanda" }).click();
+  // 51.2: no Onboarding não há "Liberar demanda"; liberar demanda e registrar atividade ficam na ficha do cliente (cadastro → aba Tarefas)
+  check(await page.getByRole("button", { name: "Liberar demanda" }).count() === 0, "51.2: Onboarding sem o botão Liberar demanda");
+  await page.goto(`${BASE}/clientes/${AURORA}?aba=tarefas`);
+  const opsTab = page.getByTestId("client-ops-tab");
+  await opsTab.getByRole("button", { name: "Liberar demanda" }).click();
   dialog = page.getByRole("dialog", { name: "Liberar demanda" });
-  await dialog.getByLabel("Cliente", { exact: true }).selectOption({ label: "Loja Aurora" });
   await dialog.getByLabel("Título da demanda").fill("Lançamento");
   await dialog.getByLabel("Briefing").fill("Campanha de lançamento da coleção");
   check(await dialog.getByLabel("Etapa do onboarding").evaluate((e) => e.options[e.selectedIndex].text) === "Contrato Pago", "49.4: a etapa já vem na primeira do onboarding");
@@ -79,32 +81,17 @@ const waitFor = async (page, fn, what) => {
   await dialog.getByLabel("Anexos").setInputFiles({ name: "briefing.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 briefing") });
   await dialog.getByRole("button", { name: "Liberar para 2 setor(es)" }).click();
   await dialog.waitFor({ state: "detached" });
-  await page.getByText("Demanda #1 liberada.").waitFor();
+  await waitFor(page, () => db.opsDemands.length === 1, "demanda liberada");
   const [td, tc] = db.opsTasks;
   check(db.opsDemands.length === 1 && td?.demand_id === db.opsDemands[0].id && tc?.demand_id === db.opsDemands[0].id, "uma tarefa por setor, ligadas à demanda");
   check(td.title === "Lançamento — Design" && td.mandatory && td.client_stage_id === "contrato_pago" && td.people[0]?.user_id === BIA, "tarefa do Design com responsável e etapa");
   check(db.opsDeps.some((d) => d.task_id === tc.id && d.depends_on_id === td.id), "Copy depende do Design");
   check(db.opsAttachments.length === 2 && db.opsAttachments.every((a) => a.name === "briefing.pdf"), "anexo vai para cada tarefa criada");
 
-  // Regra: com obrigatórias abertas, o cliente não avança
-  const card = page.locator("[data-testid=ops-kanban-card]").filter({ hasText: "Loja Aurora" });
-  await card.getByText("2 obrigatória(s) aberta(s) nesta etapa").waitFor();
-  await dragTo(page, card, page.locator("[data-testid=ops-kanban-column][data-status=onboarding_pendente]"));
-  await page.getByText("Há 2 tarefa(s) obrigatória(s) aberta(s) nesta etapa").waitFor();
-  await page.locator("[data-testid=ops-kanban-column][data-status=contrato_pago]").getByText("Loja Aurora").waitFor();
-  check(db.opsClientOps[AURORA].stage_id === "contrato_pago", "avanço recusado e o cartão volta");
-  await page.screenshot({ path: `${SHOTS}/ops-clientes.png`, fullPage: true });
-
-  // Ficha operacional: resumo, registro manual e histórico
-  await card.click();
-  const drawer = page.getByTestId("ops-client-drawer");
-  // 51.1: a ficha abre na aba Onboarding; o resumo fica na aba "Resumo"
-  await drawer.getByTestId("ops-client-onboarding").waitFor();
-  await drawer.getByRole("button", { name: "Resumo", exact: true }).click();
-  await drawer.getByTestId("ops-client-summary").waitFor();
-  const summaryText = await drawer.getByTestId("ops-client-summary").innerText();
+  // Resumo e registro manual (ficha do cliente no cadastro)
+  const summaryText = await opsTab.getByTestId("ops-client-summary").innerText();
   check(summaryText.includes("0% · 0/2 obrigatórias") && summaryText.includes("Design") && summaryText.includes("Copy"), "resumo com progresso e setores envolvidos");
-  await drawer.getByRole("button", { name: "Registrar atividade" }).click();
+  await opsTab.getByRole("button", { name: "Registrar atividade" }).click();
   dialog = page.getByRole("dialog", { name: "Registrar atividade" });
   await dialog.getByLabel("Tipo de atividade").selectOption({ label: "Reunião com cliente" });
   await dialog.getByLabel("Título").fill("Reunião de start");
@@ -114,15 +101,42 @@ const waitFor = async (page, fn, what) => {
   await dialog.waitFor({ state: "detached" });
   check(db.opsClientNotes[0]?.title === "Reunião de start" && db.opsClientNotes[0].attachment_path?.startsWith(`cliente-${AURORA}/`),
     "atividade registrada com anexo na pasta privada do cliente");
+  await opsTab.getByTestId("ops-client-demands").getByText("#1 Lançamento").waitFor();
+  check(await opsTab.getByTestId("ops-task-row").count() === 2, "ficha mostra as tarefas de todos os setores");
+
+  // Regra: com obrigatórias abertas, o cliente não avança (51.2: pop-up explica a regra)
+  await page.goto(`${BASE}/onboarding`);
+  const card = page.locator("[data-testid=ops-kanban-card]").filter({ hasText: "Loja Aurora" });
+  await card.getByText("2 obrigatória(s) aberta(s) nesta etapa").waitFor();
+  await dragTo(page, card, page.locator("[data-testid=ops-kanban-column][data-status=onboarding_pendente]"));
+  let blocked = page.getByRole("dialog", { name: "Não dá para mover Loja Aurora" });
+  await blocked.getByText("Há 2 tarefa(s) obrigatória(s) aberta(s) nesta etapa").waitFor();
+  check((await blocked.innerText()).includes('Para ir para "Onboarding Pendente"'), "51.2: pop-up diz para qual coluna e a regra");
+  await blocked.getByRole("button", { name: "Entendi" }).click();
+  await blocked.waitFor({ state: "detached" });
+  await page.locator("[data-testid=ops-kanban-column][data-status=contrato_pago]").getByText("Loja Aurora").waitFor();
+  check(db.opsClientOps[AURORA].stage_id === "contrato_pago", "avanço recusado e o cartão volta");
+  // o mesmo pelo "Mover para…"
+  await card.getByLabel("Mover Loja Aurora para").selectOption({ label: "Briefing" });
+  blocked = page.getByRole("dialog", { name: "Não dá para mover Loja Aurora" });
+  await blocked.waitFor();
+  check((await blocked.innerText()).includes("Vincule uma reunião"), "51.2: Mover para… também abre o pop-up da regra");
+  await blocked.getByRole("button", { name: "Entendi" }).click();
+  check(db.opsClientOps[AURORA].stage_id === "contrato_pago", "pelo Mover para… também não avança");
+  await page.screenshot({ path: `${SHOTS}/ops-clientes.png`, fullPage: true });
+
+  // 51.2: a ficha do Onboarding tem só as abas Onboarding e Histórico Operacional
+  await card.getByTestId("ops-client-card").click();
+  const drawer = page.getByTestId("ops-client-drawer");
+  await drawer.getByTestId("ops-client-onboarding").waitFor();
+  const drawerButtons = await drawer.getByRole("button").allInnerTexts();
+  check(!drawerButtons.some((t) => ["Resumo", "Tarefas", "Liberar demanda", "Registrar atividade"].includes(t.trim())),
+    `51.2: ficha sem Resumo, Tarefas, Liberar demanda e Registrar atividade (${drawerButtons.map((t) => t.trim()).filter(Boolean).join(", ")})`);
   await drawer.getByRole("button", { name: "Histórico Operacional" }).click();
   await drawer.getByTestId("ops-client-note").getByText("Reunião de start").waitFor();
   const hist = await drawer.getByTestId("ops-client-history").innerText();
   check(hist.includes("Liberou uma demanda") && hist.includes("Colocou o cliente no fluxo operacional") && hist.includes("Próximo passo: Enviar cronograma"),
     "histórico operacional junta demanda, entrada no fluxo e atividade registrada");
-  await drawer.getByRole("button", { name: "Tarefas", exact: true }).click();
-  await drawer.getByTestId("ops-client-demands").getByText("#1 Lançamento").waitFor();
-  await drawer.getByTestId("ops-task-row").nth(1).waitFor();
-  check(await drawer.getByTestId("ops-task-row").count() === 2, "ficha mostra as tarefas de todos os setores");
   await page.screenshot({ path: `${SHOTS}/ops-ficha-cliente.png` });
   await drawer.getByRole("button", { name: "Fechar ficha" }).click();
 
@@ -194,12 +208,12 @@ const waitFor = async (page, fn, what) => {
   const names = await page.getByTestId("ops-client-card-name").allInnerTexts();
   check(JSON.stringify(names) === JSON.stringify(["Loja Aurora"]), `AM vê só os clientes dele (${names.join(", ")})`);
   check(await page.getByRole("button", { name: "Colocar cliente no fluxo" }).count() === 0, "sem permissão, não coloca clientes no fluxo");
-  await page.getByTestId("ops-client-card").first().click();
-  const drawer = page.getByTestId("ops-client-drawer");
-  await drawer.getByRole("button", { name: "Tarefas", exact: true }).click();
-  await drawer.getByText("Arte do feed").waitFor();
+  // 51.2: as tarefas do cliente ficam na ficha do cadastro (aba Tarefas)
+  await page.goto(`${BASE}/clientes/${AURORA}?aba=tarefas`);
+  const opsTab = page.getByTestId("client-ops-tab");
+  await opsTab.getByText("Arte do feed").waitFor();
   check(true, "AM vê a demanda do Design no cliente dele (sem ser do setor)");
-  check(await drawer.getByRole("button", { name: "Registrar atividade" }).count() === 0, "sem 'registrar atividades': botão não aparece");
+  check(await opsTab.getByRole("button", { name: "Registrar atividade" }).count() === 0, "sem 'registrar atividades': botão não aparece");
   check(errors.length === 0, `sem erros (AM) ${errors.join(" | ")}`);
   await browser.close();
 }

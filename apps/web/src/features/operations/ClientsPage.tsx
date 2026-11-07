@@ -1,9 +1,10 @@
-import { ArrowRight, Building2, Layers, Megaphone, PhoneCall, Plus, Search, UserPlus } from "lucide-react";
+import { ArrowRight, Ban, Building2, Layers, PhoneCall, Plus, Search, UserPlus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Input, Select } from "@/components/ui/field.tsx";
+import { Modal } from "@/components/ui/modal.tsx";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDate, formatDateTime } from "@/lib/format.ts";
@@ -12,7 +13,6 @@ import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { ClientOpsDrawer, ProgressBar, StagePill, StartClientModal } from "./ClientOps.tsx";
 import { OPS_ONB_CONTACT_LABELS, type OpsBoardClient, useMoveClientStage, useOpsClientBoard, useOpsClientStages } from "./clientsApi.ts";
-import { DemandReleaseModal } from "./DemandReleaseModal.tsx";
 import { DndBoard } from "./KanbanBoard.tsx";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { useMyOpsPermissions } from "./api.ts";
@@ -23,7 +23,26 @@ import { QueuesPage } from "./QueuesPage.tsx";
 import { type TaskView, ViewToggle } from "./TasksPage.tsx";
 import { TaskDetailHost, type TasksContext, useTasksContext } from "./tasksContext.tsx";
 
-function ClientCard({ c, ctx, onOpen }: { c: OpsBoardClient; ctx: TasksContext; onOpen: () => void }) {
+/** Etapa 51.2: escolher a coluna para onde o cartão vai (além de arrastar). Mesmas regras do arrastar. */
+function MoveToSelect({ c, targets, onMoveTo }: { c: OpsBoardClient; targets: { id: string; name: string }[]; onMoveTo: (to: string) => void }) {
+  const options = targets.filter((t) => t.id !== c.stage_id);
+  if (!c.can_move || options.length === 0) return null;
+  // não deixa o clique na lista começar o arrastar do cartão
+  const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
+  return (
+    <div onPointerDown={stop} onMouseDown={stop} onTouchStart={stop} onKeyDown={stop}>
+      <Select aria-label={`Mover ${c.name} para`} data-testid="ops-client-move-to" className="w-full py-1 text-xs" value=""
+        onChange={(e) => { if (e.target.value) onMoveTo(e.target.value); }}>
+        <option value="">Mover para…</option>
+        {options.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+      </Select>
+    </div>
+  );
+}
+
+function ClientCard({ c, ctx, onOpen, targets, onMoveTo }: {
+  c: OpsBoardClient; ctx: TasksContext; onOpen: () => void; targets: { id: string; name: string }[]; onMoveTo: (to: string) => void;
+}) {
   const s = c.summary;
   return (
     <div className="space-y-2 rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200 transition hover:ring-blue-400">
@@ -49,7 +68,26 @@ function ClientCard({ c, ctx, onOpen }: { c: OpsBoardClient; ctx: TasksContext; 
         <div className="border-t border-slate-100 pt-2"><ProgressBar done={s.obrigatorias_concluidas} total={s.obrigatorias} /></div>
       </button>
       <OnboardingMeetingActions c={c} ctx={ctx} />
+      <MoveToSelect c={c} targets={targets} onMoveTo={onMoveTo} />
     </div>
+  );
+}
+
+/** Pop-up quando uma regra não deixa o cliente ir para a coluna escolhida (arrastando ou pelo "Mover para…"). */
+function BlockedMoveModal({ info, onClose }: { info: { client: string; to: string; message: string }; onClose: () => void }) {
+  return (
+    <Modal title={`Não dá para mover ${info.client}`} open onClose={onClose}>
+      <div className="space-y-4" data-testid="ops-client-move-blocked">
+        <div className="flex items-start gap-3">
+          <Ban className="mt-0.5 size-5 shrink-0 text-red-600" aria-hidden />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-slate-900">Para ir para "{info.to}":</p>
+            <p className="text-sm text-slate-700">{info.message}</p>
+          </div>
+        </div>
+        <div className="flex justify-end"><Button onClick={onClose} autoFocus>Entendi</Button></div>
+      </div>
+    </Modal>
   );
 }
 
@@ -102,14 +140,22 @@ export function ClientsPage() {
   const [am, setAm] = useState("");
   const [starting, setStarting] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
-  const [releasing, setReleasing] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<{ client: string; to: string; message: string } | null>(null);
   const debounced = useDebouncedValue(q.trim(), 300);
   const f = useMemo(() => ({ q: debounced || undefined, mine: mine || undefined, am_user_id: am || undefined }), [debounced, mine, am]);
   const board = useOpsClientBoard(f, !ctx.loading);
   const clients = board.data?.clients ?? [];
   const columns = (stages.data ?? []).filter((s) => s.active || clients.some((c) => c.stage_id === s.id))
     .map((s) => ({ id: s.id, name: s.name, color: s.color, hint: s.auto_advance ? "Avança sozinho com as obrigatórias concluídas" : undefined }));
+  const targets = (stages.data ?? []).filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }));
+  /** Arrastar ou "Mover para…": se uma regra recusar, abre o pop-up explicando (o cartão volta para onde estava). */
+  async function moveClient(c: OpsBoardClient, to: string) {
+    try {
+      await move.mutateAsync({ clientId: c.client_id, version: c.version, stageId: to });
+    } catch (err) {
+      setBlocked({ client: c.name, to: stages.data?.find((s) => s.id === to)?.name ?? to, message: errorMessage(err) });
+    }
+  }
 
   return (
     <div className="space-y-4" data-testid="ops-clients">
@@ -141,9 +187,7 @@ export function ClientsPage() {
         {board.data?.can.create_client && (
           <Button variant="secondary" onClick={() => setCreatingClient(true)}><UserPlus className="size-4" aria-hidden /> Cliente novo</Button>
         )}
-        {board.data?.can.release && <Button onClick={() => setReleasing(true)}><Megaphone className="size-4" aria-hidden /> Liberar demanda</Button>}
       </div>
-      {done && <Alert tone="success">{done}</Alert>}
       {ctx.error || board.error || stages.error ? <Alert tone="error">{errorMessage(ctx.error ?? board.error ?? stages.error)}</Alert> : null}
       {ctx.loading || board.isLoading || stages.isLoading ? (
         <div className="h-64 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
@@ -156,15 +200,15 @@ export function ClientsPage() {
       ) : view === "kanban" ? (
         <DndBoard items={clients} columns={columns} getId={(c) => c.client_id} getLabel={(c) => c.name} columnOf={(c) => c.stage_id}
           canDrag={(c) => c.can_move} empty="Nenhum cliente"
-          onMove={async (c, to) => { await move.mutateAsync({ clientId: c.client_id, version: c.version, stageId: to }); }}
-          renderCard={(c) => <ClientCard c={c} ctx={ctx} onOpen={() => open(c.client_id)} />} />
+          onMove={moveClient}
+          renderCard={(c) => <ClientCard c={c} ctx={ctx} onOpen={() => open(c.client_id)} targets={targets} onMoveTo={(to) => void moveClient(c, to)} />} />
       ) : (
         <ClientTable clients={clients} stages={stages.data} onOpen={open} />
       )}
 
       {starting && board.data && <StartClientModal ctx={ctx} clients={board.data.available} onClose={() => setStarting(false)} />}
       {creatingClient && <NewClientModal ctx={ctx} canPickAm={Boolean(board.data?.can.manage)} onClose={() => setCreatingClient(false)} onCreated={open} />}
-      {releasing && <DemandReleaseModal ctx={ctx} onClose={() => setReleasing(false)} onDone={(r) => setDone(`Demanda #${r.number} liberada.`)} />}
+      {blocked && <BlockedMoveModal info={blocked} onClose={() => setBlocked(null)} />}
       {openId && <ClientOpsDrawer key={openId} clientId={openId} ctx={ctx} onClose={close} />}
       <TaskDetailHost ctx={ctx} />
     </div>

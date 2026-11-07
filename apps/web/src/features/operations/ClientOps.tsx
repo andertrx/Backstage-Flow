@@ -1,6 +1,6 @@
 import { originLabel } from "./origin.ts";
 import { opsProgress, opsToday } from "@backstage/shared";
-import { CalendarClock, ClipboardList, FileText, History, Megaphone, NotebookPen, Plus, Trash2, UserRoundCheck, X } from "lucide-react";
+import { FileText, History, Megaphone, NotebookPen, Plus, Trash2, UserRoundCheck, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -410,7 +410,8 @@ export function ClientOpsActions({ detail, ctx }: { detail: OpsClientDetail; ctx
   );
 }
 
-type PanelTab = "onboarding" | "resumo" | "tarefas" | "historico";
+/** Etapa 51.2: no Onboarding a ficha tem só "Onboarding" e "Histórico Operacional" (sem Resumo, Tarefas, Liberar demanda e Registrar atividade). */
+type PanelTab = "onboarding" | "historico";
 
 /** Ficha operacional do cliente (painel lateral na Central). */
 export function ClientOpsDrawer({ clientId, ctx, onClose }: { clientId: string; ctx: TasksContext; onClose: () => void }) {
@@ -442,13 +443,10 @@ export function ClientOpsDrawer({ clientId, ctx, onClose }: { clientId: string; 
           {q.isSuccess && !d && <Alert tone="error">Você não tem acesso à ficha operacional deste cliente.</Alert>}
           {d && (
             <>
-              <ClientOpsActions detail={d} ctx={ctx} />
               <div className="flex flex-wrap gap-2">
-                {tabBtn("onboarding", "Onboarding", UserRoundCheck)}{tabBtn("resumo", "Resumo", CalendarClock)}{tabBtn("tarefas", "Tarefas", ClipboardList)}{tabBtn("historico", "Histórico Operacional", History)}
+                {tabBtn("onboarding", "Onboarding", UserRoundCheck)}{tabBtn("historico", "Histórico Operacional", History)}
               </div>
               {tab === "onboarding" && <ClientOnboardingPanel detail={d} ctx={ctx} />}
-              {tab === "resumo" && <ClientOpsSummary detail={d} ctx={ctx} />}
-              {tab === "tarefas" && <ClientOpsTasks detail={d} ctx={ctx} />}
               {tab === "historico" && <ClientOpsHistory detail={d} ctx={ctx} />}
             </>
           )}
