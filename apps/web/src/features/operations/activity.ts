@@ -18,6 +18,11 @@ export const ACTION_LABELS: Record<string, string> = {
   "cliente.am": "Trocou o Account Manager",
   "cliente.reuniao_vinculada": "Vinculou a reunião de onboarding",
   "cliente.reuniao_desvinculada": "Desvinculou a reunião de onboarding",
+  "cliente.reuniao_substituida": "Substituiu a reunião de onboarding",
+  "cliente.dados": "Editou os dados do cliente",
+  "cliente.observacoes": "Alterou as observações do onboarding",
+  "tarefa.excluida": "Excluiu a tarefa",
+  "tarefa.restaurada": "Restaurou a tarefa excluída",
   "cliente.atividade_retirada": "Retirou uma atividade registrada",
   "demanda.liberada": "Liberou uma demanda",
   "cliente.convertido": "Veio do Comercial (lead convertido)",
@@ -78,6 +83,9 @@ export function activityText(a: { action: string; before: Record<string, unknown
     case "cliente.am": return `${before.am ? person(String(before.am)) : "ninguém"} → ${after.am ? person(String(after.am)) : "ninguém"}`;
     case "cliente.reuniao_vinculada": return `Reunião #${String(after.numero ?? "")} ${String(after.titulo ?? "")}`;
     case "cliente.reuniao_desvinculada": return "Sem reunião de onboarding";
+    case "cliente.reuniao_substituida": return `Reunião #${String(before.numero ?? "")} → #${String(after.numero ?? "")}`;
+    case "cliente.dados": return Array.isArray(after.campos) ? `Campos: ${(after.campos as unknown[]).map(String).join(", ")}` : "";
+    case "cliente.observacoes": return after.texto ? String(after.texto).slice(0, 120) : "Observações apagadas";
     case "cliente.atividade_retirada": return String(before.titulo ?? "");
     case "cliente.convertido": return `Lead #${String(after.lead)} ${String(after.empresa ?? "")}${after.novo ? " · cliente criado" : " · vinculado"}`;
     case "tarefa.da_reuniao": return `Reunião ${meetingRef(after)}`;

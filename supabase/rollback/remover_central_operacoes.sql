@@ -19,6 +19,10 @@
 -- =============================================================================
 begin;
 
+-- Etapa 51.5 (trocar reunião de onboarding com substituição).
+drop function if exists public.ops_client_meeting_replace(uuid, uuid);
+drop function if exists private.ops_client_meeting_replace_impl(uuid, uuid);
+
 -- Etapa 51.3 (arquivar e excluir cartões): funções novas (as colunas somem com as tabelas, mais abaixo).
 drop function if exists public.ops_archive_list(text, text);
 drop function if exists private.ops_archive_list_impl(text, text);

@@ -6,7 +6,7 @@ import { Field, Select } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
-import { type OpsBoardClient, useLinkClientMeeting, useUnlinkClientMeeting } from "./clientsApi.ts";
+import { type OpsBoardClient, useLinkClientMeeting, useReplaceClientMeeting, useUnlinkClientMeeting } from "./clientsApi.ts";
 import { MeetingFormModal, meetingWhen, RecordModal } from "./Meetings.tsx";
 import { useMeeting, useMeetingCategories, useMeetingList } from "./meetingsApi.ts";
 import { OnboardingTasksModal } from "./OnboardingTasksModal.tsx";
@@ -81,6 +81,83 @@ function LinkModal({ c, onClose }: { c: OpsBoardClient; onClose: () => void }) {
 }
 
 /**
+ * 51.5: "Trocar reunião" — escolher uma reunião já criada ou criar uma nova ali. Antes de trocar, o pop-up avisa que a
+ * nova substitui a anterior, e a anterior é finalizada com a observação "Substituída pela reunião #N" (cancelada se
+ * ainda estava agendada; se já estava finalizada, só ganha a observação).
+ */
+function ReplaceModal({ c, ctx, canCreate, onClose }: { c: OpsBoardClient; ctx: TasksContext; canCreate: boolean; onClose: () => void }) {
+  const list = useMeetingList({});
+  const categories = useMeetingCategories();
+  const replace = useReplaceClientMeeting();
+  const old = c.onboarding_meeting!;
+  const [step, setStep] = useState<"escolher" | "confirmar" | "criar">("escolher");
+  const [pick, setPick] = useState("");
+  const [createNew, setCreateNew] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const options = (list.data?.meetings ?? [])
+    .filter((m) => m.id !== old.id && m.status !== "cancelada" && (!m.client_id || m.client_id === c.client_id))
+    .sort((a, b) => Number(b.client_id === c.client_id) - Number(a.client_id === c.client_id) || b.starts_at.localeCompare(a.starts_at));
+  const picked = options.find((m) => m.id === pick);
+  const what = old.status === "agendada"
+    ? `A reunião #${old.number} ainda estava agendada: ela será cancelada com o motivo "Substituída pela reunião ${picked ? `#${picked.number}` : "nova"}".`
+    : `A reunião #${old.number} já estava finalizada (${old.status}): ela recebe na ata a observação "Substituída pela reunião ${picked ? `#${picked.number}` : "nova"}".`;
+
+  async function doReplace(meetingId: string) {
+    setError(null);
+    try { await replace.mutateAsync({ clientId: c.client_id, meetingId }); onClose(); } catch (err) { setError(errorMessage(err)); setStep("escolher"); }
+  }
+
+  if (step === "criar" && categories.data) {
+    return (
+      <MeetingFormModal meeting={null} categories={categories.data} ctx={ctx} onClose={onClose}
+        defaults={{ client_id: c.client_id, title: `Onboarding — ${c.name}`, category_id: "cliente", lockClient: true }}
+        onSaved={(id) => { void doReplace(id); }} />
+    );
+  }
+  return (
+    <Modal title={step === "confirmar" ? "Substituir a reunião?" : `Trocar reunião: ${c.name}`} open onClose={onClose}>
+      {step === "escolher" ? (
+        <div className="space-y-4" data-testid="ops-onboarding-replace">
+          <p className="text-sm text-slate-600">Reunião atual: <strong>#{old.number} {old.title}</strong> ({old.status}).</p>
+          <Field label="Usar uma reunião já criada" hint="As reuniões deste cliente aparecem primeiro. Reunião sem cliente passa a ser deste cliente.">
+            {(id) => (
+              <Select id={id} value={pick} onChange={(e) => setPick(e.target.value)}>
+                <option value="">Escolha a reunião</option>
+                {options.map((m) => <option key={m.id} value={m.id}>#{m.number} · {m.title} · {meetingWhen(m.starts_at, m.duration_min)} · {m.status}</option>)}
+              </Select>
+            )}
+          </Field>
+          {list.isSuccess && options.length === 0 && <Alert tone="info">Não há outra reunião para este cliente. Crie uma nova.</Alert>}
+          {(error || list.error) && <Alert tone="error">{error ?? errorMessage(list.error)}</Alert>}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+            {canCreate && (
+              <Button type="button" variant="secondary" onClick={() => { setCreateNew(true); setPick(""); setStep("confirmar"); }}>
+                <CalendarPlus className="size-4" aria-hidden /> Criar reunião nova
+              </Button>
+            )}
+            <Button type="button" disabled={!pick} onClick={() => { setCreateNew(false); setStep("confirmar"); }}>Usar esta reunião</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4" data-testid="ops-onboarding-replace-confirm">
+          <p className="text-sm text-slate-700">
+            {createNew ? "A reunião nova" : `A reunião #${picked?.number} (${picked?.title})`} vai substituir a reunião <strong>#{old.number}</strong> como reunião de onboarding de {c.name}.
+          </p>
+          <Alert tone="warning">{what}</Alert>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setStep("escolher")}>Voltar</Button>
+            {createNew
+              ? <Button type="button" onClick={() => setStep("criar")}>Continuar e criar a reunião</Button>
+              : <Button type="button" loading={replace.isPending} onClick={() => void doReplace(pick)}>Substituir</Button>}
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/**
  * 51.4: "Reunião realizada" no cartão — abre a mesma janela do menu Reuniões (ata, presença, "Marcar como realizada")
  * sem sair do Onboarding. Ao salvar, a janela fecha e o quadro atualiza.
  */
@@ -110,7 +187,7 @@ function MeetingDoneButton({ meetingId }: { meetingId: string }) {
 
 /** Botões do cartão em "Onboarding Pendente": vincular, criar e (se já vinculada) trocar. */
 export function OnboardingMeetingActions({ c, ctx }: { c: OpsBoardClient; ctx: TasksContext }) {
-  const [mode, setMode] = useState<"link" | "create" | null>(null);
+  const [mode, setMode] = useState<"link" | "create" | "replace" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const categories = useMeetingCategories();
   const link = useLinkClientMeeting();
@@ -125,13 +202,22 @@ export function OnboardingMeetingActions({ c, ctx }: { c: OpsBoardClient; ctx: T
     <>
     <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2" data-testid="ops-onboarding-actions">
       {c.onboarding_meeting?.status === "agendada" && <MeetingDoneButton meetingId={c.onboarding_meeting.id} />}
-      <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setMode("link")}>
-        <Link2 className="size-3.5" aria-hidden /> {has ? "Trocar reunião" : "Vincular reunião"}
-      </Button>
-      {canCreate && (
-        <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setMode("create")}>
-          <CalendarPlus className="size-3.5" aria-hidden /> Criar reunião
+      {has ? (
+        // 51.5: com reunião vinculada, "Criar reunião" fica dentro de "Trocar reunião"
+        <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setMode("replace")}>
+          <Link2 className="size-3.5" aria-hidden /> Trocar reunião
         </Button>
+      ) : (
+        <>
+          <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setMode("link")}>
+            <Link2 className="size-3.5" aria-hidden /> Vincular reunião
+          </Button>
+          {canCreate && (
+            <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setMode("create")}>
+              <CalendarPlus className="size-3.5" aria-hidden /> Criar reunião
+            </Button>
+          )}
+        </>
       )}
       {has && (
         <Button type="button" variant="secondary" className="px-2 py-1 text-xs" loading={unlink.isPending}
@@ -141,6 +227,11 @@ export function OnboardingMeetingActions({ c, ctx }: { c: OpsBoardClient; ctx: T
       )}
       {error && <p className="w-full text-[11px] text-red-700" role="alert">{error}</p>}
       {mode === "link" && <LinkModal c={c} onClose={() => setMode(null)} />}
+      {mode === "replace" && c.onboarding_meeting && (
+        <div onPointerDown={stopDrag} onMouseDown={stopDrag} onTouchStart={stopDrag} onKeyDown={stopDrag}>
+          <ReplaceModal c={c} ctx={ctx} canCreate={canCreate} onClose={() => setMode(null)} />
+        </div>
+      )}
       {mode === "create" && categories.data && (
         <MeetingFormModal meeting={null} categories={categories.data} ctx={ctx} onClose={() => setMode(null)}
           defaults={{ client_id: c.client_id, title: `Onboarding — ${c.name}`, category_id: "cliente", lockClient: true }}

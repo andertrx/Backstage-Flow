@@ -288,6 +288,15 @@ export function useLinkClientMeeting() {
   });
 }
 
+/** 51.5: troca a reunião de onboarding; a anterior é cancelada (se agendada) ou ganha a observação "Substituída pela reunião #N". */
+export function useReplaceClientMeeting() {
+  return useOpsMutation(async (v: { clientId: string; meetingId: string }) => {
+    const { data, error } = await supabase.rpc("ops_client_meeting_replace", { p_client: v.clientId, p_meeting: v.meetingId });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos trocar a reunião."));
+    return data as { nova: number; anterior: number | null; anterior_situacao?: string };
+  });
+}
+
 export function useUnlinkClientMeeting() {
   return useOpsMutation(async (clientId: string) => {
     const { error } = await supabase.rpc("ops_client_meeting_unlink", { p_client: clientId });

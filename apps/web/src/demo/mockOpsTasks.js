@@ -828,6 +828,31 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     (p.p_ids ?? []).forEach((id, i) => { const t = db.opsOnboardingTemplates.find((x) => x.id === id); if (t) t.position = i + 1; });
     return res(204);
   }
+  // 51.5: troca a reunião; a anterior é cancelada (se agendada) ou ganha a observação (mesma regra de ops_client_meeting_replace)
+  if (rpc("ops_client_meeting_replace")) {
+    const o = db.opsClientOps[p.p_client];
+    if (!o || !clientVisible(p.p_client)) return bad("Este cliente não está no fluxo operacional.");
+    if (!canMoveClient(p.p_client)) return deny("Você não tem permissão para vincular reunião a este cliente.");
+    const oldId = o.onboarding_meeting_id ?? null;
+    if (oldId && oldId === p.p_meeting) return bad("Esta já é a reunião de onboarding deste cliente.");
+    const m = db.opsMeetings.find((x) => x.id === p.p_meeting);
+    if (!m) return bad("Reunião não encontrada.");
+    if (m.status === "cancelada") return bad("Esta reunião foi cancelada. Escolha outra ou crie uma nova.");
+    if (m.client_id && m.client_id !== p.p_client) return bad("Esta reunião é de outro cliente.");
+    if (Object.entries(db.opsClientOps).some(([cid, x]) => cid !== p.p_client && x.onboarding_meeting_id === m.id)) return bad("Esta reunião já está vinculada ao onboarding de outro cliente.");
+    if (!m.client_id) Object.assign(m, { client_id: p.p_client, version: m.version + 1 });
+    o.onboarding_meeting_id = m.id;
+    logClient(p.p_client, "cliente.reuniao_vinculada", oldId ? { reuniao: oldId } : null, { reuniao: m.id, numero: m.number, titulo: m.title, situacao: m.status });
+    const old = oldId ? db.opsMeetings.find((x) => x.id === oldId) : null;
+    if (!old) return res(200, { nova: m.number, anterior: null });
+    const when = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(new Date()).replace(",", "");
+    const note = `Substituída pela reunião #${m.number} em ${when}.`;
+    const before = old.status;
+    if (old.status === "agendada") Object.assign(old, { status: "cancelada", cancel_reason: note, cancel_kind: "outro", version: old.version + 1 });
+    else Object.assign(old, { notes: (old.notes?.trim() ? `${old.notes.trim()}\n\n` : "") + note, version: old.version + 1 });
+    logClient(p.p_client, "cliente.reuniao_substituida", { reuniao: old.id, numero: old.number, situacao: before }, { reuniao: m.id, numero: m.number });
+    return res(200, { nova: m.number, anterior: old.number, anterior_situacao: before === "agendada" ? "cancelada" : before });
+  }
   if (rpc("ops_client_meeting_link")) {
     const o = db.opsClientOps[p.p_client];
     if (!o || !clientVisible(p.p_client)) return bad("Este cliente não está no fluxo operacional.");
