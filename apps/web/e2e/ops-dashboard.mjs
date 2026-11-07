@@ -56,10 +56,10 @@ function seed(db) {
   check(db.rpcCalls.filter((c) => c.fn === "ops_my_summary").length === 1 && !db.rpcCalls.some((c) => c.fn === "ops_notifications_unread"),
     "sino e atalho usam uma consulta só");
   await shortcut.click();
-  await page.waitForURL("**/operacoes/painel");
+  await page.waitForURL("**/painel");
   await page.getByTestId("ops-dash-cards").waitFor();
-  const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(tabs[0] === "Painel", `aba Painel primeiro (${tabs.join(", ")})`);
+  check(await page.getByRole("navigation", { name: "Central de Operações" }).count() === 0, "07/11: o Painel tem menu próprio, fora da Central");
+  check(await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Painel" }).count() === 1, "Painel no menu lateral");
 
   const card = async (id) => (await page.getByTestId(id).locator("p").nth(1).innerText()).trim();
   check(await card("ops-dash-abertas") === "4" && await card("ops-dash-atrasadas") === "1" && await card("ops-dash-hoje") === "1"
@@ -153,8 +153,7 @@ function seed(db) {
     permissions: ["ops.access", "ops.tasks.create"] };
   await login(page, "/operacoes/painel");
   await page.waitForURL("**/operacoes/minhas-tarefas");
-  const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(!tabs.includes("Painel"), `sem a aba Painel (${tabs.join(", ")})`);
+  check(await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Painel", exact: true }).count() === 0, "sem o item Painel no menu (sem a permissão)");
   const search = page.getByRole("combobox", { name: "Buscar na Central" });
   await search.fill("parado");
   await page.getByTestId("ops-search-empty").waitFor();

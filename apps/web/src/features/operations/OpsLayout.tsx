@@ -1,5 +1,5 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { Bell, ClipboardList, Gauge, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
+import { ClipboardList, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, NavLink, Outlet, useLocation } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -19,12 +19,10 @@ import { OpsSearch } from "./OpsSearch.tsx";
  * ficam à parte, como administração.
  */
 export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission: OpsPermission; anyOf?: OpsPermission[]; admin?: boolean }[] = [
-  { to: "/operacoes/painel", label: "Painel", icon: Gauge, permission: "ops.dashboard.view" },
+  // 07/11/2026: Painel e Notificações saíram das abas da Central e têm menu próprio (/painel e /notificacoes).
   // 43.8: Onboarding (antes "Operação"), Reuniões, Comercial e Envios semanais têm menu próprio, fora das abas da Central.
   { to: "/operacoes/tarefas", label: "Tarefas", icon: ClipboardList, permission: "ops.access" },
   { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
-  // 07/11/2026: as preferências e o "Ativar neste aparelho" (aviso no computador e no celular) ficavam só atrás do sininho; agora têm aba própria.
-  { to: "/operacoes/notificacoes", label: "Notificações", icon: Bell, permission: "ops.access" },
   { to: "/operacoes/equipe", label: "Equipe", icon: Users, permission: "ops.access", admin: true },
   { to: "/operacoes/configuracoes", label: "Configurações", icon: Settings, permission: "ops.admin", admin: true },
 ];
@@ -51,10 +49,8 @@ export function RequireOps({ permission, anyOf, children }: { permission: OpsPer
 }
 
 export function OpsIndexRedirect() {
-  const perms = useMyOpsPermissions();
-  // A Central abre no Painel (quem pode vê-lo) ou em Minhas tarefas; a ordem das abas não muda onde ela abre.
-  const painel = tabAllowed(perms.data, { permission: "ops.dashboard.view" });
-  return <Navigate to={painel ? "/operacoes/painel" : "/operacoes/minhas-tarefas"} replace />;
+  // O Painel tem menu próprio; a Central abre em Minhas tarefas.
+  return <Navigate to="/operacoes/minhas-tarefas" replace />;
 }
 
 export function OpsLayout() {

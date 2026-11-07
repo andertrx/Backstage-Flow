@@ -20,7 +20,7 @@ export function OpsShortcut() {
       <b className="tabular-nums">{n.toLocaleString("pt-BR")}</b> {n === 1 ? one : many}
     </span>
   );
-  const target = opsCan(perms.data, "ops.dashboard.view") ? "/operacoes/painel" : "/operacoes/minhas-tarefas";
+  const target = opsCan(perms.data, "ops.dashboard.view") ? "/painel" : "/operacoes/minhas-tarefas";
   return (
     <Link to={target} data-testid="ops-shortcut"
       className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-white px-4 py-3 text-sm shadow-sm ring-1 ring-slate-200 transition hover:ring-blue-400">

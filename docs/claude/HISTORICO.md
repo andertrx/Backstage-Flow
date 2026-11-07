@@ -173,3 +173,4 @@
 - **07/11 (47.1):** Ander respondeu "1 - sim / 2 - sigo sua recomendação": regra vale para os 2 clientes existentes e há lembrete diário nos dias úteis. Implementei a regra no banco, avisos, lembrete e a tela (selo e botões no cartão).
 - **07/11 (47.2):** Ander corrigiu a regra: cada coluna do Onboarding depende da reunião (agendada para Agendado, realizada para Realizado) e cancelar com "cliente não fará mais onboarding" leva a Onboarding Cancelado. Respondeu "1 - pode / 2 - confirma" (opção marcada no cancelamento; vale para os 2 clientes existentes).
 - **07/11 (48.1):** Ander: histórico do lead do mais recente ao mais antigo e, no cartão, o último contato em vez de "Sem próxima ação". A causa da ordem estranha era o horário sem segundos nos registros.
+- **07/11 (49.1):** Ander pediu Painel antes de Comercial e Notificações abaixo de Central de Operações (cada login escolhe seus avisos).

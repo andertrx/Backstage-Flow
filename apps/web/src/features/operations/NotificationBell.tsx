@@ -74,7 +74,7 @@ export function NotificationBell() {
           </div>
           <div className="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100">
             <Link to="/alertas?aba=tarefas" onClick={() => setOpen(false)} className="px-3 py-2 text-center text-sm font-medium text-blue-700 hover:bg-slate-50">Ver em Alertas</Link>
-            <Link to="/operacoes/notificacoes" onClick={() => setOpen(false)} className="px-3 py-2 text-center text-sm font-medium text-blue-700 hover:bg-slate-50">Ver todas e preferências</Link>
+            <Link to="/notificacoes" onClick={() => setOpen(false)} className="px-3 py-2 text-center text-sm font-medium text-blue-700 hover:bg-slate-50">Ver todas e preferências</Link>
           </div>
         </div>
       )}

@@ -7,6 +7,7 @@ import {
   ChartPie,
   Handshake,
   FileBarChart,
+  Gauge,
   KanbanSquare,
   LayoutDashboard,
   type LucideIcon,
@@ -46,10 +47,12 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Clientes", path: "/clientes", icon: Building2, group: "Visão geral", permission: "clients.view" },
   { label: "Contas", path: "/contas", icon: Wallet, group: "Visão geral", permission: "internal.view" },
   // 43.6/43.7/43.8: Comercial, Onboarding, Reuniões e Envios semanais saíram de dentro da Central e têm menu próprio
-  // (as telas e as permissões são as mesmas). Ordem pedida pelo Ander: Comercial → Onboarding → Central de Operações → Reuniões → Envios semanais.
+  // (as telas e as permissões são as mesmas). Ordem pedida pelo Ander: Painel → Comercial → Onboarding → Central de Operações → Notificações → Reuniões → Envios semanais.
+  { label: "Painel", path: "/painel", icon: Gauge, group: "Operações", opsPermission: "ops.dashboard.view" },
   { label: "Comercial", path: "/comercial", icon: Handshake, group: "Operações", opsPermission: "ops.commercial" },
   { label: "Onboarding", path: "/onboarding", icon: UserRoundCheck, group: "Operações", opsPermission: "ops.access" },
   { label: "Central de Operações", path: "/operacoes", icon: KanbanSquare, group: "Operações", ops: true },
+  { label: "Notificações", path: "/notificacoes", icon: Bell, group: "Operações", opsPermission: "ops.access" },
   { label: "Reuniões", path: "/reunioes", icon: CalendarDays, group: "Operações", opsPermission: "ops.access" },
   { label: "Envios semanais", path: "/envios", icon: Send, group: "Operações", opsPermission: "ops.envios" },
   // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...), na ordem do catálogo.

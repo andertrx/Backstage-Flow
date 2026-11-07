@@ -17,20 +17,19 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   const nav = page.getByRole("navigation", { name: "Menu principal" }).first();
   const labels = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
   // 43.8: grupo Operações em ordem: Comercial, Onboarding, Central de Operações, Reuniões, Envios semanais
-  check(labels.indexOf("Comercial") === labels.indexOf("Contas") + 1 && labels.indexOf("Onboarding") === labels.indexOf("Comercial") + 1 && labels.indexOf("Central de Operações") === labels.indexOf("Onboarding") + 1, "menu: Comercial, Onboarding e Central de Operações logo depois de Visão geral");
+  check(labels.indexOf("Painel") === labels.indexOf("Contas") + 1 && labels.indexOf("Comercial") === labels.indexOf("Painel") + 1 && labels.indexOf("Onboarding") === labels.indexOf("Comercial") + 1 && labels.indexOf("Central de Operações") === labels.indexOf("Onboarding") + 1 && labels.indexOf("Notificações") === labels.indexOf("Central de Operações") + 1, "menu: Painel, Comercial, Onboarding, Central de Operações e Notificações logo depois de Visão geral");
   check((await nav.innerText()).includes("OPERAÇÕES") || (await nav.innerText()).includes("Operações"), "grupo Operações no menu");
 
   await nav.getByRole("link", { name: "Central de Operações" }).click();
   // 36.7: quem pode ver o painel abre a Central nele.
-  await page.waitForURL("**/operacoes/painel");
-  await page.getByTestId("ops-dashboard").waitFor();
-  check(true, "a Central abre no Painel para o admin");
+  await page.waitForURL("**/operacoes/minhas-tarefas");
+  check(true, "a Central abre em Minhas tarefas (o Painel tem menu próprio)");
   await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link", { name: "Minhas tarefas" }).click();
   await page.waitForURL("**/operacoes/minhas-tarefas");
   await page.getByTestId("ops-my-tasks").waitFor();
   check(await page.getByRole("heading", { name: "Central de Operações", level: 1 }).count() === 1, "abre a Central em Minhas tarefas");
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Tarefas", "Minhas tarefas", "Notificações", "Equipe", "Configurações"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Equipe", "Configurações"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
   await page.getByRole("link", { name: "Equipe" }).last().click();
   await page.getByTestId("ops-team").waitFor();
   // Espera a lista carregar antes de ler o texto (sem isso, às vezes lia a tela ainda vazia).
@@ -143,9 +142,9 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   check(true, "papel Equipe entra direto na Central");
   const nav = page.getByRole("navigation", { name: "Menu principal" }).first();
   const labels = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
-  check(JSON.stringify(labels) === JSON.stringify(["Onboarding", "Central de Operações", "Reuniões"]), `menu só com Onboarding, Central e Reuniões (${labels.join(", ")})`);
+  check(JSON.stringify(labels) === JSON.stringify(["Onboarding", "Central de Operações", "Notificações", "Reuniões"]), `menu só com Onboarding, Central, Notificações e Reuniões (${labels.join(", ")})`);
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Notificações", "Equipe"]), `sem a aba Configurações (só admin): ${tabs.join(", ")}`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Equipe"]), `sem a aba Configurações (só admin): ${tabs.join(", ")}`);
   await page.getByRole("link", { name: "Equipe" }).last().click();
   await page.getByTestId("ops-team").waitFor();
   check(await page.getByRole("button", { name: /na Central$/ }).count() === 0, "não edita a equipe");

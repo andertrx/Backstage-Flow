@@ -200,14 +200,15 @@ export const router = createBrowserRouter([
         element: <OpsLayout />,
         children: [
           { index: true, element: <OpsIndexRedirect /> },
-          { path: "painel", element: <OpsDashboardRoute /> },
+          // 07/11/2026: Painel e Notificações têm menu próprio; os endereços antigos continuam valendo.
+          { path: "painel", element: <RedirectKeep to="/painel" /> },
           { path: "minhas-tarefas", element: <OpsMyTasksPage /> },
           { path: "tarefas", element: <OpsTasksPage /> },
           // 43.6: Comercial e Envios semanais têm menu próprio (/comercial e /envios); os endereços antigos continuam valendo.
           { path: "comercial", element: <RedirectKeep to="/comercial" /> },
           { path: "reunioes", element: <RedirectKeep to="/reunioes" /> },
           { path: "envios", element: <RedirectKeep to="/envios" /> },
-          { path: "notificacoes", element: <OpsNotificationsRoute /> },
+          { path: "notificacoes", element: <RedirectKeep to="/notificacoes" /> },
           // 43.7: a aba "Operação" agora é "Onboarding" (o endereço antigo continua valendo, com filtros).
           { path: "onboarding", element: <RedirectKeep to="/onboarding" /> },
           { path: "clientes", element: <RedirectKeep to="/onboarding" /> },
@@ -218,6 +219,22 @@ export const router = createBrowserRouter([
         ],
       },
       // 43.6: módulos separados da Central de Operações (mesmas telas e permissões).
+      {
+        path: "painel",
+        element: (
+          <OpsStandalone title="Painel" description="Tudo do dia, de todos, com filtros por setor e pessoa. Separado da Central de Operações.">
+            <OpsDashboardRoute />
+          </OpsStandalone>
+        ),
+      },
+      {
+        path: "notificacoes",
+        element: (
+          <OpsStandalone title="Notificações" description="Preferências de aviso e aparelhos de cada pessoa. Separado da Central de Operações.">
+            <OpsNotificationsRoute />
+          </OpsStandalone>
+        ),
+      },
       {
         path: "onboarding",
         element: (

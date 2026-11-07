@@ -60,7 +60,7 @@ describe("arquitetura preparada para novas plataformas", () => {
 
   it("a ordem do menu só mudou com aprovação do Ander (43.6: Comercial e Envios semanais depois da Central)", () => {
     expect(NAV_ITEMS.map((n) => n.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Comercial", "Onboarding", "Central de Operações", "Reuniões", "Envios semanais", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
+      "Dashboard", "Clientes", "Contas", "Painel", "Comercial", "Onboarding", "Central de Operações", "Notificações", "Reuniões", "Envios semanais", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
       "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações",
     ]);
   });
