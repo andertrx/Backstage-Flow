@@ -114,7 +114,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [43.2 — tela "Hoje" (pré-visualização em /hoje)](docs/etapa-43-organizacao/43.2-TELA-HOJE.md) ✅ 06/11
   - [44.0 — plano: WhatsApp por API não oficial (só plano)](docs/etapa-43-organizacao/44.0-PLANO-WHATSAPP-NAO-OFICIAL.md) 📝 06/11
   - [44.1 — conexão do WhatsApp não oficial (QR Code/código, trava geral)](docs/etapa-43-organizacao/44.1-CONEXAO-WHATSAPP-NAO-OFICIAL.md) ✅ 06/11 (nada é enviado ainda)
-  - [44.2 — ligar o grupo do WhatsApp de cada cliente (nada é enviado)](docs/etapa-43-organizacao/44.2-LIGAR-GRUPOS-DO-WHATSAPP.md) ✅ 07/11
+  - [44.2 — ligar o grupo do WhatsApp de cada cliente (nada é enviado)](docs/etapa-43-organizacao/44.2-LIGAR-GRUPOS-DO-WHATSAPP.md) ✅ 07/11 (regra substituída pela 47.2)
   - [44.3 — disparos pelo WhatsApp conectado, sem marcar @ (enviar sozinho e enviar agora)](docs/etapa-43-organizacao/44.3-DISPAROS-PELO-WHATSAPP.md) ✅ 07/11 (testado só com servidor simulado)
   - [45.1 — avisos no WhatsApp (motor: fila, agrupamento, silêncio; sem tela ainda)](docs/etapa-43-organizacao/45.1-AVISOS-NO-WHATSAPP.md) ✅ 07/11 (testado só no banco; sem envio real)
   - [45.2 — aviso "cliente sem gastar" no WhatsApp (motor, sem tela; precisão ~1 h)](docs/etapa-43-organizacao/45.2-AVISO-CLIENTE-SEM-GASTAR.md) ✅ 07/11
@@ -130,6 +130,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [43.8 — ordem do menu (Comercial, Onboarding, Central de Operações, Reuniões, Envios) e Onboarding como menu separado](docs/etapa-43-organizacao/43.8-ORDEM-DO-MENU-E-ONBOARDING-SEPARADO.md) ✅ 07/11
   - [46.0 — plano: Google Agenda de cada pessoa, nos dois sentidos (só plano)](docs/etapa-43-organizacao/46.0-PLANO-GOOGLE-AGENDA.md) 📝 07/11 (respondido)
   - [47.1 — Onboarding Pendente exige reunião realizada (vincular/criar, avisos, lembrete diário)](docs/etapa-43-organizacao/47.1-ONBOARDING-EXIGE-REUNIAO.md) ✅ 07/11
+  - [47.2 — Onboarding por etapas: Agendado exige reunião agendada, Realizado exige realizada, cancelar = Onboarding Cancelado](docs/etapa-43-organizacao/47.2-ONBOARDING-ETAPAS-REUNIAO.md) ✅ 07/11
   - [46.1 — conectar o Google Agenda de cada pessoa (Reuniões e Minha conta)](docs/etapa-43-organizacao/46.1-CONECTAR-GOOGLE-AGENDA.md) ✅ 07/11 (testado só com Google simulado)
   - [47.0 — plano: Onboarding Pendente exige reunião realizada (só plano)](docs/etapa-43-organizacao/47.0-PLANO-ONBOARDING-EXIGE-REUNIAO.md) 📝 07/11 (respondido)
   - [47.1 — Onboarding Pendente exige reunião realizada (vincular/criar, avisos, lembrete diário)](docs/etapa-43-organizacao/47.1-ONBOARDING-EXIGE-REUNIAO.md) ✅ 07/11

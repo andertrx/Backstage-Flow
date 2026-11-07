@@ -176,8 +176,11 @@ export function useRecordMeeting() {
 }
 
 export function useCancelMeeting() {
-  return useOpsMutation(async (v: { id: string; version: number; reason: string }) => {
-    const { error } = await supabase.rpc("ops_meeting_cancel", { p_id: v.id, p_version: v.version, p_reason: v.reason.trim() });
+  return useOpsMutation(async (v: { id: string; version: number; reason: string; kind?: "outro" | "cliente_desistiu" }) => {
+    // Etapa 47.2: "cliente_desistiu" leva o cliente (se esta for a reunião de onboarding dele) para Onboarding Cancelado.
+    const { error } = v.kind
+      ? await supabase.rpc("ops_meeting_cancel_kind", { p_id: v.id, p_version: v.version, p_reason: v.reason.trim(), p_kind: v.kind })
+      : await supabase.rpc("ops_meeting_cancel", { p_id: v.id, p_version: v.version, p_reason: v.reason.trim() });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos cancelar a reunião."));
   });
 }

@@ -202,18 +202,28 @@ function RecordModal({ d, onClose }: { d: OpsMeetingDetail; onClose: () => void 
 
 function CancelModal({ d, onClose }: { d: OpsMeetingDetail; onClose: () => void }) {
   const [reason, setReason] = useState("");
+  const [gaveUp, setGaveUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cancel = useCancelMeeting();
+  const hasClient = Boolean(d.meeting.client_id);
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (reason.trim().length < 3) return setError("Informe o motivo do cancelamento.");
-    try { await cancel.mutateAsync({ id: d.meeting.id, version: d.meeting.version, reason }); onClose(); } catch (err) { setError(errorMessage(err)); }
+    if (!gaveUp && reason.trim().length < 3) return setError("Informe o motivo do cancelamento.");
+    try { await cancel.mutateAsync({ id: d.meeting.id, version: d.meeting.version, reason, kind: hasClient ? (gaveUp ? "cliente_desistiu" : "outro") : undefined }); onClose(); } catch (err) { setError(errorMessage(err)); }
   }
   return (
     <Modal title="Cancelar reunião" open onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Motivo">{(id) => <Textarea id={id} value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} placeholder="Ex.: Cliente remarcou" />}</Field>
+        {hasClient && (
+          <fieldset className="space-y-1.5 rounded-lg p-3 ring-1 ring-slate-200" data-testid="ops-cancel-kind">
+            <legend className="px-1 text-sm font-medium text-slate-700">Por que cancelar?</legend>
+            <label className="flex items-start gap-2 text-sm text-slate-700"><input type="radio" name="cancel-kind" className="mt-1" checked={!gaveUp} onChange={() => setGaveUp(false)} /> Outro motivo (remarcar, imprevisto…)</label>
+            <label className="flex items-start gap-2 text-sm text-slate-700"><input type="radio" name="cancel-kind" className="mt-1" checked={gaveUp} onChange={() => setGaveUp(true)} /> Cliente não fará mais onboarding</label>
+            {gaveUp && <p className="text-xs text-amber-700">Se esta for a reunião de onboarding do cliente, ele vai sozinho para <strong>Onboarding Cancelado</strong>.</p>}
+          </fieldset>
+        )}
+        <Field label={gaveUp ? "Observação (opcional)" : "Motivo"}>{(id) => <Textarea id={id} value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} placeholder={gaveUp ? "Ex.: Fechou com outra agência" : "Ex.: Cliente remarcou"} />}</Field>
         <p className="text-xs text-slate-500">A reunião continua no histórico, marcada como cancelada.</p>
         {error && <Alert tone="error">{error}</Alert>}
         <div className="flex justify-end gap-2">

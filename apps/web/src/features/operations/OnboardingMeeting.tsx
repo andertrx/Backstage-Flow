@@ -11,20 +11,25 @@ import { MeetingFormModal, meetingWhen } from "./Meetings.tsx";
 import { useMeetingCategories, useMeetingList } from "./meetingsApi.ts";
 import type { TasksContext } from "./tasksContext.tsx";
 
-/** Etapa 47.1: só nesta etapa o cliente precisa de uma reunião de onboarding "realizada" para avançar. */
+/** Etapa 47.2: Pendente → Agendado exige reunião agendada; Agendado → Realizado exige reunião realizada. */
 export const ONBOARDING_STAGE = "onboarding_pendente";
+export const ONBOARDING_SCHEDULED_STAGE = "coleta_acessos";
+export const isOnboardingStage = (id: string) => id === ONBOARDING_STAGE || id === ONBOARDING_SCHEDULED_STAGE;
 
-/** Selo do cartão: 🔴 sem reunião · 🟡 marcada (ou já passou e falta registrar) · 🟢 realizada. */
+/** Selo do cartão: 🔴 sem reunião · 🟡 marcada / falta registrar · 🟢 realizada. */
 export function MeetingSeal({ c }: { c: OpsBoardClient }) {
   const m = c.onboarding_meeting;
   const day = m ? new Date(m.starts_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" }) : "";
+  const none = !m || m.status === "cancelada";
   const [tone, text] = c.meeting_ok
-    ? ["bg-emerald-50 text-emerald-800 ring-emerald-200", `Reunião realizada #${m?.number}`]
-    : !m || m.status === "cancelada"
+    ? ["bg-emerald-50 text-emerald-800 ring-emerald-200", `Reunião realizada #${m?.number}: pode ir para Realizado`]
+    : none
       ? ["bg-red-50 text-red-700 ring-red-200", "Sem reunião: vincule ou crie"]
-      : new Date(m.starts_at).getTime() < Date.now()
-        ? ["bg-amber-50 text-amber-800 ring-amber-200", `Reunião #${m.number} (${day}) falta registrar`]
-        : ["bg-amber-50 text-amber-800 ring-amber-200", `Reunião marcada para ${day}`];
+      : c.stage_id === ONBOARDING_STAGE
+        ? ["bg-amber-50 text-amber-800 ring-amber-200", `Reunião marcada para ${day}: pode ir para Agendado`]
+        : new Date(m.starts_at).getTime() < Date.now()
+          ? ["bg-amber-50 text-amber-800 ring-amber-200", `Reunião #${m.number} (${day}) falta registrar como Realizada`]
+          : ["bg-amber-50 text-amber-800 ring-amber-200", `Aguardando a reunião de ${day}`];
   return <span data-testid="ops-client-meeting-seal" className={cn("inline-block rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset", tone)}>{text}</span>;
 }
 
@@ -72,7 +77,7 @@ export function OnboardingMeetingActions({ c, ctx }: { c: OpsBoardClient; ctx: T
   const categories = useMeetingCategories();
   const link = useLinkClientMeeting();
   const unlink = useUnlinkClientMeeting();
-  if (c.stage_id !== ONBOARDING_STAGE || !c.can_move || c.meeting_ok) return null;
+  if (!isOnboardingStage(c.stage_id) || !c.can_move || c.meeting_ok) return null;
   const canCreate = ctx.can("ops.meetings.manage");
   const has = Boolean(c.onboarding_meeting && c.onboarding_meeting.status !== "cancelada");
   return (

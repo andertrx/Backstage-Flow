@@ -17,7 +17,7 @@ import { DndBoard } from "./KanbanBoard.tsx";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { useMyOpsPermissions } from "./api.ts";
 import { RequireOps, tabAllowed } from "./OpsLayout.tsx";
-import { MeetingSeal, ONBOARDING_STAGE, OnboardingMeetingActions } from "./OnboardingMeeting.tsx";
+import { isOnboardingStage, MeetingSeal, OnboardingMeetingActions } from "./OnboardingMeeting.tsx";
 import { QueuesPage } from "./QueuesPage.tsx";
 import { type TaskView, ViewToggle } from "./TasksPage.tsx";
 import { TaskDetailHost, type TasksContext, useTasksContext } from "./tasksContext.tsx";
@@ -29,7 +29,7 @@ function ClientCard({ c, ctx, onOpen }: { c: OpsBoardClient; ctx: TasksContext; 
       <button type="button" onClick={onOpen} data-testid="ops-client-card" className="block w-full space-y-2 text-left focus-visible:outline-2 focus-visible:outline-blue-600">
         <p className="text-sm font-semibold text-slate-900">{c.name}</p>
         <p className="text-xs text-slate-500">AM: {c.am_name ?? "sem Account Manager"}</p>
-        {c.stage_id === ONBOARDING_STAGE && <MeetingSeal c={c} />}
+        {isOnboardingStage(c.stage_id) && <MeetingSeal c={c} />}
         <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{s.abertas} abertas</span>
           {s.atrasadas > 0 && <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">{s.atrasadas} atrasadas</span>}
@@ -66,7 +66,7 @@ function ClientTable({ clients, stages, onOpen }: { clients: OpsBoardClient[]; s
           {clients.map((c) => (
             <tr key={c.client_id} className="cursor-pointer hover:bg-blue-50/40" onClick={() => onOpen(c.client_id)} data-testid="ops-client-row">
               <td className="px-4 py-3 font-semibold text-slate-900">{c.name}</td>
-              <td className="px-4 py-3"><div className="space-y-1"><StagePill stage={stages?.find((s) => s.id === c.stage_id)} />{c.stage_id === ONBOARDING_STAGE && <div><MeetingSeal c={c} /></div>}</div></td>
+              <td className="px-4 py-3"><div className="space-y-1"><StagePill stage={stages?.find((s) => s.id === c.stage_id)} />{isOnboardingStage(c.stage_id) && <div><MeetingSeal c={c} /></div>}</div></td>
               <td className="px-4 py-3 text-slate-600">{c.am_name ?? "—"}</td>
               <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                 {c.summary.abertas} abertas{c.summary.atrasadas > 0 && <span className="font-semibold text-red-600"> · {c.summary.atrasadas} atrasadas</span>}

@@ -1,5 +1,5 @@
 /**
- * Teste de navegador da Etapa 47.1 — Onboarding Pendente exige uma reunião REALIZADA.
+ * Teste de navegador da Etapa 47.1 — Onboarding por etapas: Agendado exige reunião agendada, Realizado exige realizada, cancelar = Onboarding Cancelado.
  * Selo no cartão, "Vincular reunião" / "Criar reunião", bloqueio de avanço e liberação. Supabase SIMULADO.
  */
 import { check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
@@ -45,10 +45,10 @@ check((await aurora.getByTestId("ops-client-meeting-seal").innerText()).includes
 check(await aurora.getByRole("button", { name: "Vincular reunião" }).count() === 1 && await aurora.getByRole("button", { name: "Criar reunião" }).count() === 1, "botões Vincular e Criar reunião no cartão");
 await page.screenshot({ path: `${SHOTS}/47.1-onboarding-sem-reuniao.png`, fullPage: true });
 
-// 2) sem reunião não avança
+// 2) sem reunião não vai para Agendado
 await dragTo(page, aurora, col("coleta_acessos"));
-await page.getByText(/Vincule uma reunião de onboarding/).first().waitFor();
-check(db.opsClientOps[AURORA].stage_id === "onboarding_pendente", "sem reunião o cliente não avança (o cartão volta)");
+await page.getByText(/Vincule uma reunião de onboarding agendada/).first().waitFor();
+check(db.opsClientOps[AURORA].stage_id === "onboarding_pendente", "sem reunião o cliente não vai para Agendado (o cartão volta)");
 
 // 3) criar reunião: já abre com cliente, tipo e título; ao salvar, vincula sozinha
 await aurora.getByRole("button", { name: "Criar reunião" }).click();
@@ -60,49 +60,64 @@ await dialog.getByRole("button", { name: "Agendar reunião" }).click();
 await dialog.waitFor({ state: "detached" });
 await waitFor(page, () => db.opsClientOps[AURORA].onboarding_meeting_id, "reunião criada ficou vinculada");
 check(db.opsActivity.some((a) => a.action === "cliente.reuniao_vinculada" && a.client_id === AURORA), "vínculo no histórico do cliente");
-await aurora.getByText(/Reunião marcada para/).waitFor();
+await aurora.getByText(/pode ir para Agendado/).waitFor();
 check(true, "selo amarelo: reunião marcada");
 
-// 4) marcada ainda não libera
+// 4) com a reunião agendada vai para Agendado, mas não pula para Realizado
+await dragTo(page, aurora, col("briefing"));
+await page.getByText(/Marque a reunião de onboarding como "Realizada"/).first().waitFor();
+check(db.opsClientOps[AURORA].stage_id === "onboarding_pendente", "reunião só agendada não leva a Realizado");
 await dragTo(page, aurora, col("coleta_acessos"));
-await page.getByText(/marque-a como "Realizada"/).first().waitFor();
-check(db.opsClientOps[AURORA].stage_id === "onboarding_pendente", "reunião só marcada não libera");
+await waitFor(page, () => db.opsClientOps[AURORA].stage_id === "coleta_acessos", "foi para Agendado");
+const auroraAg = col("coleta_acessos").locator("[data-testid=ops-kanban-card]").filter({ hasText: "Loja Aurora" });
+await auroraAg.getByText(/Aguardando a reunião/).waitFor();
+await dragTo(page, auroraAg, col("briefing"));
+await page.getByText(/Marque a reunião de onboarding como "Realizada"/).first().waitFor();
+check(db.opsClientOps[AURORA].stage_id === "coleta_acessos", "em Agendado só avança com reunião realizada");
+await page.screenshot({ path: `${SHOTS}/47.2-onboarding-agendado.png`, fullPage: true });
 
-// 5) vincular uma reunião existente (Beta)
+// 5) vincular uma reunião existente (Beta); a lista não mostra reunião de outro cliente
 const betaCard = col("onboarding_pendente").locator("[data-testid=ops-kanban-card]").filter({ hasText: "Studio Beta" });
 await betaCard.getByRole("button", { name: "Vincular reunião" }).click();
 dialog = page.getByRole("dialog", { name: /Vincular reunião: Studio Beta/ });
-await dialog.getByLabel("Reunião").selectOption({ label: /Kickoff Beta/ }).catch(async () => {
-  const v = await dialog.getByLabel("Reunião").locator("option", { hasText: "Kickoff Beta" }).getAttribute("value");
-  await dialog.getByLabel("Reunião").selectOption(v);
-});
+const v = await dialog.getByLabel("Reunião").locator("option", { hasText: "Kickoff Beta" }).getAttribute("value");
+await dialog.getByLabel("Reunião").selectOption(v);
 await dialog.getByRole("button", { name: "Vincular" }).click();
 await dialog.waitFor({ state: "detached" });
 check(db.opsClientOps[BETA].onboarding_meeting_id === beta.id, "reunião existente vinculada ao cliente");
-// a mesma reunião não vai para outro cliente
-await aurora.getByRole("button", { name: "Trocar reunião" }).click();
-dialog = page.getByRole("dialog", { name: /Vincular reunião: Loja Aurora/ });
-check(await dialog.getByLabel("Reunião").locator("option", { hasText: "Kickoff Beta" }).count() === 0, "reunião de outro cliente não aparece na lista");
-await dialog.getByRole("button", { name: "Cancelar" }).click();
-
-// 6) desvincular volta ao selo vermelho
 await betaCard.getByRole("button", { name: "Desvincular" }).click();
 await betaCard.getByText("Sem reunião").waitFor();
 check(db.opsClientOps[BETA].onboarding_meeting_id === null, "desvincular tira a reunião");
+await betaCard.getByRole("button", { name: "Vincular reunião" }).click();
+dialog = page.getByRole("dialog", { name: /Vincular reunião: Studio Beta/ });
+await dialog.getByLabel("Reunião").selectOption(v);
+await dialog.getByRole("button", { name: "Vincular" }).click();
+await dialog.waitFor({ state: "detached" });
 
-// 7) reunião realizada libera: selo verde, botões somem e o cliente avança
+// 6) cancelar a reunião do Beta com "Cliente não fará mais onboarding": vai sozinho para Onboarding Cancelado
+await page.goto(`${new URL(page.url()).origin}/reunioes`);
+await page.getByTestId("ops-meeting-row").filter({ hasText: "Kickoff Beta" }).first().click();
+await page.getByTestId("ops-meeting-drawer").getByRole("button", { name: "Cancelar", exact: true }).click();
+dialog = page.getByRole("dialog", { name: "Cancelar reunião" });
+await dialog.getByLabel("Cliente não fará mais onboarding").check();
+await dialog.getByRole("button", { name: "Cancelar reunião" }).click();
+await dialog.waitFor({ state: "detached" });
+await waitFor(page, () => db.opsClientOps[BETA].stage_id === "configuracao_inicial", "Beta foi para Onboarding Cancelado");
+check(db.opsActivity.some((a) => a.client_id === BETA && a.action === "cliente.etapa" && a.origin === "sistema" && a.after.etapa === "configuracao_inicial"), "mudança para Cancelado registrada como Sistema");
+check(db.opsClientOps[AURORA].stage_id === "coleta_acessos", "o outro cliente não é afetado");
+
+// 7) reunião realizada libera Realizado
 const mine = db.opsMeetings.find((m) => m.id === db.opsClientOps[AURORA].onboarding_meeting_id);
 mine.status = "realizada";
-await page.reload();
-await col("onboarding_pendente").getByText("Loja Aurora").waitFor();
-const aurora2 = col("onboarding_pendente").locator("[data-testid=ops-kanban-card]").filter({ hasText: "Loja Aurora" });
-await aurora2.getByText(/Reunião realizada/).waitFor();
-check(await aurora2.getByRole("button", { name: "Vincular reunião" }).count() === 0, "com reunião realizada os botões somem");
-await page.screenshot({ path: `${SHOTS}/47.1-onboarding-reuniao-realizada.png`, fullPage: true });
-await dragTo(page, aurora2, col("coleta_acessos"));
-await waitFor(page, () => db.opsClientOps[AURORA].stage_id !== "onboarding_pendente", "cliente avançou");
-check(db.opsClientOps[AURORA].stage_id !== "onboarding_pendente", "com reunião realizada o cliente avança");
-check(db.opsClientOps[BETA].stage_id === "onboarding_pendente", "o outro cliente continua parado");
+await page.goto(`${new URL(page.url()).origin}/onboarding`);
+const aurora3 = col("coleta_acessos").locator("[data-testid=ops-kanban-card]").filter({ hasText: "Loja Aurora" });
+await aurora3.getByText(/Reunião realizada/).waitFor();
+check(await aurora3.getByRole("button", { name: "Vincular reunião" }).count() === 0, "com reunião realizada os botões somem");
+await col("configuracao_inicial").getByText("Studio Beta").waitFor();
+await page.screenshot({ path: `${SHOTS}/47.2-onboarding-realizado-cancelado.png`, fullPage: true });
+await dragTo(page, aurora3, col("briefing"));
+await waitFor(page, () => db.opsClientOps[AURORA].stage_id === "briefing", "cliente foi para Realizado");
+check(db.opsClientOps[AURORA].stage_id === "briefing", "com reunião realizada o cliente vai para Realizado");
 
 check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
 await browser.close();

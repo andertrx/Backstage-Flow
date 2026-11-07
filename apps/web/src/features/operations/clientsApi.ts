@@ -63,8 +63,9 @@ export interface OpsBoardClient {
   stage_pending: number;
   can_move: boolean;
   /** Etapa 47.1: reunião de onboarding vinculada (Onboarding Pendente só libera com ela "realizada"). */
-  onboarding_meeting: { id: string; number: number; title: string; status: "agendada" | "realizada" | "cancelada"; starts_at: string } | null;
+  onboarding_meeting: { id: string; number: number; title: string; status: "agendada" | "realizada" | "cancelada"; starts_at: string; cancel_kind: "outro" | "cliente_desistiu" | null } | null;
   meeting_ok: boolean;
+  meeting_scheduled: boolean;
   summary: OpsClientSummary;
 }
 

@@ -135,17 +135,47 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     const st = stageOf(t.client_stage_id);
     return t.client_id === cid && t.mandatory && !t.archived_at && st?.require_mandatory && st.position >= from && st.position < to && !closed(t);
   }).length;
+  const onbMeeting = (cid) => {
+    const m = db.opsMeetings.find((x) => x.id === db.opsClientOps[cid]?.onboarding_meeting_id);
+    return m ? { id: m.id, number: m.number, title: m.title, status: m.status, starts_at: m.starts_at, cancel_kind: m.cancel_kind ?? null } : null;
+  };
+  const onbMeetingOk = (cid) => onbMeeting(cid)?.status === "realizada";
+  const onbMeetingScheduled = (cid) => ["agendada", "realizada"].includes(onbMeeting(cid)?.status);
+  /** Etapa 47.2: mesma regra de private.ops_onboarding_gate_msg (só para quem avança). */
+  const onbGate = (cid, from, to) => {
+    if (to.position <= from.position) return null;
+    const m = onbMeeting(cid);
+    if (to.id === "configuracao_inicial") {
+      return m?.status === "cancelada" && m.cancel_kind === "cliente_desistiu" ? null
+        : 'Para cancelar o onboarding, cancele a reunião do cliente marcando "Cliente não fará mais onboarding".';
+    }
+    const pend = stageOf("onboarding_pendente");
+    const real = stageOf("briefing");
+    if (pend && from.position <= pend.position && to.position > pend.position && !onbMeetingScheduled(cid)) {
+      return "Vincule uma reunião de onboarding agendada a este cliente antes de avançar para Onboarding Agendado.";
+    }
+    if (real && from.position < real.position && to.position >= real.position && m?.status !== "realizada") {
+      return 'Marque a reunião de onboarding como "Realizada" antes de avançar para Onboarding Realizado.';
+    }
+    return null;
+  };
+  const onbMove = (cid, stageId, regra) => {
+    const o = db.opsClientOps[cid];
+    if (!o || o.stage_id === stageId) return;
+    logClient(cid, "cliente.etapa", { etapa: o.stage_id }, { etapa: stageId, regra }, "sistema");
+    Object.assign(o, { stage_id: stageId, stage_since: new Date().toISOString(), version: o.version + 1 });
+  };
   /** Avanço automático: só com a regra ligada, ao menos 1 obrigatória e todas concluídas. */
   const autoAdvance = (t) => {
     if (!t.mandatory || !t.client_id || !t.client_stage_id) return;
     const o = db.opsClientOps[t.client_id];
     const st = o && stageOf(o.stage_id);
     if (!o || o.stage_id !== t.client_stage_id || !st?.auto_advance) return;
-    if (o.stage_id === "onboarding_pendente" && db.opsMeetings.find((m) => m.id === o.onboarding_meeting_id)?.status !== "realizada") return;
     const inStage = db.opsTasks.filter((x) => x.client_id === t.client_id && x.client_stage_id === st.id && x.mandatory && !x.archived_at);
     if (!inStage.length || inStage.some((x) => !closed(x))) return;
     const next = db.opsClientStages.filter((x) => x.active && x.position > st.position).sort((a, b) => a.position - b.position)[0];
     if (!next) return;
+    if (onbGate(t.client_id, st, next)) return;
     Object.assign(o, { stage_id: next.id, stage_since: new Date().toISOString(), version: o.version + 1 });
     logClient(t.client_id, "cliente.etapa", { etapa: st.id }, { etapa: next.id, regra: `Avanço automático: todas as tarefas obrigatórias de "${st.name}" concluídas` }, "sistema");
   };
@@ -487,18 +517,13 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   }
 
   // --- 36.3: clientes no fluxo, demandas e registro manual
-  const onbMeeting = (cid) => {
-    const m = db.opsMeetings.find((x) => x.id === db.opsClientOps[cid]?.onboarding_meeting_id);
-    return m ? { id: m.id, number: m.number, title: m.title, status: m.status, starts_at: m.starts_at } : null;
-  };
-  const onbMeetingOk = (cid) => onbMeeting(cid)?.status === "realizada";
   const boardRow = (cid) => {
     const o = db.opsClientOps[cid];
     const c = db.clients.find((x) => x.id === cid);
     const st = stageOf(o.stage_id);
     return { client_id: cid, name: c?.name ?? "", client_status: c?.status ?? "ativo", stage_id: o.stage_id, stage_since: o.stage_since, version: o.version,
       am_user_id: o.am_user_id, am_name: name(o.am_user_id), stage_pending: pending(cid, st.position, st.position + 1), can_move: canMoveClient(cid),
-      onboarding_meeting: onbMeeting(cid), meeting_ok: onbMeetingOk(cid), summary: summary(cid) };
+      onboarding_meeting: onbMeeting(cid), meeting_ok: onbMeetingOk(cid), meeting_scheduled: onbMeetingScheduled(cid), summary: summary(cid) };
   };
   const clientConflict = () => res(409, { code: "40001", message: "Alguém alterou este cliente antes de você. Recarregue para ver a versão atual." });
   if (rpc("ops_client_board")) {
@@ -572,10 +597,8 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     if (to.id === o.stage_id) return res(200, o.version);
     const from = stageOf(o.stage_id);
     if (to.position > from.position) {
-      const onb = stageOf("onboarding_pendente");
-      if (onb && from.position <= onb.position && to.position > onb.position && !onbMeetingOk(p.p_client)) {
-        return bad('Vincule uma reunião de onboarding a este cliente e marque-a como "Realizada" antes de avançar.');
-      }
+      const gate = onbGate(p.p_client, from, to);
+      if (gate) return bad(gate);
       const n = pending(p.p_client, from.position, to.position);
       if (n > 0) return bad(`Há ${n} tarefa(s) obrigatória(s) aberta(s) nesta etapa. Conclua antes de avançar o cliente.`);
     }
@@ -603,7 +626,12 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     const o = db.opsClientOps[p.p_client];
     if (!o || !clientVisible(p.p_client)) return bad("Este cliente não está no fluxo operacional.");
     if (!canMoveClient(p.p_client)) return deny("Você não tem permissão para mudar a reunião deste cliente.");
-    if (o.onboarding_meeting_id) { logClient(p.p_client, "cliente.reuniao_desvinculada", { reuniao: o.onboarding_meeting_id }, null); o.onboarding_meeting_id = null; }
+    if (o.stage_id === "briefing" && o.onboarding_meeting_id) return bad("O onboarding deste cliente já foi realizado: a reunião não pode ser desvinculada.");
+    if (o.onboarding_meeting_id) {
+      logClient(p.p_client, "cliente.reuniao_desvinculada", { reuniao: o.onboarding_meeting_id }, null);
+      o.onboarding_meeting_id = null;
+      if (o.stage_id === "coleta_acessos") onbMove(p.p_client, "onboarding_pendente", "Voltou: a reunião de onboarding foi desvinculada");
+    }
     return res(204);
   }
   if (rpc("ops_demand_release")) {
@@ -964,15 +992,23 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       { ata: m.notes, presentes: m.people.filter((x) => x.attended).map((x) => name(x.user_id)).sort() });
     return res(204);
   }
-  if (rpc("ops_meeting_cancel")) {
+  if (rpc("ops_meeting_cancel") || rpc("ops_meeting_cancel_kind")) {
     const m = findMeeting(p.p_id);
+    const kind = p.p_kind ?? null;
+    if (kind && !["outro", "cliente_desistiu"].includes(kind)) return bad("Tipo de cancelamento inválido.");
+    if (kind === "cliente_desistiu" && (p.p_reason ?? "").trim().length < 3) p.p_reason = "Cliente não fará mais onboarding";
     if (!m) return bad("Reunião não encontrada.");
     if (!meetingCanEdit(m)) return deny('Só quem organiza (ou tem "Criar reuniões e Dailies") cancela a reunião.');
     if (m.status !== "agendada") return bad("Só reunião agendada pode ser cancelada.");
     if (m.version !== p.p_version) return meetingConflict();
     if ((p.p_reason ?? "").trim().length < 3) return bad("Informe o motivo do cancelamento.");
-    Object.assign(m, { status: "cancelada", cancel_reason: p.p_reason.trim(), version: m.version + 1 });
+    Object.assign(m, { status: "cancelada", cancel_reason: p.p_reason.trim(), cancel_kind: kind, version: m.version + 1 });
     logMeeting(m, "reuniao.cancelada", null, { motivo: m.cancel_reason });
+    for (const [cid, o] of Object.entries(db.opsClientOps)) {
+      if (o.onboarding_meeting_id !== m.id || !["onboarding_pendente", "coleta_acessos"].includes(o.stage_id)) continue;
+      if (kind === "cliente_desistiu") onbMove(cid, "configuracao_inicial", "Reunião cancelada: cliente não fará mais onboarding");
+      else if (o.stage_id === "coleta_acessos") onbMove(cid, "onboarding_pendente", "Voltou: a reunião de onboarding foi cancelada");
+    }
     return res(204);
   }
   if (rpc("ops_meeting_item_add")) {
