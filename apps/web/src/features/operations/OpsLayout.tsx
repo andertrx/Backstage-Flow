@@ -1,5 +1,5 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { ClipboardList, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
+import { ClipboardList, ListChecks, Lock, type LucideIcon, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, NavLink, Outlet, useLocation } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -24,7 +24,7 @@ export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission
   { to: "/operacoes/tarefas", label: "Tarefas", icon: ClipboardList, permission: "ops.access" },
   { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
   { to: "/operacoes/equipe", label: "Equipe", icon: Users, permission: "ops.access", admin: true },
-  { to: "/operacoes/configuracoes", label: "Configurações", icon: Settings, permission: "ops.admin", admin: true },
+  // 07/11/2026: as Configurações da Central saíram das abas e têm menu próprio (/config-central), abaixo de Reuniões.
 ];
 
 export const tabAllowed = (granted: readonly string[] | undefined, t: { permission: OpsPermission; anyOf?: OpsPermission[] }) =>

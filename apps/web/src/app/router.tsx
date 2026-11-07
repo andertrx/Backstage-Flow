@@ -215,7 +215,7 @@ export const router = createBrowserRouter([
           // 38.2: as Filas ficam dentro de Operação (links antigos continuam funcionando).
           { path: "filas", element: <Navigate to="/onboarding?ver=filas" replace /> },
           { path: "equipe", element: <OpsTeamPage /> },
-          { path: "configuracoes", element: <OpsSettingsPage /> },
+          { path: "configuracoes", element: <RedirectKeep to="/config-central" /> },
         ],
       },
       // 43.6: módulos separados da Central de Operações (mesmas telas e permissões).
@@ -232,6 +232,14 @@ export const router = createBrowserRouter([
         element: (
           <OpsStandalone title="Notificações" description="Preferências de aviso e aparelhos de cada pessoa. Separado da Central de Operações.">
             <OpsNotificationsRoute />
+          </OpsStandalone>
+        ),
+      },
+      {
+        path: "config-central",
+        element: (
+          <OpsStandalone title="Configurações da Central" description="Setores, status, etapas do onboarding, tarefas padrão, filas e tipos de reunião. Separado da Central de Operações.">
+            <OpsSettingsPage />
           </OpsStandalone>
         ),
       },

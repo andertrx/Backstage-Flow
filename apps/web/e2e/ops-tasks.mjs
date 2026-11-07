@@ -157,7 +157,7 @@ async function dragTo(page, card, column) {
   check((await maria.innerText()).includes("1 atrasadas"), "Equipe mostra abertas, em andamento e atrasadas por pessoa");
 
   // Configurações → Status
-  await page.getByRole("link", { name: "Configurações" }).last().click();
+  await page.getByRole("link", { name: "Configurações da Central" }).click();
   await page.getByTestId("ops-statuses").waitFor();
   check(await page.getByTestId("ops-status-row").count() === 8, "8 status iniciais");
   db.opsTasks[0].status_id = "em_revisao";
