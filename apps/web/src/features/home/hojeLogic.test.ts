@@ -22,7 +22,7 @@ describe("Hoje — Precisa de você agora (Etapa 43.2)", () => {
       reunioesHoje: 1, leadsAtrasados: 5, contasSaldoCritico: 1, contasComErroDeSync: 2,
     });
     expect(items.map((x) => x.id)).toEqual(["envio", "saldo", "monitor", "sync", "tarefas", "reunioes", "leads", "alertas"]);
-    expect(items[0]).toMatchObject({ tone: "danger", to: "/operacoes/envios", title: "Aprovar o envio de hoje até 08:00", detail: "ENV-001" });
+    expect(items[0]).toMatchObject({ tone: "danger", to: "/envios", title: "Aprovar o envio de hoje até 08:00", detail: "ENV-001" });
   });
   it("singular e plural", () => {
     const [um] = buildHojeItems({ ...nada, tarefasVencidas: 1 });

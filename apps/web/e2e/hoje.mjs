@@ -50,7 +50,7 @@ function seed(db) {
   await page.screenshot({ path: `${SHOTS}/hoje-desktop.png`, fullPage: true });
 
   await page.getByTestId("hoje-item-envio").click();
-  await page.waitForURL("**/operacoes/envios");
+  await page.waitForURL("**/envios");
   check(true, "clicar no envio abre a tela de Envios semanais");
 
   // Entrada do sistema continua sendo o Dashboard

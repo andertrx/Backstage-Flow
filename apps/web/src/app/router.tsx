@@ -26,6 +26,8 @@ const ResultsPage = lazy(() => import("@/features/results/ResultsPage.tsx").then
 const AdsBuilderPage = lazy(() => import("@/features/ads-builder/AdsBuilderPage.tsx").then((m) => ({ default: m.AdsBuilderPage })));
 const AlertsPage = lazy(() => import("@/features/alerts/AlertsPage.tsx").then((m) => ({ default: m.AlertsPage })));
 const OpsLayout = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsLayout })));
+const OpsStandalone = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsStandalone })));
+const RedirectKeep = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.RedirectKeep })));
 const OpsIndexRedirect = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsIndexRedirect })));
 const OpsTeamPage = lazy(() => import("@/features/operations/TeamPage.tsx").then((m) => ({ default: m.TeamPage })));
 const OpsTasksPage = lazy(() => import("@/features/operations/TasksPage.tsx").then((m) => ({ default: m.TasksPage })));
@@ -198,10 +200,10 @@ export const router = createBrowserRouter([
           { path: "painel", element: <OpsDashboardRoute /> },
           { path: "minhas-tarefas", element: <OpsMyTasksPage /> },
           { path: "tarefas", element: <OpsTasksPage /> },
-          { path: "comercial", element: <OpsCommercialRoute /> },
+          // 43.6: Comercial e Envios semanais têm menu próprio (/comercial e /envios); os endereços antigos continuam valendo.
+          { path: "comercial", element: <RedirectKeep to="/comercial" /> },
           { path: "reunioes", element: <OpsMeetingsRoute /> },
-          // Etapa 41: envios semanais para grupos de WhatsApp (o CRM só guarda; o agente envia pelo MCP).
-          { path: "envios", element: <OpsEnviosRoute /> },
+          { path: "envios", element: <RedirectKeep to="/envios" /> },
           { path: "notificacoes", element: <OpsNotificationsRoute /> },
           { path: "clientes", element: <OpsClientsRoute /> },
           // 38.2: as Filas ficam dentro de Operação (links antigos continuam funcionando).
@@ -209,6 +211,24 @@ export const router = createBrowserRouter([
           { path: "equipe", element: <OpsTeamPage /> },
           { path: "configuracoes", element: <OpsSettingsPage /> },
         ],
+      },
+      // 43.6: módulos separados da Central de Operações (mesmas telas e permissões).
+      {
+        path: "comercial",
+        element: (
+          <OpsStandalone title="Comercial" description="Leads e conversão em clientes. Separado da Central de Operações.">
+            <OpsCommercialRoute />
+          </OpsStandalone>
+        ),
+      },
+      {
+        // Etapa 41: envios semanais para grupos de WhatsApp (o CRM guarda a configuração; o envio é pelo WhatsApp conectado ou pelo agente via MCP).
+        path: "envios",
+        element: (
+          <OpsStandalone title="Envios semanais" description="Mensagens semanais para os grupos dos clientes, aprovação e histórico. Separado da Central de Operações.">
+            <OpsEnviosRoute />
+          </OpsStandalone>
+        ),
       },
       {
         // Tracking T3.1: contatos dos clientes (também é a única tela do papel Vendedor).

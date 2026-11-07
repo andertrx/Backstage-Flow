@@ -1,9 +1,10 @@
-import { can, opsCan, type Permission, PLATFORMS, type Role } from "@backstage/shared";
+import { can, opsCan, type OpsPermission, type Permission, PLATFORMS, type Role } from "@backstage/shared";
 import {
   Activity,
   Bell,
   Building2,
   ChartPie,
+  Handshake,
   FileBarChart,
   KanbanSquare,
   LayoutDashboard,
@@ -11,6 +12,7 @@ import {
   Radar,
   RefreshCw,
   ScrollText,
+  Send,
   Settings,
   Target,
   Wallet,
@@ -32,6 +34,8 @@ export interface NavItem {
   hiddenFor?: Role[];
   /** Central de Operações (Etapa 36): aparece para quem tem a permissão dela, conferida no banco. */
   ops?: boolean;
+  /** 43.6: módulo separado da Central (Comercial, Envios semanais): aparece para quem tem esta permissão da Central. */
+  opsPermission?: OpsPermission;
 }
 
 /** Menu lateral, na ordem pedida na Etapa 21. */
@@ -40,6 +44,9 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Clientes", path: "/clientes", icon: Building2, group: "Visão geral", permission: "clients.view" },
   { label: "Contas", path: "/contas", icon: Wallet, group: "Visão geral", permission: "internal.view" },
   { label: "Central de Operações", path: "/operacoes", icon: KanbanSquare, group: "Operações", ops: true },
+  // 43.6: Comercial e Envios semanais saíram de dentro da Central e têm menu próprio (as telas e as permissões são as mesmas).
+  { label: "Comercial", path: "/comercial", icon: Handshake, group: "Operações", opsPermission: "ops.commercial" },
+  { label: "Envios semanais", path: "/envios", icon: Send, group: "Operações", opsPermission: "ops.envios" },
   // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...), na ordem do catálogo.
   ...PLATFORMS.map((p): NavItem => ({ label: p.name, path: p.path, icon: platformLook(p.id).icon, group: "Anúncios", permission: "internal.view" })),
   { label: "Campanhas", path: "/campanhas", icon: Target, group: "Anúncios", permission: "internal.view" },
@@ -60,6 +67,7 @@ export function navItemsFor(role: Role | null | undefined, opsPermissions?: read
   return NAV_ITEMS.filter((item) => {
     if (role && item.hiddenFor?.includes(role)) return false;
     if (item.ops) return role === "admin" || (role !== "cliente" && role !== "vendedor" && opsCan(opsPermissions, "ops.access"));
+    if (item.opsPermission) return role === "admin" || (role !== "cliente" && role !== "vendedor" && opsCan(opsPermissions, item.opsPermission));
     return !item.permission || can(role, item.permission);
   });
 }
@@ -87,7 +95,7 @@ export function navItemForPath(pathname: string): NavItem | undefined {
  * `central`: o item da Central de Operações só aparece para quem tem a permissão dela (por pessoa), então fica à parte.
  */
 export function menuPorPapel(role: Role): { groups: { group: NavGroup; items: string[] }[]; central: "sempre" | "com_permissao" | "nunca" } {
-  const sem = navGroupsFor(role, []).map((g) => ({ group: g.group, items: g.items.filter((i) => !i.ops).map((i) => i.label) })).filter((g) => g.items.length > 0);
+  const sem = navGroupsFor(role, []).map((g) => ({ group: g.group, items: g.items.filter((i) => !i.ops && !i.opsPermission).map((i) => i.label) })).filter((g) => g.items.length > 0);
   const com = navItemsFor(role, ["ops.access"]).some((i) => i.ops);
   const sempre = navItemsFor(role, []).some((i) => i.ops);
   return { groups: sem, central: sempre ? "sempre" : com ? "com_permissao" : "nunca" };

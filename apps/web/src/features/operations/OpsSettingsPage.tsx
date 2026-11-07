@@ -17,7 +17,7 @@ export function OpsSettingsPage() {
       <div className="space-y-8">
         <Alert tone="info">
           As colunas do funil de vendas e os motivos de perda agora ficam em{" "}
-          <Link to="/operacoes/comercial?ver=config" className="font-medium underline">Comercial → Configurações do comercial</Link>.
+          <Link to="/comercial?ver=config" className="font-medium underline">Comercial → Configurações do comercial</Link>.
         </Alert>
         <SectorsSettingsPage />
         <StatusSettings />

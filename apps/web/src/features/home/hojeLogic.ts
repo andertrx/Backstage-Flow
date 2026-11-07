@@ -38,7 +38,7 @@ export function buildHojeItems(i: HojeInputs): HojeItem[] {
       id: "envio", tone: "danger", count: envios.length,
       title: envios.length === 1 ? `Aprovar o envio de hoje até ${first.horario}` : `Aprovar ${envios.length} envios de hoje`,
       detail: envios.length === 1 ? first.nome : envios.map((e) => `${e.nome} (${e.horario})`).join(" · "),
-      to: "/operacoes/envios", cta: "Revisar e aprovar",
+      to: "/envios", cta: "Revisar e aprovar",
     });
   }
   if (i.contasSaldoCritico) {
@@ -80,7 +80,7 @@ export function buildHojeItems(i: HojeInputs): HojeItem[] {
     out.push({
       id: "leads", tone: "info", count: i.leadsAtrasados,
       title: `${i.leadsAtrasados} ${plural(i.leadsAtrasados, "lead com retorno atrasado", "leads com retorno atrasado")}`,
-      detail: null, to: "/operacoes/comercial", cta: "Ver comercial",
+      detail: null, to: "/comercial", cta: "Ver comercial",
     });
   }
   if (i.alertasAntigosAbertos) {

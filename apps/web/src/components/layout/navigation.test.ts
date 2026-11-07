@@ -49,9 +49,9 @@ describe("menu lateral", () => {
 });
 
 describe("grupos do menu", () => {
-  it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36; Monitoramento antes de Alertas na Etapa 37; Inteligência de Resultados depois de Monitoramento na Etapa 39; Criador de Anúncios depois de Campanhas na Etapa 42)", () => {
+  it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36; Monitoramento antes de Alertas na Etapa 37; Inteligência de Resultados depois de Monitoramento na Etapa 39; Criador de Anúncios depois de Campanhas na Etapa 42; Comercial e Envios semanais depois da Central na 43.6)", () => {
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Central de Operações", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
+      "Dashboard", "Clientes", "Contas", "Central de Operações", "Comercial", "Envios semanais", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
       "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações",
     ]);
   });
@@ -108,5 +108,27 @@ describe("grupos recolhidos por padrão (43.3 A)", () => {
     expect(gruposRecolhidosPadrao("admin")).toEqual([]);
     expect(gruposRecolhidosPadrao("equipe")).toEqual([]);
     expect(gruposRecolhidosPadrao(null)).toEqual([]);
+  });
+});
+
+describe("Comercial e Envios semanais separados da Central (43.6)", () => {
+  it("aparecem logo depois da Central, só para quem tem a permissão de cada um", () => {
+    const l = (role: Parameters<typeof navItemsFor>[0], ops: string[]) => navItemsFor(role, ops).map((i) => i.label);
+    expect(l("gestor", ["ops.access"])).toContain("Central de Operações");
+    expect(l("gestor", ["ops.access"])).not.toContain("Comercial");
+    expect(l("gestor", ["ops.access", "ops.commercial"])).toContain("Comercial");
+    expect(l("gestor", ["ops.access", "ops.commercial"])).not.toContain("Envios semanais");
+    expect(l("equipe", ["ops.access", "ops.envios"])).toContain("Envios semanais");
+    expect(l("admin", [])).toEqual(expect.arrayContaining(["Central de Operações", "Comercial", "Envios semanais"]));
+    expect(l("cliente", ["ops.access", "ops.commercial"])).not.toContain("Comercial");
+    expect(l("vendedor", ["ops.access", "ops.commercial"])).not.toContain("Comercial");
+  });
+  it("sem a permissão da Central (ops.access) nenhum dos três aparece", () => {
+    expect(navItemsFor("equipe", ["ops.commercial", "ops.envios"]).map((i) => i.label)).toEqual([]);
+  });
+  it("o item do menu corresponde ao endereço novo", () => {
+    expect(navItemForPath("/comercial")?.label).toBe("Comercial");
+    expect(navItemForPath("/envios")?.label).toBe("Envios semanais");
+    expect(navItemForPath("/operacoes/tarefas")?.label).toBe("Central de Operações");
   });
 });

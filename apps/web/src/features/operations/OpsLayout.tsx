@@ -1,7 +1,7 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { Bell, Building2, CalendarDays, ClipboardList, Gauge, Handshake, ListChecks, Lock, type LucideIcon, Send, Settings, Users } from "lucide-react";
+import { Bell, Building2, CalendarDays, ClipboardList, Gauge, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
 import type { ReactNode } from "react";
-import { Navigate, NavLink, Outlet } from "react-router";
+import { Navigate, NavLink, Outlet, useLocation } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Card } from "@/components/ui/card.tsx";
@@ -22,12 +22,9 @@ export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission
   { to: "/operacoes/painel", label: "Painel", icon: Gauge, permission: "ops.dashboard.view" },
   { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
   { to: "/operacoes/tarefas", label: "Tarefas", icon: ClipboardList, permission: "ops.access" },
-  { to: "/operacoes/comercial", label: "Comercial", icon: Handshake, permission: "ops.commercial" },
   // 38.2: Operação = clientes (quem pode ver) + Filas dos setores (todos da Central).
   { to: "/operacoes/clientes", label: "Operação", icon: Building2, permission: "ops.access" },
   { to: "/operacoes/reunioes", label: "Reuniões", icon: CalendarDays, permission: "ops.access" },
-  // Etapa 41: só quem tem "Envios semanais" (e o admin).
-  { to: "/operacoes/envios", label: "Envios semanais", icon: Send, permission: "ops.envios" },
   // 07/11/2026: as preferências e o "Ativar neste aparelho" (aviso no computador e no celular) ficavam só atrás do sininho; agora têm aba própria.
   { to: "/operacoes/notificacoes", label: "Notificações", icon: Bell, permission: "ops.access" },
   { to: "/operacoes/equipe", label: "Equipe", icon: Users, permission: "ops.access", admin: true },
@@ -104,4 +101,26 @@ export function OpsLayout() {
       </div>
     </RequireOps>
   );
+}
+
+/**
+ * 43.6: módulos que saíram da Central (Comercial e Envios semanais) têm menu e endereço próprios,
+ * mas continuam sendo parte da operação interna: mesma permissão, mesmas telas e mesmos dados.
+ */
+export function OpsStandalone({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+  return (
+    <RequireOps permission="ops.access">
+      <div className="space-y-6" data-testid="ops-standalone">
+        {/* Título da página para leitores de tela e para o navegador; o cabeçalho visual é o do próprio módulo (sem repetir). */}
+        <h1 className="sr-only">{title}. {description}</h1>
+        {children}
+      </div>
+    </RequireOps>
+  );
+}
+
+/** Endereços antigos (/operacoes/comercial, /operacoes/envios) levam ao novo, mantendo ?filtros e #âncora: avisos, e-mails, histórico e o Claude (MCP) continuam funcionando. */
+export function RedirectKeep({ to }: { to: string }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={`${to}${search}${hash}`} replace />;
 }

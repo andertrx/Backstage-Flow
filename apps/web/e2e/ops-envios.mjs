@@ -18,8 +18,10 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   db.clients.push(client(LOJA_A, "Loja Aurora"), client(LOJA_B, "Loja Brisa"));
   await login(page, "/operacoes/envios");
   await page.getByTestId("envios-empty").waitFor();
-  const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(tabs.includes("Envios semanais"), "aba Envios semanais na Central (admin)");
+  // 43.6: o endereço antigo leva ao novo, e Envios semanais tem menu próprio (fora das abas da Central)
+  check(new URL(page.url()).pathname === "/envios", "o endereço antigo /operacoes/envios leva a /envios");
+  check(await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Envios semanais" }).count() === 1, "Envios semanais tem item próprio no menu (admin)");
+  check(await page.getByRole("navigation", { name: "Central de Operações" }).count() === 0, "Envios semanais não fica mais dentro da Central");
 
   // 41.4: o grupo e os @ ficam em "Grupos e @ dos clientes" (o envio só liga/desliga cada cliente)
   await page.getByRole("button", { name: "Grupos e @ dos clientes" }).click();
@@ -137,8 +139,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   db.opsMembers[USER_ID] = { primary: sectorId(db, "Design"), secondary: [], job_title: "Designer", active: true, joins_meetings: true, permissions: ["ops.access"] };
   await login(page, "/operacoes/envios");
   await page.waitForURL("**/operacoes/minhas-tarefas");
-  const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(!tabs.includes("Envios semanais"), "sem a permissão: sem a aba e sem entrar pela URL");
+  check(await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Envios semanais" }).count() === 0, "sem a permissão: sem o item no menu e sem entrar pela URL");
   check(errors.length === 0, `sem erros (equipe) ${errors.join(" | ")}`);
   await browser.close();
 }

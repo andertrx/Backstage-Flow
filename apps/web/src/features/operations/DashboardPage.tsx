@@ -211,7 +211,7 @@ function DashboardBody({ d, f, onOpen }: { d: OpsDashboard; f: OpsDashboardFilte
         {d.leads_overdue !== null && (
           <Section title="Comercial" icon={Handshake} testId="ops-dash-leads">
             <p className="text-sm text-slate-700"><b className={cn("tabular-nums", d.leads_overdue > 0 && "text-red-600")}>{fmt(d.leads_overdue)}</b> {d.leads_overdue === 1 ? "lead com a próxima ação atrasada" : "leads com a próxima ação atrasada"}</p>
-            <Link to="/operacoes/comercial" className="inline-block text-sm font-semibold text-blue-700 hover:underline">Abrir comercial</Link>
+            <Link to="/comercial" className="inline-block text-sm font-semibold text-blue-700 hover:underline">Abrir comercial</Link>
           </Section>
         )}
       </div>

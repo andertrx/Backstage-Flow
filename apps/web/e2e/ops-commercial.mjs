@@ -46,8 +46,11 @@ async function newLead(page, fields) {
   db.opsMembers[MARIA] = { primary: sectorId(db, "Account Manager"), secondary: [], job_title: "AM", active: true, joins_meetings: true, permissions: ["ops.access"] };
   await login(page, "/operacoes/comercial");
   await page.getByTestId("ops-commercial-empty").waitFor();
-  const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Operação", "Reuniões", "Envios semanais", "Notificações", "Equipe", "Configurações"]), `abas (${tabs.join(", ")})`);
+  // 43.6: o endereço antigo leva ao novo, e o Comercial tem menu próprio (fora das abas da Central)
+  check(new URL(page.url()).pathname === "/comercial", "o endereço antigo /operacoes/comercial leva a /comercial");
+  const menu = page.getByRole("navigation", { name: "Menu principal" }).first();
+  check(await menu.getByRole("link", { name: "Comercial" }).count() === 1, "Comercial tem item próprio no menu");
+  check(await page.getByRole("navigation", { name: "Central de Operações" }).count() === 0, "o Comercial não fica mais dentro da Central");
 
   // Cadastro com valores em moedas diferentes
   await newLead(page, { "Nome da empresa": "Padaria Sol", "Nome do contato": "Ana", Telefone: "(45) 99999-8888", "E-mail": "ana@sol.com",
@@ -223,8 +226,7 @@ async function newLead(page, fields) {
   await login(page, "/operacoes/comercial");
   await page.waitForURL("**/operacoes/minhas-tarefas");
   await page.getByTestId("ops-my-tasks").waitFor();
-  const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(!tabs.includes("Comercial"), `sem a aba Comercial (${tabs.join(", ")})`);
+  check(await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Comercial" }).count() === 0, "sem a permissão: sem o item Comercial no menu");
   check(errors.length === 0, `sem erros (designer) ${errors.join(" | ")}`);
   await browser.close();
 }

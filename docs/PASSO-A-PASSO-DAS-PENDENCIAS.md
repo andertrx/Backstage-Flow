@@ -67,7 +67,7 @@ No `.env` preencha: `DOMAIN` (whats.backstageflow.com.br), `POSTGRES_PASSWORD` e
 ---
 
 ## BLOCO 5 — Depois que o WhatsApp conectar
-1. **Ligar cada grupo ao cliente:** Central → **Envios → Grupos e @ dos clientes → Buscar e ligar grupos**. O sistema sugere pelo nome; confira e salve.
+1. **Ligar cada grupo ao cliente:** Menu **Envios semanais** → **Grupos e @ dos clientes → Buscar e ligar grupos**. O sistema sugere pelo nome; confira e salve.
 2. **Criar o grupo só seu** no WhatsApp (ex.: "Avisos Backstage"; pode ser só você + o próprio chip).
 3. **Avisos:** Configurações → Integrações → Comunicação → **Avisos no WhatsApp** → Buscar grupos → escolha o seu grupo → marque os avisos (inclui "Cliente sem gastar") → escolha o silêncio → **Ligar** → **Salvar**.
 4. **Primeiro teste real (sem risco para cliente):** num envio qualquer, **Enviar agora** só para **um grupo de teste seu**. Me diga se a mensagem chegou e como ficou.
