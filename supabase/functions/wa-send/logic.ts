@@ -8,6 +8,20 @@ export interface Disparo {
   tentativa: number;
 }
 
+export interface Aviso {
+  ids: number[];
+  grupo_id: string;
+  mensagem: string;
+}
+
+/** Lote de avisos para o grupo do administrador: só grupo (@g.us), ids numéricos e texto de tamanho razoável. */
+export function avisoValido(a: unknown): a is Aviso {
+  const o = a as Record<string, unknown> | null;
+  return !!o && Array.isArray(o.ids) && o.ids.length > 0 && o.ids.length <= 10 && o.ids.every((x) => typeof x === "number") &&
+    typeof o.grupo_id === "string" && /^[0-9A-Za-z._-]{5,60}@g\.us$/.test(o.grupo_id) &&
+    typeof o.mensagem === "string" && o.mensagem.trim().length > 0 && o.mensagem.length <= 4000;
+}
+
 export interface Resultado {
   ok: boolean;
   retry: boolean;
@@ -39,7 +53,7 @@ export function classificar(status: number | "sem_conexao"): Resultado {
   return { ok: false, retry: false, detalhe: `Resposta inesperada do servidor (código ${status}).`, acesso: false };
 }
 
-export async function enviarTexto(cfg: GatewayCfg, d: Disparo, delay: number, fetchImpl?: typeof fetch): Promise<Resultado> {
+export async function enviarTexto(cfg: GatewayCfg, d: { grupo_id: string; mensagem: string }, delay: number, fetchImpl?: typeof fetch): Promise<Resultado> {
   try {
     const r = await callGateway(cfg, "POST", "/message/sendText/{instance}", {
       body: { number: d.grupo_id, text: d.mensagem, delay, linkPreview: false },

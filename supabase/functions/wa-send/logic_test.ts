@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { classificar, disparoValido, enviarTexto, pausaAleatoria } from "./logic.ts";
+import { avisoValido, classificar, disparoValido, enviarTexto, pausaAleatoria } from "./logic.ts";
 
 const cfg = { baseUrl: "https://whats.exemplo.com.br", instance: "backstage", key: "CHAVE-SECRETA-123456" };
 const d = { id: 7, grupo_id: "120363000000000001@g.us", mensagem: "Bom dia!", tentativa: 1 };
@@ -43,4 +43,15 @@ Deno.test("falha de rede vira nova tentativa; endereço inseguro vira falha", as
   assert((await enviarTexto(cfg, d, 1500, f)).retry);
   const r = await enviarTexto({ ...cfg, baseUrl: "http://127.0.0.1" }, d, 1500, f);
   assert(!r.ok && !r.retry);
+});
+
+Deno.test("lote de avisos: só grupo, até 10 ids e texto válido", () => {
+  const a = { ids: [1, 2], grupo_id: "120363000000000077@g.us", mensagem: "⚠️ Loja: sem saldo" };
+  assert(avisoValido(a));
+  assert(!avisoValido({ ...a, ids: [] }));
+  assert(!avisoValido({ ...a, ids: Array.from({ length: 11 }, (_, i) => i) }));
+  assert(!avisoValido({ ...a, ids: ["1"] }));
+  assert(!avisoValido({ ...a, grupo_id: "5511999990000@s.whatsapp.net" }));
+  assert(!avisoValido({ ...a, mensagem: " " }));
+  assert(!avisoValido(null));
 });

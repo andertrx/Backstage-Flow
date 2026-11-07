@@ -116,6 +116,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [44.1 — conexão do WhatsApp não oficial (QR Code/código, trava geral)](docs/etapa-43-organizacao/44.1-CONEXAO-WHATSAPP-NAO-OFICIAL.md) ✅ 06/11 (nada é enviado ainda)
   - [44.2 — ligar o grupo do WhatsApp de cada cliente (nada é enviado)](docs/etapa-43-organizacao/44.2-LIGAR-GRUPOS-DO-WHATSAPP.md) ✅ 07/11
   - [44.3 — disparos pelo WhatsApp conectado, sem marcar @ (enviar sozinho e enviar agora)](docs/etapa-43-organizacao/44.3-DISPAROS-PELO-WHATSAPP.md) ✅ 07/11 (testado só com servidor simulado)
+  - [45.1 — avisos no WhatsApp (motor: fila, agrupamento, silêncio; sem tela ainda)](docs/etapa-43-organizacao/45.1-AVISOS-NO-WHATSAPP.md) ✅ 07/11 (testado só no banco; sem envio real)
   - [44.1 — passo a passo do servidor do WhatsApp (arquivos prontos em `infra/whatsapp-evolution/`)](docs/etapa-43-organizacao/44.1-SERVIDOR-PASSO-A-PASSO.md) 📝 07/11
   - [45.0 — plano: disparos e avisos pelo WhatsApp + divisão empresa × cliente (só plano)](docs/etapa-43-organizacao/45.0-PLANO-DISPAROS-E-AVISOS-NO-WHATSAPP.md) 📝 07/11
 - [Etapa 42 — Criador de Anúncios (monta o pedido em texto para o Claude criar anúncios no Meta; modelos e histórico; 42.1: cliente → BM → conta → campanha → conjunto nas listas do CRM)](docs/etapa-42-criador-de-anuncios/42-CRIADOR-DE-ANUNCIOS.md) ✅ 28/10
