@@ -99,6 +99,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     return prof.role === "admin" || (db.opsMembers[id]?.active && db.opsMembers[id].permissions.includes("ops.access"));
   };
   const visibleFor = (t, uid, r) => {
+    if (t.deleted_at) return false; // 51.3: tarefa excluída não aparece em nenhuma tela
     if (r === "admin") return true;
     const m = db.opsMembers[uid];
     if (!m?.active || !m.permissions.includes("ops.access")) return false;
@@ -302,6 +303,12 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       overdue: Boolean(t.due_date && t.due_date < today() && !closed(t)) };
   };
   const find = (id) => { const t = db.opsTasks.find((x) => x.id === id); return t && visible(t) ? t : null; };
+  // --- 51.3: arquivar/excluir (mesmas regras de private.ops_can_archive_task / ops_can_delete_task / *_lead)
+  const canArchiveTask = (t) => Boolean(t && visible(t)) && (role === "admin" || can("ops.tasks.archive") || t.created_by === userId
+    || t.people.some((x) => x.user_id === userId && ["principal", "adicional"].includes(x.role)));
+  const canDeleteTask = (t) => Boolean(t && visible(t)) && (role === "admin" || t.created_by === userId);
+  const canArchiveLead = (l) => Boolean(l) && !l.deleted_at && can("ops.commercial") && (role === "admin" || l.created_by === userId || l.owner_id === userId);
+  const canDeleteLead = (l) => Boolean(l) && !l.deleted_at && !l.client_id && can("ops.commercial") && (role === "admin" || l.created_by === userId);
   const rpc = (fn) => url.includes(`/rest/v1/rpc/${fn}`) && !url.includes(`/rest/v1/rpc/${fn}_`);
 
   // --- Arquivos (bucket privado ops-files: pasta = id da tarefa visível)
@@ -335,7 +342,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   }
   const prefixes = ["ops_task", "ops_comment", "ops_attachment", "ops_directory", "ops_team_counts", "ops_status", "ops_client", "ops_demand",
     "ops_queue", "ops_activity_type", "ops_lead", "ops_loss_reason", "ops_meeting", "ops_notification", "ops_recurrence",
-    "ops_saved_view", "ops_my_summary", "ops_dashboard", "ops_search", "ops_onboarding_template"];
+    "ops_saved_view", "ops_my_summary", "ops_dashboard", "ops_search", "ops_onboarding_template", "ops_archive_list"];
   if (!prefixes.some((x) => url.includes(`/rest/v1/rpc/${x}`))) return null;
   const p = parse();
   db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
@@ -385,7 +392,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       attachments: db.opsAttachments.filter((a) => a.task_id === t.id && !a.removed_at).map((a) => ({ ...a, uploader: name(a.uploaded_by) })),
       activity: db.opsActivity.filter((a) => a.task_id === t.id).reverse().map((a) => ({ ...a, actor: name(a.actor_id) })),
       can: { edit: can("ops.tasks.edit"), move: can("ops.cards.move") || can("ops.tasks.edit"), assign: can("ops.tasks.assign"),
-        archive: can("ops.tasks.archive"), sector: can("ops.tasks.sector"), admin: role === "admin" },
+        archive: canArchiveTask(t), sector: can("ops.tasks.sector"), admin: role === "admin", delete: canDeleteTask(t) },
     });
   }
   if (rpc("ops_directory")) {
@@ -504,13 +511,61 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   if (rpc("ops_task_archive")) {
     const t = find(p.p_id);
     if (!t) return bad("Tarefa não encontrada.");
-    if (!can("ops.tasks.archive")) return deny();
+    if (!canArchiveTask(t)) return deny("Você só pode arquivar tarefas que criou ou que estão com você.");
     if (Boolean(t.archived_at) === Boolean(p.p_archived)) return res(204);
     t.archived_at = p.p_archived ? new Date().toISOString() : null;
+    t.archived_by = p.p_archived ? userId : null;
     t.version++;
     log(t, p.p_archived ? "tarefa.arquivada" : "tarefa.desarquivada", null, null);
     autoAdvance(t);
     return res(204);
+  }
+  if (rpc("ops_task_delete")) {
+    const t = find(p.p_id);
+    if (!t) return bad("Tarefa não encontrada.");
+    if (!canDeleteTask(t)) return deny("Só quem criou a tarefa (ou um administrador) pode excluí-la. Você pode arquivar.");
+    const now = new Date().toISOString();
+    Object.assign(t, { deleted_at: now, deleted_by: userId, archived_at: t.archived_at ?? now, archived_by: t.archived_by ?? userId, version: t.version + 1 });
+    log(t, "tarefa.excluida", null, null);
+    return res(204);
+  }
+  if (rpc("ops_task_restore")) {
+    if (role !== "admin") return deny("Só o administrador restaura tarefas excluídas.");
+    const t = db.opsTasks.find((x) => x.id === p.p_id && x.deleted_at);
+    if (!t) return bad("Tarefa excluída não encontrada.");
+    Object.assign(t, { deleted_at: null, deleted_by: null, version: t.version + 1 });
+    log(t, "tarefa.restaurada", null, null);
+    return res(204);
+  }
+  if (rpc("ops_archive_list")) {
+    const kind = p.p_kind;
+    const st = p.p_state;
+    const by = (id) => name(id);
+    const desc = (a, b) => String(b.at).localeCompare(String(a.at));
+    if (kind === "tarefas" && opsPerms.includes("ops.access")) {
+      const rows = st === "excluidos"
+        ? db.opsTasks.filter((t) => t.deleted_at && (role === "admin" || t.created_by === userId || t.deleted_by === userId))
+          .map((t) => ({ id: t.id, number: t.number, title: t.title, client_name: db.clients.find((c) => c.id === t.client_id)?.name ?? null,
+            sector_name: db.opsSectors.find((x) => x.id === t.sector_id)?.name ?? null, at: t.deleted_at, by_name: by(t.deleted_by), created_by_name: by(t.created_by),
+            can_restore: role === "admin" }))
+        : db.opsTasks.filter((t) => t.archived_at && !t.deleted_at && visible(t))
+          .map((t) => ({ id: t.id, number: t.number, title: t.title, client_name: db.clients.find((c) => c.id === t.client_id)?.name ?? null,
+            sector_name: db.opsSectors.find((x) => x.id === t.sector_id)?.name ?? null, at: t.archived_at, by_name: by(t.archived_by), created_by_name: by(t.created_by),
+            can_unarchive: canArchiveTask(t), can_delete: canDeleteTask(t) }));
+      return res(200, rows.sort(desc));
+    }
+    if (kind === "leads" && can("ops.commercial")) {
+      const stage = (l) => db.opsLeadStages.find((x) => x.id === l.stage_id)?.name ?? null;
+      const rows = st === "excluidos"
+        ? db.opsLeads.filter((l) => l.deleted_at && (role === "admin" || l.created_by === userId || l.deleted_by === userId))
+          .map((l) => ({ id: l.id, number: l.number, title: l.company_name, stage_name: stage(l), owner_name: by(l.owner_id), at: l.deleted_at,
+            by_name: by(l.deleted_by), created_by_name: by(l.created_by), can_restore: role === "admin" }))
+        : db.opsLeads.filter((l) => l.archived_at && !l.deleted_at)
+          .map((l) => ({ id: l.id, number: l.number, title: l.company_name, stage_name: stage(l), owner_name: by(l.owner_id), at: l.archived_at,
+            by_name: by(l.archived_by), created_by_name: by(l.created_by), can_unarchive: canArchiveLead(l), can_delete: canDeleteLead(l) }));
+      return res(200, rows.sort(desc));
+    }
+    return res(200, null);
   }
   if (rpc("ops_task_dependency")) {
     const t = find(p.p_id);
@@ -973,12 +1028,32 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     return res(200, db.opsLeadEvents.length);
   }
   if (rpc("ops_lead_archive")) {
-    const l = db.opsLeads.find((x) => x.id === p.p_id);
+    const l = db.opsLeads.find((x) => x.id === p.p_id && !x.deleted_at);
     if (!l) return bad("Lead não encontrado.");
+    if (!canArchiveLead(l)) return deny("Você só pode arquivar leads que criou ou que estão com você (responsável).");
     if (Boolean(l.archived_at) === Boolean(p.p_archived)) return res(204);
     l.archived_at = p.p_archived ? new Date().toISOString() : null;
+    l.archived_by = p.p_archived ? userId : null;
     l.version++;
     leadLog(l, p.p_archived ? "lead.arquivado" : "lead.desarquivado", null, null);
+    return res(204);
+  }
+  if (rpc("ops_lead_delete")) {
+    const l = db.opsLeads.find((x) => x.id === p.p_id && !x.deleted_at);
+    if (!l) return bad("Lead não encontrado.");
+    if (l.client_id) return bad("Este lead já virou cliente: não pode ser excluído. Você pode arquivar.");
+    if (!canDeleteLead(l)) return deny("Só quem criou o lead (ou um administrador) pode excluí-lo. Você pode arquivar.");
+    const now = new Date().toISOString();
+    Object.assign(l, { deleted_at: now, deleted_by: userId, archived_at: l.archived_at ?? now, archived_by: l.archived_by ?? userId, version: l.version + 1 });
+    leadLog(l, "lead.excluido", null, null);
+    return res(204);
+  }
+  if (rpc("ops_lead_restore")) {
+    if (role !== "admin") return deny("Só o administrador restaura leads excluídos.");
+    const l = db.opsLeads.find((x) => x.id === p.p_id && x.deleted_at);
+    if (!l) return bad("Lead excluído não encontrado.");
+    Object.assign(l, { deleted_at: null, deleted_by: null, version: l.version + 1 });
+    leadLog(l, "lead.restaurado", null, null);
     return res(204);
   }
   if (rpc("ops_lead_convert")) {
@@ -1022,7 +1097,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   if (rpc("ops_lead_board")) {
     const f = p.f ?? {};
     const q = norm(f.q);
-    const leads = db.opsLeads.filter((l) => (f.archived ? l.archived_at : !l.archived_at)
+    const leads = db.opsLeads.filter((l) => !l.deleted_at && (f.archived ? l.archived_at : !l.archived_at)
       && (!q || norm(l.company_name).includes(q) || norm(l.contact_name).includes(q) || norm(l.segment).includes(q) || String(l.number) === String(f.q).replace("#", ""))
       && (!f.owner_id || (f.owner_id === "nenhum" ? !l.owner_id : l.owner_id === f.owner_id))
       && (!f.origin || l.origin === f.origin) && (!f.priority || l.priority === f.priority) && (!f.overdue || overdueLead(l)))
@@ -1032,7 +1107,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       can: { create_client: ["admin", "gestor"].includes(role), onboarding: canManageClients() } });
   }
   if (rpc("ops_lead_get")) {
-    const l = db.opsLeads.find((x) => x.id === p.p_id);
+    const l = db.opsLeads.find((x) => x.id === p.p_id && !x.deleted_at);
     if (!l) return res(200, null);
     const st = leadStage(l.stage_id);
     return res(200, {
@@ -1040,7 +1115,8 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
         loss_reason: db.opsLossReasons.find((r) => r.id === l.loss_reason_id)?.name ?? null, client_name: db.clients.find((c) => c.id === l.client_id)?.name ?? null,
         converted_by_name: name(l.converted_by), created_by_name: name(l.created_by), overdue: overdueLead(l) },
       events: db.opsLeadEvents.filter((e) => e.lead_id === l.id).slice().reverse().map((e) => ({ ...e, actor: name(e.actor_id) })),
-      can: { create_client: ["admin", "gestor"].includes(role), onboarding: canManageClients(), client_ops: Boolean(l.client_id && clientVisible(l.client_id)) },
+      can: { create_client: ["admin", "gestor"].includes(role), onboarding: canManageClients(), client_ops: Boolean(l.client_id && clientVisible(l.client_id)),
+        archive: canArchiveLead(l), delete: canDeleteLead(l) },
     });
   }
 

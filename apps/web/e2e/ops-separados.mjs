@@ -12,7 +12,7 @@ check(labels[i + 1] === "Comercial" && labels[i + 2] === "Onboarding" && labels[
 await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link", { name: "Tarefas", exact: true }).waitFor();
 const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
 check(!tabs.includes("Comercial") && !tabs.includes("Envios semanais") && !tabs.includes("Reuniões") && !tabs.includes("Onboarding"), `a Central não tem mais as abas Comercial, Envios, Reuniões e Onboarding (${tabs.join(", ")})`);
-check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas"]), "abas da Central: Tarefas e Minhas tarefas; Painel, Notificações, Configurações (com a Equipe) têm menu próprio");
+check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Arquivados e excluídos"]), "abas da Central: Tarefas, Minhas tarefas e Arquivados e excluídos (51.3); Painel, Notificações, Configurações (com a Equipe) têm menu próprio");
 await page.screenshot({ path: `${SHOTS}/ops-separados-menu.png` });
 
 await menu.getByRole("link", { name: "Comercial" }).click();

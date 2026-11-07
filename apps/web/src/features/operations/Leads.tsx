@@ -15,9 +15,10 @@ import { errorMessage } from "@/lib/errors.ts";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format.ts";
 import { useDebouncedValue } from "@/lib/useDebouncedValue.ts";
 import {
-  type OpsLeadDetail, type OpsLeadEvent, type OpsLeadInput, type OpsLeadStage, type OpsLossReason, parseMoneyInput, useAddLeadNote, useArchiveLead,
+  type OpsLeadDetail, type OpsLeadEvent, type OpsLeadInput, type OpsLeadStage, type OpsLossReason, parseMoneyInput, useAddLeadNote, useArchiveLead, useDeleteLead,
   useConvertLead, useLead, useLeadDuplicates, useLeadStages, useLossReasons, useMoveLead, useSaveLead,
 } from "./commercialApi.ts";
+import { DeleteCardButton } from "./DeleteCardButton.tsx";
 import type { TasksContext } from "./tasksContext.tsx";
 
 const EMPTY: OpsLeadInput = {
@@ -288,6 +289,7 @@ export function LeadDrawer({ id, ctx, onClose, focusRelease }: { id: string; ctx
   const reasons = useLossReasons();
   const move = useMoveLead();
   const archive = useArchiveLead();
+  const del = useDeleteLead();
   const note = useAddLeadNote();
   const [editing, setEditing] = useState(false);
   const [losing, setLosing] = useState<string | null>(null);
@@ -338,11 +340,12 @@ export function LeadDrawer({ id, ctx, onClose, focusRelease }: { id: string; ctx
             <h2 className="break-words text-lg font-bold text-slate-900">{l?.company_name ?? "Carregando…"}</h2>
           </div>
           {l && !l.archived_at && <Button variant="secondary" className="px-2.5 py-1.5 text-xs" onClick={() => setEditing(true)}><Pencil className="size-3.5" aria-hidden /> Editar</Button>}
-          {l && (
+          {l && d.can.archive !== false && (
             <Button variant="secondary" className="px-2.5 py-1.5 text-xs" loading={archive.isPending} onClick={toggleArchive}>
               {l.archived_at ? <><ArchiveRestore className="size-3.5" aria-hidden /> Desarquivar</> : <><Archive className="size-3.5" aria-hidden /> Arquivar</>}
             </Button>
           )}
+          {l && d.can.delete && <DeleteCardButton what="lead" label={`Lead #${l.number} ${l.company_name}`} onDelete={() => del.mutateAsync(l.id)} onDone={onClose} />}
           <button type="button" onClick={onClose} className="rounded-md p-1 text-slate-500 hover:bg-slate-100" aria-label="Fechar lead"><X className="size-5" /></button>
         </header>
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">

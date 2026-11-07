@@ -12,10 +12,11 @@ import type { OpsSector } from "./api.ts";
 import { ACTION_LABELS, activityText } from "./activity.ts";
 import { RecurrencePanel } from "./Recurrence.tsx";
 import { Avatar, DueLabel, PriorityBadge, StatusPill } from "./TaskBits.tsx";
+import { DeleteCardButton } from "./DeleteCardButton.tsx";
 import { PeopleFields, peopleInputFrom, TaskFormModal } from "./TaskFormModal.tsx";
 import {
   OPS_FILE_ACCEPT, type OpsDirectory, type OpsPeopleInput, type OpsStatus, type OpsTaskDetail, openAttachment, useAddAttachment, useAddComment,
-  useArchiveTask, useOpsTask, useOpsTasks, useRemoveAttachment, useRemoveComment, useSetTaskPeople, useSetTaskStatus, useTaskDependency,
+  useArchiveTask, useDeleteTask, useOpsTask, useOpsTasks, useRemoveAttachment, useRemoveComment, useSetTaskPeople, useSetTaskStatus, useTaskDependency,
 } from "./tasksApi.ts";
 
 function formatSize(bytes: number) {
@@ -263,6 +264,7 @@ export function TaskDetail({ id, sectors, statuses, directory, me, onClose }: {
   const q = useOpsTask(id);
   const setStatus = useSetTaskStatus();
   const archive = useArchiveTask();
+  const del = useDeleteTask();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const today = opsToday();
@@ -309,6 +311,7 @@ export function TaskDetail({ id, sectors, statuses, directory, me, onClose }: {
               {t.archived_at ? <><ArchiveRestore className="size-3.5" aria-hidden /> Desarquivar</> : <><Archive className="size-3.5" aria-hidden /> Arquivar</>}
             </Button>
           )}
+          {t && d.can.delete && <DeleteCardButton what="tarefa" label={`#${t.number} ${t.title}`} onDelete={() => del.mutateAsync(t.id)} onDone={onClose} />}
           <button type="button" onClick={onClose} className="rounded-md p-1 text-slate-500 hover:bg-slate-100" aria-label="Fechar tarefa"><X className="size-5" /></button>
         </header>
 

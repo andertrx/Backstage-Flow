@@ -19,6 +19,26 @@
 -- =============================================================================
 begin;
 
+-- Etapa 51.3 (arquivar e excluir cartões): funções novas (as colunas somem com as tabelas, mais abaixo).
+drop function if exists public.ops_archive_list(text, text);
+drop function if exists private.ops_archive_list_impl(text, text);
+drop function if exists public.ops_task_delete(uuid);
+drop function if exists private.ops_task_delete_impl(uuid);
+drop function if exists public.ops_task_restore(uuid);
+drop function if exists private.ops_task_restore_impl(uuid);
+drop function if exists public.ops_lead_delete(uuid);
+drop function if exists private.ops_lead_delete_impl(uuid);
+drop function if exists public.ops_lead_restore(uuid);
+drop function if exists private.ops_lead_restore_impl(uuid);
+drop function if exists public.ops_task_get(uuid);
+drop function if exists private.ops_task_get_v2_impl(uuid);
+drop function if exists public.ops_lead_get(uuid);
+drop function if exists private.ops_lead_get_v2_impl(uuid);
+drop function if exists private.ops_can_archive_task(uuid);
+drop function if exists private.ops_can_delete_task(uuid);
+drop function if exists private.ops_can_archive_lead(uuid);
+drop function if exists private.ops_can_delete_lead(uuid);
+
 -- Etapa 51.1 (ficha do cliente no onboarding): contatos do onboarding, observações, dados e cliente novo.
 drop function if exists public.ops_client_onb_notes_save(uuid, integer, text);
 drop function if exists private.ops_client_onb_notes_save_impl(uuid, integer, text);

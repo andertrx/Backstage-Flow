@@ -3,6 +3,9 @@
 > Lista do que ficou para depois. Eu (Claude) confiro e lembro esta lista nos relatórios.
 > Quando fizer um item, me avise que eu marco como feito.
 
+## Central — prazo de guarda dos cartões excluídos (51.3, 07/11/2026)
+- Tarefas e leads **excluídos** ficam guardados (somem das telas, aparecem só em Central → "Arquivados e excluídos"). Quando você decidir **por quanto tempo** guardar (ex.: 90 dias), eu crio a limpeza automática depois desse prazo. Até lá, ficam guardados.
+
 ## Planilhas da Inteligência de Resultados (21/10/2026)
 - [ ] **Armored:** 441 linhas têm na coluna `utm_campaign` um nome de campanha que não existe no Meta como está escrito (ex.: "CP-36 … [LP]" na planilha; no Meta o CP-36 é "[FORM]" e o CP-37 é "[LP]"). O melhor é trocar a UTM para o ID (`utm_campaign={{campaign.id}}`, `utm_term={{adset.id}}`, `utm_content={{ad.id}}`), como a Vonks já faz. As linhas aparecem no aviso amarelo com "Ver linhas".
 

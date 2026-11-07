@@ -83,7 +83,8 @@ export interface OpsTaskDetail {
   comments: { id: number; author_id: string | null; author: string | null; body: string; created_at: string; mentions: string[] }[];
   attachments: { id: string; name: string; mime: string; size_bytes: number; path: string; uploaded_by: string | null; uploader: string | null; created_at: string }[];
   activity: { id: number; action: string; actor: string | null; origin: string; before: Record<string, unknown> | null; after: Record<string, unknown> | null; created_at: string }[];
-  can: { edit: boolean; move: boolean; assign: boolean; archive: boolean; sector: boolean; admin: boolean };
+  /** 51.3: archive = criou, está com a pessoa ou tem "Arquivar tarefas"; delete = só quem criou (ou admin). */
+  can: { edit: boolean; move: boolean; assign: boolean; archive: boolean; sector: boolean; admin: boolean; delete?: boolean };
 }
 
 export interface OpsDirectory {
@@ -267,6 +268,50 @@ export function useArchiveTask() {
   return useOpsMutation(async (v: { id: string; archived: boolean }) => {
     const { error } = await supabase.rpc("ops_task_archive", { p_id: v.id, p_archived: v.archived });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos arquivar a tarefa."));
+  });
+}
+
+/** 51.3: excluir (só quem criou ou admin). Não apaga do banco: some das telas e fica em "Arquivados e excluídos". */
+export function useDeleteTask() {
+  return useOpsMutation(async (id: string) => {
+    const { error } = await supabase.rpc("ops_task_delete", { p_id: id });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos excluir a tarefa."));
+  });
+}
+
+export function useRestoreTask() {
+  return useOpsMutation(async (id: string) => {
+    const { error } = await supabase.rpc("ops_task_restore", { p_id: id });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos restaurar a tarefa."));
+  });
+}
+
+export interface OpsArchiveRow {
+  id: string;
+  number: number;
+  title: string;
+  client_name?: string | null;
+  sector_name?: string | null;
+  stage_name?: string | null;
+  owner_name?: string | null;
+  at: string;
+  by_name: string | null;
+  created_by_name: string | null;
+  can_unarchive?: boolean;
+  can_delete?: boolean;
+  can_restore?: boolean;
+}
+
+/** 51.3: tela "Arquivados e excluídos" (tarefas ou leads). */
+export function useOpsArchiveList(kind: "tarefas" | "leads", state: "arquivados" | "excluidos", enabled = true) {
+  return useQuery({
+    queryKey: [...KEY, "archive-list", kind, state],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("ops_archive_list", { p_kind: kind, p_state: state });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar a lista."));
+      return (data as OpsArchiveRow[] | null) ?? [];
+    },
   });
 }
 

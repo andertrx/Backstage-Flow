@@ -97,7 +97,8 @@ export interface OpsLeadEvent {
 export interface OpsLeadDetail {
   lead: OpsLead;
   events: OpsLeadEvent[];
-  can: { create_client: boolean; onboarding: boolean; client_ops: boolean };
+  /** 51.3: archive = criou ou é o responsável; delete = só quem criou (ou admin), e nunca lead que já virou cliente. */
+  can: { create_client: boolean; onboarding: boolean; client_ops: boolean; archive?: boolean; delete?: boolean };
 }
 
 export interface OpsDuplicates {
@@ -251,6 +252,20 @@ export function useArchiveLead() {
   return useOpsMutation(async (v: { id: string; archived: boolean }) => {
     const { error } = await supabase.rpc("ops_lead_archive", { p_id: v.id, p_archived: v.archived });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos arquivar o lead."));
+  });
+}
+
+export function useDeleteLead() {
+  return useOpsMutation(async (id: string) => {
+    const { error } = await supabase.rpc("ops_lead_delete", { p_id: id });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos excluir o lead."));
+  });
+}
+
+export function useRestoreLead() {
+  return useOpsMutation(async (id: string) => {
+    const { error } = await supabase.rpc("ops_lead_restore", { p_id: id });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos restaurar o lead."));
   });
 }
 

@@ -30,6 +30,7 @@ const OpsStandalone = lazy(() => import("@/features/operations/OpsLayout.tsx").t
 const RedirectKeep = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.RedirectKeep })));
 const OpsIndexRedirect = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsIndexRedirect })));
 const OpsTasksPage = lazy(() => import("@/features/operations/TasksPage.tsx").then((m) => ({ default: m.TasksPage })));
+const OpsArchivePage = lazy(() => import("@/features/operations/ArchivePage.tsx").then((m) => ({ default: m.ArchivePage })));
 const OpsMyTasksPage = lazy(() => import("@/features/operations/MyTasksPage.tsx").then((m) => ({ default: m.MyTasksPage })));
 const OpsClientsRoute = lazy(() => import("@/features/operations/ClientsPage.tsx").then((m) => ({ default: m.ClientsRoute })));
 const OpsCommercialRoute = lazy(() => import("@/features/operations/CommercialPage.tsx").then((m) => ({ default: m.CommercialRoute })));
@@ -203,6 +204,7 @@ export const router = createBrowserRouter([
           { path: "painel", element: <RedirectKeep to="/painel" /> },
           { path: "minhas-tarefas", element: <OpsMyTasksPage /> },
           { path: "tarefas", element: <OpsTasksPage /> },
+          { path: "arquivados", element: <OpsArchivePage /> },
           // 43.6: Comercial e Envios semanais têm menu próprio (/comercial e /envios); os endereços antigos continuam valendo.
           { path: "comercial", element: <RedirectKeep to="/comercial" /> },
           { path: "reunioes", element: <RedirectKeep to="/reunioes" /> },

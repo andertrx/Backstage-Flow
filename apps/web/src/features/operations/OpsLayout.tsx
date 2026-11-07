@@ -1,5 +1,5 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { ClipboardList, ListChecks, Lock, type LucideIcon } from "lucide-react";
+import { Archive, ClipboardList, ListChecks, Lock, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, NavLink, Outlet, useLocation } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -23,6 +23,8 @@ export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission
   // 43.8: Onboarding (antes "Operação"), Reuniões, Comercial e Envios semanais têm menu próprio, fora das abas da Central.
   { to: "/operacoes/tarefas", label: "Tarefas", icon: ClipboardList, permission: "ops.access" },
   { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
+  // 51.3: tarefas (e leads, para quem tem o Comercial) arquivados e excluídos.
+  { to: "/operacoes/arquivados", label: "Arquivados e excluídos", icon: Archive, permission: "ops.access" },
   // 07/11/2026: Equipe passou para dentro de "Configurações da Central".
   // 07/11/2026: as Configurações da Central saíram das abas e têm menu próprio (/config-central), abaixo de Reuniões.
 ];
