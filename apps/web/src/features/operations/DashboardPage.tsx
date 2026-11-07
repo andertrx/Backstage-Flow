@@ -193,7 +193,7 @@ function DashboardBody({ d, f, onOpen }: { d: OpsDashboard; f: OpsDashboardFilte
               <ul className="divide-y divide-slate-100">
                 {d.clients_waiting.map((c) => (
                   <li key={c.client_id}>
-                    <Link to={`/operacoes/clientes?cliente=${c.client_id}`} className="flex items-center gap-2 py-2 text-sm hover:text-blue-700">
+                    <Link to={`/operacoes/onboarding?cliente=${c.client_id}`} className="flex items-center gap-2 py-2 text-sm hover:text-blue-700">
                       <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{c.name}</span>
                       <span className="shrink-0 text-xs text-slate-500">{c.stage} · {plural(c.dias, "dia", "dias")}</span>
                     </Link>
@@ -206,7 +206,7 @@ function DashboardBody({ d, f, onOpen }: { d: OpsDashboard; f: OpsDashboardFilte
         <Section title="Reuniões" icon={CalendarDays} testId="ops-dash-meetings">
           <p className="text-sm text-slate-700"><b className="tabular-nums">{fmt(d.meetings_today)}</b> {d.meetings_today === 1 ? "reunião hoje" : "reuniões hoje"}</p>
           <p className="text-sm text-slate-700"><b className="tabular-nums">{fmt(d.meeting_pending)}</b> {d.meeting_pending === 1 ? "pendência de reunião ainda sem tarefa" : "pendências de reunião ainda sem tarefa"}</p>
-          <Link to="/operacoes/reunioes" className="inline-block text-sm font-semibold text-blue-700 hover:underline">Abrir reuniões</Link>
+          <Link to="/reunioes" className="inline-block text-sm font-semibold text-blue-700 hover:underline">Abrir reuniões</Link>
         </Section>
         {d.leads_overdue !== null && (
           <Section title="Comercial" icon={Handshake} testId="ops-dash-leads">

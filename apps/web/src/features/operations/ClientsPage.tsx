@@ -99,12 +99,12 @@ export function ClientsPage() {
 
   return (
     <div className="space-y-4" data-testid="ops-clients">
-      <OpsModuleHeader number="03" icon={Building2} title="Operação: clientes liberados"
+      <OpsModuleHeader number="03" icon={Building2} title="Onboarding: clientes liberados"
         description="Clientes que o Comercial liberou: etapa de cada um, Account Manager e o andamento das demandas de todos os setores." />
       <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
         <span>Comercial (Prospecção → Contrato Pago)</span>
         <ArrowRight className="size-4 text-blue-500" aria-hidden />
-        <span className="text-blue-700">Operação (Onboarding → execução por setor → acompanhamento)</span>
+        <span className="text-blue-700">Onboarding e operação (Onboarding → execução por setor → acompanhamento)</span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-56 flex-1">
@@ -157,7 +157,7 @@ export function ClientsPage() {
 const CLIENT_PERMS = { permission: "ops.clients.view", anyOf: ["ops.clients.view", "ops.am"] } as const;
 
 /**
- * Etapa 38.2: aba Operação com duas partes — Clientes (onboarding e acompanhamento; ficha operacional ou Account Manager)
+ * Etapa 38.2 (43.7: agora aba Onboarding) com duas partes — Clientes (onboarding e acompanhamento; ficha operacional ou Account Manager)
  * e Filas dos setores (todos da Central). Quem não vê clientes (ex.: papel Equipe) vê só as Filas, como antes.
  */
 function OperationPage() {

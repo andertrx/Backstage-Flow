@@ -78,3 +78,4 @@
 - [ ] **Testar o envio real** (44.3) assim que o servidor existir: conectar, ligar a trava, usar "Enviar agora" para um grupo de teu.
 - [ ] **Avisos no WhatsApp (45.x):** criar um grupo só seu no WhatsApp para os avisos; na tela Integrações → Avisos no WhatsApp você escolhe o grupo e liga.
 - [ ] (opcional) Colar aqui imagens das telas de WhatsApp e de agentes do sistema `itsmovcrm.com.br` para eu mapear o que ele tem.
+- [ ] **Google Agenda (43.7):** responder 3 perguntas para eu fazer a sincronização automática das reuniões: agenda da empresa ou de cada pessoa; convidar os participantes pelo Google; só CRM → Google ou nos dois sentidos (recomendo só CRM → Google). Detalhes em `docs/etapa-43-organizacao/43.7-REUNIOES-ONBOARDING-E-GOOGLE-AGENDA.md`.

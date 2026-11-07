@@ -73,7 +73,7 @@ export function buildHojeItems(i: HojeInputs): HojeItem[] {
     out.push({
       id: "reunioes", tone: "info", count: i.reunioesHoje,
       title: `${i.reunioesHoje} ${plural(i.reunioesHoje, "reunião hoje", "reuniões hoje")}`,
-      detail: null, to: "/operacoes/reunioes", cta: "Ver reuniões",
+      detail: null, to: "/reunioes", cta: "Ver reuniões",
     });
   }
   if (i.leadsAtrasados) {

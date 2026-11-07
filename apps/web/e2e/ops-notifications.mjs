@@ -129,7 +129,7 @@ function seedNotification(db, fields) {
 
   // Repetir uma tarefa toda semana
   const t = seedTask(db, { title: "Relatório semanal", sector_id: design, created_by: USER_ID, due_date: TOMORROW, people: [{ user_id: MARIA, role: "principal" }] });
-  await page.goto(page.url().split("/operacoes")[0] + `/operacoes/tarefas?tarefa=${t.id}`);
+  await page.goto(new URL(page.url()).origin + `/operacoes/tarefas?tarefa=${t.id}`);
   const detail = page.getByTestId("ops-task-detail");
   await detail.getByRole("button", { name: "Repetir…" }).click();
   const rt = page.getByRole("dialog", { name: "Repetir esta tarefa" });
@@ -145,7 +145,7 @@ function seedNotification(db, fields) {
 
   // Uma ocorrência mostra de onde veio e não pode repetir de novo
   const occTask = seedTask(db, { title: "Relatório semanal", sector_id: design, created_by: USER_ID, recurrence_id: r2.id, occurrence_date: spToday() });
-  await page.goto(page.url().split("/operacoes")[0] + `/operacoes/tarefas?tarefa=${occTask.id}`);
+  await page.goto(new URL(page.url()).origin + `/operacoes/tarefas?tarefa=${occTask.id}`);
   await page.getByTestId("ops-task-detail").getByText(`Repetição da tarefa #${t.number}`, { exact: false }).waitFor();
   check(await page.getByTestId("ops-task-detail").getByRole("button", { name: "Repetir…" }).count() === 0, "ocorrência mostra a tarefa original e não repete de novo");
   check(errors.length === 0, `sem erros (admin) ${errors.join(" | ")}`);

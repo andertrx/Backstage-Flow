@@ -48,8 +48,8 @@ async function addItem(drawer, kind, text, { owner, sector, due } = {}) {
   await login(page, "/operacoes/reunioes");
   await page.getByTestId("ops-meetings-empty").waitFor();
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Operação", "Reuniões", "Notificações", "Equipe", "Configurações"]),
-    `aba Reuniões na Central (${tabs.join(", ")})`);
+  check(!tabs.includes("Reuniões") && new URL(page.url()).pathname === "/reunioes", `Reuniões tem menu próprio e endereço /reunioes (fora das abas da Central: ${tabs.join(", ")})`);
+  check(await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Reuniões" }).count() === 1, "item Reuniões no menu");
 
   // Agendar a Daily do Design, com cliente e participante
   await newMeeting(page, { Título: "Daily do Design", Tipo: "Daily", "Data e hora (Brasília)": `${TOMORROW}T09:00`, Duração: "15 min", Setor: "Design",
@@ -62,6 +62,13 @@ async function addItem(drawer, kind, text, { owner, sector, due } = {}) {
   const info = await drawer.innerText();
   check(info.includes("09:00 – 09:15") && info.includes("Daily") && info.includes("Loja Azul") && info.includes("Entregas da semana"), "painel mostra horário, tipo, cliente e pauta");
   check(await drawer.getByRole("link", { name: "Abrir link da chamada" }).getAttribute("href") === "https://meet.google.com/abc-defg-hij", "link da chamada");
+  // 43.7: Reunião → Google Agenda (link preenchido) e arquivo .ics, sem login
+  const gcal = new URL(await drawer.getByTestId("meeting-google-calendar").getAttribute("href"));
+  check(gcal.hostname === "calendar.google.com" && gcal.searchParams.get("action") === "TEMPLATE" && gcal.searchParams.get("location") === "https://meet.google.com/abc-defg-hij"
+    && /^\d{8}T\d{6}Z\/\d{8}T\d{6}Z$/.test(gcal.searchParams.get("dates") ?? ""), "botão Google Agenda leva ao evento preenchido (título, horário, local)");
+  const [dl] = await Promise.all([page.waitForEvent("download"), drawer.getByTestId("meeting-ics").click()]);
+  const ics = await (await import("node:fs/promises")).readFile(await dl.path(), "utf8");
+  check(dl.suggestedFilename().endsWith(".ics") && ics.includes("BEGIN:VEVENT") && ics.includes("SUMMARY:") && ics.includes("DTSTART:"), "botão .ics baixa um arquivo de agenda válido");
 
   // Itens: pendência (vira tarefa) e decisão (não vira)
   await addItem(drawer, "Pendência", "Refazer banner da campanha", { owner: "Maria Gestora", due: addDays(TOMORROW, 2) });
@@ -129,12 +136,12 @@ async function addItem(drawer, kind, text, { owner, sector, due } = {}) {
   check((await page.getByTestId("ops-meeting-history-list").innerText()).includes("Daily do Design"), "filtro por cliente");
 
   // A tarefa lembra de onde veio
-  await page.goto(page.url().split("/operacoes")[0] + `/operacoes/tarefas?tarefa=${t1.id}`);
+  await page.goto(new URL(page.url()).origin + `/operacoes/tarefas?tarefa=${t1.id}`);
   await page.getByText("Veio de uma reunião").waitFor();
   check(true, "histórico da tarefa mostra a reunião de origem");
 
   // Aba Reuniões no cliente
-  await page.goto(page.url().split("/operacoes")[0] + `/clientes/${LOJA}?aba=reunioes`);
+  await page.goto(new URL(page.url()).origin + `/clientes/${LOJA}?aba=reunioes`);
   await page.getByTestId("client-meetings").waitFor();
   check(await page.getByTestId("client-meeting-link").count() === 1 && (await page.getByTestId("client-meetings").innerText()).includes("Daily do Design"),
     "aba Reuniões na ficha do cliente");

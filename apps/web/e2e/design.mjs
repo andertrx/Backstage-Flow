@@ -5,7 +5,7 @@
  */
 import { BASE, check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
 
-const MENU = ["Dashboard", "Clientes", "Contas", "Central de Operações", "Comercial", "Envios semanais", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios", "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações"];
+const MENU = ["Dashboard", "Clientes", "Contas", "Central de Operações", "Reuniões", "Comercial", "Envios semanais", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios", "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações"];
 const PAGES = [
   ["/", "Dashboard"], ["/clientes", "Clientes"], ["/contas", "Contas"], ["/operacoes/equipe", "Central de Operações"], ["/meta-ads", "Meta Ads"], ["/google-ads", "Google Ads"],
   ["/campanhas", "Campanhas"], ["/criador-de-anuncios", "Criador de Anúncios"], ["/relatorios", "Relatórios"], ["/monitoramento", "Monitoramento"], ["/inteligencia-resultados", "Inteligência de Resultados"], ["/alertas", "Alertas"], ["/tracking", "Tracking (em construção)"], ["/sincronizacao", "Sincronização"],

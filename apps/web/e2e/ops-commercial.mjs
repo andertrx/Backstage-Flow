@@ -160,7 +160,7 @@ async function newLead(page, fields) {
   check(!(await drawer.getByTestId("ops-lead-convert").innerText()).includes("Vincular"), "sem cliente parecido: só criar");
   await drawer.getByLabel("Account Manager do onboarding").selectOption({ label: "Maria Gestora" });
   await drawer.getByRole("button", { name: "Criar cliente novo com os dados do lead" }).click();
-  await drawer.getByText("Cliente criado e liberado para a Operação (Onboarding Pendente). O lead foi para Ganhos.").waitFor();
+  await drawer.getByText("Cliente criado e liberado para o Onboarding (Onboarding Pendente). O lead foi para Ganhos.").waitFor();
   const created = db.clients.find((c) => c.name === "Padaria Sol");
   check(created && l1.client_id === created.id && created.phone === "5545988887777", "cliente criado com os dados do lead");
   check(db.opsClientOps[created.id]?.am_user_id === MARIA, "onboarding iniciado com o Account Manager");
@@ -180,7 +180,7 @@ async function newLead(page, fields) {
   await drawer.getByRole("button", { name: "Criar cliente novo com os dados do lead" }).click();
   await drawer.getByText('Já existe o cliente "Loja Existente"').waitFor();
   check(db.clients.filter((c) => c.name === "Loja Existente").length === 1, "criar duplicado é recusado");
-  await drawer.getByLabel("Colocar na Operação (onboarding)").uncheck();
+  await drawer.getByLabel("Colocar no Onboarding (onboarding)").uncheck();
   await drawer.getByRole("button", { name: "Vincular a Loja Existente" }).click();
   await drawer.getByText("Lead vinculado ao cliente.").waitFor();
   check(l3.client_id === EXISTENTE, "lead vinculado ao cliente existente");
@@ -213,7 +213,7 @@ async function newLead(page, fields) {
   const text = await drawer.getByTestId("ops-lead-convert").innerText();
   check(await drawer.getByRole("button", { name: "Criar cliente novo com os dados do lead" }).count() === 0 && text.includes("só para administrador ou gestor"),
     "sem papel admin/gestor: não cria cliente (só vincula)");
-  check(await drawer.getByLabel("Colocar na Operação (onboarding)").count() === 0, "sem permissão de fluxo: não inicia onboarding");
+  check(await drawer.getByLabel("Colocar no Onboarding (onboarding)").count() === 0, "sem permissão de fluxo: não inicia onboarding");
   check(errors.length === 0, `sem erros (vendedor) ${errors.join(" | ")}`);
   await browser.close();
 }

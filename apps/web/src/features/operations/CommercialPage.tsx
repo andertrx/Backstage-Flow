@@ -97,7 +97,7 @@ function ResultsList({ leads, stageOf, onOpen }: { leads: OpsLeadCard[]; stageOf
         {total && <span className="ml-auto text-sm text-slate-600">{kind === "ganhos" ? "Valor fechado" : "Valor perdido"}: <b>{total}</b></span>}
       </div>
       <p className="text-xs text-slate-500">
-        {kind === "ganhos" ? "Leads que viraram cliente: saem do funil e seguem na aba Operação." : "Leads marcados como perdidos, com o motivo. Para reativar, abra o lead e mude a coluna."}
+        {kind === "ganhos" ? "Leads que viraram cliente: saem do funil e seguem na aba Onboarding." : "Leads marcados como perdidos, com o motivo. Para reativar, abra o lead e mude a coluna."}
       </p>
       {list.length === 0 ? (
         <Card className="p-8 text-center text-sm text-slate-500" data-testid="ops-results-empty">{kind === "ganhos" ? "Nenhum lead virou cliente ainda." : "Nenhum lead perdido."}</Card>

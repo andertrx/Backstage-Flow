@@ -194,7 +194,7 @@ export function ClientMeetingsList({ clientId }: { clientId: string }) {
     <div className="space-y-2" data-testid="client-meetings">
       {meetings.length === 0 ? <Card className="p-6 text-center text-sm text-slate-500">Nenhuma reunião ligada a este cliente.</Card>
         : meetings.map((m) => (
-          <Link key={m.id} to={`/operacoes/reunioes?reuniao=${m.id}`} className="block" data-testid="client-meeting-link">
+          <Link key={m.id} to={`/reunioes?reuniao=${m.id}`} className="block" data-testid="client-meeting-link">
             <span className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200 hover:ring-blue-400">
               <span className="text-sm font-semibold text-slate-700">{meetingWhen(m.starts_at, m.duration_min)}</span>
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{m.title}</span>

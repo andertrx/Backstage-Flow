@@ -8,10 +8,11 @@ const menu = page.getByRole("navigation", { name: "Menu principal" }).first();
 await menu.getByRole("link", { name: "Envios semanais" }).waitFor();
 const labels = (await menu.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
 const i = labels.indexOf("Central de Operações");
-check(labels[i + 1] === "Comercial" && labels[i + 2] === "Envios semanais", `no menu: Central de Operações, Comercial e Envios semanais, nessa ordem (${labels.slice(i, i + 3).join(", ")})`);
+check(labels[i + 1] === "Reuniões" && labels[i + 2] === "Comercial" && labels[i + 3] === "Envios semanais", `no menu: Central de Operações, Reuniões, Comercial e Envios semanais, nessa ordem (${labels.slice(i, i + 4).join(", ")})`);
 await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link", { name: "Tarefas", exact: true }).waitFor();
 const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-check(!tabs.includes("Comercial") && !tabs.includes("Envios semanais"), `a Central não tem mais as abas Comercial e Envios (${tabs.join(", ")})`);
+check(!tabs.includes("Comercial") && !tabs.includes("Envios semanais") && !tabs.includes("Reuniões"), `a Central não tem mais as abas Comercial, Envios e Reuniões (${tabs.join(", ")})`);
+check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Onboarding", "Tarefas", "Minhas tarefas", "Notificações", "Equipe", "Configurações"]), "abas da Central na ordem pedida: Painel, Onboarding, Tarefas, Minhas tarefas, Notificações");
 await page.screenshot({ path: `${SHOTS}/ops-separados-menu.png` });
 
 await menu.getByRole("link", { name: "Comercial" }).click();
@@ -32,6 +33,12 @@ check(true, "/operacoes/comercial?ver=config leva a /comercial?ver=config");
 await page.goto(`${BASE}/operacoes/envios`);
 await page.waitForURL("**/envios");
 check(true, "/operacoes/envios leva a /envios");
+await page.goto(`${BASE}/operacoes/reunioes?reuniao=abc`);
+await page.waitForURL("**/reunioes?reuniao=abc");
+check(true, "/operacoes/reunioes?reuniao=... leva a /reunioes?reuniao=...");
+await page.goto(`${BASE}/operacoes/clientes?ver=filas`);
+await page.waitForURL("**/operacoes/onboarding?ver=filas");
+check(true, "/operacoes/clientes?ver=filas leva a /operacoes/onboarding?ver=filas");
 
 // busca da Central ainda abre lead pelo link antigo
 check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);

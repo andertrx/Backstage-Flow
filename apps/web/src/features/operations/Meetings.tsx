@@ -3,7 +3,7 @@ import {
   OPS_MEETING_ITEM_KINDS, OPS_MEETING_ITEM_LABELS, OPS_MEETING_STATUS_LABELS, opsMeetingDay, opsMeetingIsoToLocal, opsMeetingItemMakesTask,
   opsMeetingLocalToIso, opsMeetingSpan, type OpsMeetingItemKind, type OpsMeetingStatus,
 } from "@backstage/shared";
-import { Ban, CalendarDays, CheckCircle2, ClipboardCheck, ExternalLink, ListPlus, MapPin, Pencil, Users, X } from "lucide-react";
+import { Ban, CalendarDays, CalendarPlus, CheckCircle2, ClipboardCheck, Download, ExternalLink, ListPlus, MapPin, Pencil, Users, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -14,6 +14,7 @@ import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDate, formatDateTime } from "@/lib/format.ts";
 import { ACTION_LABELS, activityText } from "./activity.ts";
+import { buildIcs, type CalendarEvent, googleCalendarUrl } from "./calendarLinks.ts";
 import {
   type OpsMeetingCategory, type OpsMeetingDetail, type OpsMeetingInput, type OpsMeetingItem, useAddMeetingItem, useCancelMeeting, useItemToTask,
   useMeeting, useMeetingCategories, useRecordMeeting, useRemoveMeetingItem, useSaveMeeting,
@@ -314,6 +315,31 @@ function ItemForm({ d, ctx }: { d: OpsMeetingDetail; ctx: TasksContext }) {
 }
 
 /** Painel da reunião: dados, participantes, pauta, ata, itens (pendência → tarefa) e histórico. */
+/** Reunião → Google Agenda (link já preenchido) ou arquivo .ics. Evento avulso: não acompanha mudanças feitas depois no CRM. */
+function CalendarButtons({ event }: { event: CalendarEvent }) {
+  function download() {
+    const url = URL.createObjectURL(new Blob([buildIcs(event)], { type: "text/calendar;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `reuniao-${event.startsAt.slice(0, 10)}.ics`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  return (
+    <div className="flex items-center gap-1" data-testid="meeting-calendar">
+      <a href={googleCalendarUrl(event)} target="_blank" rel="noopener noreferrer" data-testid="meeting-google-calendar"
+        title="Abre o Google Agenda com a reunião preenchida; você confirma lá. Não acompanha mudanças feitas depois."
+        className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
+        <CalendarPlus className="size-3.5" aria-hidden /> Google Agenda
+      </a>
+      <button type="button" onClick={download} data-testid="meeting-ics" title="Arquivo para Google Agenda, Outlook ou Apple Calendar"
+        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">
+        <Download className="size-3.5" aria-hidden /> .ics
+      </button>
+    </div>
+  );
+}
+
 export function MeetingDrawer({ id, ctx, onClose }: { id: string; ctx: TasksContext; onClose: () => void }) {
   const q = useMeeting(id);
   const categories = useMeetingCategories();
@@ -357,6 +383,7 @@ export function MeetingDrawer({ id, ctx, onClose }: { id: string; ctx: TasksCont
           {d && m && d.can.edit && m.status === "agendada" && (
             <Button variant="ghost" className="px-2.5 py-1.5 text-xs" onClick={() => setCancelling(true)}><Ban className="size-3.5" aria-hidden /> Cancelar</Button>
           )}
+          {m && m.status !== "cancelada" && <CalendarButtons event={{ title: m.title, startsAt: m.starts_at, durationMin: m.duration_min, location: m.location, details: m.agenda, uid: `reuniao-${m.id}` }} />}
           <button type="button" onClick={onClose} className="rounded-md p-1 text-slate-500 hover:bg-slate-100" aria-label="Fechar reunião"><X className="size-5" /></button>
         </header>
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">

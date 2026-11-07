@@ -202,17 +202,27 @@ export const router = createBrowserRouter([
           { path: "tarefas", element: <OpsTasksPage /> },
           // 43.6: Comercial e Envios semanais têm menu próprio (/comercial e /envios); os endereços antigos continuam valendo.
           { path: "comercial", element: <RedirectKeep to="/comercial" /> },
-          { path: "reunioes", element: <OpsMeetingsRoute /> },
+          { path: "reunioes", element: <RedirectKeep to="/reunioes" /> },
           { path: "envios", element: <RedirectKeep to="/envios" /> },
           { path: "notificacoes", element: <OpsNotificationsRoute /> },
-          { path: "clientes", element: <OpsClientsRoute /> },
+          // 43.7: a aba "Operação" agora é "Onboarding" (o endereço antigo continua valendo, com filtros).
+          { path: "onboarding", element: <OpsClientsRoute /> },
+          { path: "clientes", element: <RedirectKeep to="/operacoes/onboarding" /> },
           // 38.2: as Filas ficam dentro de Operação (links antigos continuam funcionando).
-          { path: "filas", element: <Navigate to="/operacoes/clientes?ver=filas" replace /> },
+          { path: "filas", element: <Navigate to="/operacoes/onboarding?ver=filas" replace /> },
           { path: "equipe", element: <OpsTeamPage /> },
           { path: "configuracoes", element: <OpsSettingsPage /> },
         ],
       },
       // 43.6: módulos separados da Central de Operações (mesmas telas e permissões).
+      {
+        path: "reunioes",
+        element: (
+          <OpsStandalone title="Reuniões" description="Reuniões, Dailies, ata, presença e pendências. Separado da Central de Operações.">
+            <OpsMeetingsRoute />
+          </OpsStandalone>
+        ),
+      },
       {
         path: "comercial",
         element: (

@@ -163,4 +163,5 @@
 - **07/11 (43.4):** Ander não achou "Central → Notificações" (só existia no sininho); pediu "a melhor opção": criei a aba e corrigi o passo a passo.
 - **07/11 (43.5):** Ander pediu 3 sininhos identificados (campanhas, tarefas, contas), o total com o número vermelho no menu e as 3 opções dentro de Alertas; respondeu "o alerta de baixo é o Alertas do menu" e "sigo sua recomendação" (tudo da Central, atrasadas em destaque).
 - **07/11 (43.6):** Ander pediu para separar Comercial e Envios semanais da Central (3 menus), sem quebrar nada; mantive endereços antigos com redirecionamento.
+- **07/11 (43.7):** Ander pediu Reuniões separada + Google Agenda, "Operação"→"Onboarding" e nova ordem das abas. Fiz tudo menos a sincronização automática com o Google (precisa da conta Google e de 3 decisões); entreguei o botão Google Agenda e o .ics.
 - **07/11 (plano 44.3/45):** Ander pediu: disparos pelo número conectado, avisos no WhatsApp para um grupo dele (ex.: 1h sem gastar, saldo vencendo em 2 dias), foco nos gestores, cliente depois, e dividir o sistema. Entreguei o passo a passo do servidor, arquivos prontos e o plano; aguardo o servidor e o OK.

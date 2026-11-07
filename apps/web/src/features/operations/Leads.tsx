@@ -237,7 +237,7 @@ function ConvertPanel({ d, ctx, onDone, focus }: { d: OpsLeadDetail; ctx: TasksC
     setError(null);
     try {
       const r = await convert.mutateAsync({ id: l.id, version: l.version, clientId, start, amId: am });
-      onDone(`${r.created ? "Cliente criado" : "Lead vinculado ao cliente"}${r.onboarding === "iniciado" ? " e liberado para a Operação (Onboarding Pendente)" : r.onboarding === "ja_estava" ? " (o cliente já estava na Operação)" : ""}. O lead foi para Ganhos.`);
+      onDone(`${r.created ? "Cliente criado" : "Lead vinculado ao cliente"}${r.onboarding === "iniciado" ? " e liberado para o Onboarding (Onboarding Pendente)" : r.onboarding === "ja_estava" ? " (o cliente já estava na Operação)" : ""}. O lead foi para Ganhos.`);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -246,7 +246,7 @@ function ConvertPanel({ d, ctx, onDone, focus }: { d: OpsLeadDetail; ctx: TasksC
     <section ref={ref} className="space-y-3 rounded-xl bg-emerald-50/60 p-4 ring-1 ring-emerald-200" data-testid="ops-lead-convert">
       <h3 className="flex items-center gap-2 text-sm font-bold text-emerald-900"><Handshake className="size-4" aria-hidden /> Liberar para a operação</h3>
       <p className="text-sm text-slate-700">
-        Escolha o cliente (vincule a um que já existe ou crie um novo) e o Account Manager. O cliente entra na aba <b>Operação</b> em
+        Escolha o cliente (vincule a um que já existe ou crie um novo) e o Account Manager. O cliente entra na aba <b>Onboarding</b> em
         {" "}<b>Onboarding Pendente</b> e o lead vai para <b>Ganhos</b>. O histórico comercial fica guardado no lead.
       </p>
       {(dup.data?.clients.length ?? 0) > 0 ? (
@@ -264,7 +264,7 @@ function ConvertPanel({ d, ctx, onDone, focus }: { d: OpsLeadDetail; ctx: TasksC
       ) : <p className="text-sm text-slate-500">{dup.isLoading ? "Procurando clientes parecidos…" : "Nenhum cliente parecido no cadastro."}</p>}
       {d.can.onboarding ? (
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={start} onChange={(e) => setStart(e.target.checked)} /> Colocar na Operação (onboarding)</label>
+          <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={start} onChange={(e) => setStart(e.target.checked)} /> Colocar no Onboarding (onboarding)</label>
           {start && (
             <Select aria-label="Account Manager do onboarding" className="w-auto py-1.5" value={am} onChange={(e) => setAm(e.target.value)}>
               <option value="">Account Manager: definir depois</option>
@@ -272,7 +272,7 @@ function ConvertPanel({ d, ctx, onDone, focus }: { d: OpsLeadDetail; ctx: TasksC
             </Select>
           )}
         </div>
-      ) : <p className="text-xs text-slate-500">O cliente fica em Ganhos; quem cuida da Operação coloca no onboarding depois, na aba Operação.</p>}
+      ) : <p className="text-xs text-slate-500">O cliente fica em Ganhos; quem cuida do Onboarding coloca o cliente no onboarding depois, na aba Onboarding.</p>}
       {d.can.create_client ? (
         <Button loading={convert.isPending} onClick={() => run(null)}>Criar cliente novo com os dados do lead</Button>
       ) : <p className="text-xs text-slate-500">Criar um cliente novo é só para administrador ou gestor. Você pode vincular a um cliente que já existe.</p>}
@@ -368,7 +368,7 @@ export function LeadDrawer({ id, ctx, onClose, focusRelease }: { id: string; ctx
                 <Alert tone="success">
                   Virou cliente: <Link className="font-semibold underline" to={`/clientes/${l.client_id}`}>{l.client_name}</Link>
                   {l.converted_at && ` · ${formatDateTime(l.converted_at)} por ${l.converted_by_name ?? "—"}`}
-                  {d.can.client_ops && <> · <Link className="font-semibold underline" to={`/operacoes/clientes?cliente=${l.client_id}`}>ficha operacional</Link></>}
+                  {d.can.client_ops && <> · <Link className="font-semibold underline" to={`/operacoes/onboarding?cliente=${l.client_id}`}>ficha operacional</Link></>}
                 </Alert>
               )}
               {l.category === "ganho" && !l.client_id && !l.archived_at && <ConvertPanel d={d} ctx={ctx} onDone={setNotice} focus={focusRelease} />}

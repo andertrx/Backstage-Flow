@@ -1,5 +1,5 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { Bell, Building2, CalendarDays, ClipboardList, Gauge, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
+import { Bell, Building2, ClipboardList, Gauge, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, NavLink, Outlet, useLocation } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -15,16 +15,15 @@ import { OpsSearch } from "./OpsSearch.tsx";
  * botão que não funciona). O Painel (36.7) vem primeiro: é onde a Central abre
  * para quem tem "Ver o painel"; os demais abrem em Minhas tarefas.
  * "anyOf": basta uma das permissões.
- * Etapa 38.1: Comercial (vendas) e Operação (clientes liberados) separados; Equipe e Configurações
+ * Etapa 38.1: Comercial (vendas) e Onboarding (clientes liberados, antes "Operação") separados; Equipe e Configurações
  * ficam à parte, como administração.
  */
 export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission: OpsPermission; anyOf?: OpsPermission[]; admin?: boolean }[] = [
   { to: "/operacoes/painel", label: "Painel", icon: Gauge, permission: "ops.dashboard.view" },
-  { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
+  // 43.7: "Operação" virou "Onboarding" (clientes liberados + filas dos setores). Reuniões, Comercial e Envios semanais têm menu próprio.
+  { to: "/operacoes/onboarding", label: "Onboarding", icon: Building2, permission: "ops.access" },
   { to: "/operacoes/tarefas", label: "Tarefas", icon: ClipboardList, permission: "ops.access" },
-  // 38.2: Operação = clientes (quem pode ver) + Filas dos setores (todos da Central).
-  { to: "/operacoes/clientes", label: "Operação", icon: Building2, permission: "ops.access" },
-  { to: "/operacoes/reunioes", label: "Reuniões", icon: CalendarDays, permission: "ops.access" },
+  { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
   // 07/11/2026: as preferências e o "Ativar neste aparelho" (aviso no computador e no celular) ficavam só atrás do sininho; agora têm aba própria.
   { to: "/operacoes/notificacoes", label: "Notificações", icon: Bell, permission: "ops.access" },
   { to: "/operacoes/equipe", label: "Equipe", icon: Users, permission: "ops.access", admin: true },
@@ -54,8 +53,9 @@ export function RequireOps({ permission, anyOf, children }: { permission: OpsPer
 
 export function OpsIndexRedirect() {
   const perms = useMyOpsPermissions();
-  const first = OPS_TABS.find((t) => tabAllowed(perms.data, t));
-  return <Navigate to={first?.to ?? "/operacoes/minhas-tarefas"} replace />;
+  // A Central abre no Painel (quem pode vê-lo) ou em Minhas tarefas; a ordem das abas não muda onde ela abre.
+  const painel = tabAllowed(perms.data, { permission: "ops.dashboard.view" });
+  return <Navigate to={painel ? "/operacoes/painel" : "/operacoes/minhas-tarefas"} replace />;
 }
 
 export function OpsLayout() {

@@ -3,6 +3,7 @@ import {
   Activity,
   Bell,
   Building2,
+  CalendarDays,
   ChartPie,
   Handshake,
   FileBarChart,
@@ -44,7 +45,8 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Clientes", path: "/clientes", icon: Building2, group: "Visão geral", permission: "clients.view" },
   { label: "Contas", path: "/contas", icon: Wallet, group: "Visão geral", permission: "internal.view" },
   { label: "Central de Operações", path: "/operacoes", icon: KanbanSquare, group: "Operações", ops: true },
-  // 43.6: Comercial e Envios semanais saíram de dentro da Central e têm menu próprio (as telas e as permissões são as mesmas).
+  // 43.6/43.7: Reuniões, Comercial e Envios semanais saíram de dentro da Central e têm menu próprio (as telas e as permissões são as mesmas).
+  { label: "Reuniões", path: "/reunioes", icon: CalendarDays, group: "Operações", opsPermission: "ops.access" },
   { label: "Comercial", path: "/comercial", icon: Handshake, group: "Operações", opsPermission: "ops.commercial" },
   { label: "Envios semanais", path: "/envios", icon: Send, group: "Operações", opsPermission: "ops.envios" },
   // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...), na ordem do catálogo.
