@@ -17,26 +17,30 @@ import { DndBoard } from "./KanbanBoard.tsx";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { useMyOpsPermissions } from "./api.ts";
 import { RequireOps, tabAllowed } from "./OpsLayout.tsx";
+import { MeetingSeal, ONBOARDING_STAGE, OnboardingMeetingActions } from "./OnboardingMeeting.tsx";
 import { QueuesPage } from "./QueuesPage.tsx";
 import { type TaskView, ViewToggle } from "./TasksPage.tsx";
 import { TaskDetailHost, type TasksContext, useTasksContext } from "./tasksContext.tsx";
 
-function ClientCard({ c, onOpen }: { c: OpsBoardClient; onOpen: () => void }) {
+function ClientCard({ c, ctx, onOpen }: { c: OpsBoardClient; ctx: TasksContext; onOpen: () => void }) {
   const s = c.summary;
   return (
-    <button type="button" onClick={onOpen} data-testid="ops-client-card"
-      className="block w-full space-y-2 rounded-xl bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:ring-blue-400 focus-visible:outline-2 focus-visible:outline-blue-600">
-      <p className="text-sm font-semibold text-slate-900">{c.name}</p>
-      <p className="text-xs text-slate-500">AM: {c.am_name ?? "sem Account Manager"}</p>
-      <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
-        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{s.abertas} abertas</span>
-        {s.atrasadas > 0 && <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">{s.atrasadas} atrasadas</span>}
-        {s.bloqueadas > 0 && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800">{s.bloqueadas} bloqueadas</span>}
-        {s.aguardando_cliente > 0 && <span className="rounded bg-yellow-50 px-1.5 py-0.5 text-yellow-800">{s.aguardando_cliente} aguardando cliente</span>}
-      </div>
-      {c.stage_pending > 0 && <p className="text-[11px] font-medium text-amber-700">{c.stage_pending} obrigatória(s) aberta(s) nesta etapa</p>}
-      <div className="border-t border-slate-100 pt-2"><ProgressBar done={s.obrigatorias_concluidas} total={s.obrigatorias} /></div>
-    </button>
+    <div className="space-y-2 rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200 transition hover:ring-blue-400">
+      <button type="button" onClick={onOpen} data-testid="ops-client-card" className="block w-full space-y-2 text-left focus-visible:outline-2 focus-visible:outline-blue-600">
+        <p className="text-sm font-semibold text-slate-900">{c.name}</p>
+        <p className="text-xs text-slate-500">AM: {c.am_name ?? "sem Account Manager"}</p>
+        {c.stage_id === ONBOARDING_STAGE && <MeetingSeal c={c} />}
+        <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{s.abertas} abertas</span>
+          {s.atrasadas > 0 && <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">{s.atrasadas} atrasadas</span>}
+          {s.bloqueadas > 0 && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800">{s.bloqueadas} bloqueadas</span>}
+          {s.aguardando_cliente > 0 && <span className="rounded bg-yellow-50 px-1.5 py-0.5 text-yellow-800">{s.aguardando_cliente} aguardando cliente</span>}
+        </div>
+        {c.stage_pending > 0 && <p className="text-[11px] font-medium text-amber-700">{c.stage_pending} obrigatória(s) aberta(s) nesta etapa</p>}
+        <div className="border-t border-slate-100 pt-2"><ProgressBar done={s.obrigatorias_concluidas} total={s.obrigatorias} /></div>
+      </button>
+      <OnboardingMeetingActions c={c} ctx={ctx} />
+    </div>
   );
 }
 
@@ -62,7 +66,7 @@ function ClientTable({ clients, stages, onOpen }: { clients: OpsBoardClient[]; s
           {clients.map((c) => (
             <tr key={c.client_id} className="cursor-pointer hover:bg-blue-50/40" onClick={() => onOpen(c.client_id)} data-testid="ops-client-row">
               <td className="px-4 py-3 font-semibold text-slate-900">{c.name}</td>
-              <td className="px-4 py-3"><StagePill stage={stages?.find((s) => s.id === c.stage_id)} /></td>
+              <td className="px-4 py-3"><div className="space-y-1"><StagePill stage={stages?.find((s) => s.id === c.stage_id)} />{c.stage_id === ONBOARDING_STAGE && <div><MeetingSeal c={c} /></div>}</div></td>
               <td className="px-4 py-3 text-slate-600">{c.am_name ?? "—"}</td>
               <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                 {c.summary.abertas} abertas{c.summary.atrasadas > 0 && <span className="font-semibold text-red-600"> · {c.summary.atrasadas} atrasadas</span>}
@@ -140,7 +144,7 @@ export function ClientsPage() {
         <DndBoard items={clients} columns={columns} getId={(c) => c.client_id} getLabel={(c) => c.name} columnOf={(c) => c.stage_id}
           canDrag={(c) => c.can_move} empty="Nenhum cliente"
           onMove={async (c, to) => { await move.mutateAsync({ clientId: c.client_id, version: c.version, stageId: to }); }}
-          renderCard={(c) => <ClientCard c={c} onOpen={() => open(c.client_id)} />} />
+          renderCard={(c) => <ClientCard c={c} ctx={ctx} onOpen={() => open(c.client_id)} />} />
       ) : (
         <ClientTable clients={clients} stages={stages.data} onOpen={open} />
       )}

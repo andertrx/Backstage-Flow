@@ -141,6 +141,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     const o = db.opsClientOps[t.client_id];
     const st = o && stageOf(o.stage_id);
     if (!o || o.stage_id !== t.client_stage_id || !st?.auto_advance) return;
+    if (o.stage_id === "onboarding_pendente" && db.opsMeetings.find((m) => m.id === o.onboarding_meeting_id)?.status !== "realizada") return;
     const inStage = db.opsTasks.filter((x) => x.client_id === t.client_id && x.client_stage_id === st.id && x.mandatory && !x.archived_at);
     if (!inStage.length || inStage.some((x) => !closed(x))) return;
     const next = db.opsClientStages.filter((x) => x.active && x.position > st.position).sort((a, b) => a.position - b.position)[0];
@@ -486,13 +487,18 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   }
 
   // --- 36.3: clientes no fluxo, demandas e registro manual
+  const onbMeeting = (cid) => {
+    const m = db.opsMeetings.find((x) => x.id === db.opsClientOps[cid]?.onboarding_meeting_id);
+    return m ? { id: m.id, number: m.number, title: m.title, status: m.status, starts_at: m.starts_at } : null;
+  };
+  const onbMeetingOk = (cid) => onbMeeting(cid)?.status === "realizada";
   const boardRow = (cid) => {
     const o = db.opsClientOps[cid];
     const c = db.clients.find((x) => x.id === cid);
     const st = stageOf(o.stage_id);
     return { client_id: cid, name: c?.name ?? "", client_status: c?.status ?? "ativo", stage_id: o.stage_id, stage_since: o.stage_since, version: o.version,
       am_user_id: o.am_user_id, am_name: name(o.am_user_id), stage_pending: pending(cid, st.position, st.position + 1), can_move: canMoveClient(cid),
-      summary: summary(cid) };
+      onboarding_meeting: onbMeeting(cid), meeting_ok: onbMeetingOk(cid), summary: summary(cid) };
   };
   const clientConflict = () => res(409, { code: "40001", message: "Alguém alterou este cliente antes de você. Recarregue para ver a versão atual." });
   if (rpc("ops_client_board")) {
@@ -566,6 +572,10 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     if (to.id === o.stage_id) return res(200, o.version);
     const from = stageOf(o.stage_id);
     if (to.position > from.position) {
+      const onb = stageOf("onboarding_pendente");
+      if (onb && from.position <= onb.position && to.position > onb.position && !onbMeetingOk(p.p_client)) {
+        return bad('Vincule uma reunião de onboarding a este cliente e marque-a como "Realizada" antes de avançar.');
+      }
       const n = pending(p.p_client, from.position, to.position);
       if (n > 0) return bad(`Há ${n} tarefa(s) obrigatória(s) aberta(s) nesta etapa. Conclua antes de avançar o cliente.`);
     }
@@ -573,6 +583,28 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       { etapa: to.id, regra: to.position > from.position ? "Avanço manual: nenhuma tarefa obrigatória aberta" : "Retorno manual de etapa" });
     Object.assign(o, { stage_id: to.id, stage_since: new Date().toISOString(), version: o.version + 1 });
     return res(200, o.version);
+  }
+  if (rpc("ops_client_meeting_link")) {
+    const o = db.opsClientOps[p.p_client];
+    if (!o || !clientVisible(p.p_client)) return bad("Este cliente não está no fluxo operacional.");
+    if (!canMoveClient(p.p_client)) return deny("Você não tem permissão para vincular reunião a este cliente.");
+    const m = db.opsMeetings.find((x) => x.id === p.p_meeting);
+    if (!m) return bad("Reunião não encontrada.");
+    if (m.status === "cancelada") return bad("Esta reunião foi cancelada. Escolha outra ou crie uma nova.");
+    if (m.client_id && m.client_id !== p.p_client) return bad("Esta reunião é de outro cliente.");
+    if (Object.entries(db.opsClientOps).some(([cid, x]) => cid !== p.p_client && x.onboarding_meeting_id === m.id)) return bad("Esta reunião já está vinculada ao onboarding de outro cliente.");
+    if (!m.client_id) Object.assign(m, { client_id: p.p_client, version: m.version + 1 });
+    logClient(p.p_client, "cliente.reuniao_vinculada", o.onboarding_meeting_id ? { reuniao: o.onboarding_meeting_id } : null,
+      { reuniao: m.id, numero: m.number, titulo: m.title, situacao: m.status });
+    o.onboarding_meeting_id = m.id;
+    return res(204);
+  }
+  if (rpc("ops_client_meeting_unlink")) {
+    const o = db.opsClientOps[p.p_client];
+    if (!o || !clientVisible(p.p_client)) return bad("Este cliente não está no fluxo operacional.");
+    if (!canMoveClient(p.p_client)) return deny("Você não tem permissão para mudar a reunião deste cliente.");
+    if (o.onboarding_meeting_id) { logClient(p.p_client, "cliente.reuniao_desvinculada", { reuniao: o.onboarding_meeting_id }, null); o.onboarding_meeting_id = null; }
+    return res(204);
   }
   if (rpc("ops_demand_release")) {
     const d = p.p ?? {};

@@ -62,6 +62,9 @@ export interface OpsBoardClient {
   am_name: string | null;
   stage_pending: number;
   can_move: boolean;
+  /** Etapa 47.1: reunião de onboarding vinculada (Onboarding Pendente só libera com ela "realizada"). */
+  onboarding_meeting: { id: string; number: number; title: string; status: "agendada" | "realizada" | "cancelada"; starts_at: string } | null;
+  meeting_ok: boolean;
   summary: OpsClientSummary;
 }
 
@@ -207,6 +210,20 @@ export function useSetClientAm() {
   return useOpsMutation(async (v: { clientId: string; version: number; amId: string }) => {
     const { error } = await supabase.rpc("ops_client_set_am", { p_client: v.clientId, p_version: v.version, p_am: v.amId || null });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos trocar o Account Manager."));
+  });
+}
+
+export function useLinkClientMeeting() {
+  return useOpsMutation(async (v: { clientId: string; meetingId: string }) => {
+    const { error } = await supabase.rpc("ops_client_meeting_link", { p_client: v.clientId, p_meeting: v.meetingId });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos vincular a reunião."));
+  });
+}
+
+export function useUnlinkClientMeeting() {
+  return useOpsMutation(async (clientId: string) => {
+    const { error } = await supabase.rpc("ops_client_meeting_unlink", { p_client: clientId });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos desvincular a reunião."));
   });
 }
 

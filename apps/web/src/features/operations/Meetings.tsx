@@ -46,12 +46,12 @@ export function MeetingFormModal({ meeting, people, categories, ctx, defaults, o
   people?: string[];
   categories: OpsMeetingCategory[];
   ctx: TasksContext;
-  defaults?: { client_id?: string };
+  defaults?: { client_id?: string; title?: string; category_id?: string; lockClient?: boolean };
   onClose: () => void;
   onSaved?: (id: string) => void;
 }) {
-  const [title, setTitle] = useState(meeting?.title ?? "");
-  const [category, setCategory] = useState(meeting?.category_id ?? categories.find((c) => c.active)?.id ?? "");
+  const [title, setTitle] = useState(meeting?.title ?? defaults?.title ?? "");
+  const [category, setCategory] = useState(meeting?.category_id ?? (categories.some((c) => c.active && c.id === defaults?.category_id) ? defaults?.category_id : undefined) ?? categories.find((c) => c.active)?.id ?? "");
   const [when, setWhen] = useState(meeting ? opsMeetingIsoToLocal(meeting.starts_at) : nextSlot());
   const [duration, setDuration] = useState(String(meeting?.duration_min ?? 30));
   const [sector, setSector] = useState(meeting ? meeting.sector_id ?? "" : ctx.mySector ?? "");
@@ -119,7 +119,7 @@ export function MeetingFormModal({ meeting, people, categories, ctx, defaults, o
           </Field>
           <Field label="Cliente" hint="Opcional. Aparece no histórico do cliente.">
             {(id) => (
-              <Select id={id} value={client} onChange={(e) => setClient(e.target.value)}>
+              <Select id={id} value={client} disabled={defaults?.lockClient} onChange={(e) => setClient(e.target.value)}>
                 <option value="">Sem cliente</option>
                 {ctx.directory.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 {meeting?.client_id && !ctx.directory.clients.some((c) => c.id === meeting.client_id) && <option value={meeting.client_id}>{meeting.client_name}</option>}
