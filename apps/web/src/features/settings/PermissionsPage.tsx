@@ -2,6 +2,7 @@ import { can, PERMISSION_LABELS, PERMISSIONS, ROLE_DESCRIPTIONS, ROLE_LABELS, RO
 import { Check, Minus } from "lucide-react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Card } from "@/components/ui/card.tsx";
+import { menuPorPapel } from "@/components/layout/navigation.ts";
 
 /** Quem pode o quê (somente leitura). A mesma regra é conferida no banco e no servidor. */
 export function PermissionsPage() {
@@ -54,12 +55,30 @@ export function PermissionsPage() {
       </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {ROLES.map((r) => (
-          <Card key={r} className="p-4">
-            <p className="font-medium text-slate-900">{ROLE_LABELS[r]}</p>
-            <p className="mt-1 text-sm text-slate-600">{ROLE_DESCRIPTIONS[r]}</p>
-          </Card>
-        ))}
+        {ROLES.map((r) => {
+          const menu = menuPorPapel(r);
+          const soCliente = r === "cliente" || r === "vendedor";
+          return (
+            <Card key={r} className="p-4" data-testid="role-card" data-role={r}>
+              <p className="font-medium text-slate-900">{ROLE_LABELS[r]}</p>
+              <p className="mt-1 text-sm text-slate-600">{ROLE_DESCRIPTIONS[r]}</p>
+              <div className="mt-3 border-t border-slate-100 pt-2">
+                <p className="text-xs font-medium text-slate-500">No menu lateral</p>
+                {soCliente ? (
+                  <p className="mt-1 text-xs text-slate-600">{r === "cliente" ? "Visão simplificada da própria empresa (área do cliente)." : "Só a tela de contatos liberados para o vendedor."}</p>
+                ) : (
+                  <ul className="mt-1 space-y-1 text-xs text-slate-700" data-testid="role-menu">
+                    {menu.central !== "nunca" && (
+                      <li><strong>Operações:</strong> Central de Operações {menu.central === "com_permissao" ? <span className="text-slate-500">(só com a permissão da Central, dada a cada pessoa)</span> : <span className="text-slate-500">(sempre)</span>}</li>
+                    )}
+                    {menu.groups.map((g) => <li key={g.group}><strong>{g.group}:</strong> {g.items.join(", ")}</li>)}
+                    {menu.groups.length === 0 && menu.central === "nunca" && <li>Nada além da própria tela.</li>}
+                  </ul>
+                )}
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
       <Card className="space-y-2 p-4 text-sm text-slate-600" data-testid="never-list">

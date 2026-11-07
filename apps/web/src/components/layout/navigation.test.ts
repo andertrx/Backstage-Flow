@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NAV_ITEMS, navGroupsFor, navItemForPath, navItemsFor } from "./navigation.ts";
+import { menuPorPapel, NAV_ITEMS, navGroupsFor, navItemForPath, navItemsFor } from "./navigation.ts";
 
 const labels = (role: Parameters<typeof navItemsFor>[0]) => navItemsFor(role).map((i) => i.label);
 
@@ -71,5 +71,32 @@ describe("grupos do menu", () => {
     expect(navItemForPath("/clientes/123")?.label).toBe("Clientes");
     expect(navItemForPath("/configuracoes/permissoes")?.label).toBe("Configurações");
     expect(navItemForPath("/minha-conta")).toBeUndefined();
+  });
+});
+
+describe("mapa do menu por papel (43.3)", () => {
+  it("admin vê tudo e a Central sempre; equipe só tem a Central com permissão", () => {
+    const admin = menuPorPapel("admin");
+    expect(admin.central).toBe("sempre");
+    expect(admin.groups.flatMap((g) => g.items)).toContain("Configurações");
+    const equipe = menuPorPapel("equipe");
+    expect(equipe.central).toBe("com_permissao");
+    expect(equipe.groups).toEqual([]);
+  });
+  it("visualizador não vê Relatórios nem Criador de Anúncios; gestor vê Logs mas não Configurações", () => {
+    const vis = menuPorPapel("visualizador").groups.flatMap((g) => g.items);
+    expect(vis).not.toContain("Relatórios");
+    expect(vis).not.toContain("Criador de Anúncios");
+    const gestor = menuPorPapel("gestor").groups.flatMap((g) => g.items);
+    expect(gestor).toContain("Logs");
+    expect(gestor).not.toContain("Configurações");
+  });
+  it("vendedor e cliente nunca têm a Central", () => {
+    expect(menuPorPapel("vendedor").central).toBe("nunca");
+    expect(menuPorPapel("cliente").central).toBe("nunca");
+  });
+  it("a ordem dos grupos do menu continua a mesma", () => {
+    const grupos = menuPorPapel("admin").groups.map((g) => g.group);
+    expect(grupos).toEqual(["Visão geral", "Anúncios", "Análise", "Sistema"]);
   });
 });

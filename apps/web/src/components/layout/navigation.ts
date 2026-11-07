@@ -81,3 +81,14 @@ export function navItemForPath(pathname: string): NavItem | undefined {
   return NAV_ITEMS.filter((i) => i.path !== "/" && (pathname === i.path || pathname.startsWith(`${i.path}/`)))
     .sort((a, b) => b.path.length - a.path.length)[0];
 }
+
+/**
+ * 43.3 (D): o que cada papel vê no menu, para a tela "Papéis e permissões".
+ * `central`: o item da Central de Operações só aparece para quem tem a permissão dela (por pessoa), então fica à parte.
+ */
+export function menuPorPapel(role: Role): { groups: { group: NavGroup; items: string[] }[]; central: "sempre" | "com_permissao" | "nunca" } {
+  const sem = navGroupsFor(role, []).map((g) => ({ group: g.group, items: g.items.filter((i) => !i.ops).map((i) => i.label) })).filter((g) => g.items.length > 0);
+  const com = navItemsFor(role, ["ops.access"]).some((i) => i.ops);
+  const sempre = navItemsFor(role, []).some((i) => i.ops);
+  return { groups: sem, central: sempre ? "sempre" : com ? "com_permissao" : "nunca" };
+}
