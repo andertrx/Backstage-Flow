@@ -1,0 +1,4 @@
+# Endereço seguro (https) com certificado automático. O nome vem do arquivo .env (DOMAIN).
+{$DOMAIN} {
+	reverse_proxy api:8080
+}

@@ -72,7 +72,7 @@
 - [ ] Em **Inteligência de Resultados**, escolher o cliente, conectar a planilha dele e clicar em **Atualizar agora**. Essa primeira leitura real é o teste final da Etapa 39 (depois disso, conferir a aba **Qualidade dos dados**).
 
 ## WhatsApp por API não oficial (Etapa 44, 06/11/2026)
-- [ ] **Contratar o servidor de conexão** e apontar um endereço https para ele (passo a passo em `docs/etapa-43-organizacao/44.1-CONEXAO-WHATSAPP-NAO-OFICIAL.md`). Eu preparo a instalação quando você tiver o servidor.
+- [ ] **Contratar o servidor de conexão** e seguir `docs/etapa-43-organizacao/44.1-SERVIDOR-PASSO-A-PASSO.md` (arquivos prontos em `infra/whatsapp-evolution/`). Eu acompanho cada passo.
 - [ ] Ter o **chip separado** à mão para ler o QR Code (ou digitar o código) na primeira conexão. Cole a chave de acesso **só no campo do CRM**, nunca no chat.
 - [ ] **Decidir como marcar pessoas (@)** no envio automático: guardar o identificador (com telefone) em tabela protegida (recomendo), achar pelo nome na hora, ou enviar sem marcar. Ver seção "Para decidir" do documento 44.1.
 - [ ] (opcional) Colar aqui imagens das telas de WhatsApp e de agentes do sistema `itsmovcrm.com.br` para eu mapear o que ele tem.
