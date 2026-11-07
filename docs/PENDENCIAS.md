@@ -17,7 +17,7 @@
 - [ ] (04/11) **Ativar as notificações da Central no celular e no computador** (hoje 0 aparelhos) para receber o aviso de aprovação do envio fora do CRM; conferir o e-mail do perfil. Ver `docs/etapa-41-envios-semanais/41.6-AVISOS-DE-APROVACAO.md`.
 
 ## Central — aviso de tarefa vencida no aparelho (36.17, 26/10/2026)
-- [ ] Em cada aparelho (computador e celular): abrir o CRM → Central → Notificações → **Ativar neste aparelho** → Permitir → **Enviar teste**. Me diga se o aviso chegou (ainda não foi testado num aparelho real).
+- [ ] Em cada aparelho (computador e celular): abrir o CRM → Central → aba **Notificações** → **Ativar neste aparelho** → Permitir → **Enviar teste**. Me diga se o aviso chegou (ainda não foi testado num aparelho real).
 - [ ] **iPhone:** abrir o site no Safari → Compartilhar → "Adicionar à Tela de Início" → abrir pelo ícone e ativar por lá.
 
 ## Domínio backstageflow.com.br

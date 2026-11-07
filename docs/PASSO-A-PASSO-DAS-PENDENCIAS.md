@@ -20,7 +20,7 @@
 
 ## BLOCO 2 — Notificações no seu celular e computador (5 minutos)
 **Por quê:** hoje você tem **0 aparelhos** ativados, por isso não era avisado do envio.
-1. **Computador:** abra o CRM → **Central de Operações → Notificações** → **Ativar neste aparelho** → **Permitir** no navegador → **Enviar teste**.
+1. **Computador:** abra o CRM → **Central de Operações** → aba **Notificações** (também dá para chegar pelo **sininho** no topo → "Ver todas e preferências") → cartão **"Aviso no computador e no celular"** → **Ativar neste aparelho** → **Permitir** no navegador → **Enviar teste**.
 2. **Celular Android:** mesmo caminho, no Chrome.
 3. **iPhone:** abra o site no **Safari** → botão Compartilhar → **Adicionar à Tela de Início** → abra pelo **ícone novo** → faça o mesmo caminho acima.
 4. **E-mail:** em **Perfil**, confira se o e-mail está certo. Em **Monitoramento → Configurações → Minhas notificações**, marque **"Por e-mail"** se quiser avisos também lá.

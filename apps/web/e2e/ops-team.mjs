@@ -29,7 +29,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   await page.getByTestId("ops-my-tasks").waitFor();
   check(await page.getByRole("heading", { name: "Central de Operações", level: 1 }).count() === 1, "abre a Central em Minhas tarefas");
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Operação", "Reuniões", "Envios semanais", "Equipe", "Configurações"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Minhas tarefas", "Tarefas", "Comercial", "Operação", "Reuniões", "Envios semanais", "Notificações", "Equipe", "Configurações"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
   await page.getByRole("link", { name: "Equipe" }).last().click();
   await page.getByTestId("ops-team").waitFor();
   // Espera a lista carregar antes de ler o texto (sem isso, às vezes lia a tela ainda vazia).
@@ -144,7 +144,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   const labels = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
   check(JSON.stringify(labels) === JSON.stringify(["Central de Operações"]), `menu só com a Central (${labels.join(", ")})`);
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Minhas tarefas", "Tarefas", "Operação", "Reuniões", "Equipe"]), `sem a aba Configurações (só admin): ${tabs.join(", ")}`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Minhas tarefas", "Tarefas", "Operação", "Reuniões", "Notificações", "Equipe"]), `sem a aba Configurações (só admin): ${tabs.join(", ")}`);
   await page.getByRole("link", { name: "Equipe" }).last().click();
   await page.getByTestId("ops-team").waitFor();
   check(await page.getByRole("button", { name: /na Central$/ }).count() === 0, "não edita a equipe");

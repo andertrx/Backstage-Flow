@@ -1,5 +1,5 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { Building2, CalendarDays, ClipboardList, Gauge, Handshake, ListChecks, Lock, type LucideIcon, Send, Settings, Users } from "lucide-react";
+import { Bell, Building2, CalendarDays, ClipboardList, Gauge, Handshake, ListChecks, Lock, type LucideIcon, Send, Settings, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, NavLink, Outlet } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -28,6 +28,8 @@ export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission
   { to: "/operacoes/reunioes", label: "Reuniões", icon: CalendarDays, permission: "ops.access" },
   // Etapa 41: só quem tem "Envios semanais" (e o admin).
   { to: "/operacoes/envios", label: "Envios semanais", icon: Send, permission: "ops.envios" },
+  // 07/11/2026: as preferências e o "Ativar neste aparelho" (aviso no computador e no celular) ficavam só atrás do sininho; agora têm aba própria.
+  { to: "/operacoes/notificacoes", label: "Notificações", icon: Bell, permission: "ops.access" },
   { to: "/operacoes/equipe", label: "Equipe", icon: Users, permission: "ops.access", admin: true },
   { to: "/operacoes/configuracoes", label: "Configurações", icon: Settings, permission: "ops.admin", admin: true },
 ];
@@ -73,16 +75,16 @@ export function OpsLayout() {
           <OpsSearch />
         </div>
         {/* Abas em "pílula", no padrão da referência visual (tema claro). */}
-        <nav className="flex flex-wrap items-center gap-x-6 gap-y-2" aria-label="Central de Operações">
+        <nav className="flex flex-wrap items-center gap-x-3 gap-y-2" aria-label="Central de Operações">
           {[tabs.filter((t) => !t.admin), tabs.filter((t) => t.admin)].map((group, gi) => group.length > 0 && (
-            <div key={gi} className={cn("flex flex-wrap gap-2", gi === 1 && "sm:ml-auto")} data-testid={gi === 1 ? "ops-tabs-admin" : "ops-tabs-main"}>
+            <div key={gi} className={cn("flex flex-wrap gap-1.5", gi === 1 && "sm:ml-auto")} data-testid={gi === 1 ? "ops-tabs-admin" : "ops-tabs-main"}>
               {group.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}
                   className={({ isActive }) =>
                     cn(
-                      "inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all",
+                      "inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition-all",
                       isActive
                         ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
                         : gi === 1
