@@ -2,11 +2,14 @@ import { can, opsCan, ROLE_LABELS } from "@backstage/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronsLeft, ChevronsRight, LogOut, Menu, X } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
-import { Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-router";
+import { Link, NavLink, Outlet, ScrollRestoration, useLocation, useNavigate } from "react-router";
 import { ErrorBoundary } from "@/components/feedback/ErrorBoundary.tsx";
 import { DemoBanner } from "@/components/feedback/DemoBanner.tsx";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
+import { AlertsBell } from "@/features/alerts/AlertsBell.tsx";
 import { useUnseenAlertsCount } from "@/features/alerts/api.ts";
+import { useMonitorNotifications } from "@/features/monitoring/notifyApi.ts";
+import { useUnreadNotifications } from "@/features/operations/notificationsApi.ts";
 import { useMyOpsPermissions } from "@/features/operations/api.ts";
 import { MonitorBell } from "@/features/monitoring/MonitorBell.tsx";
 import { DueTasksReminder } from "@/features/operations/DueTasksReminder.tsx";
@@ -27,7 +30,16 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
   const { profile } = useAuth();
   const { data: unseen = 0 } = useUnseenAlertsCount(can(profile?.role, "internal.view"));
   const { data: opsPermissions } = useMyOpsPermissions();
+  const monitorUnread = useMonitorNotifications(15, can(profile?.role, "monitor.view")).data?.unread ?? 0;
+  const opsUnread = useUnreadNotifications(opsCan(opsPermissions, "ops.access")).data ?? 0;
+  const totalAlertas = unseen + monitorUnread + opsUnread;
+  const subAlertas = [
+    { aba: "contas", label: "Contas", n: unseen, show: can(profile?.role, "internal.view") },
+    { aba: "campanhas", label: "Campanhas", n: monitorUnread, show: can(profile?.role, "monitor.view") },
+    { aba: "tarefas", label: "Tarefas", n: opsUnread, show: opsCan(opsPermissions, "ops.access") },
+  ].filter((x) => x.show);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   // 43.3 (A): null = padrão do papel; depois que a pessoa abre/fecha um grupo, vale a escolha dela (lembrada no navegador).
   const [fechados, setFechados] = usePersistentState<string[] | null>("menu.grupos.fechados", null);
   const fechadosAgora = fechados ?? gruposRecolhidosPadrao(profile?.role);
@@ -50,7 +62,7 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
           )}
           <ul className={cn("space-y-0.5", recolhido && "hidden")}>
             {items.map(({ label, path, icon: Icon }) => {
-              const badge = path === "/alertas" && unseen > 0;
+              const badge = path === "/alertas" && totalAlertas > 0;
               return (
                 <li key={path}>
                   <NavLink
@@ -81,13 +93,27 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
                             )}
                             data-testid="nav-alerts-count"
                           >
-                            {!collapsed && (unseen > 99 ? "99+" : unseen)}
-                            <span className="sr-only"> {unseen} {unseen === 1 ? "alerta não visto" : "alertas não vistos"}</span>
+                            {!collapsed && (totalAlertas > 99 ? "99+" : totalAlertas)}
+                            <span className="sr-only"> {totalAlertas} {totalAlertas === 1 ? "aviso não visto" : "avisos não vistos"}</span>
                           </span>
                         )}
                       </>
                     )}
                   </NavLink>
+                  {/* 43.5: sob o item Alertas, os 3 assuntos com o seu próprio número (não é um item novo do menu) */}
+                  {path === "/alertas" && !collapsed && subAlertas.length > 1 && (
+                    <ul className="ml-7 mt-0.5 space-y-0.5 border-l border-white/10 pl-3" data-testid="nav-alerts-sub">
+                      {subAlertas.map((x) => (
+                        <li key={x.aba}>
+                          <button type="button" onClick={() => { navigate(x.aba === "contas" ? "/alertas" : `/alertas?aba=${x.aba}`); onNavigate?.(); }}
+                            className="flex w-full items-center justify-between rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-white/5 hover:text-white" data-testid={`nav-alerts-sub-${x.aba}`}>
+                            {x.label}
+                            {x.n > 0 && <span className="rounded-full bg-red-500/90 px-1.5 text-[10px] font-semibold leading-4 text-white">{x.n > 99 ? "99+" : x.n}</span>}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               );
             })}
@@ -197,6 +223,8 @@ export function AppLayout() {
           )}
           <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-500" data-testid="header-section">{section}</p>
           {can(profile?.role, "internal.view") && <GlobalSearch />}
+          {/* 43.5: três sininhos, um por assunto: Contas, Campanhas e Tarefas */}
+          {can(profile?.role, "internal.view") && <AlertsBell />}
           {can(profile?.role, "monitor.view") && <MonitorBell />}
           {opsCan(opsPermissions, "ops.access") && <NotificationBell />}
           <Link to="/minha-conta" className="flex items-center gap-2.5 rounded-lg px-2 py-1 hover:bg-slate-100" title="Minha conta">

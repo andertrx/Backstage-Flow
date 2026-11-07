@@ -161,4 +161,5 @@
 - **07/11 (43.3 fase 2):** "pode" + pediu o passo a passo das pendências (entregue em `docs/PASSO-A-PASSO-DAS-PENDENCIAS.md`); fiz os modelos de função.
 - **07/11 (43.3 fase 3):** "pode" aprovou a opção A (menu); só recolhimento de grupos, sem retirar nem criar itens.
 - **07/11 (43.4):** Ander não achou "Central → Notificações" (só existia no sininho); pediu "a melhor opção": criei a aba e corrigi o passo a passo.
+- **07/11 (43.5):** Ander pediu 3 sininhos identificados (campanhas, tarefas, contas), o total com o número vermelho no menu e as 3 opções dentro de Alertas; respondeu "o alerta de baixo é o Alertas do menu" e "sigo sua recomendação" (tudo da Central, atrasadas em destaque).
 - **07/11 (plano 44.3/45):** Ander pediu: disparos pelo número conectado, avisos no WhatsApp para um grupo dele (ex.: 1h sem gastar, saldo vencendo em 2 dias), foco nos gestores, cliente depois, e dividir o sistema. Entreguei o passo a passo do servidor, arquivos prontos e o plano; aguardo o servidor e o OK.

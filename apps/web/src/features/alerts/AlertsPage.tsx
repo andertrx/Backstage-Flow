@@ -9,6 +9,7 @@ import {
   type AlertStatus,
   can,
   compareAlerts,
+  opsCan,
   countOpenBySeverity,
   formatAccountId,
   PLATFORM_IDS,
@@ -28,7 +29,11 @@ import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatRelative } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
-import { type AlertRow, type AlertSituation, type RefreshAlertsResult, useAlerts, useRefreshAlerts, useSetAlertStatus } from "./api.ts";
+import { useMonitorNotifications } from "@/features/monitoring/notifyApi.ts";
+import { useMyOpsPermissions } from "@/features/operations/api.ts";
+import { useUnreadNotifications } from "@/features/operations/notificationsApi.ts";
+import { AvisosCampanhas, AvisosTarefas } from "./AvisosAbas.tsx";
+import { type AlertRow, type AlertSituation, type RefreshAlertsResult, useAlerts, useRefreshAlerts, useSetAlertStatus, useUnseenAlertsCount } from "./api.ts";
 
 const SITUATIONS: { value: AlertSituation; label: string }[] = [
   { value: "abertos", label: "Abertos" },
@@ -49,7 +54,7 @@ const STATUS_STYLE: Record<AlertStatus, string> = {
 
 const pick = <T extends string>(value: string | null, allowed: readonly T[]) => (value && (allowed as readonly string[]).includes(value) ? (value as T) : null);
 
-export function AlertsPage() {
+function AlertasContas() {
   const { profile } = useAuth();
   const canManage = can(profile?.role, "alerts.manage");
   const [params, updateParams] = useSearchParamsUpdater();
@@ -82,12 +87,9 @@ export function AlertsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Alertas</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Problemas encontrados nas contas e campanhas. A verificação roda sozinha a cada 15 minutos.
-          </p>
-        </div>
+        <p className="text-sm text-slate-500">
+          Problemas encontrados nas contas (saldo, pagamento, restrição, conexão). A verificação roda sozinha a cada 15 minutos.
+        </p>
         {canManage && (
           <Button
             variant="secondary"
@@ -263,5 +265,49 @@ function AlertCard({ alert: a, canManage }: { alert: AlertRow; canManage: boolea
         {setStatus.error && <p className="mt-2 text-xs text-red-700">{errorMessage(setStatus.error)}</p>}
       </Card>
     </li>
+  );
+}
+
+const ABAS = [
+  { id: "contas", label: "Contas", hint: "saldo, pagamento, conta restrita, erro" },
+  { id: "campanhas", label: "Campanhas", hint: "avisos do Monitoramento" },
+  { id: "tarefas", label: "Tarefas", hint: "atrasadas e avisos da Central" },
+] as const;
+type AbaId = (typeof ABAS)[number]["id"];
+
+/** Alertas e notificações num lugar só, em 3 abas separadas (43.5): Contas, Campanhas e Tarefas. */
+export function AlertsPage() {
+  const { profile } = useAuth();
+  const { data: opsPermissions } = useMyOpsPermissions();
+  const [params, updateParams] = useSearchParamsUpdater();
+  const unseen = useUnseenAlertsCount(true).data ?? 0;
+  const monitor = useMonitorNotifications(15, can(profile?.role, "monitor.view")).data?.unread ?? 0;
+  const ops = useUnreadNotifications(opsCan(opsPermissions, "ops.access")).data ?? 0;
+  const visiveis = ABAS.filter((a) => (a.id === "campanhas" ? can(profile?.role, "monitor.view") : a.id === "tarefas" ? opsCan(opsPermissions, "ops.access") : true));
+  const pedida = pick(params.get("aba"), ["contas", "campanhas", "tarefas"] as const);
+  const aba: AbaId = visiveis.some((a) => a.id === pedida) ? (pedida as AbaId) : "contas";
+  const counts: Record<AbaId, number> = { contas: unseen, campanhas: monitor, tarefas: ops };
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Alertas</h1>
+        <p className="mt-1 text-sm text-slate-500">Seus avisos, separados por assunto: contas, campanhas e tarefas.</p>
+      </div>
+      <div role="tablist" aria-label="Assuntos dos alertas" className="flex flex-wrap gap-2" data-testid="alert-tabs">
+        {visiveis.map((a) => (
+          <button key={a.id} type="button" role="tab" aria-selected={aba === a.id} data-testid={`alert-tab-${a.id}`}
+            onClick={() => updateParams((p) => { if (a.id === "contas") p.delete("aba"); else p.set("aba", a.id); return p; })}
+            className={cn("inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold ring-1 ring-inset transition-colors",
+              aba === a.id ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50")}>
+            {a.label}
+            {counts[a.id] > 0 && <span className="rounded-full bg-red-600 px-1.5 text-[11px] font-bold leading-5 text-white" data-testid={`alert-tab-count-${a.id}`}>{counts[a.id] > 99 ? "99+" : counts[a.id]}</span>}
+          </button>
+        ))}
+      </div>
+      <p className="-mt-3 text-xs text-slate-500">{visiveis.find((a) => a.id === aba)?.hint}</p>
+      {aba === "contas" && <AlertasContas />}
+      {aba === "campanhas" && <AvisosCampanhas />}
+      {aba === "tarefas" && <AvisosTarefas />}
+    </div>
   );
 }

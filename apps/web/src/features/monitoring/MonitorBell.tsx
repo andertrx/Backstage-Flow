@@ -35,11 +35,12 @@ export function MonitorBell() {
   return (
     <div className="relative" ref={ref}>
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} data-testid="monitor-bell"
-        aria-label={count ? `Avisos do monitoramento (${count} não lidos)` : "Avisos do monitoramento"} title="Avisos do monitoramento"
-        className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900">
-        <BellRing className="size-5" aria-hidden />
+        aria-label={count ? `Campanhas: avisos do monitoramento (${count} não lidos)` : "Campanhas: avisos do monitoramento"} title="Campanhas: avisos do monitoramento"
+        className="relative flex items-center gap-1.5 rounded-lg p-2 text-slate-600 hover:bg-amber-50 hover:text-slate-900">
+        <BellRing className="size-5 text-amber-600" aria-hidden />
+        <span className="hidden text-xs font-semibold text-slate-700 xl:inline" aria-hidden>Campanhas</span>
         {count > 0 && (
-          <span className="absolute right-0.5 top-0.5 grid min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-4 text-white" data-testid="monitor-bell-count">
+          <span className="absolute right-0 top-0 grid min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-4 text-white" data-testid="monitor-bell-count">
             {count > 99 ? "99+" : count}
           </span>
         )}

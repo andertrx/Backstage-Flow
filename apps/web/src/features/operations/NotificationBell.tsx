@@ -1,4 +1,4 @@
-import { Bell } from "lucide-react";
+import { ListChecks } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { cn } from "@/lib/cn.ts";
@@ -48,20 +48,21 @@ export function NotificationBell() {
   return (
     <div className="relative" ref={ref}>
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} data-testid="ops-bell"
-        aria-label={count ? `Notificações (${count} não lidas)` : "Notificações"}
-        className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900">
-        <Bell className="size-5" aria-hidden />
+        aria-label={count ? `Tarefas e Central (${count} não lidas)` : "Tarefas e Central"} title="Tarefas e Central: atrasadas, menções, reuniões e envios"
+        className="relative flex items-center gap-1.5 rounded-lg p-2 text-slate-600 hover:bg-blue-50 hover:text-slate-900">
+        <ListChecks className="size-5 text-blue-600" aria-hidden />
+        <span className="hidden text-xs font-semibold text-slate-700 xl:inline" aria-hidden>Tarefas</span>
         {count > 0 && (
-          <span className="absolute right-0.5 top-0.5 grid min-w-4 place-items-center rounded-full bg-blue-600 px-1 text-[10px] font-bold leading-4 text-white" data-testid="ops-bell-count">
+          <span className="absolute right-0 top-0 grid min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-4 text-white" data-testid="ops-bell-count">
             {count > 99 ? "99+" : count}
           </span>
         )}
       </button>
       {open && (
         <div className="fixed inset-x-2 top-[4.5rem] z-50 overflow-hidden rounded-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[22rem] bg-white shadow-xl ring-1 ring-slate-200"
-          role="dialog" aria-label="Notificações" data-testid="ops-bell-panel">
+          role="dialog" aria-label="Tarefas e Central" data-testid="ops-bell-panel">
           <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
-            <p className="text-sm font-semibold text-slate-900">Notificações</p>
+            <p className="text-sm font-semibold text-slate-900">Tarefas e Central</p>
             {count > 0 && (
               <button type="button" className="text-xs font-medium text-blue-700 hover:underline" onClick={() => mark.mutate(null)}>Marcar todas como lidas</button>
             )}
@@ -71,10 +72,10 @@ export function NotificationBell() {
             {list.data && list.data.items.length === 0 && <p className="px-3 py-6 text-center text-sm text-slate-500">Nenhuma notificação por aqui.</p>}
             {list.data?.items.map((n) => <NotificationItem key={n.id} n={n} onOpen={openItem} compact />)}
           </div>
-          <Link to="/operacoes/notificacoes" onClick={() => setOpen(false)}
-            className="block border-t border-slate-100 px-3 py-2 text-center text-sm font-medium text-blue-700 hover:bg-slate-50">
-            Ver todas e preferências
-          </Link>
+          <div className="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100">
+            <Link to="/alertas?aba=tarefas" onClick={() => setOpen(false)} className="px-3 py-2 text-center text-sm font-medium text-blue-700 hover:bg-slate-50">Ver em Alertas</Link>
+            <Link to="/operacoes/notificacoes" onClick={() => setOpen(false)} className="px-3 py-2 text-center text-sm font-medium text-blue-700 hover:bg-slate-50">Ver todas e preferências</Link>
+          </div>
         </div>
       )}
     </div>
