@@ -60,6 +60,8 @@ const ROUTES = [
 
 for (const role of ["admin", "gestor", "operador", "visualizador", "cliente"]) {
   const { browser, page, errors } = await launch();
+  // 43.3 (A): o menu pode começar com grupos recolhidos; aqui abrimos todos para conferir QUAIS itens existem para o papel.
+  await page.addInitScript(() => localStorage.setItem("menu.grupos.fechados", "[]"));
   await mockSupabase(page, { role });
   await login(page, "/");
   await page.waitForURL((u) => u.pathname === "/", { timeout: 8000 });

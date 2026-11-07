@@ -1,6 +1,6 @@
 import { can, opsCan, ROLE_LABELS } from "@backstage/shared";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronsLeft, ChevronsRight, LogOut, Menu, X } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, LogOut, Menu, X } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-router";
 import { ErrorBoundary } from "@/components/feedback/ErrorBoundary.tsx";
@@ -18,7 +18,7 @@ import { cn } from "@/lib/cn.ts";
 import { exitDemo, isDemoMode } from "@/lib/demo.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { Logo } from "./Logo.tsx";
-import { navGroupsFor, navItemForPath } from "./navigation.ts";
+import { gruposRecolhidosPadrao, navGroupsFor, navItemForPath } from "./navigation.ts";
 
 const APP_NAME = "Backstage Flow";
 const EXTRA_TITLES: Record<string, string> = { "/minha-conta": "Minha conta", "/comparar": "Comparar períodos", "/historico": "Histórico" };
@@ -27,16 +27,28 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
   const { profile } = useAuth();
   const { data: unseen = 0 } = useUnseenAlertsCount(can(profile?.role, "internal.view"));
   const { data: opsPermissions } = useMyOpsPermissions();
+  const { pathname } = useLocation();
+  // 43.3 (A): null = padrão do papel; depois que a pessoa abre/fecha um grupo, vale a escolha dela (lembrada no navegador).
+  const [fechados, setFechados] = usePersistentState<string[] | null>("menu.grupos.fechados", null);
+  const fechadosAgora = fechados ?? gruposRecolhidosPadrao(profile?.role);
+  const grupoAtual = navItemForPath(pathname)?.group;
+  const alternar = (g: string) => setFechados(fechadosAgora.includes(g) ? fechadosAgora.filter((x) => x !== g) : [...fechadosAgora, g]);
   return (
     <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Menu principal">
-      {navGroupsFor(profile?.role, opsPermissions).map(({ group, items }, gi) => (
+      {navGroupsFor(profile?.role, opsPermissions).map(({ group, items }, gi) => {
+        const recolhido = !collapsed && fechadosAgora.includes(group) && group !== grupoAtual;
+        return (
         <div key={group} className={cn(gi > 0 && "mt-5")}>
           {collapsed ? (
             gi > 0 && <div className="mx-2 mb-3 border-t border-white/10" aria-hidden />
           ) : (
-            <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{group}</p>
+            <button type="button" onClick={() => alternar(group)} aria-expanded={!recolhido} aria-label={`Grupo do menu: ${group}`} data-testid="nav-group-toggle" data-group={group}
+              className="mb-1.5 flex w-full items-center justify-between px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300">
+              {group}
+              <ChevronDown className={cn("size-3 transition-transform", recolhido && "-rotate-90")} aria-hidden />
+            </button>
           )}
-          <ul className="space-y-0.5">
+          <ul className={cn("space-y-0.5", recolhido && "hidden")}>
             {items.map(({ label, path, icon: Icon }) => {
               const badge = path === "/alertas" && unseen > 0;
               return (
@@ -81,7 +93,8 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
             })}
           </ul>
         </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }

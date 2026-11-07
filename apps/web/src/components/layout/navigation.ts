@@ -92,3 +92,12 @@ export function menuPorPapel(role: Role): { groups: { group: NavGroup; items: st
   const sempre = navItemsFor(role, []).some((i) => i.ops);
   return { groups: sem, central: sempre ? "sempre" : com ? "com_permissao" : "nunca" };
 }
+
+/**
+ * 43.3 (A): grupos do menu que começam recolhidos para cada papel (a pessoa abre e fecha quando quiser; o navegador lembra).
+ * Nada é retirado e a ordem dos grupos não muda; o grupo da tela aberta nunca fica escondido.
+ * Quem acompanha anúncios (gestor, operador, visualizador) começa com "Sistema" recolhido; os demais veem tudo aberto.
+ */
+export function gruposRecolhidosPadrao(role: Role | null | undefined): NavGroup[] {
+  return role === "gestor" || role === "operador" || role === "visualizador" ? ["Sistema"] : [];
+}

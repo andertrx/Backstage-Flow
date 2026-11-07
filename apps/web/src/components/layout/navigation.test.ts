@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { menuPorPapel, NAV_ITEMS, navGroupsFor, navItemForPath, navItemsFor } from "./navigation.ts";
+import { gruposRecolhidosPadrao, menuPorPapel, NAV_ITEMS, navGroupsFor, navItemForPath, navItemsFor } from "./navigation.ts";
 
 const labels = (role: Parameters<typeof navItemsFor>[0]) => navItemsFor(role).map((i) => i.label);
 
@@ -98,5 +98,15 @@ describe("mapa do menu por papel (43.3)", () => {
   it("a ordem dos grupos do menu continua a mesma", () => {
     const grupos = menuPorPapel("admin").groups.map((g) => g.group);
     expect(grupos).toEqual(["Visão geral", "Anúncios", "Análise", "Sistema"]);
+  });
+});
+
+describe("grupos recolhidos por padrão (43.3 A)", () => {
+  it("só quem acompanha anúncios começa com Sistema recolhido; admin e equipe veem tudo aberto", () => {
+    expect(gruposRecolhidosPadrao("gestor")).toEqual(["Sistema"]);
+    expect(gruposRecolhidosPadrao("operador")).toEqual(["Sistema"]);
+    expect(gruposRecolhidosPadrao("admin")).toEqual([]);
+    expect(gruposRecolhidosPadrao("equipe")).toEqual([]);
+    expect(gruposRecolhidosPadrao(null)).toEqual([]);
   });
 });

@@ -122,6 +122,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [43.3 — mapa "quem vê o quê" e proposta de organização por função (só proposta)](docs/etapa-43-organizacao/43.3-MAPA-QUEM-VE-O-QUE-E-PROPOSTA.md) ✅ 07/11 (aguarda resposta)
   - [43.3 fase 1 — Integrações em seções e "o que cada papel vê" em Papéis e permissões](docs/etapa-43-organizacao/43.3-ORGANIZACAO-INTEGRACOES-E-PAPEIS.md) ✅ 07/11
   - [43.3 fase 2 — modelos de função (Gestor de tráfego, Operação, Comercial) na equipe da Central](docs/etapa-43-organizacao/43.3-MODELOS-DE-FUNCAO.md) ✅ 07/11
+  - [43.3 fase 3 — menu com grupos recolhíveis (Sistema recolhido para quem acompanha anúncios)](docs/etapa-43-organizacao/43.3-MENU-POR-FUNCAO.md) ✅ 07/11
   - [44.1 — passo a passo do servidor do WhatsApp (arquivos prontos em `infra/whatsapp-evolution/`)](docs/etapa-43-organizacao/44.1-SERVIDOR-PASSO-A-PASSO.md) 📝 07/11
   - [45.0 — plano: disparos e avisos pelo WhatsApp + divisão empresa × cliente (só plano)](docs/etapa-43-organizacao/45.0-PLANO-DISPAROS-E-AVISOS-NO-WHATSAPP.md) 📝 07/11
 - [Etapa 42 — Criador de Anúncios (monta o pedido em texto para o Claude criar anúncios no Meta; modelos e histórico; 42.1: cliente → BM → conta → campanha → conjunto nas listas do CRM)](docs/etapa-42-criador-de-anuncios/42-CRIADOR-DE-ANUNCIOS.md) ✅ 28/10
