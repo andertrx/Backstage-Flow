@@ -1,5 +1,5 @@
-import { OPS_PRIORITIES, OPS_PRIORITY_LABELS, opsCan, opsSumByCurrency, opsToday } from "@backstage/shared";
-import { CalendarClock, Handshake, Plus, Rocket, Search, Settings, Trophy, Workflow } from "lucide-react";
+import { OPS_LEAD_KIND_LABELS, OPS_PRIORITIES, OPS_PRIORITY_LABELS, opsCan, opsSumByCurrency, opsToday } from "@backstage/shared";
+import { CalendarClock, Handshake, PhoneCall, Plus, Rocket, Search, Settings, Trophy, Workflow } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card.tsx";
 import { Input, Select } from "@/components/ui/field.tsx";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
-import { formatDate, formatMoney } from "@/lib/format.ts";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/format.ts";
 import { useDebouncedValue } from "@/lib/useDebouncedValue.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
@@ -40,15 +40,25 @@ function LeadCard({ l, onOpen, onRelease }: { l: OpsLeadCard; onOpen: () => void
       {l.potential_value != null && <p className="text-xs font-semibold text-emerald-700">{formatMoney(Number(l.potential_value), l.currency)}</p>}
       {l.loss_reason && <p className="text-xs text-red-700">Motivo: {l.loss_reason}</p>}
       {l.client_id && <p className="text-xs font-semibold text-emerald-700">Virou cliente</p>}
-      <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
+      <div className="space-y-0.5 border-t border-slate-100 pt-2" data-testid="ops-lead-last-contact">
+        {l.last_contact ? (
+          <>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-800">
+              <PhoneCall className="size-3.5" aria-hidden /> Último contato: {formatDateTime(l.last_contact.at)}
+            </span>
+            <p className="line-clamp-2 text-xs text-slate-600">{l.last_contact.kind ? `${OPS_LEAD_KIND_LABELS[l.last_contact.kind]}: ` : ""}{l.last_contact.body}</p>
+          </>
+        ) : <span className="inline-flex items-center gap-1 text-xs text-slate-500"><PhoneCall className="size-3.5" aria-hidden /> Nenhum contato registrado</span>}
+      </div>
+      <div className="flex items-center justify-between gap-2">
         <span className={cn("inline-flex items-center gap-1 text-xs", l.overdue ? "font-semibold text-red-600" : "text-slate-500")}>
           <CalendarClock className="size-3.5" aria-hidden />
-          {l.next_action_date ? `${l.overdue ? "Atrasada · " : ""}${formatDate(l.next_action_date)}` : "Sem próxima ação"}
+          {l.next_action_date ? `Próxima ação: ${l.overdue ? "atrasada · " : ""}${formatDate(l.next_action_date)}` : "Sem próxima ação"}
         </span>
         {l.owner_name ? <Avatar name={l.owner_name} /> : <span className="text-xs text-slate-400">Sem responsável</span>}
       </div>
       {l.next_action && <p className="truncate text-xs text-slate-600">Próxima: {l.next_action}</p>}
-      <p className="text-[11px] text-slate-400">Entrada {formatDate(l.entered_at)}{l.last_interaction_at ? ` · última interação ${formatDate(l.last_interaction_at.slice(0, 10))}` : ""}</p>
+      <p className="text-[11px] text-slate-400">Entrada {formatDate(l.entered_at)}</p>
     </button>
     {onRelease && (
       <button type="button" onClick={onRelease} data-testid="ops-lead-release"

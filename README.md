@@ -131,6 +131,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [46.0 — plano: Google Agenda de cada pessoa, nos dois sentidos (só plano)](docs/etapa-43-organizacao/46.0-PLANO-GOOGLE-AGENDA.md) 📝 07/11 (respondido)
   - [47.1 — Onboarding Pendente exige reunião realizada (vincular/criar, avisos, lembrete diário)](docs/etapa-43-organizacao/47.1-ONBOARDING-EXIGE-REUNIAO.md) ✅ 07/11
   - [47.2 — Onboarding por etapas: Agendado exige reunião agendada, Realizado exige realizada, cancelar = Onboarding Cancelado](docs/etapa-43-organizacao/47.2-ONBOARDING-ETAPAS-REUNIAO.md) ✅ 07/11
+  - [48.1 — Comercial: histórico do lead do mais recente ao mais antigo e "Último contato" no cartão](docs/etapa-43-organizacao/48.1-COMERCIAL-ULTIMO-CONTATO.md) ✅ 07/11
   - [46.1 — conectar o Google Agenda de cada pessoa (Reuniões e Minha conta)](docs/etapa-43-organizacao/46.1-CONECTAR-GOOGLE-AGENDA.md) ✅ 07/11 (testado só com Google simulado)
   - [47.0 — plano: Onboarding Pendente exige reunião realizada (só plano)](docs/etapa-43-organizacao/47.0-PLANO-ONBOARDING-EXIGE-REUNIAO.md) 📝 07/11 (respondido)
   - [47.1 — Onboarding Pendente exige reunião realizada (vincular/criar, avisos, lembrete diário)](docs/etapa-43-organizacao/47.1-ONBOARDING-EXIGE-REUNIAO.md) ✅ 07/11

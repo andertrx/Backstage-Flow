@@ -136,6 +136,19 @@ async function newLead(page, fields) {
   await drawer.getByRole("button", { name: "Registrar" }).click();
   await drawer.getByTestId("ops-lead-history").getByText("Reunião: Reunião de apresentação").waitFor();
   check(Boolean(l1.last_interaction_at), "interação registrada");
+  // 48.1: segunda interação ("liguei, não atendeu"); o histórico mostra a mais recente primeiro e o cartão mostra o último contato
+  await drawer.getByLabel("Tipo de registro").selectOption("contato");
+  await drawer.getByLabel("O que aconteceu").fill("Liguei mas não atendeu");
+  await drawer.getByRole("button", { name: "Registrar" }).click();
+  await drawer.getByTestId("ops-lead-history").getByText("Contato realizado: Liguei mas não atendeu").waitFor();
+  const hist = await drawer.getByTestId("ops-lead-history").innerText();
+  check(hist.indexOf("Liguei mas não atendeu") < hist.indexOf("Reunião de apresentação"),
+    "48.1: histórico do lead do mais recente para o mais antigo");
+  await drawer.getByRole("button", { name: "Fechar lead" }).click();
+  const lastBox = card(page, l1.number).getByTestId("ops-lead-last-contact");
+  await lastBox.getByText(/Último contato: \d{2}\/\d{2}\/\d{4}/).waitFor();
+  check((await lastBox.innerText()).includes("Liguei mas não atendeu"), "48.1: cartão mostra o último contato (data, hora e o que foi feito)");
+  await card(page, l1.number).click();
   await drawer.getByRole("button", { name: "Editar" }).click();
   dialog = page.getByRole("dialog", { name: `Editar lead #${l1.number}` });
   await dialog.getByLabel("Telefone", { exact: true }).fill("(45) 98888-7777");

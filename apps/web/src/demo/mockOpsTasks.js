@@ -860,7 +860,8 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       && (!q || norm(l.company_name).includes(q) || norm(l.contact_name).includes(q) || norm(l.segment).includes(q) || String(l.number) === String(f.q).replace("#", ""))
       && (!f.owner_id || (f.owner_id === "nenhum" ? !l.owner_id : l.owner_id === f.owner_id))
       && (!f.origin || l.origin === f.origin) && (!f.priority || l.priority === f.priority) && (!f.overdue || overdueLead(l)))
-      .map((l) => ({ ...l, owner_name: name(l.owner_id), loss_reason: db.opsLossReasons.find((r) => r.id === l.loss_reason_id)?.name ?? null, overdue: overdueLead(l) }));
+      .map((l) => ({ ...l, owner_name: name(l.owner_id), loss_reason: db.opsLossReasons.find((r) => r.id === l.loss_reason_id)?.name ?? null, overdue: overdueLead(l),
+        last_contact: (() => { const e = db.opsLeadEvents.filter((x) => x.lead_id === l.id && x.action === "lead.interacao").at(-1); return e ? { kind: e.kind, body: (e.body ?? "").slice(0, 140), at: e.happened_at ?? e.created_at } : null; })() }));
     return res(200, { leads, origins: [...new Set(db.opsLeads.map((l) => l.origin).filter(Boolean))],
       can: { create_client: ["admin", "gestor"].includes(role), onboarding: canManageClients() } });
   }

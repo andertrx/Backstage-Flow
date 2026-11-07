@@ -48,6 +48,8 @@ export interface OpsLeadCard {
   client_id: string | null;
   archived_at: string | null;
   loss_reason: string | null;
+  /** Etapa 48.1: último registro (contato, reunião, proposta…) feito no lead. */
+  last_contact: { kind: OpsLeadKind | null; body: string | null; at: string } | null;
   overdue: boolean;
 }
 
