@@ -67,6 +67,7 @@ const waitFor = async (page, fn, what) => {
   await dialog.getByLabel("Cliente", { exact: true }).selectOption({ label: "Loja Aurora" });
   await dialog.getByLabel("Título da demanda").fill("Lançamento");
   await dialog.getByLabel("Briefing").fill("Campanha de lançamento da coleção");
+  check(await dialog.getByLabel("Etapa do onboarding").evaluate((e) => e.options[e.selectedIndex].text) === "Contrato Pago", "49.4: a etapa já vem na primeira do onboarding");
   await dialog.getByLabel("Etapa do onboarding").selectOption({ label: "Contrato Pago" });
   await dialog.getByLabel("Obrigatórias para o cliente avançar desta etapa").check();
   await dialog.getByLabel("Setor da linha 1").selectOption({ label: "Design" });

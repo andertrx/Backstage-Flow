@@ -130,3 +130,4 @@ A lista completa está em [`docs/PENDENCIAS.md`](../PENDENCIAS.md). Lembre nos r
 - **07/11/2026 — 49.1:** menu Operações: Painel · Comercial · Onboarding · Central de Operações · Notificações · Reuniões · Envios semanais. Painel (`/painel`) e Notificações (`/notificacoes`) saíram das abas da Central; endereços antigos redirecionam.
 - **07/11/2026 — 49.2:** no Comercial, "Liberar para a operação" virou "Liberar para o onboarding" (só textos; o cliente já entrava em Onboarding Pendente).
 - **07/11/2026 — 49.3:** Onboarding Cancelado é livre: o cliente vai direto para lá, sem reunião e sem exigir tarefas obrigatórias.
+- **07/11/2026 — 49.4:** em "Liberar demanda" a etapa do onboarding já vem na primeira etapa ativa (editável).

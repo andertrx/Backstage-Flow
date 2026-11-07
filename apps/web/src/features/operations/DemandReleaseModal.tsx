@@ -1,6 +1,6 @@
 import { OPS_PRIORITIES, OPS_PRIORITY_LABELS, type OpsPriority } from "@backstage/shared";
 import { Plus, Trash2 } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
@@ -28,6 +28,10 @@ export function DemandReleaseModal({ ctx, presetClient, onClose, onDone }: {
   const [briefing, setBriefing] = useState("");
   const [stageId, setStageId] = useState("");
   const [mandatory, setMandatory] = useState(false);
+  // 49.4: a etapa já vem na primeira do onboarding (ainda sem reunião agendada); a pessoa pode trocar ou escolher "Nenhuma".
+  const stageTouched = useRef(false);
+  const firstStage = (stages.data ?? []).filter((x) => x.active).sort((a, b) => a.position - b.position)[0]?.id ?? "";
+  useEffect(() => { if (!stageTouched.current && firstStage) setStageId(firstStage); }, [firstStage]);
   const [items, setItems] = useState<OpsDemandItem[]>([emptyItem()]);
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +85,7 @@ export function DemandReleaseModal({ ctx, presetClient, onClose, onDone }: {
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Etapa do onboarding" hint="Opcional. Liga as tarefas a uma etapa do cliente.">
             {(id) => (
-              <Select id={id} value={stageId} onChange={(e) => { setStageId(e.target.value); if (!e.target.value) setMandatory(false); }}>
+              <Select id={id} value={stageId} onChange={(e) => { stageTouched.current = true; setStageId(e.target.value); if (!e.target.value) setMandatory(false); }}>
                 <option value="">Nenhuma</option>
                 {(stages.data ?? []).filter((s) => s.active).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </Select>
