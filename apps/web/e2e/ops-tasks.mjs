@@ -45,7 +45,7 @@ async function dragTo(page, card, column) {
   await page.getByTestId("ops-my-empty").waitFor();
   check(true, "Minhas tarefas vazia explica o que aparece ali");
 
-  await page.getByRole("link", { name: "Tarefas" }).last().click();
+  await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link", { name: "Tarefas", exact: true }).click();
   await page.getByTestId("ops-kanban").waitFor();
   check(await page.getByTestId("ops-kanban-column").count() === 8, "Kanban com as 8 colunas de status");
 
@@ -209,7 +209,7 @@ async function dragTo(page, card, column) {
   check(true, "Minhas tarefas: prazo de hoje em 'Para hoje'");
   check(await page.getByRole("button", { name: "Kanban" }).count() === 0, "sem 'ver o Kanban': só lista");
 
-  await page.getByRole("link", { name: "Tarefas" }).last().click();
+  await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link", { name: "Tarefas", exact: true }).click();
   await page.getByTestId("ops-task-table").waitFor();
   const rows = await page.getByTestId("ops-task-row").allInnerTexts();
   check(rows.length === 1 && rows[0].includes("Arte do post"), "não vê tarefa de outro setor");
