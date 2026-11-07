@@ -368,7 +368,7 @@ export function LeadDrawer({ id, ctx, onClose, focusRelease }: { id: string; ctx
                 <Alert tone="success">
                   Virou cliente: <Link className="font-semibold underline" to={`/clientes/${l.client_id}`}>{l.client_name}</Link>
                   {l.converted_at && ` · ${formatDateTime(l.converted_at)} por ${l.converted_by_name ?? "—"}`}
-                  {d.can.client_ops && <> · <Link className="font-semibold underline" to={`/operacoes/onboarding?cliente=${l.client_id}`}>ficha operacional</Link></>}
+                  {d.can.client_ops && <> · <Link className="font-semibold underline" to={`/onboarding?cliente=${l.client_id}`}>ficha operacional</Link></>}
                 </Alert>
               )}
               {l.category === "ganho" && !l.client_id && !l.archived_at && <ConvertPanel d={d} ctx={ctx} onDone={setNotice} focus={focusRelease} />}

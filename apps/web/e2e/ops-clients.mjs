@@ -45,8 +45,10 @@ const waitFor = async (page, fn, what) => {
   seed(db);
   await login(page, "/operacoes/clientes");
   await page.getByTestId("ops-clients-empty").waitFor();
-  const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Onboarding", "Tarefas", "Minhas tarefas", "Notificações", "Equipe", "Configurações"]), `abas da Central (${tabs.join(", ")})`);
+  // 43.8: Onboarding tem menu próprio (/onboarding); o endereço antigo /operacoes/clientes leva até ele
+  check(new URL(page.url()).pathname === "/onboarding", "o endereço antigo /operacoes/clientes leva a /onboarding");
+  check(await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Onboarding" }).count() === 1, "Onboarding tem item próprio no menu");
+  check(await page.getByRole("navigation", { name: "Central de Operações" }).count() === 0, "o Onboarding não fica mais dentro da Central");
 
   // Colocar no fluxo
   await page.getByRole("button", { name: "Colocar cliente no fluxo" }).click();
@@ -121,7 +123,7 @@ const waitFor = async (page, fn, what) => {
   await drawer.getByRole("button", { name: "Fechar ficha" }).click();
 
   // Regra de avanço automático ligada na etapa
-  await page.getByRole("link", { name: "Configurações" }).last().click();
+  await page.goto(`${new URL(page.url()).origin}/operacoes/configuracoes`); // as configurações da Central ficam na aba própria (o Onboarding não é mais aba dela)
   await page.getByTestId("ops-client-stages").waitFor();
   await page.getByRole("button", { name: "Editar etapa Contrato Pago" }).click();
   dialog = page.getByRole("dialog", { name: "Editar etapa" });
@@ -136,7 +138,7 @@ const waitFor = async (page, fn, what) => {
   // Filas: Design e Copy entregam; o cliente avança sozinho
   await page.getByRole("link", { name: "Onboarding" }).click();
   await page.getByTestId("ops-operation-tab-filas").click();
-  check(page.url().includes("/operacoes/onboarding") && page.url().includes("ver=filas"), "38.2: Filas dentro de Onboarding");
+  check(new URL(page.url()).pathname === "/onboarding" && page.url().includes("ver=filas"), "38.2: Filas dentro de Onboarding");
   await page.getByTestId("ops-queues").waitFor();
   await page.screenshot({ path: `${SHOTS}/38.2-filas.png` });
   await page.getByLabel("Setor").selectOption({ label: "Design" });
@@ -207,9 +209,9 @@ const waitFor = async (page, fn, what) => {
     permissions: ["ops.access", "ops.kanban.view"] };
   await login(page, "/operacoes/minhas-tarefas");
   await page.getByTestId("ops-my-tasks").waitFor();
-  const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(tabs.includes("Onboarding") && !tabs.includes("Filas"), `38.2: designer com a aba Onboarding e sem a aba Filas separada (${tabs.join(", ")})`);
-  // 38.2: o designer vê a aba Onboarding só com as Filas dos setores (sem os clientes).
+  const menuLinks = await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link").allInnerTexts();
+  check(menuLinks.some((t) => t.trim() === "Onboarding") && !menuLinks.some((t) => t.trim() === "Filas"), `38.2: designer com o menu Onboarding e sem item Filas separado (${menuLinks.join(", ")})`);
+  // 38.2: o designer vê o menu Onboarding só com as Filas dos setores (sem os clientes).
   await page.getByRole("link", { name: "Onboarding" }).click();
   await page.getByTestId("ops-queues").waitFor();
   check(await page.getByTestId("ops-operation-tab-clientes").count() === 0 && await page.getByTestId("ops-operation-tab-filas").count() === 1,

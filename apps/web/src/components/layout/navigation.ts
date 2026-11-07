@@ -16,6 +16,7 @@ import {
   Send,
   Settings,
   Target,
+  UserRoundCheck,
   Wallet,
   Wand2,
 } from "lucide-react";
@@ -44,10 +45,12 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard, group: "Visão geral", hiddenFor: ["equipe", "vendedor"] },
   { label: "Clientes", path: "/clientes", icon: Building2, group: "Visão geral", permission: "clients.view" },
   { label: "Contas", path: "/contas", icon: Wallet, group: "Visão geral", permission: "internal.view" },
-  { label: "Central de Operações", path: "/operacoes", icon: KanbanSquare, group: "Operações", ops: true },
-  // 43.6/43.7: Reuniões, Comercial e Envios semanais saíram de dentro da Central e têm menu próprio (as telas e as permissões são as mesmas).
-  { label: "Reuniões", path: "/reunioes", icon: CalendarDays, group: "Operações", opsPermission: "ops.access" },
+  // 43.6/43.7/43.8: Comercial, Onboarding, Reuniões e Envios semanais saíram de dentro da Central e têm menu próprio
+  // (as telas e as permissões são as mesmas). Ordem pedida pelo Ander: Comercial → Onboarding → Central de Operações → Reuniões → Envios semanais.
   { label: "Comercial", path: "/comercial", icon: Handshake, group: "Operações", opsPermission: "ops.commercial" },
+  { label: "Onboarding", path: "/onboarding", icon: UserRoundCheck, group: "Operações", opsPermission: "ops.access" },
+  { label: "Central de Operações", path: "/operacoes", icon: KanbanSquare, group: "Operações", ops: true },
+  { label: "Reuniões", path: "/reunioes", icon: CalendarDays, group: "Operações", opsPermission: "ops.access" },
   { label: "Envios semanais", path: "/envios", icon: Send, group: "Operações", opsPermission: "ops.envios" },
   // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...), na ordem do catálogo.
   ...PLATFORMS.map((p): NavItem => ({ label: p.name, path: p.path, icon: platformLook(p.id).icon, group: "Anúncios", permission: "internal.view" })),

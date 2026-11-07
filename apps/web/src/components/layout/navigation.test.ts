@@ -27,9 +27,9 @@ describe("menu lateral", () => {
     expect(navItemsFor("cliente", ["ops.access"]).map((i) => i.label)).toEqual(["Dashboard"]);
   });
 
-  it("papel Equipe vê só a Central de Operações e as Reuniões", () => {
+  it("papel Equipe vê só Onboarding, Central de Operações e Reuniões", () => {
     expect(labels("equipe")).toEqual([]);
-    expect(navItemsFor("equipe", ["ops.access"]).map((i) => i.label)).toEqual(["Central de Operações", "Reuniões"]);
+    expect(navItemsFor("equipe", ["ops.access"]).map((i) => i.label)).toEqual(["Onboarding", "Central de Operações", "Reuniões"]);
   });
 
   it("papel Vendedor (T3.1) não vê nenhum item do menu: só a tela de Contatos, que abre sozinha", () => {
@@ -51,7 +51,7 @@ describe("menu lateral", () => {
 describe("grupos do menu", () => {
   it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36; Monitoramento antes de Alertas na Etapa 37; Inteligência de Resultados depois de Monitoramento na Etapa 39; Criador de Anúncios depois de Campanhas na Etapa 42; Reuniões, Comercial e Envios semanais depois da Central na 43.6/43.7)", () => {
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Central de Operações", "Reuniões", "Comercial", "Envios semanais", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
+      "Dashboard", "Clientes", "Contas", "Comercial", "Onboarding", "Central de Operações", "Reuniões", "Envios semanais", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
       "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking (em construção)", "Sincronização", "Logs", "Configurações",
     ]);
   });

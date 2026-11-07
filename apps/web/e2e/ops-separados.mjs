@@ -7,12 +7,12 @@ await login(page, "/operacoes/minhas-tarefas");
 const menu = page.getByRole("navigation", { name: "Menu principal" }).first();
 await menu.getByRole("link", { name: "Envios semanais" }).waitFor();
 const labels = (await menu.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
-const i = labels.indexOf("Central de Operações");
-check(labels[i + 1] === "Reuniões" && labels[i + 2] === "Comercial" && labels[i + 3] === "Envios semanais", `no menu: Central de Operações, Reuniões, Comercial e Envios semanais, nessa ordem (${labels.slice(i, i + 4).join(", ")})`);
+const i = labels.indexOf("Comercial");
+check(labels[i + 1] === "Onboarding" && labels[i + 2] === "Central de Operações" && labels[i + 3] === "Reuniões" && labels[i + 4] === "Envios semanais", `no menu: Comercial, Onboarding, Central de Operações, Reuniões e Envios semanais, nessa ordem (${labels.slice(i, i + 5).join(", ")})`);
 await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link", { name: "Tarefas", exact: true }).waitFor();
 const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-check(!tabs.includes("Comercial") && !tabs.includes("Envios semanais") && !tabs.includes("Reuniões"), `a Central não tem mais as abas Comercial, Envios e Reuniões (${tabs.join(", ")})`);
-check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Onboarding", "Tarefas", "Minhas tarefas", "Notificações", "Equipe", "Configurações"]), "abas da Central na ordem pedida: Painel, Onboarding, Tarefas, Minhas tarefas, Notificações");
+check(!tabs.includes("Comercial") && !tabs.includes("Envios semanais") && !tabs.includes("Reuniões") && !tabs.includes("Onboarding"), `a Central não tem mais as abas Comercial, Envios, Reuniões e Onboarding (${tabs.join(", ")})`);
+check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Tarefas", "Minhas tarefas", "Notificações", "Equipe", "Configurações"]), "abas da Central: Painel, Tarefas, Minhas tarefas, Notificações (+ Equipe e Configurações do admin)");
 await page.screenshot({ path: `${SHOTS}/ops-separados-menu.png` });
 
 await menu.getByRole("link", { name: "Comercial" }).click();
@@ -37,8 +37,11 @@ await page.goto(`${BASE}/operacoes/reunioes?reuniao=abc`);
 await page.waitForURL("**/reunioes?reuniao=abc");
 check(true, "/operacoes/reunioes?reuniao=... leva a /reunioes?reuniao=...");
 await page.goto(`${BASE}/operacoes/clientes?ver=filas`);
-await page.waitForURL("**/operacoes/onboarding?ver=filas");
-check(true, "/operacoes/clientes?ver=filas leva a /operacoes/onboarding?ver=filas");
+await page.waitForURL((u) => u.pathname === "/onboarding" && u.search === "?ver=filas");
+check(new URL(page.url()).pathname === "/onboarding", "/operacoes/clientes?ver=filas leva a /onboarding?ver=filas");
+await page.goto(`${BASE}/operacoes/onboarding`);
+await page.waitForURL((u) => u.pathname === "/onboarding");
+check(new URL(page.url()).pathname === "/onboarding", "/operacoes/onboarding leva a /onboarding");
 
 // busca da Central ainda abre lead pelo link antigo
 check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);

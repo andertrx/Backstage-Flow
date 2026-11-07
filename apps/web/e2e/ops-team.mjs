@@ -16,7 +16,8 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
 
   const nav = page.getByRole("navigation", { name: "Menu principal" }).first();
   const labels = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
-  check(labels.indexOf("Central de Operações") === labels.indexOf("Contas") + 1, "menu: Central de Operações logo depois de Visão geral");
+  // 43.8: grupo Operações em ordem: Comercial, Onboarding, Central de Operações, Reuniões, Envios semanais
+  check(labels.indexOf("Comercial") === labels.indexOf("Contas") + 1 && labels.indexOf("Onboarding") === labels.indexOf("Comercial") + 1 && labels.indexOf("Central de Operações") === labels.indexOf("Onboarding") + 1, "menu: Comercial, Onboarding e Central de Operações logo depois de Visão geral");
   check((await nav.innerText()).includes("OPERAÇÕES") || (await nav.innerText()).includes("Operações"), "grupo Operações no menu");
 
   await nav.getByRole("link", { name: "Central de Operações" }).click();
@@ -29,7 +30,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   await page.getByTestId("ops-my-tasks").waitFor();
   check(await page.getByRole("heading", { name: "Central de Operações", level: 1 }).count() === 1, "abre a Central em Minhas tarefas");
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Onboarding", "Tarefas", "Minhas tarefas", "Notificações", "Equipe", "Configurações"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Painel", "Tarefas", "Minhas tarefas", "Notificações", "Equipe", "Configurações"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
   await page.getByRole("link", { name: "Equipe" }).last().click();
   await page.getByTestId("ops-team").waitFor();
   // Espera a lista carregar antes de ler o texto (sem isso, às vezes lia a tela ainda vazia).
@@ -142,9 +143,9 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   check(true, "papel Equipe entra direto na Central");
   const nav = page.getByRole("navigation", { name: "Menu principal" }).first();
   const labels = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
-  check(JSON.stringify(labels) === JSON.stringify(["Central de Operações", "Reuniões"]), `menu só com a Central e as Reuniões (${labels.join(", ")})`);
+  check(JSON.stringify(labels) === JSON.stringify(["Onboarding", "Central de Operações", "Reuniões"]), `menu só com Onboarding, Central e Reuniões (${labels.join(", ")})`);
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
-  check(JSON.stringify(tabs) === JSON.stringify(["Onboarding", "Tarefas", "Minhas tarefas", "Notificações", "Equipe"]), `sem a aba Configurações (só admin): ${tabs.join(", ")}`);
+  check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Notificações", "Equipe"]), `sem a aba Configurações (só admin): ${tabs.join(", ")}`);
   await page.getByRole("link", { name: "Equipe" }).last().click();
   await page.getByTestId("ops-team").waitFor();
   check(await page.getByRole("button", { name: /na Central$/ }).count() === 0, "não edita a equipe");

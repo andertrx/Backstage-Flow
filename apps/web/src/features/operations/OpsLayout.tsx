@@ -1,5 +1,5 @@
 import { opsCan, type OpsPermission } from "@backstage/shared";
-import { Bell, Building2, ClipboardList, Gauge, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
+import { Bell, ClipboardList, Gauge, ListChecks, Lock, type LucideIcon, Settings, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, NavLink, Outlet, useLocation } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -20,8 +20,7 @@ import { OpsSearch } from "./OpsSearch.tsx";
  */
 export const OPS_TABS: { to: string; label: string; icon: LucideIcon; permission: OpsPermission; anyOf?: OpsPermission[]; admin?: boolean }[] = [
   { to: "/operacoes/painel", label: "Painel", icon: Gauge, permission: "ops.dashboard.view" },
-  // 43.7: "Operação" virou "Onboarding" (clientes liberados + filas dos setores). Reuniões, Comercial e Envios semanais têm menu próprio.
-  { to: "/operacoes/onboarding", label: "Onboarding", icon: Building2, permission: "ops.access" },
+  // 43.8: Onboarding (antes "Operação"), Reuniões, Comercial e Envios semanais têm menu próprio, fora das abas da Central.
   { to: "/operacoes/tarefas", label: "Tarefas", icon: ClipboardList, permission: "ops.access" },
   { to: "/operacoes/minhas-tarefas", label: "Minhas tarefas", icon: ListChecks, permission: "ops.access" },
   // 07/11/2026: as preferências e o "Ativar neste aparelho" (aviso no computador e no celular) ficavam só atrás do sininho; agora têm aba própria.

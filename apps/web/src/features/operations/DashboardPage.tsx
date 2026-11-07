@@ -193,7 +193,7 @@ function DashboardBody({ d, f, onOpen }: { d: OpsDashboard; f: OpsDashboardFilte
               <ul className="divide-y divide-slate-100">
                 {d.clients_waiting.map((c) => (
                   <li key={c.client_id}>
-                    <Link to={`/operacoes/onboarding?cliente=${c.client_id}`} className="flex items-center gap-2 py-2 text-sm hover:text-blue-700">
+                    <Link to={`/onboarding?cliente=${c.client_id}`} className="flex items-center gap-2 py-2 text-sm hover:text-blue-700">
                       <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{c.name}</span>
                       <span className="shrink-0 text-xs text-slate-500">{c.stage} · {plural(c.dias, "dia", "dias")}</span>
                     </Link>

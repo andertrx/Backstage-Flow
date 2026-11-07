@@ -206,15 +206,23 @@ export const router = createBrowserRouter([
           { path: "envios", element: <RedirectKeep to="/envios" /> },
           { path: "notificacoes", element: <OpsNotificationsRoute /> },
           // 43.7: a aba "Operação" agora é "Onboarding" (o endereço antigo continua valendo, com filtros).
-          { path: "onboarding", element: <OpsClientsRoute /> },
-          { path: "clientes", element: <RedirectKeep to="/operacoes/onboarding" /> },
+          { path: "onboarding", element: <RedirectKeep to="/onboarding" /> },
+          { path: "clientes", element: <RedirectKeep to="/onboarding" /> },
           // 38.2: as Filas ficam dentro de Operação (links antigos continuam funcionando).
-          { path: "filas", element: <Navigate to="/operacoes/onboarding?ver=filas" replace /> },
+          { path: "filas", element: <Navigate to="/onboarding?ver=filas" replace /> },
           { path: "equipe", element: <OpsTeamPage /> },
           { path: "configuracoes", element: <OpsSettingsPage /> },
         ],
       },
       // 43.6: módulos separados da Central de Operações (mesmas telas e permissões).
+      {
+        path: "onboarding",
+        element: (
+          <OpsStandalone title="Onboarding" description="Clientes liberados pelo Comercial, etapas, Account Manager e filas dos setores. Separado da Central de Operações.">
+            <OpsClientsRoute />
+          </OpsStandalone>
+        ),
+      },
       {
         path: "reunioes",
         element: (
