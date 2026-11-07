@@ -75,4 +75,5 @@
 - [ ] **Contratar o servidor de conexão** e seguir `docs/etapa-43-organizacao/44.1-SERVIDOR-PASSO-A-PASSO.md` (arquivos prontos em `infra/whatsapp-evolution/`). Eu acompanho cada passo.
 - [ ] Ter o **chip separado** à mão para ler o QR Code (ou digitar o código) na primeira conexão. Cole a chave de acesso **só no campo do CRM**, nunca no chat.
 - [ ] **Decidir como marcar pessoas (@)** no envio automático: guardar o identificador (com telefone) em tabela protegida (recomendo), achar pelo nome na hora, ou enviar sem marcar. Ver seção "Para decidir" do documento 44.1.
+- [ ] **Testar o envio real** (44.3) assim que o servidor existir: conectar, ligar a trava, usar "Enviar agora" para um grupo de teu.
 - [ ] (opcional) Colar aqui imagens das telas de WhatsApp e de agentes do sistema `itsmovcrm.com.br` para eu mapear o que ele tem.

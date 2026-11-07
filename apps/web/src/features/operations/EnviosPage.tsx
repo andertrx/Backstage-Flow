@@ -23,6 +23,7 @@ import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { RequireOps } from "./OpsLayout.tsx";
 import { EnvioApprovalModal } from "./EnvioApproval.tsx";
 import { originLabel } from "./origin.ts";
+import { WaEnvioPanel } from "./WaDisparos.tsx";
 import { WaGruposCard } from "./WaGruposCard.tsx";
 import { WhatsAppPreview } from "./WhatsAppPreview.tsx";
 import { type TasksContext, useTasksContext } from "./tasksContext.tsx";
@@ -299,6 +300,7 @@ function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
           ))}
         </ul>
       )}
+      {!arquivado && <WaEnvioPanel envio={envio} />}
       {error && <Alert tone="error">{error}</Alert>}
       {reviewing && <EnvioApprovalModal envio={envio} onClose={() => setReviewing(false)} />}
     </Card>
