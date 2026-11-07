@@ -1,4 +1,4 @@
-import { DndContext, type DragEndEvent, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, type DragEndEvent, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { type ReactNode, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { cn } from "@/lib/cn.ts";
@@ -63,7 +63,12 @@ export function DndBoard<T>({ items, columns, getId, getLabel, columnOf, renderC
 }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // Mouse: arrasta depois de 6 px. Celular: segurar ~0,25 s no cartão e arrastar (um arrastar rápido continua rolando a página).
+  // O PointerSensor não serve no celular: o navegador pega o toque para rolar e cancela o arrasto.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
 
   async function onDragEnd(e: DragEndEvent) {
     const item = items.find((t) => getId(t) === e.active.id);

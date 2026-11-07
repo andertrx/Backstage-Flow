@@ -140,6 +140,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [50.0 — plano: tarefas padrão do onboarding (só plano)](docs/etapa-43-organizacao/50.0-PLANO-TAREFAS-PADRAO-ONBOARDING.md) 📝 07/11 (substituído pela 50.1)
   - [50.1 — Tarefas padrão do onboarding (marcar no cartão, setor inteiro ou pessoa; cadastro em Configurações)](docs/etapa-43-organizacao/50.1-TAREFAS-PADRAO-ONBOARDING.md) ✅ 07/11
   - [50.2 — Descrição nas tarefas do onboarding (campo maior na nova, opcional nas padrão)](docs/etapa-43-organizacao/50.2-TAREFAS-DESCRICAO.md) ✅ 07/11
+  - [50.3 — Arrastar cartões no celular (segurar e arrastar)](docs/etapa-43-organizacao/50.3-ARRASTAR-NO-CELULAR.md) ✅ 07/11 (testado com toque emulado, não em aparelho físico)
   - [46.1 — conectar o Google Agenda de cada pessoa (Reuniões e Minha conta)](docs/etapa-43-organizacao/46.1-CONECTAR-GOOGLE-AGENDA.md) ✅ 07/11 (testado só com Google simulado)
   - [47.0 — plano: Onboarding Pendente exige reunião realizada (só plano)](docs/etapa-43-organizacao/47.0-PLANO-ONBOARDING-EXIGE-REUNIAO.md) 📝 07/11 (respondido)
   - [47.1 — Onboarding Pendente exige reunião realizada (vincular/criar, avisos, lembrete diário)](docs/etapa-43-organizacao/47.1-ONBOARDING-EXIGE-REUNIAO.md) ✅ 07/11
