@@ -87,8 +87,8 @@ export function TaskCard({ task, today, sectorName, sectorColor, onOpen, showSta
         <span className="text-[11px] font-semibold text-slate-400">#{task.number}</span>
         <PriorityBadge priority={task.priority} />
       </div>
-      <p className="line-clamp-2 text-sm font-semibold text-slate-900">{task.title}</p>
-      {task.client_name && <p className="truncate text-xs text-slate-500">{task.client_name}</p>}
+      {task.client_name && <p className="break-words text-base font-bold leading-tight text-blue-900" data-testid="ops-task-card-client">{task.client_name}</p>}
+      <p className="line-clamp-2 text-sm font-medium text-slate-700">{task.title}</p>
       <div className="flex flex-wrap items-center gap-1.5">
         {showStatus && <StatusPill name={task.status_name} color={task.status_color} />}
         {sectorName && (

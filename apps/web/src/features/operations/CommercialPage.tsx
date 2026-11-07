@@ -35,7 +35,7 @@ function LeadCard({ l, onOpen, onRelease }: { l: OpsLeadCard; onOpen: () => void
         <span className="text-[11px] font-semibold text-slate-400">#{l.number}</span>
         <PriorityBadge priority={l.priority} />
       </div>
-      <p className="text-sm font-semibold text-slate-900">{l.company_name}</p>
+      <p className="break-words text-base font-bold leading-tight text-slate-950">{l.company_name}</p>
       <p className="truncate text-xs text-slate-500">{[l.segment, l.origin].filter(Boolean).join(" · ") || "—"}</p>
       {l.potential_value != null && <p className="text-xs font-semibold text-emerald-700">{formatMoney(Number(l.potential_value), l.currency)}</p>}
       {l.loss_reason && <p className="text-xs text-red-700">Motivo: {l.loss_reason}</p>}

@@ -181,3 +181,4 @@
 - **07/11 (50.2):** Ander pediu título + descrição maior nas tarefas novas e descrição opcional nas padrão.
 - **07/11 (50.3):** Ander não conseguia arrastar cartões no celular. Causa: PointerSensor + rolagem do navegador. Corrigido com toque longo.
 - **07/11 (50.4):** Ander pediu o nome do cliente em evidência nos cartões.
+- **07/11 (50.5):** Ander mandou foto do celular e pediu o nome da empresa em evidência também nos cartões de tarefa.
