@@ -1,5 +1,6 @@
 /**
- * Teste de navegador da Etapa 47.1 — Onboarding por etapas: Agendado exige reunião agendada, Realizado exige realizada, cancelar = Onboarding Cancelado.
+ * Teste de navegador da Etapa 47.1 — Onboarding por etapas: Agendado exige reunião agendada, Realizado exige realizada
+ * (49.4: e ao menos 1 tarefa para o time de operação), cancelar = Onboarding Cancelado.
  * Selo no cartão, "Vincular reunião" / "Criar reunião", bloqueio de avanço e liberação. Supabase SIMULADO.
  */
 import { check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
@@ -116,18 +117,49 @@ await waitFor(page, () => db.opsClientOps[BETA].stage_id === "configuracao_inici
 check(db.opsActivity.some((a) => a.client_id === BETA && a.action === "cliente.etapa" && a.origin === "sistema" && a.after.etapa === "configuracao_inicial"), "mudança para Cancelado registrada como Sistema");
 check(db.opsClientOps[AURORA].stage_id === "coleta_acessos", "o outro cliente não é afetado");
 
-// 7) reunião realizada libera Realizado
+// 7) reunião realizada: os botões de reunião somem, mas sem tarefa para a operação ainda não vai para Realizado (49.4)
 const mine = db.opsMeetings.find((m) => m.id === db.opsClientOps[AURORA].onboarding_meeting_id);
 mine.status = "realizada";
 await page.goto(`${new URL(page.url()).origin}/onboarding`);
 const aurora3 = col("coleta_acessos").locator("[data-testid=ops-kanban-card]").filter({ hasText: "Loja Aurora" });
 await aurora3.getByText(/Reunião realizada/).waitFor();
-check(await aurora3.getByRole("button", { name: "Vincular reunião" }).count() === 0, "com reunião realizada os botões somem");
+check(await aurora3.getByRole("button", { name: "Vincular reunião" }).count() === 0, "com reunião realizada os botões de reunião somem");
+check((await aurora3.getByTestId("ops-client-meeting-seal").innerText()).includes("falta 1 tarefa para a operação"), "49.4: selo amarelo pede a tarefa da operação");
 await col("configuracao_inicial").getByText("Studio Beta").waitFor();
 await page.screenshot({ path: `${SHOTS}/47.2-onboarding-realizado-cancelado.png`, fullPage: true });
 await dragTo(page, aurora3, col("briefing"));
+await page.getByText(/Crie pelo menos uma tarefa para o time de operação/).first().waitFor();
+check(db.opsClientOps[AURORA].stage_id === "coleta_acessos", "49.4: reunião realizada sem tarefa da operação não vai para Realizado");
+
+// 8) tarefa do Comercial não conta; "Criar tarefa para a operação" abre já preenchida e libera
+const SECTOR = (n) => db.opsSectors.find((x) => x.name === n).id;
+db.opsTaskSeq = (db.opsTaskSeq ?? 0) + 1;
+db.opsTasks.push({ id: crypto.randomUUID(), number: db.opsTaskSeq, title: "Contrato (comercial)", description: null, client_id: AURORA, sector_id: SECTOR("Comercial"),
+  status_id: "nao_iniciado", priority: "media", start_date: null, due_date: null, effort_hours: null, visibility: "setor", created_by: null, created_at: now,
+  updated_at: now, updated_by: null, completed_at: null, archived_at: null, version: 1, people: [], tags: [], client_stage_id: null, mandatory: false, demand_id: null, queue_column_id: null });
+await page.reload();
+const aurora4 = col("coleta_acessos").locator("[data-testid=ops-kanban-card]").filter({ hasText: "Loja Aurora" });
+await aurora4.getByText(/falta 1 tarefa para a operação/).waitFor();
+check(true, "49.4: tarefa do setor Comercial não conta");
+await aurora4.getByRole("button", { name: "Criar tarefa para a operação" }).click();
+dialog = page.getByRole("dialog", { name: "Nova tarefa" });
+check(await dialog.getByLabel("Título").inputValue() === "Próximos passos: Loja Aurora", "49.4: tarefa já vem com o título dos próximos passos");
+await dialog.getByText(/qualquer setor, menos Comercial/).waitFor();
+await dialog.getByLabel("Setor").selectOption(SECTOR("Gestão de Tráfego"));
+await page.screenshot({ path: `${SHOTS}/49.4-onboarding-tarefa-operacao.png`, fullPage: true });
+await dialog.getByRole("button", { name: /Criar tarefa|Salvar/ }).click();
+await dialog.waitFor({ state: "detached" });
+await waitFor(page, () => db.opsTasks.some((t) => t.client_id === AURORA && t.sector_id === SECTOR("Gestão de Tráfego")), "tarefa da operação criada");
+const task = db.opsTasks.find((t) => t.client_id === AURORA && t.sector_id === SECTOR("Gestão de Tráfego"));
+check(task.title === "Próximos passos: Loja Aurora", "49.4: tarefa criada ligada ao cliente");
+await page.getByTestId("ops-task-detail").getByRole("button", { name: "Fechar" }).click().catch(() => {});
+await page.goto(`${new URL(page.url()).origin}/onboarding`);
+const aurora5 = col("coleta_acessos").locator("[data-testid=ops-kanban-card]").filter({ hasText: "Loja Aurora" });
+await aurora5.getByText(/pode ir para Realizado/).waitFor();
+check(await aurora5.getByRole("button", { name: "Criar tarefa para a operação" }).count() === 0, "49.4: com a tarefa o botão some e o selo fica verde");
+await dragTo(page, aurora5, col("briefing"));
 await waitFor(page, () => db.opsClientOps[AURORA].stage_id === "briefing", "cliente foi para Realizado");
-check(db.opsClientOps[AURORA].stage_id === "briefing", "com reunião realizada o cliente vai para Realizado");
+check(db.opsClientOps[AURORA].stage_id === "briefing", "com reunião realizada e tarefa da operação o cliente vai para Realizado");
 
 check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
 await browser.close();

@@ -1,4 +1,4 @@
-import { CalendarPlus, Link2, Unlink } from "lucide-react";
+import { CalendarPlus, ClipboardPlus, Link2, Unlink } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -9,20 +9,29 @@ import { errorMessage } from "@/lib/errors.ts";
 import { type OpsBoardClient, useLinkClientMeeting, useUnlinkClientMeeting } from "./clientsApi.ts";
 import { MeetingFormModal, meetingWhen } from "./Meetings.tsx";
 import { useMeetingCategories, useMeetingList } from "./meetingsApi.ts";
-import type { TasksContext } from "./tasksContext.tsx";
+import { TaskFormModal } from "./TaskFormModal.tsx";
+import { type TasksContext, useOpenTask } from "./tasksContext.tsx";
 
-/** Etapa 47.2: Pendente → Agendado exige reunião agendada; Agendado → Realizado exige reunião realizada. */
+/**
+ * Etapa 47.2: Pendente → Agendado exige reunião agendada; Agendado → Realizado exige reunião realizada.
+ * Etapa 49.4: Agendado → Realizado também exige ao menos 1 tarefa para o time de operação (setor diferente de Comercial).
+ */
 export const ONBOARDING_STAGE = "onboarding_pendente";
 export const ONBOARDING_SCHEDULED_STAGE = "coleta_acessos";
 export const isOnboardingStage = (id: string) => id === ONBOARDING_STAGE || id === ONBOARDING_SCHEDULED_STAGE;
 
-/** Selo do cartão: 🔴 sem reunião · 🟡 marcada / falta registrar · 🟢 realizada. */
+/** Setor que NÃO conta como "time de operação" (mesma regra do banco: private.ops_onboarding_tem_tarefa_operacao). */
+export const isCommercialSector = (name: string | undefined) => (name ?? "").trim().toLowerCase() === "comercial";
+
+/** Selo do cartão: 🔴 sem reunião · 🟡 marcada / falta registrar / falta a tarefa da operação · 🟢 realizada e com tarefa. */
 export function MeetingSeal({ c }: { c: OpsBoardClient }) {
   const m = c.onboarding_meeting;
   const day = m ? new Date(m.starts_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" }) : "";
   const none = !m || m.status === "cancelada";
-  const [tone, text] = c.meeting_ok
+  const [tone, text] = c.meeting_ok && c.ops_task_ok
     ? ["bg-emerald-50 text-emerald-800 ring-emerald-200", `Reunião realizada #${m?.number}: pode ir para Realizado`]
+    : c.meeting_ok
+      ? ["bg-amber-50 text-amber-800 ring-amber-200", `Reunião realizada #${m?.number}: falta 1 tarefa para a operação`]
     : none
       ? ["bg-red-50 text-red-700 ring-red-200", "Sem reunião: vincule ou crie"]
       : c.stage_id === ONBOARDING_STAGE
@@ -77,7 +86,8 @@ export function OnboardingMeetingActions({ c, ctx }: { c: OpsBoardClient; ctx: T
   const categories = useMeetingCategories();
   const link = useLinkClientMeeting();
   const unlink = useUnlinkClientMeeting();
-  if (!isOnboardingStage(c.stage_id) || !c.can_move || c.meeting_ok) return null;
+  if (!isOnboardingStage(c.stage_id) || !c.can_move) return null;
+  if (c.meeting_ok) return c.ops_task_ok ? null : <OpsTaskAction c={c} ctx={ctx} />;
   const canCreate = ctx.can("ops.meetings.manage");
   const has = Boolean(c.onboarding_meeting && c.onboarding_meeting.status !== "cancelada");
   return (
@@ -107,3 +117,23 @@ export function OnboardingMeetingActions({ c, ctx }: { c: OpsBoardClient; ctx: T
   );
 }
 
+/** Etapa 49.4: com a reunião realizada, falta a tarefa para o time de operação (próximos passos do cliente). */
+function OpsTaskAction({ c, ctx }: { c: OpsBoardClient; ctx: TasksContext }) {
+  const [creating, setCreating] = useState(false);
+  const { open } = useOpenTask();
+  if (!ctx.can("ops.tasks.create")) return null;
+  const mine = ctx.sectors.find((s) => s.id === ctx.mySector);
+  return (
+    <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2" data-testid="ops-onboarding-task-action">
+      <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setCreating(true)}>
+        <ClipboardPlus className="size-3.5" aria-hidden /> Criar tarefa para a operação
+      </Button>
+      {creating && (
+        <TaskFormModal detail={null} sectors={ctx.sectors} statuses={ctx.statuses} directory={ctx.directory} me={ctx.me} mySector={ctx.mySector}
+          canAssign={ctx.can("ops.tasks.assign")} canChangeSector onClose={() => setCreating(false)} onSaved={open}
+          defaults={{ client_id: c.client_id, title: `Próximos passos: ${c.name}`, sector_id: mine && !isCommercialSector(mine.name) ? mine.id : "" }}
+          note="Para o cliente ir para Onboarding Realizado, ele precisa de ao menos 1 tarefa para o time de operação: qualquer setor, menos Comercial." />
+      )}
+    </div>
+  );
+}

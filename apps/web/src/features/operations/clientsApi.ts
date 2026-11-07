@@ -66,6 +66,8 @@ export interface OpsBoardClient {
   onboarding_meeting: { id: string; number: number; title: string; status: "agendada" | "realizada" | "cancelada"; starts_at: string; cancel_kind: "outro" | "cliente_desistiu" | null } | null;
   meeting_ok: boolean;
   meeting_scheduled: boolean;
+  /** Etapa 49.4: tem ao menos 1 tarefa para o time de operação (setor diferente de Comercial, não cancelada/arquivada). */
+  ops_task_ok: boolean;
   summary: OpsClientSummary;
 }
 

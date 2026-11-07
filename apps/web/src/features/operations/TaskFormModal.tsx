@@ -94,7 +94,7 @@ export function parseTags(text: string): string[] {
 }
 
 /** Nova tarefa ou editar os dados (status e pessoas de uma tarefa existente mudam no detalhe). */
-export function TaskFormModal({ detail, sectors, statuses, directory, me, mySector, canAssign, canChangeSector, onClose, onSaved }: {
+export function TaskFormModal({ detail, sectors, statuses, directory, me, mySector, canAssign, canChangeSector, onClose, onSaved, defaults, note }: {
   detail: OpsTaskDetail | null;
   sectors: OpsSector[];
   statuses: OpsStatus[];
@@ -105,13 +105,17 @@ export function TaskFormModal({ detail, sectors, statuses, directory, me, mySect
   canChangeSector: boolean;
   onClose: () => void;
   onSaved?: (id: string) => void;
+  /** Nova tarefa já preenchida (ex.: a tarefa da operação no cartão do onboarding). */
+  defaults?: Partial<Pick<OpsTaskInput, "title" | "client_id" | "sector_id" | "description">>;
+  /** Aviso no topo do formulário. */
+  note?: string;
 }) {
   const t = detail?.task;
   const [input, setInput] = useState<OpsTaskInput>({
-    title: t?.title ?? "",
-    description: t?.description ?? "",
-    client_id: t?.client_id ?? "",
-    sector_id: t?.sector_id ?? mySector ?? "",
+    title: t?.title ?? defaults?.title ?? "",
+    description: t?.description ?? defaults?.description ?? "",
+    client_id: t?.client_id ?? defaults?.client_id ?? "",
+    sector_id: t?.sector_id ?? defaults?.sector_id ?? mySector ?? "",
     priority: t?.priority ?? "media",
     start_date: t?.start_date ?? "",
     due_date: t?.due_date ?? "",
@@ -151,6 +155,7 @@ export function TaskFormModal({ detail, sectors, statuses, directory, me, mySect
   return (
     <Modal title={t ? `Editar tarefa #${t.number}` : "Nova tarefa"} open onClose={onClose} size="lg">
       <form onSubmit={submit} className="space-y-4" data-testid="ops-task-form">
+        {note && <Alert tone="info">{note}</Alert>}
         <Field label="Título">{(id) => <Input id={id} value={input.title} maxLength={200} onChange={(e) => set("title", e.target.value)} autoFocus />}</Field>
         <Field label="Descrição" hint="Opcional.">
           {(id) => <Textarea id={id} value={input.description} maxLength={10000} onChange={(e) => set("description", e.target.value)} />}
