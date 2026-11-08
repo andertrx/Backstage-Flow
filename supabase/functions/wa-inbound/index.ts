@@ -46,7 +46,9 @@ Deno.serve(async (req) => {
     }
     if (!auth.enabled || !auth.client_active) return json(200, { result: "ignorado" });
 
-    const { inbound, echoRaw, store, ignored } = await planGatewayPayload(payload, Date.now());
+    const { inbound, echoRaw, store, ignored, reasons } = await planGatewayPayload(payload, Date.now());
+    // Diagnóstico dos avisos grandes (histórico): só contagens e motivos, nunca texto, nome ou telefone.
+    if (body.length > 5000) console.log(JSON.stringify({ wa_inbound_diag: { bytes: body.length, ignored, reasons, store: store.length, history: store.filter((m) => m.history).length } }));
     for (const msg of inbound) {
       const { error } = await db.rpc("tracking_whatsapp_inbound", { p: { connection_id: id, ...msg } });
       if (error) throw error;

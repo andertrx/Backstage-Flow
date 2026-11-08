@@ -50,11 +50,16 @@ export async function planGatewayPayload(payload: unknown, nowMs: number) {
   const echoRaw: { phone: string; id: string; text: string }[] = [];
   const store: StoreOut[] = [];
   let ignored = 0;
+  /** Só para diagnóstico: motivos pelos quais mensagens foram ignoradas (sem nenhum dado pessoal). */
+  const reasons: Record<string, number> = {};
+  let withText = 0;
   // T5.8: o histórico antigo só alimenta a caixa de conversas. Nunca conta conversa nova, lead, venda nem frase.
   const history = isHistoryPayload(payload);
   for (const m of parseGatewayPayload(payload)) {
     if (m.kind === "ignore") {
       ignored++;
+      const why = m.reason.slice(0, 60);
+      reasons[why] = (reasons[why] ?? 0) + 1;
       continue;
     }
     if (m.text.trim() || m.media) {
@@ -85,7 +90,8 @@ export async function planGatewayPayload(payload: unknown, nowMs: number) {
         : null,
     });
   }
-  return { inbound, echoRaw, store, ignored };
+  withText = store.length;
+  return { inbound, echoRaw, store, ignored, reasons, withText };
 }
 
 /** Acha as frases do cliente nas mensagens que a agência mandou. Sem frase, nada sai. */
