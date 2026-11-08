@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
     const { inbound, echoRaw, store, ignored, reasons } = await planGatewayPayload(payload, Date.now());
     // Diagnóstico dos avisos grandes (histórico): só contagens e motivos, nunca texto, nome ou telefone.
-    if (body.length > 5000) console.log(JSON.stringify({ wa_inbound_diag: { bytes: body.length, ignored, reasons, store: store.length, history: store.filter((m) => m.history).length } }));
+    if (body.length > 5000 || reasons["sem número de telefone na mensagem"]) console.log(JSON.stringify({ wa_inbound_diag: { bytes: body.length, ignored, reasons, store: store.length, history: store.filter((m) => m.history).length } }));
     for (const msg of inbound) {
       const { error } = await db.rpc("tracking_whatsapp_inbound", { p: { connection_id: id, ...msg } });
       if (error) throw error;
