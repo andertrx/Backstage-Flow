@@ -84,3 +84,16 @@ Anotar agora (linha de base) e comparar depois de 24 h:
 
 ## 8. Publicação
 A mudança está só no código (branch `tracking-t5`). Para valer, é preciso **publicar a função `sync` no Supabase**. Atenção: a `sync` publicada está **mais antiga** do que a do GitHub (correção de saldo de 28/09 e mensagem "Google Ads API desligada" de 22/10). Publicar traz essas duas junto. Depende do seu "Publique".
+
+## 9. Execução (08/11/2026, depois da autorização do Ander)
+| Item | Situação |
+|---|---|
+| Código da sincronização (grava só o que mudou) | **Publicado**: função `sync` v16 no Supabase (a v15 teve dois trechos do botão "Sincronizar agora" copiados errados e foi substituída). |
+| A, quebras só se mudou | Aplicada (`otimiza_quebras_so_se_mudou`); 3 verificações SQL. |
+| C e E, limpeza diária dos logs técnicos | Aplicada (`maintenance_cleanup`, 03h20 de Brasília). |
+| B, `raw_actions` | Código para de gravar; histórico com mais de 90 dias esvaziado e compactado em 12 partições; a limpeza diária esvazia o que passar de 90 dias. Banco **397 MB → 342 MB**; histórico **213 MB → 158 MB**; 176.753 linhas de métricas intactas. |
+| D, F, G | **Não feitos**: aguardam autorização. |
+
+**Validação:** as sincronizações agendadas rodaram com sucesso na v15 (16:25 UTC) e na v16 (16:30 UTC). O botão "Sincronizar agora" (caminho manual) **não foi exercitado** depois da publicação.
+
+**Linha de base para medir (16:33 UTC):** `n_tup_upd` ads 13.288.968; ad_groups 2.485.991; campaigns 1.188.008; period_reach 1.339.872; metrics_breakdown_daily 1.107.140. Comparar depois de 24 h: o aumento deve ser muito menor que o anterior (cerca de 20 mil atualizações em `ads` a cada ~5 minutos de sincronização antes da mudança).
