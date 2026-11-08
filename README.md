@@ -63,6 +63,9 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T3.2 — Vendas pelo webhook de qualquer sistema de vendas](docs/etapa-34-tracking/T3.2-VENDAS-WEBHOOK.md) ✅ 25/10
   - [T4.1 — Frases do WhatsApp (marcação como no Tintim, pelo número)](docs/etapa-34-tracking/T4.1-FRASES-WHATSAPP.md) ✅ 25/10
   - [T4.2 — Ligar o WhatsApp pelo cadastro oficial do Meta (Coexistence)](docs/etapa-34-tracking/T4.2-WHATSAPP-COEXISTENCE.md) ✅ 26/10
+  - [T5 — Tracking pronto para página de formulário e WhatsApp, sem cliente real (plano)](docs/etapa-34-tracking/T5-PLANO.md) *(em andamento)*
+  - [T5.1 — Aba Tracking organizada em abas](docs/etapa-34-tracking/T5.1-ABAS.md) ✅ 08/11
+  - [T5.2 — Cliques em botões e links, e campos escondidos com a origem](docs/etapa-34-tracking/T5.2-CLIQUES-E-CAMPOS.md) ✅ 08/11
 - [Etapa 35 — Meta Ads Campaign Builder (auditoria e plano)](docs/etapa-35-campaign-builder/35.0-AUDITORIA.md) *(em espera: prompt enviado por engano; auditoria guardada para depois)*
 - [Etapa 36 — Central de Operações](docs/etapa-36-central-operacoes/36.16-RELATORIO-FINAL.md) ✅ concluída ([auditoria e plano](docs/etapa-36-central-operacoes/36.0-AUDITORIA.md))
   - [36.1 — Setores, equipe e permissões](docs/etapa-36-central-operacoes/36.1-SETORES-EQUIPE.md) ✅ concluída

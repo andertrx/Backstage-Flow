@@ -667,4 +667,86 @@ const waitSent = async (page, sent, n) => {
   await browser.close();
 }
 
-console.log("\nEtapa 34 (tracking 34.1 a 34.5-W2, com 34.4): todos os testes passaram.");
+// ---------------------------------------------------------------------------
+// T5.2: cliques em botões e links, e campos escondidos com a origem
+// ---------------------------------------------------------------------------
+{
+  const BODY = `<button id="saiba">Quero   saber mais</button><button>ana@x.com</button><a href="https://loja.example/checkout?cupom=123&email=ana@x.com#topo" onclick="event.preventDefault()">Comprar agora</a>
+    <a href="https://wa.me/5545999998888?text=Oi" onclick="event.preventDefault()">Fale no WhatsApp</a>`;
+  const { browser, page, errors } = await launch();
+  const sent = [];
+  await site(page, sent, html("", ' data-clicks="on"', BODY));
+  await page.goto(`${SITE}/`);
+  await waitSent(page, sent, 2);
+  sent.length = 0;
+  await page.getByRole("button", { name: "Quero saber mais" }).click();
+  await waitSent(page, sent, 1);
+  const c1 = sent.find((b) => b.n === "bf_click");
+  check(c1 && c1.cd.texto === "Quero saber mais" && c1.cd.tipo === "botao" && c1.cd.id === "saiba" && c1.cd.bf_meta === "nao_enviar", "T5.2: clique em botão vira bf_click (texto curto, só no CRM)");
+  sent.length = 0;
+  await page.getByRole("link", { name: "Comprar agora" }).click();
+  await waitSent(page, sent, 1);
+  const c2 = sent.find((b) => b.n === "bf_click");
+  check(c2 && c2.cd.tipo === "link" && c2.cd.destino === "loja.example/checkout" && !JSON.stringify(c2).includes("ana@x.com"), "T5.2: destino do link sem parâmetros nem e-mail");
+  sent.length = 0;
+  await page.getByRole("button", { name: "ana@x.com" }).click();
+  await page.waitForTimeout(500);
+  check(!sent.some((b) => b.n === "bf_click"), "T5.2: botão com texto de e-mail não é registrado");
+  await page.getByRole("link", { name: "Fale no WhatsApp" }).click();
+  await waitSent(page, sent, 1);
+  check(sent.some((b) => b.n === "Contact") && !sent.some((b) => b.n === "bf_click"), "T5.2: clique no WhatsApp continua só como Contato (sem duplicar)");
+  check(errors.length === 0, "T5.2: sem erros (cliques)");
+  await browser.close();
+}
+{
+  // Sem a opção, nada de bf_click
+  const { browser, page } = await launch();
+  const sent = [];
+  await site(page, sent, html("", "", '<button>Quero saber mais</button>'));
+  await page.goto(`${SITE}/`);
+  await waitSent(page, sent, 2);
+  sent.length = 0;
+  await page.getByRole("button", { name: "Quero saber mais" }).click();
+  await page.waitForTimeout(500);
+  check(!sent.some((b) => b.n === "bf_click"), "T5.2: sem a opção, cliques não são registrados");
+  await browser.close();
+}
+{
+  const FORM = `<form onsubmit="event.preventDefault()"><input type="hidden" name="utm_source"><input type="hidden" name="utm_campaign"><input type="hidden" name="utm_source_first"><input type="hidden" name="utm_campaign_first"><input type="hidden" name="gclid"><input type="hidden" name="bf_visitor"><input type="hidden" name="utm_medium" value="manual"><input name="nome"></form>`;
+  const { browser, page, errors } = await launch();
+  const sent = [];
+  await site(page, sent, html("", ' data-fields="on"', FORM));
+  const val = (n) => page.locator(`input[name="${n}"]`).inputValue();
+  await page.goto(`${SITE}/?utm_source=facebook&utm_campaign=Janeiro&fbclid=IwA`);
+  await page.waitForFunction(() => document.querySelector('input[name="utm_source"]').value !== "");
+  check((await val("utm_source")) === "facebook" && (await val("utm_source_first")) === "facebook" && (await val("utm_campaign_first")) === "Janeiro", "T5.2: primeira visita preenche última e primeira origem");
+  const vid = await val("bf_visitor");
+  check(/^[A-Za-z0-9_-]{22}$/.test(vid), "T5.2: bf_visitor recebe o código do visitante");
+  await page.goto(`${SITE}/?utm_source=google&utm_campaign=Maio&gclid=G1`);
+  await page.waitForFunction(() => document.querySelector('input[name="utm_source"]').value !== "");
+  check((await val("utm_source")) === "google" && (await val("utm_campaign")) === "Maio" && (await val("gclid")) === "G1", "T5.2: nova campanha atualiza a última origem");
+  check((await val("utm_source_first")) === "facebook" && (await val("utm_campaign_first")) === "Janeiro" && (await val("bf_visitor")) === vid, "T5.2: a primeira origem nunca é sobrescrita");
+  check((await val("utm_medium")) === "manual", "T5.2: campo que já tem valor não é mexido");
+  await page.goto(`${SITE}/`);
+  await page.waitForFunction(() => document.querySelector('input[name="utm_source"]').value !== "");
+  check((await val("utm_source")) === "google" && (await val("utm_source_first")) === "facebook", "T5.2: visita sem parâmetros mantém as origens guardadas");
+  check(errors.length === 0, "T5.2: sem erros (campos escondidos)");
+  await browser.close();
+}
+{
+  // Com consentimento pendente: nada é guardado nem preenchido
+  const FORM = `<form><input type="hidden" name="utm_source"></form>`;
+  const { browser, page } = await launch();
+  const sent = [];
+  await site(page, sent, html("", ' data-fields="on" data-consent="aguardar"', FORM));
+  await page.goto(`${SITE}/?utm_source=facebook`);
+  await page.waitForTimeout(600);
+  const before = await page.context().cookies(SITE);
+  check(!before.some((c) => c.name === "_bfa" || c.name === "_bfl") && (await page.locator('input[name="utm_source"]').inputValue()) === "", "T5.2: sem consentimento, nada é guardado nem preenchido");
+  await page.evaluate(() => window.bf("consent", true));
+  await page.waitForFunction(() => document.querySelector('input[name="utm_source"]').value === "facebook");
+  check((await page.context().cookies(SITE)).some((c) => c.name === "_bfa"), "T5.2: com o consentimento, guarda a origem e preenche");
+  await browser.close();
+}
+
+console.log("\nEtapa 34 (tracking 34.1 a 34.5-W2, com 34.4 e T5.2): todos os testes passaram.");

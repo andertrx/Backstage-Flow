@@ -94,6 +94,7 @@ export const EVENT_LABELS: Record<string, string> = {
   AddToCart: "Adicionou ao carrinho",
   InitiateCheckout: "Iniciou a compra",
   Purchase: "Compra",
+  bf_click: "Clique em botão ou link",
 };
 
 export const eventLabel = (name: string) => EVENT_LABELS[name] ?? name;

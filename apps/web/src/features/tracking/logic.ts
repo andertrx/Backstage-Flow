@@ -146,13 +146,15 @@ export const IDENTIFY_EXAMPLE =
 export function installSnippetWithOptions(
   publicKey: string,
   consentMode: ConsentMode,
-  opts: { forms: boolean; pixelId?: string | null; waCode?: boolean },
+  opts: { forms: boolean; pixelId?: string | null; waCode?: boolean; clicks?: boolean; fields?: boolean },
   scriptUrl = TRACKING_SCRIPT_URL,
 ): string {
   let extra = "";
   if (opts.forms) extra += ' data-forms="lead"';
   if (opts.pixelId && /^\d{5,20}$/.test(opts.pixelId)) extra += ` data-pixel="${opts.pixelId}"`;
   if (opts.waCode) extra += ' data-wa-code="1"';
+  if (opts.clicks) extra += ' data-clicks="on"';
+  if (opts.fields) extra += ' data-fields="on"';
   return installSnippet(publicKey, consentMode, scriptUrl).replace("></script>", `${extra}></script>`);
 }
 

@@ -150,7 +150,9 @@ export function InstallModal({ container, pixelId = null, onClose }: { container
   const [forms, setForms] = useState(false);
   const [pixel, setPixel] = useState(false);
   const [waCode, setWaCode] = useState(false);
-  const snippet = installSnippetWithOptions(container.public_key, container.consent_mode, { forms, pixelId: pixel ? pixelId : null, waCode });
+  const [clicks, setClicks] = useState(false);
+  const [fields, setFields] = useState(false);
+  const snippet = installSnippetWithOptions(container.public_key, container.consent_mode, { forms, pixelId: pixel ? pixelId : null, waCode, clicks, fields });
   return (
     <Modal title={`Instalar no site — ${container.name}`} open onClose={onClose} size="lg">
       <div className="space-y-5 text-sm text-slate-700">
@@ -170,6 +172,26 @@ export function InstallModal({ container, pixelId = null, onClose }: { container
             <span className="block text-xs text-slate-500">
               A mensagem do botão do WhatsApp ganha no final “(ref. K7Q2M9)”. Quando ela chegar, a equipe digita o código na tela Tracking e
               marca Lead/Venda com a origem certa (funciona com o WhatsApp comum).
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3">
+          <input type="checkbox" className="mt-0.5" checked={clicks} onChange={(e) => setClicks(e.target.checked)} />
+          <span>
+            <span className="font-medium text-slate-800">Registrar cliques em botões e links</span>
+            <span className="block text-xs text-slate-500">
+              Cada clique vira um evento “bf_click” só aqui no CRM (nunca vai ao Meta), com o texto curto do botão e o destino sem parâmetros.
+              Textos que parecem e-mail ou telefone são descartados.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3">
+          <input type="checkbox" className="mt-0.5" checked={fields} onChange={(e) => setFields(e.target.checked)} />
+          <span>
+            <span className="font-medium text-slate-800">Preencher campos escondidos do formulário com a origem</span>
+            <span className="block text-xs text-slate-500">
+              Para formulários que mandam os dados para outro sistema. Crie campos escondidos com o nome <code>utm_source</code>, <code>utm_campaign</code>,{" "}
+              <code>fbclid</code>… (última origem), <code>utm_source_first</code>… (primeira origem) ou <code>bf_visitor</code>, e o script preenche.
             </span>
           </span>
         </label>

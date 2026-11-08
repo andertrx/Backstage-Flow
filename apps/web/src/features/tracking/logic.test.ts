@@ -94,6 +94,9 @@ describe("WhatsApp", () => {
   it("código na mensagem do WhatsApp entra no código de instalação só quando pedido", () => {
     expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false, waCode: true }, "https://x/t.js")).toContain('data-wa-code="1"');
     expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false }, "https://x/t.js")).not.toContain("data-wa-code");
+    // T5.2: cliques em botões e campos escondidos
+    expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false, clicks: true, fields: true }, "https://x/t.js")).toContain('data-clicks="on" data-fields="on"');
+    expect(installSnippetWithOptions("bf_x", "nao_exigir", { forms: false }, "https://x/t.js")).not.toMatch(/data-clicks|data-fields/);
   });
 });
 

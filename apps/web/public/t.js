@@ -212,6 +212,7 @@
           consent = a !== false;
           if (consent) {
             setCookie("_bfc", "1", 365 * 24 * 3600);
+            try { if (typeof touchNow === "function") touchNow(); if (typeof fillHidden === "function") fillHidden(); } catch (e) { /* nunca quebra o site */ }
             var q = queue;
             queue = [];
             for (var i = 0; i < q.length; i++) transmit(q[i][0], q[i][1], q[i][2], q[i][3], q[i][4], q[i][5]);
@@ -315,6 +316,80 @@
             data.ref = code;
           }
           send("Contact", data);
+        } catch (e) { /* nunca quebra o site */ }
+      }, true);
+    }
+
+
+    // ---- Origem da pessoa x origem do momento (T5.2). So com consentimento.
+    // Primeira origem (cookie _bfa) nunca e sobrescrita; ultima origem (cookie _bfl) so muda
+    // quando a visita traz parametros de campanha. Servem para preencher campos escondidos de
+    // formularios que mandam os dados para outro sistema (data-fields="on").
+    var FIELDS = el.getAttribute("data-fields") === "on";
+    var readJson = function (n) { try { var v = getCookie(n); return v ? JSON.parse(v) : null; } catch (e) { return null; } };
+    var touchNow = function () {
+      var o = {}, any = false, p;
+      try { p = new URL(location.href).searchParams; } catch (e) { return; }
+      for (var i = 0; i < CAMPAIGN_KEYS.length; i++) { var v = p.get(CAMPAIGN_KEYS[i]); if (v) { o[CAMPAIGN_KEYS[i]] = v.slice(0, 80); any = true; } }
+      if (!readJson("_bfa")) {
+        var f = {}; for (var k in o) f[k] = o[k];
+        try { if (d.referrer) { var rh = new URL(d.referrer).hostname; if (rh && rh !== location.hostname) f.ref = rh.slice(0, 80); } } catch (e) { /* sem origem */ }
+        f.lp = location.pathname.slice(0, 80);
+        setCookie("_bfa", JSON.stringify(f), 365 * 24 * 3600);
+      }
+      if (any) setCookie("_bfl", JSON.stringify(o), 365 * 24 * 3600);
+    };
+    var fillHidden = function () {
+      if (!FIELDS || !consent) return;
+      try {
+        var first = readJson("_bfa") || {}, last = readJson("_bfl") || first, s = ids();
+        var list = d.querySelectorAll('input[type="hidden"][name]');
+        for (var i = 0; i < list.length; i++) {
+          var inp = list[i], n = inp.name, v = null;
+          if (inp.value) continue;
+          if (n === "bf_visitor") v = s.visitor;
+          else if (n === "bf_session") v = s.session;
+          else if (/_first$/.test(n)) v = first[n.slice(0, -6)];
+          else if (CAMPAIGN_KEYS.indexOf(n) >= 0) v = last[n];
+          if (v) inp.value = v;
+        }
+      } catch (e) { /* nunca quebra o site */ }
+    };
+    if (FIELDS) {
+      var fillTimer = 0;
+      var fillSoon = function () { clearTimeout(fillTimer); fillTimer = setTimeout(fillHidden, 150); };
+      if (consent) touchNow();
+      d.addEventListener("submit", fillHidden, true);
+      if (d.readyState === "loading") d.addEventListener("DOMContentLoaded", fillSoon); else fillSoon();
+      if (w.MutationObserver) new MutationObserver(fillSoon).observe(d.documentElement, { childList: true, subtree: true });
+    }
+
+    // ---- Cliques em botoes e links (T5.2, data-clicks="on"): evento bf_click so no CRM (nunca vai ao Meta).
+    // Guarda so o rotulo curto, o tipo e o destino sem parametros. Cliques no WhatsApp ja viram Contact.
+    if (el.getAttribute("data-clicks") === "on") {
+      var lastBtn = { k: "", t: 0 };
+      d.addEventListener("click", function (ev) {
+        try {
+          var t = ev.target;
+          var b = t && t.closest ? t.closest("a[href], button, [role='button'], input[type='submit'], input[type='button']") : null;
+          if (!b) return;
+          var href = b.tagName === "A" ? b.getAttribute("href") || "" : "";
+          if (WA_LINK.test(href) || /^(mailto|tel):/i.test(href)) return;
+          var txt = String(b.tagName === "INPUT" ? b.value : (b.innerText || b.textContent || b.getAttribute("aria-label") || "")).replace(/\s+/g, " ").replace(/^ | $/g, "");
+          if (/@/.test(txt) || /\d[\d\s().-]{7,}/.test(txt)) txt = "";
+          txt = txt.slice(0, 80);
+          var dest = "";
+          if (href) try { var u = new URL(href, location.href); dest = (u.hostname === location.hostname ? "" : u.hostname) + u.pathname; } catch (e) { /* sem destino */ }
+          dest = dest.slice(0, 120);
+          if (!txt && !dest) return;
+          var key = txt + "|" + dest;
+          if (lastBtn.k === key && Date.now() - lastBtn.t < 1500) return;
+          lastBtn = { k: key, t: Date.now() };
+          var data = { bf_meta: "nao_enviar", tipo: b.tagName === "A" ? "link" : "botao" };
+          if (txt) data.texto = txt;
+          if (dest) data.destino = dest;
+          if (b.id) data.id = String(b.id).slice(0, 40);
+          send("bf_click", data);
         } catch (e) { /* nunca quebra o site */ }
       }, true);
     }

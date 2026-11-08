@@ -3,6 +3,13 @@
 > Lista do que ficou para depois. Eu (Claude) confiro e lembro esta lista nos relatórios.
 > Quando fizer um item, me avise que eu marco como feito.
 
+## Tracking T5 — pronto para cliente (08/11/2026)
+- [ ] **Pixel de teste da agência:** passar só o **número** do Pixel (o token você cola no campo do CRM, nunca no chat). Usado na T5.4 com o "código de teste" do Meta.
+- [ ] **Responde App:** no formulário, procurar nas opções de **integrações/webhook**. Se existir, me diga o nome da opção; se só aceitar o número do Pixel, o lead fica só no Pixel do navegador (sem origem completa no CRM).
+- [ ] **Política de privacidade e contrato do cliente:** incluir que as conversas de WhatsApp podem ser analisadas para medir vendas (necessário para a T5.6, conversas guardadas por 30 dias).
+- [ ] **Servidor do WhatsApp (etapa 44):** sem ele, a origem do anúncio de WhatsApp só vale testada com mensagens de exemplo.
+- [ ] **Stand-by (tarefa futura):** ligação com GoHighLevel e Kommo (a skill "Metrik" serve de modelo, mas com hash, token no cofre e sem contato duplicado).
+
 ## Central — prazo de guarda dos cartões excluídos (51.3, 07/11/2026)
 - Tarefas e leads **excluídos** ficam guardados (somem das telas, aparecem só em Central → "Arquivados e excluídos"). Quando você decidir **por quanto tempo** guardar (ex.: 90 dias), eu crio a limpeza automática depois desse prazo. Até lá, ficam guardados.
 
