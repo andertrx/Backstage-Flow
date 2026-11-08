@@ -965,11 +965,28 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       return res(200, token);
     }
 
-    // Excluir cliente (mesma regra de private.client_exclude_impl): só admin, só desativado, nome confere.
+    // Quem pode desativar/reativar/excluir (08/11/2026): administrador, gestor (dos clientes que vê) ou Account Manager do cliente.
+    const canManageClient = (clientId) => role === "admin" || (role === "gestor" && clientVisible(clientId)) || Object.values(db.opsClientOps ?? {}).some((o) => o.client_id === clientId && o.am_user_id === userId);
+    if (url.includes("/rest/v1/rpc/client_can_manage")) return res(200, Boolean(canManageClient(parse().p_client_id)));
+    if (url.includes("/rest/v1/rpc/client_set_active")) {
+      const p = parse();
+      const client = db.clients.find((c) => c.id === p.p_client_id && !c.excluded_at);
+      if (!client) return res(404, { code: "P0002", message: "Cliente não encontrado." });
+      if (!canManageClient(client.id)) return res(403, { code: "42501", message: "Só o administrador, o gestor ou o Account Manager do cliente pode desativar ou reativar." });
+      if (!p.p_active && client.status !== "encerrado") {
+        // Mesmo efeito do gatilho do banco: os alertas abertos do cliente são encerrados.
+        for (const a of db.monitorAlerts ?? []) {
+          if (a.client_id === client.id && !a.resolved_at) Object.assign(a, { resolved_at: new Date().toISOString(), resolution: "automatica", status: "resolvido", details: { ...a.details, closed_reason: "cliente_desativado" } });
+        }
+      }
+      client.status = p.p_active ? "ativo" : "encerrado";
+      return res(204);
+    }
+    // Excluir cliente (mesma regra de private.client_exclude_impl): administrador/gestor/AM, só desativado, nome confere.
     if (url.includes("/rest/v1/rpc/client_exclude")) {
       const p = parse();
       db.rpcCalls.push({ fn: "client_exclude", ...p });
-      if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador pode excluir clientes." });
+      if (!canManageClient(p.p_client_id)) return res(403, { code: "42501", message: "Só o administrador, o gestor ou o Account Manager do cliente pode excluir." });
       const client = db.clients.find((c) => c.id === p.p_client_id && !c.excluded_at);
       if (!client) return res(404, { code: "P0002", message: "Cliente não encontrado." });
       if (client.status !== "encerrado") return res(400, { code: "22023", message: "Desative o cliente antes de excluir." });

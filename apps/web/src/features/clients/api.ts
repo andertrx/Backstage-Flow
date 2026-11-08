@@ -34,12 +34,25 @@ export function useActiveClients() {
   });
 }
 
-/** Desativar ("encerrado") ou reativar ("ativo"). Só admin; o banco confere e faz o resto. */
+/** A pessoa pode desativar, reativar ou excluir este cliente? (administrador, gestor ou Account Manager do cliente; o banco decide) */
+export function useCanManageClient(id: string | undefined) {
+  return useQuery({
+    queryKey: [...CLIENTS_KEY, id, "pode-gerenciar"],
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("client_can_manage", { p_client_id: id! });
+      if (error) return false;
+      return data === true;
+    },
+  });
+}
+
+/** Desativar ("encerrado") ou reativar ("ativo"). Administrador, gestor ou Account Manager do cliente; o banco confere e faz o resto. */
 export function useSetClientActive() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from("clients").update({ status: active ? "ativo" : "encerrado" }).eq("id", id);
+      const { error } = await supabase.rpc("client_set_active", { p_client_id: id, p_active: active });
       if (error) throw new FriendlyError(friendlyDbError(error, active ? "Não conseguimos reativar o cliente." : "Não conseguimos desativar o cliente."));
     },
     // Muitas telas mudam (listas, alertas, planilha...): recarrega tudo.
@@ -48,7 +61,7 @@ export function useSetClientActive() {
 }
 
 /**
- * Excluir cliente (23/10/2026): só admin, só cliente já desativado, digitando o nome para confirmar.
+ * Excluir cliente (23/10/2026; 08/11/2026: também gestor e Account Manager do cliente): só cliente já desativado, digitando o nome para confirmar.
  * Some de todas as telas; os dados ficam guardados no banco (dá para recuperar por lá).
  */
 export function useExcludeClient() {

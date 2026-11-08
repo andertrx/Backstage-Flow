@@ -108,3 +108,25 @@ e um usuário com papel "cliente" de uma empresa desativada não vê mais nada.
 - **Teste:** `supabase/tests/alertas_cliente_desativado.sql` (5 verificações OK, desfeito no fim).
 - **Lista de clientes:** mantida como está (filtro "encerrado" = desativados).
 - **Já cobertos desde 23/10:** Monitoramento novo, Central (repetições), e-mail semanal, tracking, sincronização.
+
+---
+
+# Desativar e excluir cliente, completo (08/11/2026)
+
+> Ander: "Todo cliente que eu desativar vai sair de tudo e sumir. E eu quero a opção de excluir; se eu excluir, abandona tudo. Para administrador, account e gestor."
+> Ponto de volta: `supabase/rollback/voltar_cliente_desativar_excluir_2026_11_08.sql`.
+
+## Quem pode
+**Administrador**, **gestor** (dos clientes que ele vê) e o **Account Manager do cliente** podem desativar, reativar e excluir (antes, só o administrador). O banco confere. Limite: um Account Manager com papel "equipe" não abre a tela de Clientes, então não vê os botões.
+
+## Desativar (com Reativar sempre disponível)
+Além do que já parava (sincronização, monitoramento, e-mail semanal, tracking, envio ao Meta, acesso do cliente), o cliente agora **some** da **Central de Operações** (cartão de onboarding e Kanban, tarefas, reuniões, leads comerciais), dos **envios semanais**, dos **grupos de WhatsApp** e do **Tracking** (sites). Nada é apagado: a regra de "quem vê" confere se o cliente está vivo. **Reativar** traz tudo de volta. As contas de anúncio ficam vinculadas e paradas.
+
+## Excluir (abandona tudo)
+Só depois de desativar, digitando o nome. Além de sumir de todas as telas, passa a **abandonar tudo**: contas de anúncio **desvinculadas**, tarefas e leads **arquivados**, reuniões agendadas **canceladas**, site **pausado**, destinos do Meta, webhooks e WhatsApp **desligados**, e-mail semanal e login do cliente **desligados**. O histórico (métricas, vendas, auditoria) fica guardado, só marcado como excluído (`excluded_at`); recuperar é pelo banco. A auditoria `client.exclude` guarda quantas contas, tarefas, leads e reuniões foram afetados.
+
+## Testes
+- SQL (`supabase/tests/cliente_desativar_excluir_completo.sql`, transação desfeita): **5 verificações OK** com clientes reais.
+- Navegador: `e2e/client-deactivate.mjs` (gestor desativa e vê Reativar/Excluir; visualizador não vê e é recusado).
+- **Achado no caminho:** as regras novas precisavam de permissão de execução para quem está logado (corrigido).
+- **Não testado:** o Account Manager pela tela (o papel "equipe" não abre Clientes); a exclusão de um cliente com envios semanais, webhooks e WhatsApp reais (os 2 clientes desativados de hoje não têm).

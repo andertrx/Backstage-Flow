@@ -106,7 +106,7 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   await browser.close();
 }
 
-// Gestor: não vê o botão; o servidor recusa
+// Gestor (08/11/2026): também pode desativar, reativar e excluir os clientes que vê
 {
   const { browser, page, errors } = await launch();
   const db = await mockSupabase(page, { role: "gestor" });
@@ -114,18 +114,38 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   db.access.push({ user_id: USER_ID, client_id: CLI, created_at: "" });
   await login(page, `/clientes/${CLI}`);
   await page.getByRole("heading", { name: "Loja Que Saiu" }).waitFor();
-  check(await page.getByTestId("client-deactivate").count() === 0, "gestor não vê o botão Desativar");
+  await page.getByTestId("client-deactivate").waitFor();
+  page.once("dialog", (d) => d.accept());
+  await page.getByTestId("client-deactivate").click();
+  await page.getByTestId("client-deactivated").waitFor();
+  check(db.clients.find((c) => c.id === CLI).status === "encerrado", "gestor desativa o cliente");
+  await page.getByTestId("client-reactivate").waitFor();
+  check(await page.getByTestId("client-exclude").count() === 1, "gestor vê Reativar e Excluir");
+  check(errors.length === 0, "sem erros no navegador (gestor)");
+  await browser.close();
+}
+
+// Visualizador: não vê os botões; o servidor recusa
+{
+  const { browser, page, errors } = await launch();
+  const db = await mockSupabase(page, { role: "visualizador" });
+  seed(db);
+  db.access.push({ user_id: USER_ID, client_id: CLI, created_at: "" });
+  await login(page, `/clientes/${CLI}`);
+  await page.getByRole("heading", { name: "Loja Que Saiu" }).waitFor();
+  await page.waitForTimeout(500);
+  check(await page.getByTestId("client-deactivate").count() === 0, "visualizador não vê o botão Desativar");
   const status = await page.evaluate(async (id) => {
-    const r = await fetch(`https://dkatllzkmlzpginuzvis.supabase.co/rest/v1/clients?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ status: "encerrado" }) });
+    const r = await fetch("https://dkatllzkmlzpginuzvis.supabase.co/rest/v1/rpc/client_set_active", { method: "POST", body: JSON.stringify({ p_client_id: id, p_active: false }) });
     return r.status;
   }, CLI);
-  check(status === 403 && db.clients.find((c) => c.id === CLI).status === "ativo", "gestor tentando desativar por fora: recusado");
+  check(status === 403 && db.clients.find((c) => c.id === CLI).status === "ativo", "visualizador tentando desativar por fora: recusado");
   const ex = await page.evaluate(async (id) => {
     const r = await fetch("https://dkatllzkmlzpginuzvis.supabase.co/rest/v1/rpc/client_exclude", { method: "POST", body: JSON.stringify({ p_client_id: id, p_name: "Loja Que Saiu" }) });
     return r.status;
   }, CLI);
-  check(ex === 403 && !db.clients.find((c) => c.id === CLI).excluded_at, "gestor tentando excluir por fora: recusado");
-  check(errors.length === 0, "sem erros no navegador (gestor)");
+  check(ex === 403 && !db.clients.find((c) => c.id === CLI).excluded_at, "visualizador tentando excluir por fora: recusado");
+  check(errors.length === 0, "sem erros no navegador (visualizador)");
   await browser.close();
 }
 console.log("Desativar cliente: tudo certo.");
