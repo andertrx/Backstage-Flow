@@ -10,6 +10,7 @@ import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge.tsx";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDate, formatDateTime } from "@/lib/format.ts";
@@ -22,14 +23,11 @@ import {
 import { RecurrencePanel } from "./Recurrence.tsx";
 import type { TasksContext } from "./tasksContext.tsx";
 
-const STATUS_STYLE: Record<OpsMeetingStatus, string> = {
-  agendada: "bg-blue-50 text-blue-700 ring-blue-200",
-  realizada: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  cancelada: "bg-slate-100 text-slate-500 ring-slate-200",
-};
+const STATUS_TONE: Record<OpsMeetingStatus, StatusTone> = { agendada: "info", realizada: "success", cancelada: "neutral" };
 
+/** 52.4: usa o selo de status único do sistema (pontinho + texto). */
 export function MeetingStatusBadge({ status }: { status: OpsMeetingStatus }) {
-  return <span className={cn("rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset", STATUS_STYLE[status])}>{OPS_MEETING_STATUS_LABELS[status]}</span>;
+  return <StatusBadge tone={STATUS_TONE[status]}>{OPS_MEETING_STATUS_LABELS[status]}</StatusBadge>;
 }
 
 /** "28/09/2026 · 09:00 – 09:15" no horário de Brasília. */

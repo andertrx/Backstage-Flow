@@ -30,7 +30,7 @@ function LeadCard({ l, onOpen, onRelease }: { l: OpsLeadCard; onOpen: () => void
   return (
     <div className="space-y-2">
     <button type="button" onClick={onOpen} data-testid="ops-lead-card"
-      className="block w-full space-y-2 rounded-xl bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:ring-blue-400 focus-visible:outline-2 focus-visible:outline-blue-600">
+      className="block w-full space-y-2 rounded-xl bg-white p-3.5 text-left shadow-card ring-1 ring-slate-200/80 transition duration-150 hover:shadow-elevated hover:ring-brand-300 focus-visible:outline-2 focus-visible:outline-brand-600">
       <div className="flex items-start justify-between gap-2">
         <span className="text-[11px] font-semibold text-slate-400">#{l.number}</span>
         <PriorityBadge priority={l.priority} />

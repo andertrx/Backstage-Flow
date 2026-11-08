@@ -20,7 +20,12 @@ function DraggableCard({ id, label, children, disabled }: { id: string; label: s
   const { setNodeRef, listeners, transform, isDragging } = useDraggable({ id, disabled });
   return (
     <div ref={setNodeRef} {...listeners} data-testid="ops-kanban-card" data-task={label}
-      className={cn("touch-manipulation", isDragging && "relative z-30 rotate-1 opacity-90 shadow-xl")}
+      className={cn(
+        "touch-manipulation rounded-xl",
+        !disabled && "cursor-grab",
+        // 52.4: ao arrastar, o cartão "levanta": cresce um pouco, inclina e ganha sombra (como na referência).
+        isDragging && "relative z-30 -rotate-2 scale-[1.03] cursor-grabbing shadow-elevated",
+      )}
       style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined}>
       {children}
     </div>
@@ -31,12 +36,14 @@ function Column({ column, count, children }: { column: BoardColumn; count: numbe
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   return (
     <section ref={setNodeRef} aria-label={`${column.name}: ${count}`} data-testid="ops-kanban-column" data-status={column.id}
-      className={cn("flex w-72 shrink-0 flex-col rounded-2xl bg-slate-100/80 p-2 ring-1 ring-inset transition", isOver ? "ring-2 ring-blue-400" : "ring-slate-200")}>
+      className={cn("flex w-72 shrink-0 flex-col overflow-hidden rounded-2xl bg-slate-100/70 p-2 ring-1 ring-inset transition-colors duration-150", isOver ? "bg-brand-50/70 ring-2 ring-brand-400" : "ring-slate-200/80")}>
+      {/* Faixa fina com a cor da coluna. */}
+      <span className="-mx-2 -mt-2 mb-2 block h-1" style={{ background: column.color }} aria-hidden />
       <header className="px-2 pb-2 pt-1">
         <div className="flex items-center gap-2">
           <span className="size-2.5 rounded-full" style={{ background: column.color }} aria-hidden />
-          <h3 className="text-sm font-bold text-slate-800">{column.name}</h3>
-          <span className="ml-auto rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">{count}</span>
+          <h3 className="text-sm font-semibold tracking-tight text-slate-800">{column.name}</h3>
+          <span className="num ml-auto rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200">{count}</span>
         </div>
         {column.hint && <p className="mt-0.5 text-[11px] text-slate-400">{column.hint}</p>}
       </header>

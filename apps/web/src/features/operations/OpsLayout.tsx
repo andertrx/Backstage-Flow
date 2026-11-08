@@ -78,12 +78,12 @@ export function OpsLayout() {
                   to={to}
                   className={({ isActive }) =>
                     cn(
-                      "inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition-all",
+                      "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all duration-150",
                       isActive
-                        ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
+                        ? "bg-brand-600 text-white shadow-brand"
                         : gi === 1
-                          ? "bg-slate-50 text-slate-500 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400"
-                          : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400",
+                          ? "bg-slate-50 text-slate-500 ring-1 ring-inset ring-slate-200 hover:text-brand-700 hover:ring-brand-300"
+                          : "bg-white text-slate-600 shadow-sm ring-1 ring-inset ring-slate-200 hover:text-brand-700 hover:ring-brand-300",
                     )
                   }
                 >

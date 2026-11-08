@@ -19,16 +19,19 @@ export function StatusPill({ name, color }: { name: string; color: string }) {
   );
 }
 
-const PRIORITY_STYLE: Record<OpsPriority, string> = {
-  baixa: "bg-slate-100 text-slate-600",
-  media: "bg-sky-50 text-sky-700",
-  alta: "bg-amber-50 text-amber-800",
-  urgente: "bg-red-50 text-red-700",
+const PRIORITY_STYLE: Record<OpsPriority, { box: string; dot: string }> = {
+  baixa: { box: "bg-slate-100 text-slate-600", dot: "bg-slate-400" },
+  media: { box: "bg-sky-50 text-sky-700", dot: "bg-sky-500" },
+  alta: { box: "bg-amber-50 text-amber-800", dot: "bg-amber-500" },
+  urgente: { box: "bg-red-50 text-red-700", dot: "bg-red-500" },
 };
 
+/** Prioridade: pontinho colorido + nome (a cor é a mesma em todo o sistema). */
 export function PriorityBadge({ priority }: { priority: OpsPriority }) {
+  const s = PRIORITY_STYLE[priority];
   return (
-    <span className={cn("inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold", PRIORITY_STYLE[priority])}>
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold", s.box)}>
+      <span className={cn("size-1.5 rounded-full", s.dot)} aria-hidden />
       {OPS_PRIORITY_LABELS[priority]}
     </span>
   );
@@ -36,7 +39,7 @@ export function PriorityBadge({ priority }: { priority: OpsPriority }) {
 
 export function Avatar({ name, className }: { name: string; className?: string }) {
   return (
-    <span title={name} className={cn("flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-700 ring-2 ring-white", className)}>
+    <span title={name} className={cn("flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-accent-500 text-[10px] font-bold text-white ring-2 ring-white", className)}>
       {initials(name)}
     </span>
   );
@@ -82,7 +85,7 @@ export function TaskCard({ task, today, sectorName, sectorColor, onOpen, showSta
 }) {
   return (
     <button type="button" onClick={onOpen} data-testid="ops-task-card"
-      className="block w-full space-y-2 rounded-xl bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:ring-blue-400 focus-visible:outline-2 focus-visible:outline-blue-600">
+      className="block w-full space-y-2 rounded-xl bg-white p-3.5 text-left shadow-card ring-1 ring-slate-200/80 transition duration-150 hover:-translate-y-0.5 hover:shadow-elevated hover:ring-brand-300 focus-visible:outline-2 focus-visible:outline-brand-600">
       <div className="flex items-start justify-between gap-2">
         <span className="text-[11px] font-semibold text-slate-400">#{task.number}</span>
         <PriorityBadge priority={task.priority} />
