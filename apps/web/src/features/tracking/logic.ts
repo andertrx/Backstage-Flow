@@ -345,3 +345,72 @@ export function qualityReport(q: QualityInput): { level: "sem_dados" | "boa" | "
   const level = reasons.some((r) => r.tone === "danger") ? "fraca" : reasons.some((r) => r.tone === "warning") ? "atencao" : "boa";
   return { level, label: level === "fraca" ? "Fraca" : level === "atencao" ? "Atenção" : "Boa", reasons };
 }
+
+// -----------------------------------------------------------------------------
+// Lista "pronto para cliente" (T5.5): o que já está certo em cada site e o que falta
+// -----------------------------------------------------------------------------
+
+export type ReadinessState = "ok" | "warn" | "fail" | "na";
+export interface ReadinessItem { id: string; label: string; state: ReadinessState; detail: string }
+
+export interface ReadinessInput {
+  container: { status: string; test_mode: boolean; consent_mode: string; rules_version: number | null };
+  nowMs: number;
+  lastEventAt: string | null;
+  quality: QualityInput | undefined;
+  leads: number;
+  destination: { has_token: boolean; enabled: boolean; last_error_message: string | null; test_event_code: string | null } | undefined;
+  capi: { pending: number; sent_24h: number; errors_24h: number; last_sent_at: string | null } | undefined;
+  whatsapp: Parameters<typeof waConnectionStatus>[0];
+}
+
+const DAY_MS = 24 * 3600 * 1000;
+
+/** Itens da lista de um site. Só fatos do que já está gravado: nada é estimado. */
+export function siteReadiness(i: ReadinessInput): { items: ReadinessItem[]; summary: "pronto" | "quase" | "faltam" } {
+  const items: ReadinessItem[] = [];
+  const add = (id: string, label: string, state: ReadinessState, detail: string) => items.push({ id, label, state, detail });
+
+  add("site", "Site ativo", i.container.status === "ativo" ? "ok" : "fail", i.container.status === "ativo" ? "Recebendo eventos." : "O site está pausado: nenhum evento é gravado.");
+  add("teste", "Fora do modo teste", i.container.test_mode ? "warn" : "ok",
+    i.container.test_mode ? "Modo teste: os eventos ficam marcados como teste e só vão ao Meta com o código de teste." : "Eventos reais.");
+
+  const last = i.lastEventAt ? Date.parse(i.lastEventAt) : null;
+  if (last == null) add("codigo", "Código instalado e eventos chegando", "fail", "Nenhum evento recebido ainda. Cole o código de instalação no site.");
+  else if (i.nowMs - last > DAY_MS) add("codigo", "Código instalado e eventos chegando", "warn", "O último evento chegou há mais de 24 horas. Confira se o código continua no site.");
+  else add("codigo", "Código instalado e eventos chegando", "ok", "Evento recebido nas últimas 24 horas.");
+
+  if (!i.quality) add("origem", "Origem dos anúncios", "na", "Sem visitas no período escolhido.");
+  else {
+    const q = qualityReport(i.quality);
+    const first = q.reasons[0]?.text;
+    if (q.level === "sem_dados") add("origem", "Origem dos anúncios", "na", "Sem visitas no período escolhido.");
+    else if (q.level === "boa") add("origem", "Origem dos anúncios", "ok", "As visitas chegam com a origem identificada.");
+    else add("origem", "Origem dos anúncios", q.level === "fraca" ? "fail" : "warn", first ?? "Confira os parâmetros dos links dos anúncios.");
+  }
+
+  add("lead", "Lead chegando", i.leads > 0 ? "ok" : "warn", i.leads > 0 ? `${i.leads} lead(s) recente(s).` : "Nenhum lead ainda. Envie um formulário de teste.");
+
+  if (!i.destination) add("pixel", "Pixel do Meta configurado", "fail", "Configure o Pixel no botão Meta CAPI.");
+  else if (!i.destination.has_token) add("pixel", "Pixel do Meta configurado", "fail", "Falta o token de acesso (cole no campo do CRM).");
+  else if (!i.destination.enabled) add("pixel", "Pixel do Meta configurado", "warn", "Configurado, mas o envio está desligado.");
+  else add("pixel", "Pixel do Meta configurado", "ok", i.destination.test_event_code ? "Ligado, com código de teste." : "Ligado.");
+
+  if (!i.destination) add("envio", "Envio ao Meta aceito", "na", "Depende do Pixel.");
+  else if (i.capi && i.capi.errors_24h > 0) add("envio", "Envio ao Meta aceito", "fail", i.destination.last_error_message ?? "O Meta recusou envios nas últimas 24 horas.");
+  else if (i.capi && i.capi.sent_24h > 0) add("envio", "Envio ao Meta aceito", "ok", `${i.capi.sent_24h} evento(s) enviado(s) nas últimas 24 horas.`);
+  else if (i.capi && i.capi.pending > 0) add("envio", "Envio ao Meta aceito", "warn", `${i.capi.pending} evento(s) na fila, ainda não enviados.`);
+  else add("envio", "Envio ao Meta aceito", "warn", "Nenhum envio ainda. Faça um teste e confira em “Testar eventos” no Meta.");
+
+  add("consentimento", "Consentimento", "na",
+    i.container.consent_mode === "aguardar_consentimento" ? "Só coleta depois do aceite do visitante." : "Coleta assim que a página abre (não espera aceite).");
+
+  if (!i.whatsapp) add("whatsapp", "WhatsApp", "na", "Não ligado (só é preciso se o cliente atende pelo WhatsApp).");
+  else {
+    const w = waConnectionStatus(i.whatsapp);
+    add("whatsapp", "WhatsApp", w.tone === "success" ? "ok" : w.tone === "danger" ? "fail" : "warn", w.detail);
+  }
+
+  const states = items.map((x) => x.state);
+  return { items, summary: states.includes("fail") ? "faltam" : states.includes("warn") ? "quase" : "pronto" };
+}

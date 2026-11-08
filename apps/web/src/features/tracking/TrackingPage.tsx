@@ -43,7 +43,8 @@ import {
 import { AttributionSection } from "./AttributionSection.tsx";
 import { ContainerFormModal, InstallModal } from "./ContainerModals.tsx";
 import { LeadsSection } from "./LeadsSection.tsx";
-import { capiStatus, PERIOD_LABELS, type PeriodPreset, periodRange, summarizeConversions, waConnectionStatus } from "./logic.ts";
+import { ReadinessSection, type SiteReadiness } from "./ReadinessSection.tsx";
+import { capiStatus, PERIOD_LABELS, siteReadiness, type PeriodPreset, periodRange, summarizeConversions, waConnectionStatus } from "./logic.ts";
 import { MetaCapiModal } from "./MetaCapiModal.tsx";
 import { RulesModal } from "./RulesModal.tsx";
 import { WhatsAppApiModal } from "./WhatsAppApiModal.tsx";
@@ -56,12 +57,13 @@ const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
   desconhecida: "neutral",
 };
 
-type TrackingTab = "sites" | "origens" | "whatsapp" | "leads";
+type TrackingTab = "sites" | "origens" | "whatsapp" | "leads" | "saude";
 const TABS: { id: TrackingTab; label: string }[] = [
   { id: "sites", label: "Sites" },
   { id: "origens", label: "Origem e jornada" },
   { id: "whatsapp", label: "WhatsApp" },
   { id: "leads", label: "Leads e contatos" },
+  { id: "saude", label: "Saúde" },
 ];
 
 const paidLabel = (paid: boolean | null) => (paid === true ? "Pago" : paid === false ? "Orgânico" : "Não dá para saber");
@@ -115,6 +117,20 @@ export function TrackingPage() {
   const stats = new Map((overview.data ?? []).map((r) => [r.container_id, r]));
   const total = sumOverview(visible.map((c) => stats.get(c.id)).filter((r): r is OverviewRow => !!r));
   const conv = summarizeConversions(conversions.data ?? [], visibleIds);
+  const readiness: SiteReadiness[] = visible.map((c) => {
+    const dest = destOf(c.id);
+    const r = siteReadiness({
+      container: c,
+      nowMs: Date.now(),
+      lastEventAt: stats.get(c.id)?.last_event_at ?? null,
+      quality: (quality.data ?? []).find((q) => q.container_id === c.id),
+      leads: (leads.data ?? []).filter((l) => l.container_id === c.id).length,
+      destination: dest,
+      capi: capiOf(dest),
+      whatsapp: waConnOf(c.id),
+    });
+    return { id: c.id, name: c.name, client: c.clients?.name ?? "—", summary: r.summary, items: r.items };
+  });
 
   return (
     <div className="space-y-6">
@@ -317,6 +333,8 @@ export function TrackingPage() {
             canMark={canMarkWhatsApp}
           />
           )}
+
+          {tab === "saude" && <ReadinessSection sites={readiness} />}
 
           {tab === "leads" && (
             <>
