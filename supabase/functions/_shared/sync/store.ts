@@ -7,6 +7,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { recordError } from "../errorlog.ts";
 import { AppError } from "../http.ts";
 import type { DailyMetric, PeriodReach } from "../platforms/types.ts";
+import { type ExistingRow, planWrites, sameValue, TOUCH_AFTER_MS } from "./diff.ts";
 import type { IdMaps, SyncAccount, SyncStore } from "./runner.ts";
 
 const dbError = (error: unknown, message: string) => new AppError(500, "DB_ERROR", message, error);
@@ -19,19 +20,49 @@ function chunks<T>(list: T[], size: number): T[][] {
   return out;
 }
 
+/** O que o banco já guarda desta conta (só o necessário para comparar). */
+async function loadExisting(db: SupabaseClient, table: "campaigns" | "ad_groups" | "ads", accountId: string, fields: string[]): Promise<Map<string, ExistingRow>> {
+  const out = new Map<string, ExistingRow>();
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db.from(table).select(["id", "external_id", "last_seen_at", ...fields].join(", "))
+      .eq("ad_account_id", accountId).order("id").range(from, from + PAGE - 1);
+    if (error) throw dbError(error, "Não conseguimos ler a estrutura já guardada.");
+    for (const r of (data ?? []) as unknown as ExistingRow[]) out.set(r.external_id, r);
+    if (!data || data.length < PAGE) break;
+  }
+  return out;
+}
+
+/**
+ * Grava só o que mudou (ver diff.ts) e devolve o id de todas as linhas informadas (as intactas vêm do que já existia).
+ * `compare` = campos que contam como mudança; o resto (ex.: miniatura) é renovado junto com a gravação diária.
+ */
 async function upsertReturningIds(
   db: SupabaseClient,
   table: "campaigns" | "ad_groups" | "ads",
+  accountId: string,
   rows: Record<string, unknown>[],
+  compare: string[],
 ): Promise<Map<string, string>> {
   const ids = new Map<string, string>();
-  for (const part of chunks(rows, 500)) {
+  const existing = await loadExisting(db, table, accountId, compare);
+  const { write } = planWrites(rows, existing, compare, Date.now());
+  const writing = new Set(write.map((r) => String(r.external_id)));
+  for (const r of rows) {
+    const old = existing.get(String(r.external_id));
+    if (old && !writing.has(String(r.external_id))) ids.set(String(r.external_id), old.id);
+  }
+  for (const part of chunks(write, 500)) {
     const { data, error } = await db.from(table).upsert(part, { onConflict: "ad_account_id,external_id" }).select("id, external_id");
     if (error) throw dbError(error, "Não conseguimos gravar a estrutura das campanhas.");
     for (const r of data ?? []) ids.set(r.external_id as string, r.id as string);
   }
   return ids;
 }
+
+const CAMPAIGN_FIELDS = ["name", "objective", "status", "raw_status", "effective_status", "budget_micros", "budget_period", "bid_strategy", "start_date", "end_date"];
+const AD_GROUP_FIELDS = ["campaign_id", "name", "status", "raw_status", "effective_status", "budget_micros", "budget_period", "optimization_goal"];
+const AD_FIELDS = ["ad_group_id", "campaign_id", "name", "status", "raw_status", "effective_status", "creative_type", "review_status", "creative_external_id"];
 
 export function supabaseSyncStore(db: SupabaseClient): SyncStore {
   return {
@@ -96,7 +127,7 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
     async upsertStructure(account, structure) {
       const seen = new Date().toISOString();
       const base = { ad_account_id: account.id, client_id: account.client_id, platform_id: account.platform_id, last_seen_at: seen };
-      const campaigns = await upsertReturningIds(db, "campaigns", structure.campaigns.map((c) => ({
+      const campaigns = await upsertReturningIds(db, "campaigns", account.id, structure.campaigns.map((c) => ({
         ...base,
         external_id: c.externalId,
         name: c.name,
@@ -109,7 +140,7 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
         bid_strategy: c.bidStrategy,
         start_date: c.startDate,
         end_date: c.endDate,
-      })));
+      })), CAMPAIGN_FIELDS);
       const groupRows = structure.adGroups.filter((g) => campaigns.has(g.campaignExternalId)).map((g) => ({
         ...base,
         campaign_id: campaigns.get(g.campaignExternalId),
@@ -122,7 +153,7 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
         budget_period: g.budgetPeriod,
         optimization_goal: g.optimizationGoal,
       }));
-      const adGroups = await upsertReturningIds(db, "ad_groups", groupRows);
+      const adGroups = await upsertReturningIds(db, "ad_groups", account.id, groupRows, AD_GROUP_FIELDS);
       const adRows = structure.ads.filter((a) => adGroups.has(a.adGroupExternalId) && campaigns.has(a.campaignExternalId)).map((a) => ({
         ...base,
         ad_group_id: adGroups.get(a.adGroupExternalId),
@@ -137,7 +168,7 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
         thumbnail_url: a.thumbnailUrl,
         creative_external_id: a.creativeExternalId ?? null,
       }));
-      const ads = await upsertReturningIds(db, "ads", adRows);
+      const ads = await upsertReturningIds(db, "ads", account.id, adRows, AD_FIELDS);
       return { count: campaigns.size + adGroups.size + ads.size, ids: { campaigns, adGroups, ads } };
     },
 
@@ -174,19 +205,41 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
 
     async upsertReach(account, rows: PeriodReach[]) {
       if (!rows.length) return 0;
-      const { error } = await db.from("period_reach").upsert(rows.map((r) => ({
-        ad_account_id: account.id,
-        client_id: account.client_id,
-        level: r.level,
-        entity_external_id: r.entityExternalId,
-        period_start: r.from,
-        period_end: r.to,
-        reach: r.reach,
-        impressions: r.impressions,
-        frequency: r.frequency,
-        synced_at: new Date().toISOString(),
-      })), { onConflict: "ad_account_id,level,entity_external_id,period_start,period_end" });
-      if (error) throw dbError(error, "Não conseguimos gravar o alcance.");
+      // Só grava o que mudou (ver diff.ts): alcance igual ao já guardado não é reescrito; "synced_at" é renovado 1 vez por dia.
+      const key = (level: unknown, entity: unknown, from: unknown, to: unknown) => `${level}|${entity}|${from}|${to}`;
+      const existing = new Map<string, { reach: unknown; impressions: unknown; frequency: unknown; synced_at: string | null }>();
+      const starts = [...new Set(rows.map((r) => r.from))];
+      const ends = [...new Set(rows.map((r) => r.to))];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await db.from("period_reach").select("level, entity_external_id, period_start, period_end, reach, impressions, frequency, synced_at")
+          .eq("ad_account_id", account.id).in("period_start", starts).in("period_end", ends).order("entity_external_id").range(from, from + PAGE - 1);
+        if (error) throw dbError(error, "Não conseguimos ler o alcance já guardado.");
+        for (const r of data ?? []) existing.set(key(r.level, r.entity_external_id, r.period_start, r.period_end), r);
+        if (!data || data.length < PAGE) break;
+      }
+      const now = Date.now();
+      const write = rows.filter((r) => {
+        const old = existing.get(key(r.level, r.entityExternalId, r.from, r.to));
+        if (!old) return true;
+        const changed = !sameValue(r.reach, old.reach) || !sameValue(r.impressions, old.impressions) || !sameValue(r.frequency, old.frequency);
+        const synced = old.synced_at ? Date.parse(old.synced_at) : 0;
+        return changed || !Number.isFinite(synced) || now - synced >= TOUCH_AFTER_MS;
+      });
+      for (const part of chunks(write, 500)) {
+        const { error } = await db.from("period_reach").upsert(part.map((r) => ({
+          ad_account_id: account.id,
+          client_id: account.client_id,
+          level: r.level,
+          entity_external_id: r.entityExternalId,
+          period_start: r.from,
+          period_end: r.to,
+          reach: r.reach,
+          impressions: r.impressions,
+          frequency: r.frequency,
+          synced_at: new Date().toISOString(),
+        })), { onConflict: "ad_account_id,level,entity_external_id,period_start,period_end" });
+        if (error) throw dbError(error, "Não conseguimos gravar o alcance.");
+      }
       return rows.length;
     },
 
