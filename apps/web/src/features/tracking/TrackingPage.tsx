@@ -28,6 +28,7 @@ import {
   useCapiOverview,
   useConversionsSummary,
   useDestinations,
+  useWaSuggestions,
   useWhatsAppClicks,
   useWhatsAppConnections,
   useWhatsAppConversations,
@@ -43,8 +44,10 @@ import {
 import { AttributionSection } from "./AttributionSection.tsx";
 import { ContainerFormModal, InstallModal } from "./ContainerModals.tsx";
 import { LeadsSection } from "./LeadsSection.tsx";
-import { capiStatus, PERIOD_LABELS, type PeriodPreset, periodRange, summarizeConversions, waConnectionStatus } from "./logic.ts";
+import { ReadinessSection, type SiteReadiness } from "./ReadinessSection.tsx";
+import { capiStatus, PERIOD_LABELS, siteReadiness, type PeriodPreset, periodRange, summarizeConversions, waConnectionStatus } from "./logic.ts";
 import { MetaCapiModal } from "./MetaCapiModal.tsx";
+import { SuggestionsSection } from "./SuggestionsSection.tsx";
 import { RulesModal } from "./RulesModal.tsx";
 import { WhatsAppApiModal } from "./WhatsAppApiModal.tsx";
 import { WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
@@ -56,12 +59,14 @@ const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
   desconhecida: "neutral",
 };
 
-type TrackingTab = "sites" | "origens" | "whatsapp" | "leads";
+type TrackingTab = "sites" | "origens" | "whatsapp" | "sugestoes" | "leads" | "saude";
 const TABS: { id: TrackingTab; label: string }[] = [
   { id: "sites", label: "Sites" },
   { id: "origens", label: "Origem e jornada" },
   { id: "whatsapp", label: "WhatsApp" },
+  { id: "sugestoes", label: "Vendas sugeridas" },
   { id: "leads", label: "Leads e contatos" },
+  { id: "saude", label: "Saúde" },
 ];
 
 const paidLabel = (paid: boolean | null) => (paid === true ? "Pago" : paid === false ? "Orgânico" : "Não dá para saber");
@@ -98,6 +103,8 @@ export function TrackingPage() {
   const canMarkWhatsApp = can(profile?.role, "tracking.whatsapp");
   const waConnections = useWhatsAppConnections(hasContainers);
   const waConversations = useWhatsAppConversations(hasContainers);
+  const suggestions = useWaSuggestions(hasContainers);
+  const pendingSuggestions = (suggestions.data ?? []).filter((x) => x.status === "pendente").length;
   const waConnOf = (containerId: string) => (waConnections.data ?? []).find((w) => w.container_id === containerId);
   const [waApiFor, setWaApiFor] = useState<TrackingContainer | null>(null);
   const [waServerFor, setWaServerFor] = useState<TrackingContainer | null>(null);
@@ -115,6 +122,20 @@ export function TrackingPage() {
   const stats = new Map((overview.data ?? []).map((r) => [r.container_id, r]));
   const total = sumOverview(visible.map((c) => stats.get(c.id)).filter((r): r is OverviewRow => !!r));
   const conv = summarizeConversions(conversions.data ?? [], visibleIds);
+  const readiness: SiteReadiness[] = visible.map((c) => {
+    const dest = destOf(c.id);
+    const r = siteReadiness({
+      container: c,
+      nowMs: Date.now(),
+      lastEventAt: stats.get(c.id)?.last_event_at ?? null,
+      quality: (quality.data ?? []).find((q) => q.container_id === c.id),
+      leads: (leads.data ?? []).filter((l) => l.container_id === c.id).length,
+      destination: dest,
+      capi: capiOf(dest),
+      whatsapp: waConnOf(c.id),
+    });
+    return { id: c.id, name: c.name, client: c.clients?.name ?? "—", summary: r.summary, items: r.items };
+  });
 
   return (
     <div className="space-y-6">
@@ -177,7 +198,7 @@ export function TrackingPage() {
                 className={tab === t.id
                   ? "rounded-full bg-brand-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-brand"
                   : "rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200 hover:text-slate-900"}>
-                {t.label}
+                {t.label}{t.id === "sugestoes" && pendingSuggestions > 0 ? ` (${pendingSuggestions})` : ""}
               </button>
             ))}
           </div>
@@ -317,6 +338,16 @@ export function TrackingPage() {
             canMark={canMarkWhatsApp}
           />
           )}
+
+          {tab === "sugestoes" && (
+            <SuggestionsSection
+              suggestions={(suggestions.data ?? []).filter((x) => !clientId || x.client_id === clientId)}
+              clientName={(id) => clients.find((c) => c.id === id)?.name ?? "Cliente"}
+              isAdmin={profile?.role === "admin"}
+            />
+          )}
+
+          {tab === "saude" && <ReadinessSection sites={readiness} />}
 
           {tab === "leads" && (
             <>

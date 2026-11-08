@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attributionMetrics, type AttributionRowInput, capiStatus, qualityReport, summarizeByChannel, validateWaIds, waConnectionStatus, normalizeWaCode, parseMoneyInput, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions } from "./logic.ts";
+import { siteReadiness, attributionMetrics, type AttributionRowInput, capiStatus, qualityReport, summarizeByChannel, validateWaIds, waConnectionStatus, normalizeWaCode, parseMoneyInput, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions } from "./logic.ts";
 
 describe("domínios autorizados", () => {
   it("aceita um por linha, limpa o endereço e tira repetidos", () => {
@@ -153,5 +153,52 @@ describe("atribuição e qualidade (34.4)", () => {
     expect(qualityReport({ ...base, sessions_unknown: 60 }).level).toBe("fraca");
     expect(qualityReport({ ...base, leads_with_contact: 2 }).reasons[0].text).toContain("Só 20% dos leads");
     expect(qualityReport({ ...base, sessions: 0, leads: 0, purchases: 0 }).level).toBe("sem_dados");
+  });
+});
+
+describe("lista pronto para cliente (T5.5)", () => {
+  const NOW = Date.UTC(2026, 10, 8, 12);
+  const base = {
+    container: { status: "ativo", test_mode: false, consent_mode: "nao_exigir", rules_version: null },
+    nowMs: NOW,
+    lastEventAt: new Date(NOW - 3600_000).toISOString(),
+    quality: { sessions: 10, sessions_unknown: 1, paid_sessions: 5, paid_without_campaign_id: 0, leads: 2, leads_without_origin: 0, leads_with_contact: 2, purchases: 0, purchases_without_order: 0, purchases_without_lead: 0 },
+    leads: 2,
+    destination: { has_token: true, enabled: true, last_error_message: null, test_event_code: null },
+    capi: { pending: 0, sent_24h: 2, errors_24h: 0, last_sent_at: new Date(NOW - 1000).toISOString() },
+    whatsapp: undefined,
+  } as Parameters<typeof siteReadiness>[0];
+  const state = (r: ReturnType<typeof siteReadiness>, id: string) => r.items.find((x) => x.id === id)?.state;
+
+  it("site pronto: tudo certo", () => {
+    const r = siteReadiness(base);
+    expect(r.summary).toBe("pronto");
+    expect(state(r, "whatsapp")).toBe("na");
+  });
+  it("site novo, sem nada: faltam itens, com o motivo", () => {
+    const r = siteReadiness({ ...base, lastEventAt: null, quality: undefined, leads: 0, destination: undefined, capi: undefined });
+    expect(r.summary).toBe("faltam");
+    expect(state(r, "codigo")).toBe("fail");
+    expect(state(r, "pixel")).toBe("fail");
+    expect(state(r, "envio")).toBe("na");
+    expect(state(r, "lead")).toBe("warn");
+  });
+  it("modo teste, evento antigo e envio ainda sem resposta: quase pronto", () => {
+    const r = siteReadiness({ ...base, container: { ...base.container, test_mode: true }, lastEventAt: new Date(NOW - 30 * 3600_000).toISOString(),
+      capi: { pending: 2, sent_24h: 0, errors_24h: 0, last_sent_at: null } });
+    expect(r.summary).toBe("quase");
+    expect(state(r, "teste")).toBe("warn");
+    expect(state(r, "codigo")).toBe("warn");
+    expect(state(r, "envio")).toBe("warn");
+  });
+  it("Meta recusando, pixel sem token e origem fraca viram falha", () => {
+    expect(state(siteReadiness({ ...base, capi: { pending: 0, sent_24h: 0, errors_24h: 3, last_sent_at: null }, destination: { ...base.destination!, last_error_message: "Token vencido" } }), "envio")).toBe("fail");
+    expect(state(siteReadiness({ ...base, destination: { ...base.destination!, has_token: false } }), "pixel")).toBe("fail");
+    expect(state(siteReadiness({ ...base, quality: { ...base.quality!, sessions_unknown: 8 } }), "origem")).toBe("fail");
+  });
+  it("WhatsApp ligado entra na lista pela situação da conexão", () => {
+    const wa = { has_app_secret: false, enabled: true, last_webhook_at: new Date(NOW).toISOString(), last_error_at: null, last_error_message: null, mode: "nao_oficial" as const };
+    expect(state(siteReadiness({ ...base, whatsapp: wa }), "whatsapp")).toBe("ok");
+    expect(state(siteReadiness({ ...base, whatsapp: { ...wa, last_webhook_at: null } }), "whatsapp")).toBe("warn");
   });
 });

@@ -11,6 +11,7 @@ import {
   type TrackingContainer,
   useWaUnofficialEnabled,
   useWaUnofficialNewKey,
+  useWaStoreMessages,
   useWaUnofficialSave,
   waInboundUrl,
   type WhatsAppConnection,
@@ -48,6 +49,7 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
   const save = useWaUnofficialSave();
   const newKey = useWaUnofficialNewKey();
   const toggle = useWaUnofficialEnabled();
+  const store = useWaStoreMessages();
   const official = connection && connection.mode !== "nao_oficial";
   const [phone, setPhone] = useState(connection?.mode === "nao_oficial" ? connection.display_phone ?? "" : "");
   const [revealed, setRevealed] = useState<{ id: string; key: string } | null>(null);
@@ -74,7 +76,7 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
         <p className="text-slate-600">
           Para o número de WhatsApp do cliente ligado ao seu <strong>servidor de conexão</strong> (API não oficial). Cada mensagem avisa o CRM, que conta a
           conversa, lê o <strong>código do botão do site</strong> e a <strong>origem do anúncio de WhatsApp</strong>, e marca a venda pelas <strong>frases</strong> (Contatos → Frases do WhatsApp).
-          O texto das conversas <strong>nunca é guardado</strong>: o número vira código e o texto é lido só na memória. Grupos são ignorados.
+          Por padrão o texto das conversas <strong>não é guardado</strong>: o número vira código e o texto é lido só na memória. Grupos são ignorados.
         </p>
         {official && <Alert tone="warning">Este site já tem WhatsApp pela API oficial. Desligue e remova essa conexão (botão “WhatsApp API”) antes de usar o servidor.</Alert>}
         {error && <Alert tone="error">{error}</Alert>}
@@ -146,6 +148,23 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
               Sem a conta oficial do WhatsApp (WABA), o Meta recebe a venda como <strong>conversa</strong> com o telefone cifrado, e não como “anúncio de WhatsApp”.
               A origem do anúncio continua registrada aqui no CRM.
             </Alert>
+          </section>
+        )}
+        {mine && canManage && (
+          <section className="space-y-2" data-testid="wa-server-store">
+            <h4 className="font-medium text-slate-800">4. Deixar a IA sugerir vendas (opcional)</h4>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={!!mine.store_messages} aria-label="Guardar o texto das conversas por 2 dias para a IA"
+                onChange={(e) => {
+                  if (e.target.checked && !window.confirm("Guardar o texto das conversas deste número por 2 dias, só para a IA ler uma vez por dia e sugerir vendas? Confirme que o contrato e a política de privacidade do cliente permitem isso.")) return;
+                  void run(() => store.mutateAsync({ id: mine.id, on: e.target.checked }));
+                }} />
+              <span className="font-medium">Guardar o texto por 2 dias para a IA</span>
+            </label>
+            <p className="text-xs text-slate-500">
+              O texto fica no CRM por <strong>2 dias</strong> e é apagado sozinho. Quem fica guardada é só a <strong>sugestão</strong> (cliente, final do número e um motivo curto),
+              até você decidir. A IA nunca marca venda sozinha. Só administrador, gestor e o Account Manager do cliente veem.
+            </p>
           </section>
         )}
         {!canManage && <p className="text-slate-500">Só administrador e gestor configuram o WhatsApp do site.</p>}

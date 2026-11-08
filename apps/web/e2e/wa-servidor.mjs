@@ -50,6 +50,13 @@ function seed(db, official = false) {
   await modal.waitFor();
   check(await page.getByTestId("wa-server-key").count() === 0 && (await modal.innerText()).includes(`••••${w.inbound_key_hint}`), "reaberto: a chave não aparece mais");
   check((await page.getByTestId("wa-server-status").innerText()).includes("funcionando"), "com mensagem recebida: funcionando");
+  // Guardar o texto por 2 dias para a IA (opt-in)
+  check(w.store_messages !== true && await modal.getByRole("checkbox", { name: "Guardar o texto das conversas por 2 dias para a IA" }).isChecked() === false, "guardar o texto nasce desligado");
+  page.once("dialog", (d) => d.accept());
+  await modal.getByRole("checkbox", { name: "Guardar o texto das conversas por 2 dias para a IA" }).click();
+  await page.waitForFunction(() => true);
+  await modal.getByRole("checkbox", { name: "Guardar o texto das conversas por 2 dias para a IA" }).waitFor();
+  check(w.store_messages === true, "liga a guarda do texto depois de confirmar");
   const old = w.inbound_key;
   page.once("dialog", (d) => d.accept());
   await modal.getByRole("button", { name: "Gerar nova chave" }).click();

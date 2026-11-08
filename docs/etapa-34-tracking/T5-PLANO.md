@@ -15,7 +15,7 @@ Pedido do Ander (08/11/2026): deixar o tracking estruturado e testado, **sem col
 | T5.2 | Script: cliques em botões e links, campos escondidos com a origem | ✅ pronta |
 | T5.2b | Link de grupo do WhatsApp (Contato) e lead por webhook (Responde App e outros formulários) | ✅ pronta |
 | T5.3 | WhatsApp por servidor não oficial: código do site, origem do anúncio, frases, ignora grupos | ✅ pronta (falta o servidor no ar) |
-| T5.4 | Site de teste num cliente fictício, do começo ao fim (com Pixel de teste do Ander) | a fazer |
-| T5.5 | Lista "pronto para cliente" (aba Saúde) | a fazer |
+| T5.4 | Jornada completa provada no banco com site e cliente de teste que não ficam gravados (o teste com o Pixel do Ander segue pendente) | ✅ pronta |
+| T5.5 | Lista "pronto para cliente" (aba Saúde) | ✅ pronta |
 | T5.6 | Conversas por 30 dias + Vendas sugeridas pelo Sonnet | a fazer |
 | Stand-by | GoHighLevel e Kommo | tarefa futura |
