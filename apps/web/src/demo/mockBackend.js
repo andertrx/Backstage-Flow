@@ -1955,6 +1955,11 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       db.waPeople = db.waPeople.filter((x) => x.id !== w.id);
       return res(200, n);
     }
+    if (url.includes("/rest/v1/rpc/wa_person_sales")) {
+      const w = db.waPeople.find((x) => x.id === parse().p_person);
+      if (!w || !canManageClient(w.client_id)) return res(403, { code: "42501", message: "Conversa não encontrada ou sem permissão." });
+      return res(200, Math.max(0, ...db.contacts.filter((c) => c.client_id === w.client_id && c.wa_hash === w.wa_hash && !c.archived_at).map((c) => c.sales ?? 0), w.conversation_sales ?? 0));
+    }
     if (url.includes("/rest/v1/rpc/wa_person_contact")) {
       const w = db.waPeople.find((x) => x.id === parse().p_person);
       if (!w || !canManageClient(w.client_id) || !canMarkContacts(w.client_id)) return res(403, { code: "42501", message: "Só quem marca vendas em Contatos pode marcar a venda desta conversa." });

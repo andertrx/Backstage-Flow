@@ -429,3 +429,30 @@ end;
 $$;
 revoke all on function public.wa_messages_store_many(uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.wa_messages_store_many(uuid, jsonb) to service_role;
+
+-- 12) (parte 6) Quantas vendas já estão marcadas para a pessoa (Contatos ou Tracking → WhatsApp), para avisar antes de marcar de novo.
+create function private.wa_person_sales_impl(p_person bigint)
+returns integer
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare w public.tracking_wa_people; v_conv integer; v_contact integer;
+begin
+  select * into w from public.tracking_wa_people where id = p_person;
+  if w.id is null or not private.wa_messages_can_read(w.client_id) then
+    raise exception 'Conversa não encontrada ou sem permissão.' using errcode = '42501';
+  end if;
+  select coalesce(max(c.sales), 0) into v_conv from public.tracking_whatsapp_conversations c where c.connection_id = w.connection_id and c.wa_hash = w.wa_hash;
+  select coalesce(max(k.sales), 0) into v_contact from public.tracking_contacts k
+   where k.client_id = w.client_id and k.archived_at is null and (k.wa_hash = w.wa_hash or k.ph_hash in (w.wa_hash, private.wa_phone_ph_hash(w.phone, w.wa_hash)));
+  return greatest(v_conv, v_contact);
+end;
+$$;
+revoke all on function private.wa_person_sales_impl(bigint) from public, anon;
+grant execute on function private.wa_person_sales_impl(bigint) to authenticated;
+create function public.wa_person_sales(p_person bigint)
+returns integer language sql stable set search_path = '' as $$ select private.wa_person_sales_impl(p_person) $$;
+revoke all on function public.wa_person_sales(bigint) from public, anon;
+grant execute on function public.wa_person_sales(bigint) to authenticated;

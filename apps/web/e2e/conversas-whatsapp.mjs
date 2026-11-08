@@ -75,9 +75,12 @@ function seed(db) {
   check(db.waSuggestions.find((x) => x.id === "s1").status === "confirmada", "a sugestão da IA vira confirmada");
   await page.waitForFunction(() => !document.querySelector('[data-testid="wa-chat-suggestion"]'));
 
-  // Venda em conversa orgânica (sem anúncio) também funciona
+  // Venda em conversa orgânica (sem anúncio) também funciona. Antes, aviso de venda duplicada: Maria já tinha venda marcada em Tracking → WhatsApp.
+  db.waPeople.find((x) => x.id === 2).conversation_sales = 1;
   await page.getByTestId("wa-conversation").filter({ hasText: "Maria Souza" }).click();
   await page.getByTestId("wa-mark-sale").click();
+  await page.getByTestId("mark-sale-already").waitFor();
+  check((await page.getByTestId("mark-sale-already").innerText()).includes("já tem 1 venda"), "avisa que a pessoa já tem venda marcada (evita contar duas vezes)");
   await page.getByTestId("mark-sale").getByLabel("Valor da venda").fill("150");
   await page.getByTestId("mark-sale").getByRole("button", { name: "Marcar venda" }).click();
   await page.waitForFunction(() => document.body.textContent.includes("Venda registrada"));

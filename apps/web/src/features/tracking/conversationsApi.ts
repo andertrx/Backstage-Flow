@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 
@@ -67,6 +67,19 @@ export function useWaMessages(personId: number | null) {
       return (data ?? []) as WaMessage[];
     },
     getNextPageParam: (last) => (last.length === MESSAGES_PAGE ? last[last.length - 1].at : undefined),
+  });
+}
+
+/** Quantas vendas já estão marcadas para esta pessoa (em Contatos ou em Tracking → WhatsApp), para não contar a mesma venda duas vezes. */
+export function useWaPersonSales(personId: number | null) {
+  return useQuery({
+    queryKey: [...KEY, "sales", personId],
+    enabled: personId != null,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("wa_person_sales", { p_person: personId });
+      if (error) throw ruleError(error, "Não conseguimos conferir as vendas desta pessoa.");
+      return (data ?? 0) as number;
+    },
   });
 }
 

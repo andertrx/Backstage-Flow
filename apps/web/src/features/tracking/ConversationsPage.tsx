@@ -19,6 +19,7 @@ import {
   useWaConversations,
   useWaMarkSale,
   useWaMessages,
+  useWaPersonSales,
   useWaSuggestionDiscard,
   WA_ORIGIN_LABEL,
   type WaConversation,
@@ -34,6 +35,7 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
 }) {
   const setup = useContactSetup(clientId);
   const mark = useWaMarkSale();
+  const already = useWaPersonSales(person.person_id).data ?? 0;
   const stages = (setup.data?.stages ?? []).filter((s) => s.kind === "ganha" && !s.archived_at);
   const [stageId, setStageId] = useState("");
   const [value, setValue] = useState("");
@@ -61,6 +63,11 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
           o Meta só atribui se esse telefone casar com alguém que viu o anúncio, mas a venda fica registrada aqui de qualquer jeito.
         </p>
         {error && <Alert tone="error">{error}</Alert>}
+        {already > 0 && (
+          <Alert tone="warning">
+            <span data-testid="mark-sale-already">Esta pessoa <strong>já tem {already} venda(s) marcada(s)</strong> (em Contatos ou em Tracking → WhatsApp). Se for a mesma venda, <strong>não marque de novo</strong>: o Meta contaria duas compras.</span>
+          </Alert>
+        )}
         {setup.isPending ? <p className="text-slate-500">Carregando as etapas…</p> : stages.length === 0 ? (
           <Alert tone="warning">Este cliente não tem uma etapa de venda (“ganha”). Cadastre em Contatos → Etapas antes de marcar a venda.</Alert>
         ) : (
