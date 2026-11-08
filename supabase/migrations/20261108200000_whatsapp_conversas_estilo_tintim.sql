@@ -360,3 +360,72 @@ create function public.wa_person_contact(p_person bigint)
 returns bigint language sql set search_path = '' as $$ select private.wa_person_contact_impl(p_person) $$;
 revoke all on function public.wa_person_contact(bigint) from public, anon;
 grant execute on function public.wa_person_contact(bigint) to authenticated;
+
+-- 11) (parte 5, T5.8) Histórico antigo do aparelho: aceita data antiga e guarda em lotes. Só para a caixa de conversas.
+create or replace function private.wa_message_store(p jsonb)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  c       public.tracking_whatsapp_connections;
+  v_wa    text := p ->> 'wa_hash';
+  v_key   text := p ->> 'message_key';
+  v_body  text := left(btrim(coalesce(p ->> 'body', '')), 4000);
+  v_dir   text := p ->> 'direction';
+  v_hist  boolean := coalesce((p ->> 'history')::boolean, false);
+  v_min   timestamptz;
+  v_at    timestamptz := coalesce((p ->> 'at')::timestamptz, now());
+  v_name  text := nullif(left(btrim(coalesce(p ->> 'push_name', '')), 80), '');
+  v_phone text := case when p ->> 'phone' ~ '^[0-9]{8,15}$' then p ->> 'phone' end;
+  v_id    bigint;
+begin
+  select * into c from public.tracking_whatsapp_connections where id = (p ->> 'connection_id')::uuid;
+  if c.id is null or not c.enabled or not c.store_messages or c.store_ack_at is null or not private.client_is_active(c.client_id) then return 'desligado'; end if;
+  if v_wa is null or v_wa !~ '^[0-9a-f]{64}$' or v_key is null or v_key !~ '^[0-9a-f]{16,64}$' or v_dir not in ('recebida', 'enviada') or v_body = '' then return 'invalido'; end if;
+  v_min := now() - (case when v_hist then interval '10 years' else interval '3 days' end);
+  if v_at > now() + interval '1 hour' or v_at < v_min then v_at := now(); end if;
+
+  insert into public.tracking_wa_messages (client_id, connection_id, wa_hash, direction, message_key, at, body, push_name, phone_tail, expires_at)
+  values (c.client_id, c.id, v_wa, v_dir, v_key, v_at, v_body, v_name,
+          case when v_phone is not null then right(v_phone, 4) when p ->> 'phone_tail' ~ '^\d{2,4}$' then p ->> 'phone_tail' end,
+          null)
+  on conflict (connection_id, message_key) do nothing
+  returning id into v_id;
+  if v_id is null then return 'repetida'; end if;
+
+  insert into public.tracking_wa_people as w (client_id, connection_id, wa_hash, phone, push_name, first_at, last_at, last_direction, last_preview, messages)
+  values (c.client_id, c.id, v_wa, v_phone, case when v_dir = 'recebida' then v_name end, v_at, v_at, v_dir, left(v_body, 140), 1)
+  on conflict (connection_id, wa_hash) do update
+     set messages       = w.messages + 1,
+         phone          = coalesce(w.phone, excluded.phone),
+         push_name      = coalesce(excluded.push_name, w.push_name),
+         first_at       = least(w.first_at, excluded.first_at),
+         last_direction = case when excluded.last_at >= w.last_at then excluded.last_direction else w.last_direction end,
+         last_preview   = case when excluded.last_at >= w.last_at then excluded.last_preview else w.last_preview end,
+         last_at        = greatest(w.last_at, excluded.last_at);
+  return 'guardada';
+end;
+$$;
+revoke all on function private.wa_message_store(jsonb) from public, anon, authenticated;
+grant execute on function private.wa_message_store(jsonb) to service_role;
+
+-- Lote do histórico (só o servidor chama): devolve quantas mensagens novas entraram.
+create function public.wa_messages_store_many(p_connection uuid, p_items jsonb)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare v_item jsonb; v_n integer := 0;
+begin
+  if jsonb_typeof(p_items) <> 'array' then return 0; end if;
+  for v_item in select * from jsonb_array_elements(p_items) limit 200 loop
+    if private.wa_message_store((v_item - 'connection_id') || jsonb_build_object('connection_id', p_connection, 'history', true)) = 'guardada' then v_n := v_n + 1; end if;
+  end loop;
+  return v_n;
+end;
+$$;
+revoke all on function public.wa_messages_store_many(uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.wa_messages_store_many(uuid, jsonb) to service_role;

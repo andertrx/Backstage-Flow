@@ -5,10 +5,13 @@
  * nada dele é guardado. O número vira hash SHA-256.
  */
 import { matchTriggers, normalizeWhatsAppNumber, type WaTrigger } from "../../../packages/shared/src/tracking/waTriggers.ts";
-import { parseGatewayPayload, refCodeOf } from "../../../packages/shared/src/tracking/waGateway.ts";
+import { isHistoryPayload, parseGatewayPayload, refCodeOf } from "../../../packages/shared/src/tracking/waGateway.ts";
 import { sha256Hex } from "../whatsapp-webhook/logic.ts";
 
 export { LIMIT, MAX_BODY_BYTES, readCredentials } from "../sales-webhook/logic.ts";
+
+/** T5.8: o aviso com o histórico do aparelho pode ser grande (até 1000 mensagens). */
+export const HISTORY_MAX_BODY_BYTES = 4 * 1024 * 1024;
 
 export interface InboundOut {
   wa_hash: string;
@@ -35,6 +38,8 @@ export interface StoreOut {
   phone_tail: string | null;
   /** Telefone completo da pessoa (só dígitos). Guardado só com a opção ligada (T5.7). */
   phone: string;
+  /** T5.8: mensagem do histórico antigo do aparelho (a data antiga é aceita). */
+  history?: boolean;
 }
 
 const iso = (ms: number | null, nowMs: number) => new Date(ms ?? nowMs).toISOString();
@@ -45,6 +50,8 @@ export async function planGatewayPayload(payload: unknown, nowMs: number) {
   const echoRaw: { phone: string; id: string; text: string }[] = [];
   const store: StoreOut[] = [];
   let ignored = 0;
+  // T5.8: o histórico antigo só alimenta a caixa de conversas. Nunca conta conversa nova, lead, venda nem frase.
+  const history = isHistoryPayload(payload);
   for (const m of parseGatewayPayload(payload)) {
     if (m.kind === "ignore") {
       ignored++;
@@ -60,8 +67,10 @@ export async function planGatewayPayload(payload: unknown, nowMs: number) {
         push_name: m.pushName || null,
         phone_tail: m.phone.slice(-4),
         phone: m.phone,
+        ...(history ? { history: true } : {}),
       });
     }
+    if (history) continue;
     if (m.kind === "echo") {
       if (m.text) echoRaw.push({ phone: m.phone, id: m.id, text: m.text });
       continue;

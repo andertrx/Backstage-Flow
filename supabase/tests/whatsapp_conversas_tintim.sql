@@ -112,5 +112,21 @@ begin
   if (select count(*) from public.tracking_wa_people where client_id = v_a) <> 0 then raise exception 'apagar tudo limpa as pessoas'; end if;
   v_ok := v_ok + 1;
 
+  -- 6. T5.8: histórico antigo do aparelho entra em lote, com a data antiga, sem duplicar; mensagem ao vivo antiga demais ainda é corrigida
+  if public.wa_messages_store_many(v_id, jsonb_build_array(
+       jsonb_build_object('wa_hash', v_wa, 'direction', 'recebida', 'message_key', left(encode(extensions.digest('h1', 'sha256'), 'hex'), 40), 'at', now() - interval '400 days', 'body', 'Mensagem antiga 1', 'push_name', 'João', 'phone', '5545999998888'),
+       jsonb_build_object('wa_hash', v_wa, 'direction', 'enviada', 'message_key', left(encode(extensions.digest('h2', 'sha256'), 'hex'), 40), 'at', now() - interval '399 days', 'body', 'Mensagem antiga 2', 'phone', '5545999998888'))) <> 2 then raise exception 'histórico entra em lote'; end if;
+  if public.wa_messages_store_many(v_id, jsonb_build_array(jsonb_build_object('wa_hash', v_wa, 'direction', 'recebida', 'message_key', left(encode(extensions.digest('h1', 'sha256'), 'hex'), 40), 'at', now(), 'body', 'x'))) <> 0 then raise exception 'histórico repetido não duplica'; end if;
+  if (select min(at) from public.tracking_wa_messages where wa_hash = v_wa) > now() - interval '398 days' then raise exception 'a data antiga é mantida'; end if;
+  if (select first_at from public.tracking_wa_people where wa_hash = v_wa and client_id = v_a) > now() - interval '398 days' or (select messages from public.tracking_wa_people where wa_hash = v_wa and client_id = v_a) <> 2 then raise exception 'pessoa do histórico'; end if;
+  if public.wa_message_store(jsonb_build_object('connection_id', v_id, 'wa_hash', v_wa, 'direction', 'recebida', 'message_key', left(encode(extensions.digest('h3', 'sha256'), 'hex'), 40), 'at', now() - interval '30 days', 'body', 'ao vivo, data velha')) <> 'guardada'
+     or (select at from public.tracking_wa_messages where body = 'ao vivo, data velha') < now() - interval '1 day' then raise exception 'ao vivo com data velha vira agora'; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  begin perform public.wa_messages_store_many(v_id, '[]'::jsonb); raise exception 'só o servidor chama o lote'; exception when insufficient_privilege then null; end;
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('role', 'postgres', true);
+  v_ok := v_ok + 1;
+
   raise exception 'R: % verificações OK', v_ok;
 end $$;

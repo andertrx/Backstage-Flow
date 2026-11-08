@@ -106,16 +106,21 @@ function one(msg: unknown): GatewayMessage {
   };
 }
 
-/** Lê um aviso do servidor: pode trazer uma mensagem ou uma lista. Só o evento de mensagem recebida/enviada vale. */
+/** T5.8: o servidor manda o histórico antigo do aparelho no evento "messages.set" (só no momento em que o aparelho é conectado). */
+export function isHistoryPayload(payload: unknown): boolean {
+  return isObj(payload) && eventName(payload.event) === "messages.set";
+}
+
+/** Lê um aviso do servidor: pode trazer uma mensagem ou uma lista. Valem o evento de mensagem recebida/enviada e o do histórico. */
 export function parseGatewayPayload(payload: unknown): GatewayMessage[] {
   if (!isObj(payload)) return [];
   const ev = eventName(payload.event);
-  if (ev && ev !== "messages.upsert") return [{ kind: "ignore", reason: `evento ${ev.slice(0, 40)} não é mensagem` }];
+  if (ev && ev !== "messages.upsert" && ev !== "messages.set") return [{ kind: "ignore", reason: `evento ${ev.slice(0, 40)} não é mensagem` }];
   const data = payload.data;
   const list: unknown[] = Array.isArray(data) ? data
     : isObj(data) && Array.isArray(data.messages) ? data.messages
     : isObj(data) ? [data] : [];
-  return list.slice(0, 50).map(one);
+  return list.slice(0, isHistoryPayload(payload) ? 1000 : 50).map(one);
 }
 
 /** Código "(ref. K7Q2M9)" que o botão do site põe no fim da mensagem. */

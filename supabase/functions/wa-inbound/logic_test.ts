@@ -65,3 +65,13 @@ Deno.test("texto para guardar (conversas, T5.7): recebida com nome e telefone co
   const x = await planGatewayPayload(upsert({ id: "ID11" }, { protocolMessage: {} }), NOW);
   assertEquals(x.store.length, 0);
 });
+
+Deno.test("T5.8: histórico antigo (messages.set) só vira texto para a caixa de conversas, nunca lead, venda nem frase", async () => {
+  const msg = (id: string, fromMe: boolean, text: string, ts: number) => ({ key: { remoteJid: "5545999998888@s.whatsapp.net", fromMe, id }, pushName: "João", message: { conversation: text }, messageTimestamp: ts });
+  const r = await planGatewayPayload({ event: "MESSAGES_SET", data: [msg("H1", false, "Oi, vi o anúncio (ref. K7Q2M9)", 1730000000), msg("H2", true, "Parabéns pela compra de R$ 297", 1730000100)] }, NOW);
+  assertEquals([r.inbound.length, r.echoRaw.length, r.store.length], [0, 0, 2]);
+  assertEquals(r.store.every((m) => m.history === true && m.phone === "5545999998888"), true);
+  assertEquals(r.store[0].at, new Date(1730000000 * 1000).toISOString());
+  const up = await planGatewayPayload({ event: "messages.upsert", data: msg("U1", false, "oi", 1762603200) }, NOW);
+  assertEquals([up.inbound.length, up.store[0].history], [1, undefined]);
+});

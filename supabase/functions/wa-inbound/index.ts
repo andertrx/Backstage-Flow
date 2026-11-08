@@ -15,7 +15,7 @@
 import { adminClient } from "../_shared/auth.ts";
 import { recordError } from "../_shared/errorlog.ts";
 import type { WaTrigger } from "../../../packages/shared/src/tracking/waTriggers.ts";
-import { echoesFor, LIMIT, MAX_BODY_BYTES, planGatewayPayload } from "./logic.ts";
+import { echoesFor, HISTORY_MAX_BODY_BYTES, LIMIT, planGatewayPayload } from "./logic.ts";
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const KEY = /^[0-9a-f]{48}$/;
@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     if (!auth) return json(401, { error: "INVALID_KEY" });
 
     const body = await req.text();
-    if (new TextEncoder().encode(body).length > MAX_BODY_BYTES) return json(413, { error: "TOO_LARGE" });
+    if (new TextEncoder().encode(body).length > HISTORY_MAX_BODY_BYTES) return json(413, { error: "TOO_LARGE" });
     let payload: unknown;
     try {
       payload = JSON.parse(body);
@@ -53,8 +53,14 @@ Deno.serve(async (req) => {
     }
     // Texto: só com a opção ligada no site e o aviso confirmado (o banco confere); guardado sem prazo (Tracking T5.7).
     if (auth.store_messages) {
-      for (const msg of store) {
+      for (const msg of store.filter((m) => !m.history)) {
         const { error } = await db.rpc("wa_message_store", { p: { connection_id: id, ...msg } });
+        if (error) throw error;
+      }
+      // T5.8: histórico antigo do aparelho, em lotes (só guarda na caixa de conversas; não conta lead, venda nem frase).
+      const old = store.filter((m) => m.history);
+      for (let i = 0; i < old.length; i += 200) {
+        const { error } = await db.rpc("wa_messages_store_many", { p_connection: id, p_items: old.slice(i, i + 200) });
         if (error) throw error;
       }
     }
@@ -66,7 +72,7 @@ Deno.serve(async (req) => {
         if (error) throw error;
       }
     }
-    return json(200, { result: "ok", recebidas: inbound.length, enviadas: echoRaw.length, ignoradas: ignored });
+    return json(200, { result: "ok", recebidas: inbound.length, enviadas: echoRaw.length, ignoradas: ignored, historico: store.filter((m) => m.history).length });
   } catch (err) {
     await recordError({ source: "servidor", code: "WA_INBOUND_FAILED", technical: err, context: { funcao: "wa-inbound" } });
     // 500 = o servidor de WhatsApp tenta de novo (mensagem repetida não conta em dobro).
