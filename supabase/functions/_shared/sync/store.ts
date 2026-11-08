@@ -191,7 +191,8 @@ export function supabaseSyncStore(db: SupabaseClient): SyncStore {
         messages: m.messages,
         conversions: m.conversions,
         conversion_value_micros: m.conversionValueMicros,
-        raw_actions: m.rawActions,
+        // Auditoria de desempenho (B): o JSON bruto das ações não é lido por nenhuma tela e ocupava ~60% do histórico; não é mais gravado.
+        raw_actions: null,
       }));
       let total = 0;
       for (const part of chunks(payload, 5000)) {
