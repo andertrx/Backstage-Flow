@@ -221,11 +221,16 @@ export const WA_CONVERSATION_STATUS_LABELS = { conversa: "Conversa", lead: "Lead
 export function waConnectionStatus(
   conn: {
     has_app_secret: boolean; enabled: boolean; last_webhook_at: string | null; last_error_at: string | null; last_error_message: string | null;
-    mode?: "manual" | "coexistencia";
+    mode?: "manual" | "coexistencia" | "nao_oficial";
+    has_inbound_key?: boolean;
   } | null | undefined,
 ): { tone: CapiTone; label: string; detail: string } {
   if (!conn) return { tone: "neutral", label: "Não configurado", detail: "Para quem usa a API oficial do WhatsApp (WhatsApp Business Platform)." };
   // T4.2: ligado pelo cadastro oficial (Coexistence) usa o segredo do app da agência, não um por número.
+  // T5.3: servidor não oficial usa a chave do endereço, não o segredo do app do Meta.
+  if (conn.mode === "nao_oficial" && !conn.enabled) return { tone: "neutral", label: "Servidor: desligado", detail: "As mensagens recebidas não estão sendo registradas." };
+  if (conn.mode === "nao_oficial" && !conn.last_webhook_at) return { tone: "warning", label: "Servidor: aguardando mensagem", detail: "Ligado. Aguardando a primeira mensagem do servidor de WhatsApp." };
+  if (conn.mode === "nao_oficial") return { tone: "success", label: "Servidor: funcionando", detail: "Mensagens chegando pelo servidor de WhatsApp (não oficial)." };
   if (!conn.has_app_secret && conn.mode !== "coexistencia") return { tone: "warning", label: "Falta o segredo do app", detail: "Cole o segredo do app do Meta para poder ligar." };
   if (!conn.enabled) return { tone: "neutral", label: "Desligado", detail: "As mensagens recebidas não estão sendo registradas." };
   const failing = conn.last_error_at != null && (conn.last_webhook_at == null || conn.last_error_at > conn.last_webhook_at);

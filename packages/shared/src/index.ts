@@ -22,6 +22,7 @@ export * from "./tracking/params.ts";
 export * from "./tracking/identity.ts";
 export * from "./tracking/rules.ts";
 export * from "./tracking/salesWebhook.ts";
+export { parseGatewayPayload, refCodeOf, type GatewayMessage } from "./tracking/waGateway.ts";
 export { extractLead, LEAD_MAPPING_FIELDS, LEAD_PARAM_KEYS, type LeadExtract, type LeadMapping, type LeadParamKey, suggestLeadMapping } from "./tracking/leadWebhook.ts";
 export * from "./tracking/waTriggers.ts";
 export * from "./reports/clientReport.ts";

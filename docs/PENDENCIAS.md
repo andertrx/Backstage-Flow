@@ -7,7 +7,7 @@
 - [ ] **Pixel de teste da agência:** passar só o **número** do Pixel (o token você cola no campo do CRM, nunca no chat). Usado na T5.4 com o "código de teste" do Meta.
 - [ ] **Responde App (T5.2b pronta):** no formulário, cadastrar o webhook com o endereço e a chave de Contatos → Formulários de outros sistemas, ligar "guardar parâmetros de URL", enviar uma resposta de teste e usar "Sugerir pelos campos recebidos". **Não colar o Pixel no formulário** (para o Meta não contar o Lead duas vezes); o CRM manda pelo servidor.
 - [ ] **Política de privacidade e contrato do cliente:** incluir que as conversas de WhatsApp podem ser analisadas para medir vendas (necessário para a T5.6, conversas guardadas por 30 dias).
-- [ ] **Servidor do WhatsApp (etapa 44):** sem ele, a origem do anúncio de WhatsApp só vale testada com mensagens de exemplo.
+- [ ] **Servidor do WhatsApp (etapa 44 e T5.3):** quando estiver no ar, em Tracking → Sites → "WhatsApp servidor" criar a conexão do cliente e cadastrar o webhook no servidor (endereço + chave). O primeiro aviso real confirma o formato (se for outro, ajusto o leitor). Sem a conta oficial do WhatsApp, o Meta recebe a venda como "conversa", não como anúncio de WhatsApp.
 - [ ] **Stand-by (tarefa futura):** ligação com GoHighLevel e Kommo (a skill "Metrik" serve de modelo, mas com hash, token no cofre e sem contato duplicado).
 
 ## Central — prazo de guarda dos cartões excluídos (51.3, 07/11/2026)

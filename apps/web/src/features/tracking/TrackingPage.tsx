@@ -47,6 +47,7 @@ import { capiStatus, PERIOD_LABELS, type PeriodPreset, periodRange, summarizeCon
 import { MetaCapiModal } from "./MetaCapiModal.tsx";
 import { RulesModal } from "./RulesModal.tsx";
 import { WhatsAppApiModal } from "./WhatsAppApiModal.tsx";
+import { WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
 import { WhatsAppSection } from "./WhatsAppSection.tsx";
 
 const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
@@ -99,6 +100,7 @@ export function TrackingPage() {
   const waConversations = useWhatsAppConversations(hasContainers);
   const waConnOf = (containerId: string) => (waConnections.data ?? []).find((w) => w.container_id === containerId);
   const [waApiFor, setWaApiFor] = useState<TrackingContainer | null>(null);
+  const [waServerFor, setWaServerFor] = useState<TrackingContainer | null>(null);
   const model = params.get("atribuicao") === "primeiro" ? "first" : "last";
   const attribution = useAttribution(range.from, range.to, model, hasContainers);
   const quality = useTrackingQuality(range.from, range.to, hasContainers);
@@ -222,6 +224,7 @@ export function TrackingPage() {
                   onMeta={() => setMetaFor(c)}
                   waConnection={waConnOf(c.id)}
                   onWhatsApp={() => setWaApiFor(c)}
+                  onWaServer={() => setWaServerFor(c)}
                   onRules={() => setRulesFor(c)}
                 />
               ))}
@@ -356,6 +359,9 @@ export function TrackingPage() {
           onClose={() => setMetaFor(null)}
         />
       )}
+      {waServerFor && (
+        <WhatsAppServerModal container={waServerFor} connection={waConnOf(waServerFor.id)} canManage={canManage} onClose={() => setWaServerFor(null)} />
+      )}
       {waApiFor && (
         <WhatsAppApiModal container={waApiFor} connection={waConnOf(waApiFor.id)} canManage={canManage} onClose={() => setWaApiFor(null)} />
       )}
@@ -384,7 +390,7 @@ function Stat({ label, value, hint }: { label: string; value: number; hint?: str
   );
 }
 
-function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, destination, capi, onMeta, waConnection, onWhatsApp, onRules }: {
+function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, destination, capi, onMeta, waConnection, onWhatsApp, onWaServer, onRules }: {
   container: TrackingContainer;
   stats?: OverviewRow;
   canManage: boolean;
@@ -395,6 +401,7 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
   onMeta: () => void;
   waConnection: WhatsAppConnection | undefined;
   onWhatsApp: () => void;
+  onWaServer: () => void;
   onRules: () => void;
 }) {
   const meta = capiStatus(destination, capi);
@@ -424,9 +431,14 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
           <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onMeta} aria-label={`Meta API de Conversões: ${c.name}`}>
             Meta CAPI · {meta.label}
           </Button>
-          {(canManage || waConnection) && (
+          {(canManage || waConnection) && waConnection?.mode !== "nao_oficial" && (
             <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onWhatsApp} aria-label={`WhatsApp API oficial: ${c.name}`}>
               WhatsApp API · {wa.label}
+            </Button>
+          )}
+          {(canManage || waConnection?.mode === "nao_oficial") && (!waConnection || waConnection.mode === "nao_oficial") && (
+            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onWaServer} aria-label={`WhatsApp pelo servidor: ${c.name}`}>
+              WhatsApp servidor · {waConnection?.mode === "nao_oficial" ? wa.label.replace("Servidor: ", "") : "Não configurado"}
             </Button>
           )}
           <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onRules} aria-label={`Regras do site: ${c.name}`}>

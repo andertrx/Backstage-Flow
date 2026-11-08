@@ -1856,9 +1856,41 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/tracking_whatsapp_clicks")) {
       return res(200, [...db.whatsappClicks].sort((a, b) => b.clicked_at.localeCompare(a.clicked_at)).map((c) => ({ ...c, touch: c.touch ?? null })));
     }
+    // WhatsApp pelo servidor não oficial (Tracking T5.3): conexão sem conta oficial, chave só uma vez, liga/desliga.
+    if (url.includes("/rest/v1/rpc/wa_unofficial_save")) {
+      const p = parse();
+      const k = db.trackingContainers.find((t) => t.id === p.p_container);
+      if (!k || !["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor ligam o WhatsApp de um site." });
+      let digits = String(p.p_phone ?? "").replace(/\D/g, "");
+      if (digits.length < 10 || digits.length > 15) return res(400, { code: "22023", message: "Informe o número do WhatsApp do cliente com DDD (só números)." });
+      if (digits.length <= 11) digits = "55" + digits;
+      const found = db.whatsappConnections.find((w) => w.container_id === k.id);
+      if (found && found.mode !== "nao_oficial") return res(400, { code: "22023", message: "Este site já tem WhatsApp pela API oficial. Desligue e remova essa conexão antes." });
+      if (db.whatsappConnections.some((w) => w.phone_number_id === digits && w.container_id !== k.id)) return res(400, { code: "22023", message: "Este número já está ligado a outro site." });
+      if (found) { Object.assign(found, { phone_number_id: digits, display_phone: digits }); return res(200, { id: found.id, key: null }); }
+      const key = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, "0")).join("");
+      const conn = { id: crypto.randomUUID(), container_id: k.id, client_id: k.client_id, phone_number_id: digits, waba_id: null, enabled: false, last_webhook_at: null,
+        last_error_at: null, last_error_message: null, mode: "nao_oficial", display_phone: digits, verified_name: null, has_inbound_key: true, inbound_key_hint: key.slice(-4), inbound_key: key };
+      db.whatsappConnections.push(conn);
+      return res(200, { id: conn.id, key });
+    }
+    if (url.includes("/rest/v1/rpc/wa_unofficial_new_key")) {
+      const w = db.whatsappConnections.find((x) => x.id === parse().p_id && x.mode === "nao_oficial");
+      if (!w || !["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor trocam a chave." });
+      w.inbound_key = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, "0")).join("");
+      w.inbound_key_hint = w.inbound_key.slice(-4);
+      return res(200, w.inbound_key);
+    }
+    if (url.includes("/rest/v1/rpc/wa_unofficial_set_enabled")) {
+      const p = parse();
+      const w = db.whatsappConnections.find((x) => x.id === p.p_id && x.mode === "nao_oficial");
+      if (!w || !["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor ligam ou desligam o WhatsApp." });
+      w.enabled = Boolean(p.p_enabled);
+      return res(204);
+    }
     if (url.includes("/rest/v1/tracking_whatsapp_connections")) {
       const cid = eqParam(url, "client_id");
-      return res(200, db.whatsappConnections.filter((w) => !cid || w.client_id === cid).map((w) => ({ ...w, has_app_secret: db.waSecrets[w.id]?.app != null })));
+      return res(200, db.whatsappConnections.filter((w) => !cid || w.client_id === cid).map(({ inbound_key: _key, ...w }) => ({ ...w, has_app_secret: db.waSecrets[w.id]?.app != null })));
     }
     if (url.includes("/rest/v1/tracking_whatsapp_conversations")) {
       return res(200, [...db.whatsappConversations].sort((a, b) => b.last_message_at.localeCompare(a.last_message_at)).map((c) => ({ ...c, touch: c.touch ?? null })));

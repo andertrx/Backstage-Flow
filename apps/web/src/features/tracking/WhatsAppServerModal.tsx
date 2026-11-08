@@ -1,0 +1,156 @@
+import { Copy, KeyRound } from "lucide-react";
+import { useState } from "react";
+import { Alert } from "@/components/ui/alert.tsx";
+import { Badge } from "@/components/ui/badge.tsx";
+import { Button } from "@/components/ui/button.tsx";
+import { Field, Input } from "@/components/ui/field.tsx";
+import { Modal } from "@/components/ui/modal.tsx";
+import { errorMessage } from "@/lib/errors.ts";
+import { formatRelative } from "@/lib/format.ts";
+import {
+  type TrackingContainer,
+  useWaUnofficialEnabled,
+  useWaUnofficialNewKey,
+  useWaUnofficialSave,
+  waInboundUrl,
+  type WhatsAppConnection,
+} from "./api.ts";
+import { waConnectionStatus } from "./logic.ts";
+
+function CopyLine({ label, text }: { label: string; text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-slate-600">{label}</p>
+        <Button type="button" variant="ghost" className="px-2 py-1 text-xs" aria-label={`Copiar: ${label}`} onClick={async () => {
+          try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setCopied(false); }
+        }}>
+          <Copy className="size-3.5" aria-hidden /> {copied ? "Copiado" : "Copiar"}
+        </Button>
+      </div>
+      <code className="block break-all rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs text-slate-900">{text}</code>
+    </div>
+  );
+}
+
+/**
+ * WhatsApp do cliente pelo SERVIDOR NÃO OFICIAL (Tracking T5.3). O servidor de conexão (estilo Evolution API) avisa o CRM
+ * a cada mensagem por webhook: o CRM conta a conversa, lê o código do botão do site e a origem do anúncio de WhatsApp,
+ * e marca vendas pelas frases cadastradas. O texto das conversas nunca é guardado. Só admin e gestor configuram.
+ */
+export function WhatsAppServerModal({ container, connection, canManage, onClose }: {
+  container: TrackingContainer;
+  connection: WhatsAppConnection | undefined;
+  canManage: boolean;
+  onClose: () => void;
+}) {
+  const save = useWaUnofficialSave();
+  const newKey = useWaUnofficialNewKey();
+  const toggle = useWaUnofficialEnabled();
+  const official = connection && connection.mode !== "nao_oficial";
+  const [phone, setPhone] = useState(connection?.mode === "nao_oficial" ? connection.display_phone ?? "" : "");
+  const [revealed, setRevealed] = useState<{ id: string; key: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const status = waConnectionStatus(connection);
+  const mine = connection?.mode === "nao_oficial" ? connection : undefined;
+  const url = mine ? waInboundUrl(mine.id) : null;
+
+  async function run<T>(fn: () => Promise<T>, ok?: (r: T) => void) {
+    setError(null);
+    setNotice(null);
+    try {
+      const r = await fn();
+      ok?.(r);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
+  return (
+    <Modal title={`WhatsApp pelo servidor — ${container.name}`} open size="lg" onClose={onClose}>
+      <div className="space-y-5 text-sm text-slate-700" data-testid="wa-server">
+        <p className="text-slate-600">
+          Para o número de WhatsApp do cliente ligado ao seu <strong>servidor de conexão</strong> (API não oficial). Cada mensagem avisa o CRM, que conta a
+          conversa, lê o <strong>código do botão do site</strong> e a <strong>origem do anúncio de WhatsApp</strong>, e marca a venda pelas <strong>frases</strong> (Contatos → Frases do WhatsApp).
+          O texto das conversas <strong>nunca é guardado</strong>: o número vira código e o texto é lido só na memória. Grupos são ignorados.
+        </p>
+        {official && <Alert tone="warning">Este site já tem WhatsApp pela API oficial. Desligue e remova essa conexão (botão “WhatsApp API”) antes de usar o servidor.</Alert>}
+        {error && <Alert tone="error">{error}</Alert>}
+        {notice && <Alert tone="success">{notice}</Alert>}
+        {mine && (
+          <div className="flex flex-wrap items-center gap-2" data-testid="wa-server-status">
+            <Badge tone={status.tone}>{status.label}</Badge>
+            <span className="text-xs text-slate-500">
+              {mine.last_webhook_at ? `Última mensagem recebida ${formatRelative(mine.last_webhook_at)}.` : status.detail}
+            </span>
+          </div>
+        )}
+
+        {canManage && !official && (
+          <section className="space-y-2">
+            <h4 className="font-medium text-slate-800">1. Número do WhatsApp do cliente</h4>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-56 flex-1">
+                <Field label="Número com DDD (só números)">
+                  {(id) => <Input id={id} value={phone} inputMode="tel" placeholder="45 99999-8888" onChange={(e) => setPhone(e.target.value)} />}
+                </Field>
+              </div>
+              <Button loading={save.isPending} disabled={phone.replace(/\D/g, "").length < 10}
+                onClick={() => run(() => save.mutateAsync({ containerId: container.id, phone }), (r) => {
+                  if (r.key) setRevealed({ id: r.id, key: r.key });
+                  setNotice(r.key ? "Conexão criada (desligada). Copie o endereço e a chave abaixo." : "Número atualizado.");
+                })}>
+                {mine ? "Atualizar número" : "Criar conexão"}
+              </Button>
+            </div>
+          </section>
+        )}
+
+        {mine && url && (
+          <section className="space-y-2">
+            <h4 className="font-medium text-slate-800">2. No servidor de WhatsApp, cadastre o webhook</h4>
+            <CopyLine label="Endereço (método POST)" text={url} />
+            {revealed?.id === mine.id ? (
+              <div className="space-y-2" data-testid="wa-server-key">
+                <CopyLine label="Chave (cabeçalho x-webhook-key)" text={revealed.key} />
+                <CopyLine label="Ou, se o servidor só aceita o endereço" text={`${url}&k=${revealed.key}`} />
+                <Alert tone="warning">Copie agora: a chave aparece só desta vez. Se perder, gere uma nova.</Alert>
+              </div>
+            ) : (
+              <p className="text-slate-600">Chave: ••••{mine.inbound_key_hint} (aparece só quando é criada).</p>
+            )}
+            <p className="text-xs text-slate-500">No servidor, ligue só o evento de <strong>mensagens</strong> (<code>MESSAGES_UPSERT</code>), inclusive as enviadas por você (para achar as frases de venda).</p>
+            {canManage && (
+              <Button variant="secondary" className="px-3 py-1.5 text-xs" loading={newKey.isPending}
+                onClick={() => {
+                  if (!window.confirm("Trocar a chave? A chave atual para de valer na hora: será preciso colar a nova no servidor de WhatsApp.")) return;
+                  void run(() => newKey.mutateAsync(mine.id), (key) => setRevealed({ id: mine.id, key }));
+                }}>
+                <KeyRound className="size-3.5" aria-hidden /> Gerar nova chave
+              </Button>
+            )}
+          </section>
+        )}
+
+        {mine && canManage && (
+          <section className="space-y-2">
+            <h4 className="font-medium text-slate-800">3. Ligue</h4>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={mine.enabled} aria-label="Ligado" onChange={(e) => run(() => toggle.mutateAsync({ id: mine.id, enabled: e.target.checked }))} />
+              <span className="font-medium">Ligado</span>
+              <span className="text-xs text-slate-500">(desligado: as mensagens são ignoradas)</span>
+            </label>
+            <Alert tone="info">
+              Sem a conta oficial do WhatsApp (WABA), o Meta recebe a venda como <strong>conversa</strong> com o telefone cifrado, e não como “anúncio de WhatsApp”.
+              A origem do anúncio continua registrada aqui no CRM.
+            </Alert>
+          </section>
+        )}
+        {!canManage && <p className="text-slate-500">Só administrador e gestor configuram o WhatsApp do site.</p>}
+        <div className="flex justify-end"><Button type="button" onClick={onClose}>Fechar</Button></div>
+      </div>
+    </Modal>
+  );
+}

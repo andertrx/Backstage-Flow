@@ -440,16 +440,19 @@ export interface WhatsAppConnection {
   id: string;
   container_id: string;
   phone_number_id: string;
-  waba_id: string;
+  waba_id: string | null;
   has_app_secret: boolean;
   enabled: boolean;
   last_webhook_at: string | null;
   last_error_at: string | null;
   last_error_message: string | null;
   /** T4.2: "coexistencia" = ligado pelo cadastro oficial do Meta (o número continua no app do celular). */
-  mode: "manual" | "coexistencia";
+  mode: "manual" | "coexistencia" | "nao_oficial";
   display_phone: string | null;
   verified_name: string | null;
+  /** T5.3: servidor não oficial — a chave do endereço existe (só o final é mostrado). */
+  has_inbound_key?: boolean;
+  inbound_key_hint?: string | null;
 }
 
 export function useWhatsAppConnections(enabled: boolean) {
@@ -460,7 +463,7 @@ export function useWhatsAppConnections(enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_whatsapp_connections")
-        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name");
+        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint");
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conexões do WhatsApp."));
       return data as WhatsAppConnection[];
     },
@@ -708,6 +711,51 @@ export function useRuleAction(containerId: string) {
       const changes = a.action === "archive" ? { archived_at: new Date().toISOString() } : a.changes;
       const { error } = await supabase.from("tracking_rules").update(changes).eq("id", a.id);
       if (error) fail(error, "Não conseguimos alterar a regra.");
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+// -----------------------------------------------------------------------------
+// WhatsApp pelo servidor não oficial (T5.3)
+// -----------------------------------------------------------------------------
+
+/** Endereço que o servidor de WhatsApp chama a cada mensagem (a chave vai no cabeçalho x-webhook-key ou em &k=). */
+export function waInboundUrl(connectionId: string): string {
+  const base = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "https://demonstracao.supabase.co";
+  return `${base.replace(/\/$/, "")}/functions/v1/wa-inbound?c=${connectionId}`;
+}
+
+export function useWaUnofficialSave() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { containerId: string; phone: string }) => {
+      const { data, error } = await supabase.rpc("wa_unofficial_save", { p_container: input.containerId, p_phone: input.phone });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos salvar o número."));
+      return data as { id: string; key: string | null };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useWaUnofficialNewKey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase.rpc("wa_unofficial_new_key", { p_id: id });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos trocar a chave."));
+      return data as string;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useWaUnofficialEnabled() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; enabled: boolean }) => {
+      const { error } = await supabase.rpc("wa_unofficial_set_enabled", { p_id: input.id, p_enabled: input.enabled });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos salvar."));
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });

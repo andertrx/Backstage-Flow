@@ -67,6 +67,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T5.1 — Aba Tracking organizada em abas](docs/etapa-34-tracking/T5.1-ABAS.md) ✅ 08/11
   - [T5.2 — Cliques em botões e links, e campos escondidos com a origem](docs/etapa-34-tracking/T5.2-CLIQUES-E-CAMPOS.md) ✅ 08/11
   - [T5.2b — Link de grupo do WhatsApp e lead por webhook (Responde App)](docs/etapa-34-tracking/T5.2b-GRUPO-E-LEAD-POR-WEBHOOK.md) ✅ 08/11
+  - [T5.3 — WhatsApp do cliente pelo servidor não oficial (conversas, origem do anúncio, frases)](docs/etapa-34-tracking/T5.3-WHATSAPP-SERVIDOR.md) ✅ 08/11
 - [Etapa 35 — Meta Ads Campaign Builder (auditoria e plano)](docs/etapa-35-campaign-builder/35.0-AUDITORIA.md) *(em espera: prompt enviado por engano; auditoria guardada para depois)*
 - [Etapa 36 — Central de Operações](docs/etapa-36-central-operacoes/36.16-RELATORIO-FINAL.md) ✅ concluída ([auditoria e plano](docs/etapa-36-central-operacoes/36.0-AUDITORIA.md))
   - [36.1 — Setores, equipe e permissões](docs/etapa-36-central-operacoes/36.1-SETORES-EQUIPE.md) ✅ concluída
