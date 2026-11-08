@@ -33,8 +33,8 @@ export function AlertsBell() {
     <div className="relative" ref={ref}>
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} data-testid="accounts-bell"
         aria-label={count ? `Contas: alertas das contas (${count} não vistos)` : "Contas: alertas das contas"} title="Contas: saldo, pagamento, conta restrita e erros"
-        className="relative flex items-center gap-1.5 rounded-lg p-2 text-slate-600 hover:bg-rose-50 hover:text-slate-900">
-        <Wallet className="size-5 text-rose-600" aria-hidden />
+        className="relative flex items-center gap-1.5 rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+        <Wallet className="size-5 text-slate-500" aria-hidden />
         <span className="hidden text-xs font-semibold text-slate-700 xl:inline" aria-hidden>Contas</span>
         {count > 0 && (
           <span className="absolute right-0 top-0 grid min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-4 text-white" data-testid="accounts-bell-count">

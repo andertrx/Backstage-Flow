@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronsLeft, ChevronsRight, LogOut, Menu, X } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation, useNavigate } from "react-router";
+import { IconButton } from "@/components/ui/icon-button.tsx";
 import { ErrorBoundary } from "@/components/feedback/ErrorBoundary.tsx";
 import { DemoBanner } from "@/components/feedback/DemoBanner.tsx";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -52,10 +53,10 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
         return (
         <div key={group} className={cn(gi > 0 && "mt-5")}>
           {collapsed ? (
-            gi > 0 && <div className="mx-2 mb-3 border-t border-white/10" aria-hidden />
+            gi > 0 && <div className="mx-2 mb-3 border-t border-slate-200" aria-hidden />
           ) : (
             <button type="button" onClick={() => alternar(group)} aria-expanded={!recolhido} aria-label={`Grupo do menu: ${group}`} data-testid="nav-group-toggle" data-group={group}
-              className="mb-1.5 flex w-full items-center justify-between px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300">
+              className="mb-1.5 flex w-full items-center justify-between px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-700">
               {group}
               <ChevronDown className={cn("size-3 transition-transform", recolhido && "-rotate-90")} aria-hidden />
             </button>
@@ -73,17 +74,16 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
                     aria-label={collapsed ? label : undefined}
                     className={({ isActive }) =>
                       cn(
-                        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                        "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
                         "focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-brand-500",
                         collapsed && "justify-center px-0",
-                        isActive ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+                        isActive ? "bg-slate-900 text-white shadow-[0_6px_14px_-6px_rgb(15_23_42/0.55)]" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                       )
                     }
                   >
                     {({ isActive }) => (
                       <>
-                        {isActive && <span className="absolute inset-y-1.5 left-0 w-1 rounded-r-full bg-brand-500" aria-hidden />}
-                        <Icon className={cn("size-4 shrink-0", isActive ? "text-brand-300" : "text-slate-500 group-hover:text-slate-300")} aria-hidden />
+                                                <Icon className={cn("size-4 shrink-0 transition-colors", isActive ? "text-accent-400" : "text-slate-400 group-hover:text-slate-700")} aria-hidden />
                         {!collapsed && label}
                         {badge && (
                           <span
@@ -102,11 +102,11 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
                   </NavLink>
                   {/* 43.5: sob o item Alertas, os 3 assuntos com o seu próprio número (não é um item novo do menu) */}
                   {path === "/alertas" && !collapsed && subAlertas.length > 1 && (
-                    <ul className="ml-7 mt-0.5 space-y-0.5 border-l border-white/10 pl-3" data-testid="nav-alerts-sub">
+                    <ul className="ml-7 mt-0.5 space-y-0.5 border-l border-slate-200 pl-3" data-testid="nav-alerts-sub">
                       {subAlertas.map((x) => (
                         <li key={x.aba}>
                           <button type="button" onClick={() => { navigate(x.aba === "contas" ? "/alertas" : `/alertas?aba=${x.aba}`); onNavigate?.(); }}
-                            className="flex w-full items-center justify-between rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-white/5 hover:text-white" data-testid={`nav-alerts-sub-${x.aba}`}>
+                            className="flex w-full items-center justify-between rounded-md px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900" data-testid={`nav-alerts-sub-${x.aba}`}>
                             {x.label}
                             {x.n > 0 && <span className="rounded-full bg-red-500/90 px-1.5 text-[10px] font-semibold leading-4 text-white">{x.n > 99 ? "99+" : x.n}</span>}
                           </button>
@@ -169,22 +169,22 @@ export function AppLayout() {
       {/* Sidebar fixa no desktop (pode ser recolhida) */}
       <aside
         className={cn(
-          "sticky top-0 hidden h-screen shrink-0 flex-col bg-slate-900 transition-[width] duration-200 lg:flex print:hidden",
+          "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 lg:flex print:hidden",
           collapsed ? "w-[4.5rem]" : "w-64",
         )}
         data-testid="sidebar"
         data-collapsed={collapsed}
       >
         <div className={cn("flex h-16 shrink-0 items-center", collapsed ? "justify-center" : "px-6")}>
-          <Logo inverted compact={collapsed} />
+          <Logo compact={collapsed} />
         </div>
         <SidebarNav collapsed={collapsed} />
-        <div className="shrink-0 border-t border-white/10 p-3">
+        <div className="shrink-0 border-t border-slate-200 p-3">
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
             className={cn(
-              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white",
+              "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900",
               "focus-visible:outline-2 focus-visible:outline-brand-500",
               collapsed && "justify-center px-0",
             )}
@@ -199,13 +199,11 @@ export function AppLayout() {
       {/* Sidebar em gaveta no celular/tablet */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside className="relative flex h-full w-72 max-w-[85vw] flex-col bg-slate-900 shadow-xl">
+          <div className="animate-fade-in absolute inset-0 bg-slate-900/50" onClick={() => setMobileOpen(false)} />
+          <aside className="animate-drawer-in relative flex h-full w-72 max-w-[85vw] flex-col bg-white shadow-elevated">
             <div className="flex h-16 shrink-0 items-center justify-between px-6">
-              <Logo inverted />
-              <button onClick={() => setMobileOpen(false)} className="rounded-lg p-1 text-slate-300 hover:bg-white/10" aria-label="Fechar menu">
-                <X className="size-5" />
-              </button>
+              <Logo />
+              <IconButton label="Fechar menu" size="sm" onClick={() => setMobileOpen(false)} icon={<X aria-hidden />} />
             </div>
             <SidebarNav onNavigate={() => setMobileOpen(false)} />
           </aside>
@@ -215,20 +213,20 @@ export function AppLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="sticky top-0 z-30 print:hidden">
         <DemoBanner />
-        <header className="flex h-16 items-center gap-3 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6 lg:px-8">
+        <header className="flex h-16 items-center gap-2 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:gap-3 sm:px-6 lg:px-8">
           {hasMenu && (
             <button className="-ml-1 rounded-lg p-1 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
               <Menu className="size-6" />
             </button>
           )}
-          <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-500" data-testid="header-section">{section}</p>
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-slate-700" data-testid="header-section">{section}</p>
           {can(profile?.role, "internal.view") && <GlobalSearch />}
           {/* 43.5: três sininhos, um por assunto: Contas, Campanhas e Tarefas */}
           {can(profile?.role, "internal.view") && <AlertsBell />}
           {can(profile?.role, "monitor.view") && <MonitorBell />}
           {opsCan(opsPermissions, "ops.access") && <NotificationBell />}
-          <Link to="/minha-conta" className="flex items-center gap-2.5 rounded-lg px-2 py-1 hover:bg-slate-100" title="Minha conta">
-            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700" aria-hidden>
+          <Link to="/minha-conta" className="flex items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-slate-100" title="Minha conta">
+            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-accent-500 text-xs font-semibold text-white shadow-sm" aria-hidden>
               {initials(displayName)}
             </span>
             <span className="hidden text-right sm:block">
@@ -239,7 +237,7 @@ export function AppLayout() {
           </Link>
           <button
             onClick={isDemoMode ? exitDemo : signOut}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             <LogOut className="size-4" aria-hidden />
             <span className="hidden sm:inline">Sair</span>
@@ -252,7 +250,10 @@ export function AppLayout() {
           {/* Uma tela com erro não derruba o resto (o menu continua funcionando). */}
           <ErrorBoundary key={pathname} onReset={() => queryClient.removeQueries()}>
             <Suspense fallback={<FullPageSpinner label="Abrindo a página..." />}>
-              <Outlet />
+              {/* 52.2: troca de tela com fade curto (desligado em "reduzir movimento" e na impressão). */}
+              <div key={pathname} className="animate-page-in print:animate-none">
+                <Outlet />
+              </div>
             </Suspense>
           </ErrorBoundary>
         </main>
