@@ -1902,7 +1902,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/rpc/wa_ai_save")) {
       const p = parse();
       if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador configura a IA." });
-      if (p.p_api_key != null && !/^sk-ant-[A-Za-z0-9_-]{20,300}$/.test(p.p_api_key)) return res(400, { code: "22023", message: 'A chave da Anthropic começa com "sk-ant-". Confira e cole de novo.' });
+      if (p.p_api_key != null && !/^sk-ant-[A-Za-z0-9_-]{20,255}$/.test(p.p_api_key)) return res(400, { code: "22023", message: 'A chave da Anthropic começa com "sk-ant-". Confira e cole de novo.' });
       if (p.p_api_key != null) { db.waAiSettings.has_key = true; db.waAiSettings.key_updated_at = new Date().toISOString(); }
       if (p.p_enabled != null) {
         if (p.p_enabled && !db.waAiSettings.has_key) return res(400, { code: "22023", message: "Cole a chave da Anthropic antes de ligar a IA." });

@@ -48,3 +48,12 @@ describe("mensagens do servidor de WhatsApp não oficial", () => {
     expect(refCodeOf("sem código")).toBeNull();
   });
 });
+
+describe("nome do WhatsApp (T5.6)", () => {
+  it("lê o nome só de mensagens recebidas; da agência vem vazio", () => {
+    const base = { event: "messages.upsert", data: { pushName: "  João  ", key: { remoteJid: "5545999998888@s.whatsapp.net", fromMe: false, id: "A1" }, message: { conversation: "oi" } } };
+    expect(parseGatewayPayload(base)[0]).toMatchObject({ kind: "inbound", pushName: "João" });
+    const echo = { ...base, data: { ...base.data, key: { ...base.data.key, fromMe: true, id: "A2" } } };
+    expect(parseGatewayPayload(echo)[0]).toMatchObject({ kind: "echo", pushName: "" });
+  });
+});

@@ -115,19 +115,22 @@ begin
   perform public.wa_suggestion_decide(v_sg, 'pendente');
   if (select expires_at from public.tracking_wa_suggestions where id = v_sg) is not null or (select decided_by from public.tracking_wa_suggestions where id = v_sg) is not null then raise exception 'voltar para pendente tira o prazo'; end if;
   perform public.wa_suggestion_decide(v_sg, 'descartada');
-  if not exists (select 1 from public.audit_logs where action = 'wa_suggestion.decide' and target_id = v_sg::text) then raise exception 'decisão fica no histórico'; end if;
   perform set_config('request.jwt.claims', '', true);
   perform set_config('role', 'postgres', true);
+  if not exists (select 1 from public.audit_logs where action = 'wa_suggestion.decide' and target_id = v_sg::text) then raise exception 'decisão fica no histórico'; end if;
   v_ok := v_ok + 1;
 
   -- 8. Limpeza diária: texto vencido e sugestão decidida vencida somem; pendente nunca some
   update public.tracking_wa_messages set expires_at = now() - interval '1 minute' where message_key = k1;
-  if private.wa_messages_purge() <> 1 or (select count(*) from public.tracking_wa_messages) <> 1
+  v_n := private.wa_messages_purge(); -- (em passo separado: dentro de um mesmo SELECT a contagem enxergaria o estado de antes)
+  if v_n <> 1 or (select count(*) from public.tracking_wa_messages) <> 1
      or not exists (select 1 from public.audit_logs where action = 'wa_messages.purge' and created_at > now() - interval '1 minute') then raise exception 'limpeza do texto'; end if;
   update public.tracking_wa_suggestions set expires_at = now() - interval '1 minute' where id = v_sg;
-  if private.wa_suggestions_purge() <> 1 or exists (select 1 from public.tracking_wa_suggestions where id = v_sg) then raise exception 'limpeza das sugestões decididas'; end if;
+  v_n := private.wa_suggestions_purge();
+  if v_n <> 1 or exists (select 1 from public.tracking_wa_suggestions where id = v_sg) then raise exception 'limpeza das sugestões decididas'; end if;
   insert into public.tracking_wa_suggestions (client_id, wa_hash, day, reason) values (v_a, v_wa, current_date - 40, 'antiga e pendente');
-  if private.wa_suggestions_purge() <> 0 or (select count(*) from public.tracking_wa_suggestions) <> 1 then raise exception 'pendente nunca some sozinha'; end if;
+  v_n := private.wa_suggestions_purge();
+  if v_n <> 0 or (select count(*) from public.tracking_wa_suggestions) <> 1 then raise exception 'pendente nunca some sozinha'; end if;
   v_ok := v_ok + 1;
 
   -- 9. Apagar o texto agora: só admin
