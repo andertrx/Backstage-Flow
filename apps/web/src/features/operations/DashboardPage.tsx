@@ -10,7 +10,6 @@ import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { type OpsDashboard, type OpsDashboardFilters, type OpsDashboardTaskRef, useOpsDashboard } from "./dashboardApi.ts";
 import { RequireOps } from "./OpsLayout.tsx";
-import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { SavedViews } from "./SavedViews.tsx";
 import { TaskDetailHost, useOpenTask, useTasksContext } from "./tasksContext.tsx";
 
@@ -240,8 +239,6 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-4" data-testid="ops-dashboard">
-      <OpsModuleHeader number="01" icon={Gauge} title="Painel operacional"
-        description="Como está a operação agora: prazos, gargalos, setores e pessoas. Só conta o que você pode ver." />
       <div className="flex flex-wrap items-center gap-2" data-testid="ops-dash-filters">
         <Select aria-label="Filtrar por setor" className="w-auto" value={sector} onChange={(e) => setSector(e.target.value)}>
           <option value="">Todos os setores</option>
