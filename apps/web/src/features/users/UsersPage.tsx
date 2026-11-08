@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
+import { StatusBadge } from "@/components/ui/status-badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
@@ -102,7 +103,7 @@ export function UsersPage() {
                     ) : "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge tone={user.active ? "success" : "danger"}>{user.active ? "Ativo" : "Inativo"}</Badge>
+                    <StatusBadge tone={user.active ? "success" : "danger"}>{user.active ? "Ativo" : "Inativo"}</StatusBadge>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{dateFormat.format(new Date(user.created_at))}</td>
                   <td className="px-4 py-3 text-right">

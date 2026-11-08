@@ -5,8 +5,9 @@ import { Logo } from "@/components/layout/Logo.tsx";
 /** Moldura centralizada das telas de login e senha. */
 export function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-full items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm space-y-6">
+    <div className="flex min-h-full items-center justify-center px-4 py-12"
+      style={{ background: "radial-gradient(60rem 28rem at 50% -8rem, color-mix(in oklab, var(--color-brand-500) 14%, transparent), transparent 70%)" }}>
+      <div className="w-full max-w-sm animate-page-in space-y-6 print:animate-none">
         <div className="flex flex-col items-center gap-3 text-center">
           <Logo size="lg" />
           <div>
@@ -14,7 +15,7 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
             {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
           </div>
         </div>
-        <Card className="p-6">{children}</Card>
+        <Card className="p-6 shadow-elevated">{children}</Card>
       </div>
     </div>
   );
