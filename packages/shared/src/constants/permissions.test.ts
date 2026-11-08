@@ -58,8 +58,8 @@ describe("tela de papéis e permissões", () => {
     for (const r of ROLES) expect(ROLE_SCOPE[r]?.length).toBeGreaterThan(5);
   });
 
-  it("papel Equipe (Etapa 36) não vê nada dos módulos de anúncios", () => {
-    expect(PERMISSIONS.filter((p) => can("equipe", p))).toEqual([]);
+  it("papel Equipe (Etapa 36) não vê nada dos módulos de anúncios; só as vendas sugeridas (T5.6, o banco filtra por Account Manager)", () => {
+    expect(PERMISSIONS.filter((p) => can("equipe", p))).toEqual(["tracking.suggestions"]);
   });
 });
 

@@ -20,6 +20,7 @@ export const PERMISSIONS = [
   "tracking.view",
   "tracking.manage",
   "tracking.whatsapp",
+  "tracking.suggestions",
   "monitor.view",
   "monitor.handle",
   "monitor.rules",
@@ -46,6 +47,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "internal.view",
     "tracking.view",
     "tracking.manage",
+    "tracking.suggestions",
     "tracking.whatsapp",
     "monitor.view",
     "monitor.handle",
@@ -57,10 +59,11 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "contacts.setup",
     "ads.builder",
   ],
-  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view", "tracking.whatsapp", "monitor.view", "monitor.handle", "results.view", "contacts.view", "contacts.mark", "ads.builder"],
-  visualizador: ["clients.view", "internal.view", "tracking.view", "monitor.view", "results.view", "contacts.view"],
+  operador: ["clients.view", "sync.run", "alerts.manage", "reports.generate", "internal.view", "tracking.view", "tracking.whatsapp", "tracking.suggestions", "monitor.view", "monitor.handle", "results.view", "contacts.view", "contacts.mark", "ads.builder"],
+  visualizador: ["clients.view", "internal.view", "tracking.view", "tracking.suggestions", "monitor.view", "results.view", "contacts.view"],
   // Etapa 36: só a Central de Operações (permissões próprias, por pessoa).
-  equipe: [],
+  // T5.6: o Account Manager do cliente (que pode ter este papel) vê e decide as vendas sugeridas pela IA — só isso do Tracking.
+  equipe: ["tracking.suggestions"],
   // T3.1: equipe de vendas do cliente — só os contatos (o banco confere quais clientes).
   vendedor: ["contacts.view", "contacts.mark"],
   cliente: [],
@@ -85,6 +88,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "settings.manage": "Abrir as Configurações",
   "tracking.view": "Ver o Tracking (visitas, origens e eventos dos sites dos clientes)",
   "tracking.manage": "Configurar o Tracking (containers, domínios autorizados e código de instalação)",
+  "tracking.suggestions": "Ver e decidir as vendas sugeridas pela IA (o banco só mostra as dos clientes de que a pessoa é Account Manager, gestor ou administrador)",
   "tracking.whatsapp": "Marcar conversas do WhatsApp como Lead ou Venda (pelo código de rastreio)",
   "monitor.view": "Ver o Monitoramento de Desempenho (variações, alertas de desempenho e histórico)",
   "monitor.handle": "Tratar alertas de desempenho (atribuir, comentar, registrar providência, resolver, virar tarefa)",
@@ -104,7 +108,7 @@ export const ROLE_SCOPE: Record<Role, string> = {
   gestor: "Só os clientes liberados para ele",
   operador: "Só os clientes liberados para ele",
   visualizador: "Só os clientes liberados para ele",
-  equipe: "Nenhum pelos módulos de anúncios; na Central, só o necessário para as tarefas",
+  equipe: "Nenhum pelos módulos de anúncios; na Central, só o necessário para as tarefas; e as vendas sugeridas pela IA dos clientes em que é Account Manager",
   vendedor: "Só os contatos dos clientes liberados para ele (nada mais do CRM)",
   cliente: "Só a própria empresa, sem informações internas",
 };

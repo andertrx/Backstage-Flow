@@ -47,9 +47,9 @@ function seed(db) {
   check(!(await page.content()).includes(KEY) && JSON.stringify(db.waAiSettings).includes(KEY) === false, "a chave nunca aparece na tela nem fica no registro da configuração");
 
   // Decidir
-  await page.getByTestId("wa-suggestion").first().getByRole("button", { name: "Houve venda" }).click();
+  await page.getByTestId("wa-suggestion").filter({ hasText: "João" }).getByRole("button", { name: "Houve venda" }).click();
   await page.getByText("Já decididas (1)").waitFor();
-  const s1 = db.waSuggestions.find((x) => x.id === "s1" || x.id === "s2" && x.status !== "pendente");
+  const s1 = db.waSuggestions.find((x) => x.id === "s1");
   check(s1 && s1.status === "confirmada" && s1.expires_at, "'Houve venda' guarda a decisão com prazo de 30 dias");
   check(await page.getByTestId("wa-suggestion").count() === 2, "a decidida passa para a lista de decididas");
   await page.getByTestId("wa-suggestion").filter({ hasText: "Ana" }).getByRole("button", { name: "Descartar" }).click();
@@ -78,6 +78,23 @@ function seed(db) {
   await login(page, "/tracking?aba=sugestoes");
   await page.getByTestId("wa-suggestions").waitFor();
   check(await page.getByTestId("wa-suggestion").count() === 0 && await page.getByTestId("wa-ai-card").count() === 0, "visualizador não vê sugestões nem a IA");
+  await browser.close();
+}
+{
+  // Account Manager com papel Equipe: vê e decide pela página própria, sem abrir o Tracking
+  const { browser, page } = await launch();
+  const db = await mockSupabase(page, { role: "equipe" });
+  seed(db);
+  await login(page, "/vendas-sugeridas");
+  await page.getByTestId("wa-suggestions").waitFor();
+  check(await page.getByTestId("wa-suggestion").count() === 2 && await page.getByTestId("wa-ai-card").count() === 0, "equipe (Account Manager) vê as sugestões, sem o cartão da IA");
+  check(await page.getByRole("link", { name: "Vendas sugeridas" }).count() >= 1, "o menu mostra Vendas sugeridas para a equipe");
+  await page.getByTestId("wa-suggestion").filter({ hasText: "João" }).getByRole("button", { name: "Descartar" }).click();
+  await page.getByText("Já decididas (1)").waitFor();
+  check(db.waSuggestions.filter((x) => x.status === "descartada").length === 1, "equipe consegue decidir");
+  await page.goto(`${page.url().split("/vendas-sugeridas")[0]}/tracking`);
+  await page.waitForTimeout(800);
+  check(!page.url().includes("/tracking") || await page.getByTestId("container-card").count() === 0, "equipe continua sem abrir o Tracking");
   await browser.close();
 }
 console.log("\nVendas sugeridas (T5.6): tudo certo.");

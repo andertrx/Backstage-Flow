@@ -5,7 +5,7 @@ const labels = (role: Parameters<typeof navItemsFor>[0]) => navItemsFor(role).ma
 
 describe("menu lateral", () => {
   it("administrador vê todos os itens", () => {
-    expect(navItemsFor("admin")).toHaveLength(NAV_ITEMS.length);
+    expect(navItemsFor("admin")).toHaveLength(NAV_ITEMS.filter((i) => !i.hiddenFor?.includes("admin")).length);
   });
 
   it("somente administrador vê Configurações", () => {
@@ -27,9 +27,10 @@ describe("menu lateral", () => {
     expect(navItemsFor("cliente", ["ops.access"]).map((i) => i.label)).toEqual(["Dashboard"]);
   });
 
-  it("papel Equipe vê só Onboarding, Central de Operações, Notificações e Reuniões", () => {
-    expect(labels("equipe")).toEqual([]);
-    expect(navItemsFor("equipe", ["ops.access"]).map((i) => i.label)).toEqual(["Onboarding", "Central de Operações", "Notificações", "Reuniões"]);
+  it("papel Equipe vê só Onboarding, Central de Operações, Notificações, Reuniões e (T5.6) Vendas sugeridas", () => {
+    expect(labels("equipe")).toEqual(["Vendas sugeridas"]);
+    expect(navItemsFor("equipe", ["ops.access"]).map((i) => i.label)).toEqual(["Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas"]);
+    for (const r of ["admin", "gestor", "operador", "visualizador"] as const) expect(labels(r)).not.toContain("Vendas sugeridas"); // esses veem na aba do Tracking
   });
 
   it("papel Vendedor (T3.1) não vê nenhum item do menu: só a tela de Contatos, que abre sozinha", () => {
@@ -51,7 +52,7 @@ describe("menu lateral", () => {
 describe("grupos do menu", () => {
   it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36; Monitoramento antes de Alertas na Etapa 37; Inteligência de Resultados depois de Monitoramento na Etapa 39; Criador de Anúncios depois de Campanhas na Etapa 42; Reuniões, Comercial e Envios semanais depois da Central na 43.6/43.7)", () => {
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Painel", "Comercial", "Onboarding", "Central de Operações", "Notificações", "Reuniões", "Configurações da Central", "Envios semanais", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
+      "Dashboard", "Clientes", "Contas", "Painel", "Comercial", "Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas", "Configurações da Central", "Envios semanais", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
       "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking", "Sincronização", "Logs", "Configurações",
     ]);
   });
@@ -81,7 +82,7 @@ describe("mapa do menu por papel (43.3)", () => {
     expect(admin.groups.flatMap((g) => g.items)).toContain("Configurações");
     const equipe = menuPorPapel("equipe");
     expect(equipe.central).toBe("com_permissao");
-    expect(equipe.groups).toEqual([]);
+    expect(equipe.groups.flatMap((g) => g.items)).toEqual(["Vendas sugeridas"]);
   });
   it("visualizador não vê Relatórios nem Criador de Anúncios; gestor vê Logs mas não Configurações", () => {
     const vis = menuPorPapel("visualizador").groups.flatMap((g) => g.items);
@@ -123,8 +124,8 @@ describe("Comercial e Envios semanais separados da Central (43.6)", () => {
     expect(l("cliente", ["ops.access", "ops.commercial"])).not.toContain("Comercial");
     expect(l("vendedor", ["ops.access", "ops.commercial"])).not.toContain("Comercial");
   });
-  it("sem a permissão da Central (ops.access) nenhum dos três aparece", () => {
-    expect(navItemsFor("equipe", ["ops.commercial", "ops.envios"]).map((i) => i.label)).toEqual([]);
+  it("sem a permissão da Central (ops.access) nenhum dos três aparece (só Vendas sugeridas, T5.6)", () => {
+    expect(navItemsFor("equipe", ["ops.commercial", "ops.envios"]).map((i) => i.label)).toEqual(["Vendas sugeridas"]);
   });
   it("o item do menu corresponde ao endereço novo", () => {
     expect(navItemForPath("/comercial")?.label).toBe("Comercial");

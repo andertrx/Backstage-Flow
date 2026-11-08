@@ -39,6 +39,7 @@ const OpsEnviosRoute = lazy(() => import("@/features/operations/EnviosPage.tsx")
 const OpsNotificationsRoute = lazy(() => import("@/features/operations/NotificationsPage.tsx").then((m) => ({ default: m.NotificationsRoute })));
 const OpsDashboardRoute = lazy(() => import("@/features/operations/DashboardPage.tsx").then((m) => ({ default: m.DashboardRoute })));
 const OpsSettingsPage = lazy(() => import("@/features/operations/OpsSettingsPage.tsx").then((m) => ({ default: m.OpsSettingsPage })));
+const SuggestionsPage = lazy(() => import("@/features/tracking/SuggestionsPage.tsx").then((m) => ({ default: m.SuggestionsPage })));
 const TrackingPage = lazy(() => import("@/features/tracking/TrackingPage.tsx").then((m) => ({ default: m.TrackingPage })));
 const WhatsAppCallbackPage = lazy(() => import("@/features/tracking/WhatsAppCallbackPage.tsx").then((m) => ({ default: m.WhatsAppCallbackPage })));
 const GoogleAgendaCallbackPage = lazy(() => import("@/features/google-agenda/GoogleAgendaCallbackPage.tsx").then((m) => ({ default: m.GoogleAgendaCallbackPage })));
@@ -291,6 +292,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="tracking.view">
             <TrackingPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "vendas-sugeridas",
+        element: (
+          <RequirePermission permission="tracking.suggestions">
+            <SuggestionsPage />
           </RequirePermission>
         ),
       },

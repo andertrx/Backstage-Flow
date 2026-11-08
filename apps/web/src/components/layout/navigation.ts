@@ -54,6 +54,8 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Central de Operações", path: "/operacoes", icon: KanbanSquare, group: "Operações", ops: true },
   { label: "Notificações", path: "/notificacoes", icon: Bell, group: "Operações", opsPermission: "ops.access" },
   { label: "Reuniões", path: "/reunioes", icon: CalendarDays, group: "Operações", opsPermission: "ops.access" },
+  // T5.6: só para quem não tem o Tracking (papel Equipe): as vendas sugeridas dos clientes em que é Account Manager. Os demais veem na aba do Tracking.
+  { label: "Vendas sugeridas", path: "/vendas-sugeridas", icon: Handshake, group: "Operações", permission: "tracking.suggestions", hiddenFor: ["admin", "gestor", "operador", "visualizador"] },
   { label: "Configurações da Central", path: "/config-central", icon: Settings, group: "Operações", opsPermission: "ops.admin" },
   { label: "Envios semanais", path: "/envios", icon: Send, group: "Operações", opsPermission: "ops.envios" },
   // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...), na ordem do catálogo.

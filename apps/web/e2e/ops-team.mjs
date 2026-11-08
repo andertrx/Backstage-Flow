@@ -142,7 +142,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   check(true, "papel Equipe entra direto na Central");
   const nav = page.getByRole("navigation", { name: "Menu principal" }).first();
   const labels = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
-  check(JSON.stringify(labels) === JSON.stringify(["Onboarding", "Central de Operações", "Notificações", "Reuniões"]), `menu só com Onboarding, Central, Notificações e Reuniões (${labels.join(", ")})`);
+  check(JSON.stringify(labels) === JSON.stringify(["Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas"]), `menu só com Onboarding, Central, Notificações, Reuniões e Vendas sugeridas (${labels.join(", ")})`);
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
   check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Arquivados e excluídos"]), `sem a aba Equipe nem Configurações (só admin): ${tabs.join(", ")}`);
   for (const path of ["/clientes", "/contas", "/meta-ads", "/campanhas", "/relatorios"]) {

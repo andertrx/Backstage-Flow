@@ -15,7 +15,7 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   await login(page, "/configuracoes/permissoes");
   await page.getByRole("heading", { name: "Papéis e permissões", level: 1 }).waitFor();
   check(await page.getByRole("link", { name: "Papéis e permissões" }).count() === 1, "aba nova nas Configurações");
-  check(await page.getByTestId("permission-row").count() === 23, "23 permissões explicadas em português (4 do Monitoramento, Etapa 37; 2 da Inteligência de Resultados, Etapa 39; 3 dos Contatos, T3.1; Criador de Anúncios, Etapa 42)");
+  check(await page.getByTestId("permission-row").count() === 24, "24 permissões explicadas em português (4 do Monitoramento, Etapa 37; 2 da Inteligência de Resultados, Etapa 39; 3 dos Contatos, T3.1; Criador de Anúncios, Etapa 42; Vendas sugeridas, T5.6)");
   const cell = (perm, role) => page.locator(`[data-testid=permission-row][data-permission="${perm}"] td[data-role=${role}] svg`).getAttribute("aria-label");
   check(await cell("ads.builder", "operador") === "Sim" && await cell("ads.builder", "visualizador") === "Não", "Criador de Anúncios: operador sim, visualizador não");
   check(await cell("logs.view", "gestor") === "Sim" && await cell("logs.view", "operador") === "Não", "logs: gestor sim, operador não");

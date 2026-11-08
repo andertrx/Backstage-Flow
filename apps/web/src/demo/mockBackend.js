@@ -1922,14 +1922,14 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/rpc/wa_suggestion_decide")) {
       const p = parse();
       const sg = db.waSuggestions.find((x) => x.id === p.p_id);
-      if (!sg || !["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Sem permissão." });
+      if (!sg || !["admin", "gestor", "equipe"].includes(role)) return res(403, { code: "42501", message: "Sem permissão." });
       sg.status = p.p_status;
       sg.decided_at = p.p_status === "pendente" ? null : new Date().toISOString();
       sg.expires_at = p.p_status === "pendente" ? null : new Date(Date.now() + 30 * 86400000).toISOString();
       return res(204);
     }
     if (url.includes("/rest/v1/tracking_wa_suggestions")) {
-      if (!["admin", "gestor"].includes(role)) return res(200, []);
+      if (!["admin", "gestor", "equipe"].includes(role)) return res(200, []);
       return res(200, [...db.waSuggestions].sort((a, b) => b.created_at.localeCompare(a.created_at)));
     }
     if (url.includes("/rest/v1/tracking_whatsapp_connections")) {
