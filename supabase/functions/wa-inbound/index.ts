@@ -7,7 +7,8 @@
  *
  * Mensagem recebida → conta a conversa, lê o código "(ref. …)" do botão do site e a origem do anúncio de WhatsApp (ctwa_clid).
  * Mensagem enviada pela agência → só é lida para achar as frases de venda/etapa do cliente (T4.1).
- * Grupos, listas de transmissão e outros eventos são ignorados. O texto das conversas nunca é guardado; o número vira hash.
+ * Grupos, listas de transmissão e outros eventos são ignorados. O número vira hash. O texto só é guardado se a opção
+ * "guardar conversas" estiver ligada no site (opt-in), por apenas 2 dias, para a IA ler uma vez por dia (T5.6).
  *
  * Respostas: 200 (sempre que o aviso foi aceito, mesmo ignorado), 401, 404, 405, 413, 429.
  */
@@ -45,10 +46,17 @@ Deno.serve(async (req) => {
     }
     if (!auth.enabled || !auth.client_active) return json(200, { result: "ignorado" });
 
-    const { inbound, echoRaw, ignored } = await planGatewayPayload(payload, Date.now());
+    const { inbound, echoRaw, store, ignored } = await planGatewayPayload(payload, Date.now());
     for (const msg of inbound) {
       const { error } = await db.rpc("tracking_whatsapp_inbound", { p: { connection_id: id, ...msg } });
       if (error) throw error;
+    }
+    // Texto: só com a opção ligada no site; guardado 2 dias para a IA ler (Tracking T5.6) e apagado sozinho.
+    if (auth.store_messages) {
+      for (const msg of store) {
+        const { error } = await db.rpc("wa_message_store", { p: { connection_id: id, ...msg } });
+        if (error) throw error;
+      }
     }
     if (echoRaw.length) {
       const { data: triggers, error: tErr } = await db.rpc("wa_triggers_for", { p_connection: id });

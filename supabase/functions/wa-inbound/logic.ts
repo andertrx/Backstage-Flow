@@ -24,17 +24,40 @@ export interface EchoOut {
   matches: { trigger_id: string; value?: number; currency?: string }[];
 }
 
+/** Texto de uma mensagem, pronto para o buffer de 2 dias que a IA lê uma vez por dia (só com a opção ligada no site). */
+export interface StoreOut {
+  wa_hash: string;
+  direction: "recebida" | "enviada";
+  message_key: string;
+  at: string;
+  body: string;
+  push_name: string | null;
+  phone_tail: string | null;
+}
+
 const iso = (ms: number | null, nowMs: number) => new Date(ms ?? nowMs).toISOString();
 
 /** Separa o aviso em: mensagens recebidas (prontas) e mensagens enviadas (precisam das frases do cliente). */
 export async function planGatewayPayload(payload: unknown, nowMs: number) {
   const inbound: InboundOut[] = [];
   const echoRaw: { phone: string; id: string; text: string }[] = [];
+  const store: StoreOut[] = [];
   let ignored = 0;
   for (const m of parseGatewayPayload(payload)) {
     if (m.kind === "ignore") {
       ignored++;
       continue;
+    }
+    if (m.text.trim()) {
+      store.push({
+        wa_hash: await sha256Hex(m.phone),
+        direction: m.kind === "echo" ? "enviada" : "recebida",
+        message_key: (await sha256Hex(m.id)).slice(0, 40),
+        at: iso(m.at, nowMs),
+        body: m.text.slice(0, 4000),
+        push_name: m.pushName || null,
+        phone_tail: m.phone.slice(-4),
+      });
     }
     if (m.kind === "echo") {
       if (m.text) echoRaw.push({ phone: m.phone, id: m.id, text: m.text });
@@ -50,7 +73,7 @@ export async function planGatewayPayload(payload: unknown, nowMs: number) {
         : null,
     });
   }
-  return { inbound, echoRaw, ignored };
+  return { inbound, echoRaw, store, ignored };
 }
 
 /** Acha as frases do cliente nas mensagens que a agência mandou. Sem frase, nada sai. */

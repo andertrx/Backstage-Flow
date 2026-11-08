@@ -14,6 +14,8 @@ export type GatewayMessage =
       id: string;
       at: number | null;
       text: string;
+      /** Nome que a pessoa usa no WhatsApp (só em mensagens recebidas). */
+      pushName: string;
       ctwa: string | null;
       adId: string | null;
       sourceType: string | null;
@@ -84,6 +86,7 @@ function one(msg: unknown): GatewayMessage {
     id,
     at: Number.isFinite(ts) && ts > 0 ? (ts > 1e12 ? ts : ts * 1000) : null,
     text,
+    pushName: key.fromMe === true ? "" : str(msg.pushName).trim().slice(0, 80),
     ctwa: ctwa ? ctwa.slice(0, 500) : null,
     adId: /^\d{1,32}$/.test(adId) ? adId : null,
     sourceType: str(ad.sourceType).slice(0, 40) || null,

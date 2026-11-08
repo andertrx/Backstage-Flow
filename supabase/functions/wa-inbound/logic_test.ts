@@ -48,3 +48,15 @@ Deno.test("mensagem da agência sem frase, ou cliente sem frases cadastradas: na
   const f = await planGatewayPayload(upsert({ fromMe: true }, { conversation: "Parabéns pela sua compra de R$ 10" }), NOW);
   assertEquals((await echoesFor(f.echoRaw, [])).length, 0);
 });
+
+Deno.test("texto para guardar (buffer de 2 dias): recebida com nome e final do número; enviada sem nome; vazia não vai", async () => {
+  const r = await planGatewayPayload({ event: "messages.upsert", data: { pushName: "João", key: { remoteJid: "5545999998888@s.whatsapp.net", fromMe: false, id: "ID7" }, message: { conversation: "Quero comprar" }, messageTimestamp: 1762603200 } }, NOW);
+  assertEquals(r.store.length, 1);
+  assertEquals([r.store[0].direction, r.store[0].body, r.store[0].push_name, r.store[0].phone_tail], ["recebida", "Quero comprar", "João", "8888"]);
+  assertMatch(r.store[0].wa_hash, /^[0-9a-f]{64}$/);
+  assertEquals(r.store[0].message_key, r.inbound[0].message_key);
+  const e = await planGatewayPayload(upsert({ fromMe: true, id: "ID8" }, { conversation: "Fechado!" }), NOW);
+  assertEquals([e.store[0].direction, e.store[0].push_name], ["enviada", null]);
+  const v = await planGatewayPayload(upsert({ id: "ID9" }, { imageMessage: {} }), NOW);
+  assertEquals(v.store.length, 0);
+});
