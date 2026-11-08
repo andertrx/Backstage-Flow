@@ -168,7 +168,7 @@ function MeetingDoneButton({ meetingId }: { meetingId: string }) {
   const q = useMeeting(open ? meetingId : null);
   return (
     <>
-      <Button type="button" className="px-2 py-1 text-xs" onClick={() => setOpen(true)} loading={open && q.isLoading}>
+      <Button type="button" className="w-full justify-center gap-1 whitespace-nowrap px-1.5 py-1.5 text-xs" onClick={() => setOpen(true)} loading={open && q.isLoading}>
         <ClipboardCheck className="size-3.5" aria-hidden /> Reunião realizada
       </Button>
       {open && q.error && <p className="w-full text-[11px] text-red-700" role="alert">{errorMessage(q.error)}</p>}
@@ -195,36 +195,38 @@ export function OnboardingMeetingActions({ c, ctx }: { c: OpsBoardClient; ctx: T
   if (!isOnboardingStage(c.stage_id) || !c.can_move) return null;
   // 50.1: as tarefas do onboarding ficam disponíveis em Agendado (ou com a reunião já realizada), mesmo depois de a primeira ser criada.
   const tasks = c.stage_id === ONBOARDING_SCHEDULED_STAGE || c.meeting_ok ? <OpsTaskAction c={c} ctx={ctx} /> : null;
-  if (c.meeting_ok) return tasks;
+  if (c.meeting_ok) return tasks && <div className="border-t border-slate-100 pt-2">{tasks}</div>;
   const canCreate = ctx.can("ops.meetings.manage");
   const has = Boolean(c.onboarding_meeting && c.onboarding_meeting.status !== "cancelada");
   return (
     <>
-    <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2" data-testid="ops-onboarding-actions">
+    <div className="space-y-1.5 border-t border-slate-100 pt-2" data-testid="ops-onboarding-actions">
       {c.onboarding_meeting?.status === "agendada" && <MeetingDoneButton meetingId={c.onboarding_meeting.id} />}
+      <div className="grid grid-cols-2 gap-1.5 [&>*:only-child]:col-span-2">
       {has ? (
         // 51.5: com reunião vinculada, "Criar reunião" fica dentro de "Trocar reunião"
-        <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setMode("replace")}>
+        <Button type="button" variant="secondary" className="justify-center gap-1 whitespace-nowrap px-1.5 py-1.5 text-xs" onClick={() => setMode("replace")}>
           <Link2 className="size-3.5" aria-hidden /> Trocar reunião
         </Button>
       ) : (
         <>
-          <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setMode("link")}>
+          <Button type="button" variant="secondary" className="justify-center gap-1 whitespace-nowrap px-1.5 py-1.5 text-xs" onClick={() => setMode("link")}>
             <Link2 className="size-3.5" aria-hidden /> Vincular reunião
           </Button>
           {canCreate && (
-            <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setMode("create")}>
+            <Button type="button" variant="secondary" className="justify-center gap-1 whitespace-nowrap px-1.5 py-1.5 text-xs" onClick={() => setMode("create")}>
               <CalendarPlus className="size-3.5" aria-hidden /> Criar reunião
             </Button>
           )}
         </>
       )}
       {has && (
-        <Button type="button" variant="secondary" className="px-2 py-1 text-xs" loading={unlink.isPending}
+        <Button type="button" variant="secondary" className="justify-center gap-1 whitespace-nowrap px-1.5 py-1.5 text-xs" loading={unlink.isPending}
           onClick={() => { setError(null); unlink.mutate(c.client_id, { onError: (e) => setError(errorMessage(e)) }); }}>
           <Unlink className="size-3.5" aria-hidden /> Desvincular
         </Button>
       )}
+      </div>
       {error && <p className="w-full text-[11px] text-red-700" role="alert">{error}</p>}
       {mode === "link" && <LinkModal c={c} onClose={() => setMode(null)} />}
       {mode === "replace" && c.onboarding_meeting && (
@@ -237,8 +239,8 @@ export function OnboardingMeetingActions({ c, ctx }: { c: OpsBoardClient; ctx: T
           defaults={{ client_id: c.client_id, title: `Onboarding — ${c.name}`, category_id: "cliente", lockClient: true }}
           onSaved={(id) => link.mutate({ clientId: c.client_id, meetingId: id }, { onError: (e) => setError(errorMessage(e)) })} />
       )}
+      {tasks}
     </div>
-    {tasks}
     </>
   );
 }
@@ -251,8 +253,8 @@ function OpsTaskAction({ c, ctx }: { c: OpsBoardClient; ctx: TasksContext }) {
   if (!ctx.can("ops.tasks.create")) return null;
   const mine = ctx.sectors.find((s) => s.id === ctx.mySector);
   return (
-    <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2" data-testid="ops-onboarding-task-action">
-      <Button type="button" variant="secondary" className="px-2 py-1 text-xs" onClick={() => setMode("lista")}>
+    <div className="space-y-1" data-testid="ops-onboarding-task-action">
+      <Button type="button" variant="secondary" className="w-full justify-center gap-1 whitespace-nowrap px-1.5 py-1.5 text-xs" onClick={() => setMode("lista")}>
         <ClipboardPlus className="size-3.5" aria-hidden /> Tarefas do onboarding
       </Button>
       {done !== null && <p className="w-full text-[11px] text-emerald-700" role="status">{done} tarefa(s) criada(s).</p>}

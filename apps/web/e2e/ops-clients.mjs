@@ -117,7 +117,8 @@ const waitFor = async (page, fn, what) => {
   await page.locator("[data-testid=ops-kanban-column][data-status=contrato_pago]").getByText("Loja Aurora").waitFor();
   check(db.opsClientOps[AURORA].stage_id === "contrato_pago", "avanço recusado e o cartão volta");
   // o mesmo pelo "Mover para…"
-  await card.getByLabel("Mover Loja Aurora para").selectOption({ label: "Briefing" });
+  await card.getByLabel("Mover Loja Aurora para").click();
+  await page.getByRole("menuitem", { name: "Briefing" }).click();
   blocked = page.getByRole("dialog", { name: "Não dá para mover Loja Aurora" });
   await blocked.waitFor();
   check((await blocked.innerText()).includes("Vincule uma reunião"), "51.2: Mover para… também abre o pop-up da regra");
@@ -155,8 +156,9 @@ const waitFor = async (page, fn, what) => {
 
   // Filas: Design e Copy entregam; o cliente avança sozinho
   await page.getByRole("link", { name: "Onboarding" }).click();
-  await page.getByTestId("ops-operation-tab-filas").click();
-  check(new URL(page.url()).pathname === "/onboarding" && page.url().includes("ver=filas"), "38.2: Filas dentro de Onboarding");
+  check(await page.getByTestId("ops-operation-tab-filas").count() === 0, "52.8: a aba Filas dos setores saiu do Onboarding");
+  await page.goto(`${BASE}/onboarding?ver=filas`);
+  check(new URL(page.url()).pathname === "/onboarding" && page.url().includes("ver=filas"), "38.2: endereço das Filas continua abrindo");
   await page.getByTestId("ops-queues").waitFor();
   await page.screenshot({ path: `${SHOTS}/38.2-filas.png` });
   await page.getByLabel("Setor").selectOption({ label: "Design" });
@@ -232,8 +234,8 @@ const waitFor = async (page, fn, what) => {
   // 38.2: o designer vê o menu Onboarding só com as Filas dos setores (sem os clientes).
   await page.getByRole("link", { name: "Onboarding" }).click();
   await page.getByTestId("ops-queues").waitFor();
-  check(await page.getByTestId("ops-operation-tab-clientes").count() === 0 && await page.getByTestId("ops-operation-tab-filas").count() === 1,
-    "38.2: designer vê só a parte Filas dentro de Onboarding");
+  check(await page.getByTestId("ops-operation-tab-clientes").count() === 0 && await page.getByTestId("ops-operation-tab-filas").count() === 0,
+    "38.2: designer vê só as Filas dentro de Onboarding, sem abas");
   check((await page.getByLabel("Setor").inputValue()) === sectorId(db, "Design"), "fila abre no setor da pessoa");
   check(await page.getByTestId("ops-clients").count() === 0, "38.2: designer não vê os clientes do Onboarding");
   check(errors.length === 0, `sem erros (equipe) ${errors.join(" | ")}`);

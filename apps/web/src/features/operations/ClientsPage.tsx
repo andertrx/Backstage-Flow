@@ -1,4 +1,4 @@
-import { ArrowRight, Ban, Building2, Layers, PhoneCall, Plus, Search, UserPlus } from "lucide-react";
+import { Ban, Building2, ChevronDown, PhoneCall, Plus, Search, UserPlus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -14,7 +14,6 @@ import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { ClientOpsDrawer, ProgressBar, StagePill, StartClientModal } from "./ClientOps.tsx";
 import { OPS_ONB_CONTACT_LABELS, type OpsBoardClient, useMoveClientStage, useOpsClientBoard, useOpsClientStages } from "./clientsApi.ts";
 import { DndBoard } from "./KanbanBoard.tsx";
-import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { useMyOpsPermissions } from "./api.ts";
 import { RequireOps, tabAllowed } from "./OpsLayout.tsx";
 import { NewClientModal } from "./OnboardingFicha.tsx";
@@ -23,19 +22,34 @@ import { QueuesPage } from "./QueuesPage.tsx";
 import { type TaskView, ViewToggle } from "./TasksPage.tsx";
 import { TaskDetailHost, type TasksContext, useTasksContext } from "./tasksContext.tsx";
 
-/** Etapa 51.2: escolher a coluna para onde o cartão vai (além de arrastar). Mesmas regras do arrastar. */
-function MoveToSelect({ c, targets, onMoveTo }: { c: OpsBoardClient; targets: { id: string; name: string }[]; onMoveTo: (to: string) => void }) {
+/** Etapa 51.2/52: seta no canto do cartão que abre o menu "Mover para…" (mesmas regras do arrastar). */
+function MoveMenu({ c, targets, onMoveTo }: { c: OpsBoardClient; targets: { id: string; name: string }[]; onMoveTo: (to: string) => void }) {
+  const [open, setOpen] = useState(false);
   const options = targets.filter((t) => t.id !== c.stage_id);
   if (!c.can_move || options.length === 0) return null;
-  // não deixa o clique na lista começar o arrastar do cartão
+  // não deixa o clique no menu começar o arrastar do cartão
   const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
   return (
-    <div onPointerDown={stop} onMouseDown={stop} onTouchStart={stop} onKeyDown={stop}>
-      <Select aria-label={`Mover ${c.name} para`} data-testid="ops-client-move-to" className="w-full py-1 text-xs" value=""
-        onChange={(e) => { if (e.target.value) onMoveTo(e.target.value); }}>
-        <option value="">Mover para…</option>
-        {options.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-      </Select>
+    <div className="absolute right-2 top-2" onPointerDown={stop} onMouseDown={stop} onTouchStart={stop} onKeyDown={stop}>
+      <button type="button" aria-label={`Mover ${c.name} para`} aria-haspopup="menu" aria-expanded={open} data-testid="ops-client-move-to" title="Mover para…"
+        onClick={() => setOpen((v) => !v)}
+        className="flex size-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 aria-expanded:bg-slate-100 aria-expanded:text-slate-700">
+        <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
+          <div role="menu" aria-label="Mover para" className="absolute right-0 top-8 z-50 w-56 rounded-xl bg-white p-1 shadow-elevated ring-1 ring-slate-200">
+            <p className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Mover para</p>
+            {options.map((t) => (
+              <button key={t.id} type="button" role="menuitem" onClick={() => { setOpen(false); onMoveTo(t.id); }}
+                className="block w-full rounded-lg px-2.5 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100">
+                {t.name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -45,9 +59,9 @@ function ClientCard({ c, ctx, onOpen, targets, onMoveTo }: {
 }) {
   const s = c.summary;
   return (
-    <div className="space-y-2 rounded-xl bg-white p-3.5 shadow-card ring-1 ring-slate-200/80 transition duration-150 hover:shadow-elevated hover:ring-brand-300">
+    <div className="relative space-y-2 rounded-xl bg-white p-3.5 shadow-card ring-1 ring-slate-200/80 transition duration-150 hover:shadow-elevated hover:ring-brand-300">
       <button type="button" onClick={onOpen} data-testid="ops-client-card" className="block w-full space-y-2 text-left focus-visible:outline-2 focus-visible:outline-blue-600">
-        <p className="break-words text-base font-bold leading-tight text-slate-950" data-testid="ops-client-card-name">{c.name}</p>
+        <p className="break-words pr-7 text-base font-bold leading-tight text-slate-950" data-testid="ops-client-card-name">{c.name}</p>
         <p className="text-[11px] text-slate-500">AM: {c.am_name ?? "sem Account Manager"}</p>
         {isOnboardingStage(c.stage_id) && <MeetingSeal c={c} />}
         {c.last_contact ? (
@@ -68,7 +82,7 @@ function ClientCard({ c, ctx, onOpen, targets, onMoveTo }: {
         <div className="border-t border-slate-100 pt-2"><ProgressBar done={s.obrigatorias_concluidas} total={s.obrigatorias} /></div>
       </button>
       <OnboardingMeetingActions c={c} ctx={ctx} />
-      <MoveToSelect c={c} targets={targets} onMoveTo={onMoveTo} />
+      <MoveMenu c={c} targets={targets} onMoveTo={onMoveTo} />
     </div>
   );
 }
@@ -159,13 +173,6 @@ export function ClientsPage() {
 
   return (
     <div className="space-y-4" data-testid="ops-clients">
-      <OpsModuleHeader number="03" icon={Building2} title="Onboarding: clientes liberados"
-        description="Clientes que o Comercial liberou: etapa de cada um, Account Manager e o andamento das demandas de todos os setores." />
-      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
-        <span>Comercial (Prospecção → Contrato Pago)</span>
-        <ArrowRight className="size-4 text-blue-500" aria-hidden />
-        <span className="text-blue-700">Onboarding e operação (Onboarding → execução por setor → acompanhamento)</span>
-      </div>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-56 flex-1">
           <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden />
@@ -219,33 +226,15 @@ export function ClientsPage() {
 const CLIENT_PERMS = { permission: "ops.clients.view", anyOf: ["ops.clients.view", "ops.am"] } as const;
 
 /**
- * Etapa 38.2 (43.7: agora aba Onboarding) com duas partes — Clientes (onboarding e acompanhamento; ficha operacional ou Account Manager)
- * e Filas dos setores (todos da Central). Quem não vê clientes (ex.: papel Equipe) vê só as Filas, como antes.
+ * Aba Onboarding: só os clientes (52.8: a aba "Filas dos setores" saiu daqui).
+ * Quem não vê clientes (ex.: papel Equipe) continua vendo as filas do próprio setor, sem abas.
  */
 function OperationPage() {
   const perms = useMyOpsPermissions();
   const canClients = tabAllowed(perms.data, { permission: CLIENT_PERMS.permission, anyOf: [...CLIENT_PERMS.anyOf] });
-  const [params, update] = useSearchParamsUpdater();
-  const sub = params.get("ver") === "filas" || !canClients ? "filas" : "clientes";
-  const setSub = (v: "clientes" | "filas") => update((p) => { if (v === "clientes") p.delete("ver"); else p.set("ver", v); p.delete("cliente"); return p; });
-  const parts = [
-    ...(canClients ? [{ id: "clientes" as const, label: "Clientes", icon: Building2 }] : []),
-    { id: "filas" as const, label: "Filas dos setores", icon: Layers },
-  ];
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" role="tablist" aria-label="Partes da operação">
-        {parts.map(({ id, label, icon: Icon }) => (
-          <button key={id} type="button" role="tab" aria-selected={sub === id} onClick={() => setSub(id)} data-testid={`ops-operation-tab-${id}`}
-            className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium",
-              sub === id ? "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900")}>
-            <Icon className="size-4" aria-hidden /> {label}
-          </button>
-        ))}
-      </div>
-      {sub === "filas" ? <QueuesPage /> : <ClientsPage />}
-    </div>
-  );
+  const [params] = useSearchParamsUpdater();
+  // O endereço antigo "?ver=filas" continua abrindo as filas (links e favoritos), mas sem aba visível.
+  return canClients && params.get("ver") !== "filas" ? <ClientsPage /> : <QueuesPage />;
 }
 
 export function ClientsRoute() {

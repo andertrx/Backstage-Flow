@@ -8,7 +8,6 @@ import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { KanbanBoard } from "./KanbanBoard.tsx";
-import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { TaskCard } from "./TaskBits.tsx";
 import { TaskFormModal } from "./TaskFormModal.tsx";
 import { type TaskView, ViewToggle } from "./TasksPage.tsx";
@@ -47,7 +46,6 @@ export function MyTasksPage() {
 
   return (
     <div className="space-y-4" data-testid="ops-my-tasks">
-      <OpsModuleHeader number="01" icon={ListChecks} title="Minhas tarefas" description="O que está com você: atrasadas, para hoje, esperando sua ação e próximos prazos." />
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-1 flex-wrap gap-2">
           {counts.map(({ s, n }) => (
