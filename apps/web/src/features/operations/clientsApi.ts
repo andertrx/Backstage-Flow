@@ -4,6 +4,7 @@ import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import { ownDbError } from "./api.ts";
 import { OPS_MAX_FILE_BYTES, type OpsTaskRow, TASKS_KEY } from "./tasksApi.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 // ---------------------------------------------------------------------------
 // Etapa 36.3 — clientes no fluxo operacional (onboarding e Account Manager),
@@ -285,6 +286,7 @@ export function useLinkClientMeeting() {
   return useOpsMutation(async (v: { clientId: string; meetingId: string }) => {
     const { error } = await supabase.rpc("ops_client_meeting_link", { p_client: v.clientId, p_meeting: v.meetingId });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos vincular a reunião."));
+    toast.success("Reunião vinculada");
   });
 }
 
@@ -293,6 +295,7 @@ export function useReplaceClientMeeting() {
   return useOpsMutation(async (v: { clientId: string; meetingId: string }) => {
     const { data, error } = await supabase.rpc("ops_client_meeting_replace", { p_client: v.clientId, p_meeting: v.meetingId });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos trocar a reunião."));
+    toast.success("Reunião trocada");
     return data as { nova: number; anterior: number | null; anterior_situacao?: string };
   });
 }
@@ -422,6 +425,7 @@ export function useSaveClientData() {
   return useOpsMutation(async (v: { clientId: string; input: OpsClientDataInput }) => {
     const { error } = await supabase.rpc("ops_client_data_save", { p_client: v.clientId, p: v.input });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos salvar os dados do cliente."));
+    toast.success("Dados do cliente salvos");
   });
 }
 
@@ -429,6 +433,7 @@ export function useCreateStartClient() {
   return useOpsMutation(async (v: { input: OpsClientDataInput; stageId: string; amId: string }) => {
     const { data, error } = await supabase.rpc("ops_client_create_start", { p: v.input, p_stage: v.stageId || null, p_am: v.amId || null });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos cadastrar o cliente."));
+    toast.success("Cliente cadastrado");
     return data as string;
   });
 }

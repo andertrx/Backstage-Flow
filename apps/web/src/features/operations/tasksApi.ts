@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import { ownDbError } from "./api.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 // ---------------------------------------------------------------------------
 // Etapa 36.2 — tarefas da Central. Quem vê e quem mexe é conferido no banco.
@@ -225,6 +226,7 @@ export function useSaveTask() {
   return useOpsMutation(async (v: { id: string | null; version: number | null; input: OpsTaskInput }) => {
     const { data, error } = await supabase.rpc("ops_task_save", { p_id: v.id, p_version: v.version, p: taskPayload(v.input) });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos salvar a tarefa."));
+    toast.success("Tarefa salva");
     return data as string;
   });
 }

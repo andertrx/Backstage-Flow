@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import { ownDbError } from "./api.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 // ---------------------------------------------------------------------------
 // Etapa 36.5 — Dailies e reuniões. Quem vê e quem mexe é decidido no banco.
@@ -164,6 +165,7 @@ export function useSaveMeeting() {
   return useOpsMutation(async (v: { id: string | null; version: number | null; input: OpsMeetingInput }) => {
     const { data, error } = await supabase.rpc("ops_meeting_save", { p_id: v.id, p_version: v.version, p: v.input });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos salvar a reunião."));
+    toast.success("Reunião salva");
     return data as string;
   });
 }
@@ -172,6 +174,7 @@ export function useRecordMeeting() {
   return useOpsMutation(async (v: { id: string; version: number; notes: string; attended: string[] }) => {
     const { error } = await supabase.rpc("ops_meeting_record", { p_id: v.id, p_version: v.version, p_notes: v.notes, p_attended: v.attended });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos registrar a reunião."));
+    toast.success("Reunião registrada");
   });
 }
 
@@ -182,6 +185,7 @@ export function useCancelMeeting() {
       ? await supabase.rpc("ops_meeting_cancel_kind", { p_id: v.id, p_version: v.version, p_reason: v.reason.trim(), p_kind: v.kind })
       : await supabase.rpc("ops_meeting_cancel", { p_id: v.id, p_version: v.version, p_reason: v.reason.trim() });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos cancelar a reunião."));
+    toast.success("Reunião cancelada");
   });
 }
 

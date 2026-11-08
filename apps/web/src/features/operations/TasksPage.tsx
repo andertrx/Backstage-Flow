@@ -11,7 +11,6 @@ import { errorMessage } from "@/lib/errors.ts";
 import { useDebouncedValue } from "@/lib/useDebouncedValue.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { KanbanBoard } from "./KanbanBoard.tsx";
-import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { SavedViews } from "./SavedViews.tsx";
 import { DueLabel, PeopleStack, PriorityBadge, StatusPill } from "./TaskBits.tsx";
 import { TaskFormModal } from "./TaskFormModal.tsx";
@@ -114,7 +113,6 @@ export function TasksPage() {
 
   return (
     <div className="space-y-4" data-testid="ops-tasks">
-      <OpsModuleHeader number="02" icon={ClipboardList} title="Central de Tarefas" description="Todas as tarefas que você pode ver: por status, setor, cliente e responsável." />
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-56 flex-1">
           <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden />

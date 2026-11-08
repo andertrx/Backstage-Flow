@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import type { Client, ClientAccess, ClientInput } from "./types.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 const CLIENTS_KEY = ["clients"] as const;
 
@@ -85,6 +86,7 @@ export function useSaveClient() {
       if (id) {
         const { error } = await supabase.from("clients").update(input).eq("id", id);
         if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos salvar o cliente."));
+        toast.success("Cliente salvo");
         return id;
       }
       // O id é gerado aqui para não depender de "retornar a linha" logo após o
@@ -92,6 +94,7 @@ export function useSaveClient() {
       const newId = crypto.randomUUID();
       const { error } = await supabase.from("clients").insert({ id: newId, ...input });
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos cadastrar o cliente."));
+      toast.success("Cliente cadastrado");
       return newId;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CLIENTS_KEY }),

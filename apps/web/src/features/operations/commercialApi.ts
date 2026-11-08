@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 import { ownDbError } from "./api.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 // ---------------------------------------------------------------------------
 // Etapa 36.4 — Kanban comercial. Só quem tem "Comercial" (e o admin) usa; o
@@ -211,6 +212,7 @@ export function useSaveLead() {
     const p = { ...v.input, potential_value: parseMoneyInput(v.input.potential_value) };
     const { data, error } = await supabase.rpc("ops_lead_save", { p_id: v.id, p_version: v.version, p });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos salvar o lead."));
+    toast.success("Lead salvo");
     return data as string;
   });
 }

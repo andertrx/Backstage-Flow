@@ -35,6 +35,8 @@ import { check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
   await form.getByRole("button", { name: "Cadastrar cliente" }).click();
   await page.waitForURL(/\/clientes\/[0-9a-f-]{36}$/);
   check(true, "após cadastrar abre a página do cliente");
+  await page.getByTestId("toast").filter({ hasText: "Cliente cadastrado" }).waitFor();
+  check(true, "52.9: aviso \"Cliente cadastrado\" aparece");
 
   const saved = db.clients[0];
   check(
@@ -69,6 +71,8 @@ import { check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
   await edit.getByLabel("Status").selectOption("pausado");
   await edit.getByRole("button", { name: "Salvar" }).click();
   await edit.waitFor({ state: "detached" });
+  await page.getByTestId("toast").filter({ hasText: "Cliente salvo" }).waitFor();
+  check(true, "52.9: aviso \"Cliente salvo\" aparece");
   await page.getByText("Pausado", { exact: true }).first().waitFor();
   check(db.clients[0].status === "pausado", "edição muda o status");
 
