@@ -28,6 +28,7 @@ import {
   useCapiOverview,
   useConversionsSummary,
   useDestinations,
+  useWaSuggestions,
   useWhatsAppClicks,
   useWhatsAppConnections,
   useWhatsAppConversations,
@@ -46,6 +47,7 @@ import { LeadsSection } from "./LeadsSection.tsx";
 import { ReadinessSection, type SiteReadiness } from "./ReadinessSection.tsx";
 import { capiStatus, PERIOD_LABELS, siteReadiness, type PeriodPreset, periodRange, summarizeConversions, waConnectionStatus } from "./logic.ts";
 import { MetaCapiModal } from "./MetaCapiModal.tsx";
+import { SuggestionsSection } from "./SuggestionsSection.tsx";
 import { RulesModal } from "./RulesModal.tsx";
 import { WhatsAppApiModal } from "./WhatsAppApiModal.tsx";
 import { WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
@@ -57,11 +59,12 @@ const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
   desconhecida: "neutral",
 };
 
-type TrackingTab = "sites" | "origens" | "whatsapp" | "leads" | "saude";
+type TrackingTab = "sites" | "origens" | "whatsapp" | "sugestoes" | "leads" | "saude";
 const TABS: { id: TrackingTab; label: string }[] = [
   { id: "sites", label: "Sites" },
   { id: "origens", label: "Origem e jornada" },
   { id: "whatsapp", label: "WhatsApp" },
+  { id: "sugestoes", label: "Vendas sugeridas" },
   { id: "leads", label: "Leads e contatos" },
   { id: "saude", label: "Saúde" },
 ];
@@ -100,6 +103,8 @@ export function TrackingPage() {
   const canMarkWhatsApp = can(profile?.role, "tracking.whatsapp");
   const waConnections = useWhatsAppConnections(hasContainers);
   const waConversations = useWhatsAppConversations(hasContainers);
+  const suggestions = useWaSuggestions(hasContainers);
+  const pendingSuggestions = (suggestions.data ?? []).filter((x) => x.status === "pendente").length;
   const waConnOf = (containerId: string) => (waConnections.data ?? []).find((w) => w.container_id === containerId);
   const [waApiFor, setWaApiFor] = useState<TrackingContainer | null>(null);
   const [waServerFor, setWaServerFor] = useState<TrackingContainer | null>(null);
@@ -193,7 +198,7 @@ export function TrackingPage() {
                 className={tab === t.id
                   ? "rounded-full bg-brand-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-brand"
                   : "rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200 hover:text-slate-900"}>
-                {t.label}
+                {t.label}{t.id === "sugestoes" && pendingSuggestions > 0 ? ` (${pendingSuggestions})` : ""}
               </button>
             ))}
           </div>
@@ -332,6 +337,14 @@ export function TrackingPage() {
             siteName={(id) => byId.get(id)?.name ?? "—"}
             canMark={canMarkWhatsApp}
           />
+          )}
+
+          {tab === "sugestoes" && (
+            <SuggestionsSection
+              suggestions={(suggestions.data ?? []).filter((x) => !clientId || x.client_id === clientId)}
+              clientName={(id) => clients.find((c) => c.id === id)?.name ?? "Cliente"}
+              isAdmin={profile?.role === "admin"}
+            />
           )}
 
           {tab === "saude" && <ReadinessSection sites={readiness} />}

@@ -127,6 +127,9 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     /** WhatsApp pela API oficial (34.5-W2): conexões (segredos só aqui), conversas recebidas. */
     whatsappConnections: [],
     whatsappConversations: [],
+    /** Vendas sugeridas pela IA (T5.6) e configuração da IA (a chave nunca é guardada aqui, só o fato de existir). */
+    waSuggestions: [],
+    waAiSettings: { enabled: false, has_key: false, key_updated_at: null, model: "claude-sonnet-5-5", last_run_at: null, last_run_ok: null, last_run_count: null, last_run_error: null },
     waSecrets: {},
     /** Atribuição (34.4): linhas prontas por modelo e qualidade por site. */
     trackingAttribution: { last: [], first: [] },
@@ -1887,6 +1890,47 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       if (!w || !["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor ligam ou desligam o WhatsApp." });
       w.enabled = Boolean(p.p_enabled);
       return res(204);
+    }
+    // Guardar o texto por 2 dias (T5.6) e vendas sugeridas pela IA
+    if (url.includes("/rest/v1/rpc/wa_unofficial_set_store")) {
+      const p = parse();
+      const w = db.whatsappConnections.find((x) => x.id === p.p_id && x.mode === "nao_oficial");
+      if (!w || !["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor ligam a guarda do texto." });
+      w.store_messages = Boolean(p.p_on);
+      return res(204);
+    }
+    if (url.includes("/rest/v1/rpc/wa_ai_save")) {
+      const p = parse();
+      if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador configura a IA." });
+      if (p.p_api_key != null && !/^sk-ant-[A-Za-z0-9_-]{20,300}$/.test(p.p_api_key)) return res(400, { code: "22023", message: 'A chave da Anthropic começa com "sk-ant-". Confira e cole de novo.' });
+      if (p.p_api_key != null) { db.waAiSettings.has_key = true; db.waAiSettings.key_updated_at = new Date().toISOString(); }
+      if (p.p_enabled != null) {
+        if (p.p_enabled && !db.waAiSettings.has_key) return res(400, { code: "22023", message: "Cole a chave da Anthropic antes de ligar a IA." });
+        db.waAiSettings.enabled = Boolean(p.p_enabled);
+      }
+      return res(200, { enabled: db.waAiSettings.enabled, has_key: db.waAiSettings.has_key });
+    }
+    if (url.includes("/rest/v1/rpc/wa_ai_remove_key")) {
+      if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador configura a IA." });
+      Object.assign(db.waAiSettings, { has_key: false, enabled: false });
+      return res(204);
+    }
+    if (url.includes("/rest/v1/wa_ai_settings")) {
+      if (role !== "admin") return res(200, []);
+      return res(200, [db.waAiSettings]);
+    }
+    if (url.includes("/rest/v1/rpc/wa_suggestion_decide")) {
+      const p = parse();
+      const sg = db.waSuggestions.find((x) => x.id === p.p_id);
+      if (!sg || !["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Sem permissão." });
+      sg.status = p.p_status;
+      sg.decided_at = p.p_status === "pendente" ? null : new Date().toISOString();
+      sg.expires_at = p.p_status === "pendente" ? null : new Date(Date.now() + 30 * 86400000).toISOString();
+      return res(204);
+    }
+    if (url.includes("/rest/v1/tracking_wa_suggestions")) {
+      if (!["admin", "gestor"].includes(role)) return res(200, []);
+      return res(200, [...db.waSuggestions].sort((a, b) => b.created_at.localeCompare(a.created_at)));
     }
     if (url.includes("/rest/v1/tracking_whatsapp_connections")) {
       const cid = eqParam(url, "client_id");

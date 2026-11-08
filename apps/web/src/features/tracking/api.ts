@@ -453,6 +453,8 @@ export interface WhatsAppConnection {
   /** T5.3: servidor não oficial — a chave do endereço existe (só o final é mostrado). */
   has_inbound_key?: boolean;
   inbound_key_hint?: string | null;
+  /** T5.6: guarda o texto 2 dias para a IA ler uma vez por dia (opt-in). */
+  store_messages?: boolean;
 }
 
 export function useWhatsAppConnections(enabled: boolean) {
@@ -463,7 +465,7 @@ export function useWhatsAppConnections(enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_whatsapp_connections")
-        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint");
+        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint, store_messages");
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conexões do WhatsApp."));
       return data as WhatsAppConnection[];
     },
@@ -758,5 +760,115 @@ export function useWaUnofficialEnabled() {
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos salvar."));
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Vendas sugeridas pela IA (T5.6)
+// -----------------------------------------------------------------------------
+
+/** Mensagens 22023 do banco já são frases prontas para a pessoa (ex.: "A chave começa com sk-ant-"). */
+const readableDbError = (error: unknown, fallback: string) =>
+  (error as { code?: string }).code === "22023" ? String((error as { message?: string }).message ?? fallback) : friendlyDbError(error, fallback);
+
+export function useWaStoreMessages() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; on: boolean }) => {
+      const { error } = await supabase.rpc("wa_unofficial_set_store", { p_id: input.id, p_on: input.on });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos salvar."));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export interface WaSuggestion {
+  id: string;
+  client_id: string;
+  contact_id: number | null;
+  push_name: string | null;
+  phone_tail: string | null;
+  day: string;
+  reason: string;
+  confidence: "alta" | "media" | "baixa";
+  status: "pendente" | "confirmada" | "descartada";
+  decided_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
+export function useWaSuggestions(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "wa-suggestions"],
+    enabled,
+    refetchInterval: 120_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tracking_wa_suggestions")
+        .select("id, client_id, contact_id, push_name, phone_tail, day, reason, confidence, status, decided_at, expires_at, created_at")
+        .order("created_at", { ascending: false })
+        .limit(300);
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as vendas sugeridas."));
+      return data as WaSuggestion[];
+    },
+  });
+}
+
+export function useWaSuggestionDecide() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; status: "confirmada" | "descartada" | "pendente" }) => {
+      const { error } = await supabase.rpc("wa_suggestion_decide", { p_id: input.id, p_status: input.status });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos salvar a decisão."));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...KEY, "wa-suggestions"] }),
+  });
+}
+
+export interface WaAiSettings {
+  enabled: boolean;
+  has_key: boolean;
+  key_updated_at: string | null;
+  model: string;
+  last_run_at: string | null;
+  last_run_ok: boolean | null;
+  last_run_count: number | null;
+  last_run_error: string | null;
+}
+
+export function useWaAiSettings(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "wa-ai-settings"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("wa_ai_settings")
+        .select("enabled, has_key, key_updated_at, model, last_run_at, last_run_ok, last_run_count, last_run_error")
+        .maybeSingle();
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar a configuração da IA."));
+      return data as WaAiSettings | null;
+    },
+  });
+}
+
+export function useWaAiSave() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { apiKey?: string; enabled?: boolean }) => {
+      const { error } = await supabase.rpc("wa_ai_save", { p_api_key: input.apiKey ?? null, p_enabled: input.enabled ?? null });
+      if (error) throw new FriendlyError(readableDbError(error, "Não conseguimos salvar a configuração da IA."));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...KEY, "wa-ai-settings"] }),
+  });
+}
+
+export function useWaAiRemoveKey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("wa_ai_remove_key");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos remover a chave."));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...KEY, "wa-ai-settings"] }),
   });
 }
