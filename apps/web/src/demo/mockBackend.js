@@ -129,6 +129,9 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     whatsappConversations: [],
     /** Vendas sugeridas pela IA (T5.6) e configuração da IA (a chave nunca é guardada aqui, só o fato de existir). */
     waSuggestions: [],
+    /** Conversas do WhatsApp guardadas (T5.7): pessoas (telefone completo) e mensagens por pessoa. */
+    waPeople: [],
+    waMessages: [],
     waAiSettings: { enabled: false, has_key: false, key_updated_at: null, model: "claude-sonnet-5-5", last_run_at: null, last_run_ok: null, last_run_count: null, last_run_error: null },
     waSecrets: {},
     /** Atribuição (34.4): linhas prontas por modelo e qualidade por site. */
@@ -1908,13 +1911,65 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       w.enabled = Boolean(p.p_enabled);
       return res(204);
     }
-    // Guardar o texto por 2 dias (T5.6) e vendas sugeridas pela IA
+    // Guardar as conversas (T5.7: sem prazo, com o aviso confirmado) e vendas sugeridas pela IA
     if (url.includes("/rest/v1/rpc/wa_unofficial_set_store")) {
       const p = parse();
       const w = db.whatsappConnections.find((x) => x.id === p.p_id && x.mode === "nao_oficial");
-      if (!w || !["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor ligam a guarda do texto." });
+      if (!w || !["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor ligam a guarda das conversas." });
+      if (p.p_on && !w.store_ack_at && !p.p_ack) return res(400, { code: "22023", message: "Confirme o aviso: as pessoas precisam ser informadas de que a conversa é registrada." });
       w.store_messages = Boolean(p.p_on);
+      if (p.p_on && !w.store_ack_at) w.store_ack_at = new Date().toISOString();
       return res(204);
+    }
+    if (url.includes("/rest/v1/rpc/wa_conversations_list")) {
+      const p = parse();
+      if (!canManageClient(p.p_client)) return res(403, { code: "42501", message: "Sem permissão para ver as conversas deste cliente." });
+      const q = String(p.p_search ?? "").toLowerCase();
+      const digits = q.replace(/\D/g, "");
+      const rows = db.waPeople.filter((x) => x.client_id === p.p_client && (!p.p_before || x.last_at < p.p_before)
+        && (!q || (x.push_name ?? "").toLowerCase().includes(q) || (digits.length >= 3 && (x.phone ?? "").includes(digits))))
+        .sort((a, b) => b.last_at.localeCompare(a.last_at)).slice(0, p.p_limit ?? 50);
+      return res(200, rows.map((x) => {
+        const k = db.contacts.find((c) => c.client_id === x.client_id && c.wa_hash === x.wa_hash && !c.archived_at);
+        const sg = db.waSuggestions.find((g) => g.client_id === x.client_id && g.wa_hash === x.wa_hash && g.status === "pendente");
+        return { person_id: x.id, push_name: x.push_name, phone: x.phone, phone_tail: x.phone ? x.phone.slice(-4) : null, last_at: x.last_at,
+          last_direction: x.last_direction, last_preview: x.last_preview, messages: x.messages, origin: x.origin ?? "desconhecida", from_ad: Boolean(x.from_ad),
+          ad_id: x.ad_id ?? null, contact_id: k?.id ?? null, contact_sales: k?.sales ?? null, suggestion_id: sg?.id ?? null,
+          suggestion_reason: sg?.reason ?? null, suggestion_confidence: sg?.confidence ?? null };
+      }));
+    }
+    if (url.includes("/rest/v1/rpc/wa_conversation_messages")) {
+      const p = parse();
+      const w = db.waPeople.find((x) => x.id === p.p_person);
+      if (!w || !canManageClient(w.client_id)) return res(403, { code: "42501", message: "Conversa não encontrada ou sem permissão." });
+      return res(200, db.waMessages.filter((m) => m.person_id === w.id && (!p.p_before || m.at < p.p_before))
+        .sort((a, b) => b.at.localeCompare(a.at)).slice(0, p.p_limit ?? 60).map(({ id, direction, at, body }) => ({ id, direction, at, body })));
+    }
+    if (url.includes("/rest/v1/rpc/wa_conversation_delete")) {
+      const p = parse();
+      if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador apaga uma conversa." });
+      const w = db.waPeople.find((x) => x.id === p.p_person);
+      if (!w) return res(404, { code: "P0002", message: "Conversa não encontrada." });
+      const n = db.waMessages.filter((m) => m.person_id === w.id).length;
+      db.waMessages = db.waMessages.filter((m) => m.person_id !== w.id);
+      db.waPeople = db.waPeople.filter((x) => x.id !== w.id);
+      return res(200, n);
+    }
+    if (url.includes("/rest/v1/rpc/wa_person_contact")) {
+      const w = db.waPeople.find((x) => x.id === parse().p_person);
+      if (!w || !canManageClient(w.client_id) || !canMarkContacts(w.client_id)) return res(403, { code: "42501", message: "Só quem marca vendas em Contatos pode marcar a venda desta conversa." });
+      contactSeed(w.client_id);
+      let k = db.contacts.find((c) => c.client_id === w.client_id && c.wa_hash === w.wa_hash && !c.archived_at);
+      if (!k) {
+        const stage = db.contactStages.filter((st) => st.client_id === w.client_id && st.kind === "aberta" && !st.archived_at).sort((a, b) => a.position - b.position)[0];
+        const now = new Date().toISOString();
+        k = { id: (db.contacts.at(-1)?.id ?? 100) + 1, client_id: w.client_id, origin: "whatsapp", ph_hash: w.wa_hash, wa_hash: w.wa_hash, em_hash: null, wa_click_id: null,
+          ref_code: null, container_id: db.trackingContainers.find((t) => t.client_id === w.client_id)?.id ?? null, stage_id: stage.id, profile_id: null,
+          meta_sent: [], sales: 0, created_at: now, last_change_at: now, archived_at: null };
+        db.contacts.push(k);
+        contactLog(k, { kind: "criado", stage_id: stage.id });
+      }
+      return res(200, k.id);
     }
     if (url.includes("/rest/v1/rpc/wa_ai_save")) {
       const p = parse();

@@ -455,6 +455,7 @@ export interface WhatsAppConnection {
   inbound_key_hint?: string | null;
   /** T5.6: guarda o texto 2 dias para a IA ler uma vez por dia (opt-in). */
   store_messages?: boolean;
+  store_ack_at?: string | null;
 }
 
 export function useWhatsAppConnections(enabled: boolean) {
@@ -465,7 +466,7 @@ export function useWhatsAppConnections(enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_whatsapp_connections")
-        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint, store_messages");
+        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint, store_messages, store_ack_at");
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conexões do WhatsApp."));
       return data as WhatsAppConnection[];
     },
@@ -774,8 +775,8 @@ const readableDbError = (error: unknown, fallback: string) =>
 export function useWaStoreMessages() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; on: boolean }) => {
-      const { error } = await supabase.rpc("wa_unofficial_set_store", { p_id: input.id, p_on: input.on });
+    mutationFn: async (input: { id: string; on: boolean; ack?: boolean }) => {
+      const { error } = await supabase.rpc("wa_unofficial_set_store", { p_id: input.id, p_on: input.on, p_ack: input.ack ?? false });
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos salvar."));
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),

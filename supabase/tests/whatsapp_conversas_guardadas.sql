@@ -1,4 +1,4 @@
--- Teste da fase Tracking T5.6 (texto das conversas em buffer de 2 dias + vendas sugeridas pela IA + chave da IA).
+-- Teste da fase Tracking T5.6, ajustado na T5.7 (texto sem prazo, aviso confirmado) + vendas sugeridas pela IA + chave da IA).
 -- Roda numa transação desfeita (termina com "R: N verificações OK", que desfaz tudo).
 -- Precisa de: 1 admin ativo, 2 visualizadores ativos e 1 cliente ativo.
 do $$
@@ -33,9 +33,10 @@ begin
   -- 2. Visualizador não liga a guarda; admin liga
   perform set_config('request.jwt.claims', json_build_object('sub', v_visu, 'role', 'authenticated')::text, true);
   perform set_config('role', 'authenticated', true);
-  begin perform public.wa_unofficial_set_store(v_id, true); raise exception 'visualizador não liga a guarda'; exception when insufficient_privilege then null; end;
+  begin perform public.wa_unofficial_set_store(v_id, true, true); raise exception 'visualizador não liga a guarda'; exception when insufficient_privilege then null; end;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
-  perform public.wa_unofficial_set_store(v_id, true);
+  begin perform public.wa_unofficial_set_store(v_id, true); raise exception 'sem confirmar o aviso não liga'; exception when sqlstate '22023' then null; end;
+  perform public.wa_unofficial_set_store(v_id, true, true);
   perform set_config('request.jwt.claims', '', true);
   perform set_config('role', 'postgres', true);
   v_ok := v_ok + 1;
@@ -49,8 +50,8 @@ begin
   if (select count(*) from public.tracking_wa_messages) <> 2 then raise exception 'repetida não duplica'; end if;
   if public.wa_message_store(jsonb_build_object('connection_id', v_id, 'wa_hash', v_wa, 'direction', 'recebida', 'message_key', k3, 'body', '   ')) <> 'invalido'
      or public.wa_message_store(jsonb_build_object('connection_id', v_id, 'wa_hash', 'xx', 'direction', 'recebida', 'message_key', k3, 'body', 'oi')) <> 'invalido' then raise exception 'inválidas'; end if;
-  if (select min(expires_at) from public.tracking_wa_messages) < now() + interval '1 day 23 hours' or (select max(expires_at) from public.tracking_wa_messages) > now() + interval '2 days 1 hour' then
-    raise exception 'prazo do texto é de 2 dias';
+  if (select count(*) from public.tracking_wa_messages where expires_at is not null) <> 0 then
+    raise exception 'T5.7: o texto é guardado SEM prazo';
   end if;
   v_ok := v_ok + 1;
 

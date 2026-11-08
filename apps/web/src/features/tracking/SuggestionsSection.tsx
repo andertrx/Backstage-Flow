@@ -42,8 +42,8 @@ function AiCard() {
         <Badge tone={s?.enabled ? "success" : "neutral"}>{s?.enabled ? "Ligada" : "Desligada"}</Badge>
       </div>
       <p className="text-sm text-slate-600">
-        Uma vez por dia (3h da manhã), a IA lê as conversas do dia dos sites com “Guardar o texto por 2 dias” ligado e sugere onde pode ter havido venda.
-        Ela <strong>só sugere</strong>: você confere a conversa no WhatsApp e marca a venda no Contato, como sempre.
+        Uma vez por dia (3h da manhã), a IA lê as conversas do dia dos sites com “Guardar as conversas” ligado e sugere onde pode ter havido venda.
+        Ela <strong>só sugere</strong>: você confere a conversa aqui no CRM (Clientes → Conversas do WhatsApp) e marca a venda.
       </p>
       {error && <Alert tone="error">{error}</Alert>}
       <div className="flex flex-wrap items-end gap-2">
@@ -108,8 +108,8 @@ function Row({ s, client, onDecide, busy, pending }: {
             <span className="text-xs text-slate-500">{s.expires_at ? `Some sozinha ${formatRelative(s.expires_at)}.` : ""}</span>
           </>
         )}
-        <Link to="/contatos" className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:underline">
-          <ExternalLink className="size-3.5" aria-hidden /> Marcar a venda em Contatos
+        <Link to={`/clientes/${s.client_id}/conversas`} className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:underline" data-testid="wa-suggestion-open">
+          <ExternalLink className="size-3.5" aria-hidden /> Abrir a conversa e marcar a venda
         </Link>
       </div>
     </li>
@@ -118,7 +118,7 @@ function Row({ s, client, onDecide, busy, pending }: {
 
 /**
  * Vendas sugeridas pela IA (Tracking T5.6). A IA lê as conversas do dia e SUGERE; quem decide é a pessoa, depois de conferir
- * a conversa no WhatsApp. "Houve venda" só anota a decisão — a venda em si é marcada no Contato (que alimenta a API de Conversões).
+ * a conversa (T5.7: dentro do CRM). "Houve venda" só anota a decisão — a venda em si é marcada na conversa ou no Contato (que alimenta a API de Conversões).
  * Decidida, a sugestão some sozinha em 30 dias.
  */
 export function SuggestionsSection({ suggestions, clientName, isAdmin }: {
@@ -151,7 +151,7 @@ export function SuggestionsSection({ suggestions, clientName, isAdmin }: {
       <Card className="overflow-hidden">
         <div className="border-b border-slate-100 p-4">
           <h3 className="font-medium text-slate-900">Para conferir ({pending.length})</h3>
-          <p className="text-sm text-slate-600">Abra a conversa no WhatsApp. Se houve venda, clique em “Houve venda” e marque a venda no Contato.</p>
+          <p className="text-sm text-slate-600">Abra a conversa (“Abrir a conversa e marcar a venda”). Se houve venda, marque a venda na própria conversa.</p>
         </div>
         {pending.length === 0 ? (
           <p className="p-4 text-sm text-slate-500" data-testid="wa-suggestions-empty">Nenhuma sugestão pendente. A IA roda uma vez por dia, de madrugada.</p>

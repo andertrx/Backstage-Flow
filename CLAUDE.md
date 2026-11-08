@@ -65,7 +65,7 @@
 - **Dados pessoais:**
   - tracking: guardados **só como hash SHA-256** (feito no navegador);
   - leads comerciais (Central) têm contato legível, protegido por RLS (Comercial + admin), e **nunca** vão para logs ou histórico;
-  - texto de conversa do WhatsApp **nunca** é guardado.
+  - texto de conversa do WhatsApp: **por padrão não é guardado**. Só nos sites em que o admin/gestor liga "Guardar as conversas" **e confirma o aviso de privacidade** (decisão do Ander em 08/11/2026, T5.7): aí guardamos telefone completo, nome e texto, **sem prazo** (só o admin apaga), lidos só por admin, gestor e Account Manager do cliente; grupos nunca entram; nunca vai para log, histórico, relatório ou MCP.
 - **Banco:**
   - RLS ligado em **todas** as tabelas;
   - funções públicas finas chamam funções `private.*_impl` (security definer) que conferem a permissão.

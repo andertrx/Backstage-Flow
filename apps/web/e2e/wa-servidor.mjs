@@ -50,13 +50,18 @@ function seed(db, official = false) {
   await modal.waitFor();
   check(await page.getByTestId("wa-server-key").count() === 0 && (await modal.innerText()).includes(`••••${w.inbound_key_hint}`), "reaberto: a chave não aparece mais");
   check((await page.getByTestId("wa-server-status").innerText()).includes("funcionando"), "com mensagem recebida: funcionando");
-  // Guardar o texto por 2 dias para a IA (opt-in)
-  check(w.store_messages !== true && await modal.getByRole("checkbox", { name: "Guardar o texto das conversas por 2 dias para a IA" }).isChecked() === false, "guardar o texto nasce desligado");
-  page.once("dialog", (d) => d.accept());
-  await modal.getByRole("checkbox", { name: "Guardar o texto das conversas por 2 dias para a IA" }).click();
-  await page.waitForFunction(() => true);
-  await modal.getByRole("checkbox", { name: "Guardar o texto das conversas por 2 dias para a IA" }).waitFor();
-  check(w.store_messages === true, "liga a guarda do texto depois de confirmar");
+  // Guardar as conversas (opt-in, sem prazo, só depois de confirmar o aviso de privacidade — T5.7)
+  const store = modal.getByRole("checkbox", { name: "Guardar as conversas deste WhatsApp" });
+  check(w.store_messages !== true && await store.isChecked() === false, "guardar as conversas nasce desligado");
+  await store.click();
+  await page.getByTestId("wa-store-ack").waitFor();
+  check(w.store_messages !== true, "ligar abre o aviso e ainda não liga");
+  check((await page.getByTestId("wa-store-ack").innerText()).includes("Política de Privacidade"), "o aviso traz o texto pronto para o cliente usar");
+  check(await page.getByTestId("wa-store-ack").getByRole("button", { name: "Confirmar e ligar" }).isDisabled(), "sem marcar a confirmação não liga");
+  await page.getByTestId("wa-store-ack").getByRole("checkbox").check();
+  await page.getByTestId("wa-store-ack").getByRole("button", { name: "Confirmar e ligar" }).click();
+  await page.waitForFunction(() => document.body.textContent.includes("Guarda das conversas ligada."));
+  check(w.store_messages === true && Boolean(w.store_ack_at), "liga a guarda e registra o aceite do aviso");
   const old = w.inbound_key;
   page.once("dialog", (d) => d.accept());
   await modal.getByRole("button", { name: "Gerar nova chave" }).click();

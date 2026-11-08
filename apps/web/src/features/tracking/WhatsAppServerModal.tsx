@@ -18,6 +18,10 @@ import {
 } from "./api.ts";
 import { waConnectionStatus } from "./logic.ts";
 
+/** Texto de aviso que o cliente coloca no site, no botão de WhatsApp ou na primeira mensagem (Tracking T5.7). */
+export const WA_PRIVACY_NOTICE =
+  "Ao conversar neste WhatsApp, você concorda que seu número, seu nome e as mensagens sejam registrados para atendimento, controle de vendas e melhoria do serviço, conforme nossa Política de Privacidade (https://www.backstageflow.com.br/privacidade). Para pedir acesso ou exclusão, fale com a gente por aqui.";
+
 function CopyLine({ label, text }: { label: string; text: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -38,7 +42,7 @@ function CopyLine({ label, text }: { label: string; text: string }) {
 /**
  * WhatsApp do cliente pelo SERVIDOR NÃO OFICIAL (Tracking T5.3). O servidor de conexão (estilo Evolution API) avisa o CRM
  * a cada mensagem por webhook: o CRM conta a conversa, lê o código do botão do site e a origem do anúncio de WhatsApp,
- * e marca vendas pelas frases cadastradas. O texto das conversas nunca é guardado. Só admin e gestor configuram.
+ * e marca vendas pelas frases cadastradas. O texto das conversas só é guardado se a opção do passo 4 estiver ligada (com o aviso confirmado). Só admin e gestor configuram.
  */
 export function WhatsAppServerModal({ container, connection, canManage, onClose }: {
   container: TrackingContainer;
@@ -55,6 +59,8 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
   const [revealed, setRevealed] = useState<{ id: string; key: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [ack, setAck] = useState(false);
+  const [ackChecked, setAckChecked] = useState(false);
   const status = waConnectionStatus(connection);
   const mine = connection?.mode === "nao_oficial" ? connection : undefined;
   const url = mine ? waInboundUrl(mine.id) : null;
@@ -76,7 +82,7 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
         <p className="text-slate-600">
           Para o número de WhatsApp do cliente ligado ao seu <strong>servidor de conexão</strong> (API não oficial). Cada mensagem avisa o CRM, que conta a
           conversa, lê o <strong>código do botão do site</strong> e a <strong>origem do anúncio de WhatsApp</strong>, e marca a venda pelas <strong>frases</strong> (Contatos → Frases do WhatsApp).
-          Por padrão o texto das conversas <strong>não é guardado</strong>: o número vira código e o texto é lido só na memória. Grupos são ignorados.
+          Por padrão o texto das conversas <strong>não é guardado</strong>: o número vira código e o texto é lido só na memória. Se você ligar o passo 4, as conversas passam a ficar guardadas no CRM. Grupos são ignorados.
         </p>
         {official && <Alert tone="warning">Este site já tem WhatsApp pela API oficial. Desligue e remova essa conexão (botão “WhatsApp API”) antes de usar o servidor.</Alert>}
         {error && <Alert tone="error">{error}</Alert>}
@@ -152,19 +158,40 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
         )}
         {mine && canManage && (
           <section className="space-y-2" data-testid="wa-server-store">
-            <h4 className="font-medium text-slate-800">4. Deixar a IA sugerir vendas (opcional)</h4>
+            <h4 className="font-medium text-slate-800">4. Guardar as conversas (para conferir vendas e a IA sugerir)</h4>
             <label className="flex items-center gap-2">
-              <input type="checkbox" checked={!!mine.store_messages} aria-label="Guardar o texto das conversas por 2 dias para a IA"
+              <input type="checkbox" checked={!!mine.store_messages} aria-label="Guardar as conversas deste WhatsApp"
                 onChange={(e) => {
-                  if (e.target.checked && !window.confirm("Guardar o texto das conversas deste número por 2 dias, só para a IA ler uma vez por dia e sugerir vendas? Confirme que o contrato e a política de privacidade do cliente permitem isso.")) return;
-                  void run(() => store.mutateAsync({ id: mine.id, on: e.target.checked }));
+                  if (e.target.checked && !mine.store_ack_at) { setAck(true); return; }
+                  void run(() => store.mutateAsync({ id: mine.id, on: e.target.checked, ack: true }));
                 }} />
-              <span className="font-medium">Guardar o texto por 2 dias para a IA</span>
+              <span className="font-medium">Guardar as conversas deste WhatsApp</span>
+              {mine.store_messages && !mine.store_ack_at && <Badge tone="warning">Falta confirmar o aviso</Badge>}
             </label>
             <p className="text-xs text-slate-500">
-              O texto fica no CRM por <strong>2 dias</strong> e é apagado sozinho. Quem fica guardada é só a <strong>sugestão</strong> (cliente, final do número e um motivo curto),
-              até você decidir. A IA nunca marca venda sozinha. Só administrador, gestor e o Account Manager do cliente veem.
+              Guarda o <strong>telefone completo</strong>, o nome do WhatsApp e o <strong>texto</strong> das conversas individuais, <strong>sem prazo</strong>: nada é apagado sozinho.
+              Só administrador, gestor e o Account Manager do cliente leem (em Clientes → Conversas do WhatsApp); só o administrador apaga. Grupos nunca entram.
+              Áudio, imagem e arquivos aparecem só como marcador (“[áudio]”): o arquivo em si não é guardado.
             </p>
+            {ack && (
+              <Alert tone="warning">
+                <div className="space-y-2" data-testid="wa-store-ack">
+                  <p><strong>Antes de ligar, confirme o aviso de privacidade.</strong> A conversa só pode ser registrada se a pessoa for informada. Use este texto no site, no botão de WhatsApp ou na primeira mensagem do atendimento:</p>
+                  <CopyLine label="Texto do aviso (copie e use)" text={WA_PRIVACY_NOTICE} />
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" className="mt-0.5" checked={ackChecked} onChange={(e) => setAckChecked(e.target.checked)} />
+                    <span>Confirmo que as pessoas que falam com este WhatsApp são avisadas de que a conversa é registrada, e que o contrato e a política de privacidade do cliente permitem isso.</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <Button type="button" disabled={!ackChecked} loading={store.isPending}
+                      onClick={() => void run(() => store.mutateAsync({ id: mine.id, on: true, ack: true }), () => { setAck(false); setAckChecked(false); setNotice("Guarda das conversas ligada."); })}>
+                      Confirmar e ligar
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={() => { setAck(false); setAckChecked(false); }}>Cancelar</Button>
+                  </div>
+                </div>
+              </Alert>
+            )}
           </section>
         )}
         {!canManage && <p className="text-slate-500">Só administrador e gestor configuram o WhatsApp do site.</p>}

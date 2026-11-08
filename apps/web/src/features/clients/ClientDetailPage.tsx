@@ -1,5 +1,5 @@
 import { can, formatCnpj, formatPhone, opsCan, PLATFORMS } from "@backstage/shared";
-import { ArrowLeft, CalendarDays, ChartPie, ClipboardList, History, Info as InfoIcon, LayoutDashboard, Pencil, Power, PowerOff, Trash2, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChartPie, ClipboardList, History, Info as InfoIcon, LayoutDashboard, MessageCircle, Pencil, Power, PowerOff, Trash2, Users } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -133,6 +133,15 @@ export function ClientDetailPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400"
             >
               <Users className="size-4" aria-hidden /> Contatos
+            </Link>
+          )}
+          {canManage && (
+            <Link
+              to={`/clientes/${client.id}/conversas`}
+              data-testid="client-conversations"
+              className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400"
+            >
+              <MessageCircle className="size-4" aria-hidden /> Conversas do WhatsApp
             </Link>
           )}
           {can(profile?.role, "clients.edit") && (

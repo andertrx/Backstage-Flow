@@ -24,7 +24,7 @@ export interface EchoOut {
   matches: { trigger_id: string; value?: number; currency?: string }[];
 }
 
-/** Texto de uma mensagem, pronto para o buffer de 2 dias que a IA lê uma vez por dia (só com a opção ligada no site). */
+/** Texto de uma mensagem para a caixa de conversas (só com a opção ligada no site e o aviso confirmado). */
 export interface StoreOut {
   wa_hash: string;
   direction: "recebida" | "enviada";
@@ -33,6 +33,8 @@ export interface StoreOut {
   body: string;
   push_name: string | null;
   phone_tail: string | null;
+  /** Telefone completo da pessoa (só dígitos). Guardado só com a opção ligada (T5.7). */
+  phone: string;
 }
 
 const iso = (ms: number | null, nowMs: number) => new Date(ms ?? nowMs).toISOString();
@@ -48,15 +50,16 @@ export async function planGatewayPayload(payload: unknown, nowMs: number) {
       ignored++;
       continue;
     }
-    if (m.text.trim()) {
+    if (m.text.trim() || m.media) {
       store.push({
         wa_hash: await sha256Hex(m.phone),
         direction: m.kind === "echo" ? "enviada" : "recebida",
         message_key: (await sha256Hex(m.id)).slice(0, 40),
         at: iso(m.at, nowMs),
-        body: m.text.slice(0, 4000),
+        body: (m.text.trim() ? m.text : (m.media ?? "")).slice(0, 4000),
         push_name: m.pushName || null,
         phone_tail: m.phone.slice(-4),
+        phone: m.phone,
       });
     }
     if (m.kind === "echo") {

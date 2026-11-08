@@ -8,7 +8,7 @@
  * Mensagem recebida → conta a conversa, lê o código "(ref. …)" do botão do site e a origem do anúncio de WhatsApp (ctwa_clid).
  * Mensagem enviada pela agência → só é lida para achar as frases de venda/etapa do cliente (T4.1).
  * Grupos, listas de transmissão e outros eventos são ignorados. O número vira hash. O texto só é guardado se a opção
- * "guardar conversas" estiver ligada no site (opt-in), por apenas 2 dias, para a IA ler uma vez por dia (T5.6).
+ * "guardar conversas" estiver ligada no site (opt-in), sem prazo e com o telefone completo, e só depois de o aviso de privacidade ser confirmado (T5.7).
  *
  * Respostas: 200 (sempre que o aviso foi aceito, mesmo ignorado), 401, 404, 405, 413, 429.
  */
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
       const { error } = await db.rpc("tracking_whatsapp_inbound", { p: { connection_id: id, ...msg } });
       if (error) throw error;
     }
-    // Texto: só com a opção ligada no site; guardado 2 dias para a IA ler (Tracking T5.6) e apagado sozinho.
+    // Texto: só com a opção ligada no site e o aviso confirmado (o banco confere); guardado sem prazo (Tracking T5.7).
     if (auth.store_messages) {
       for (const msg of store) {
         const { error } = await db.rpc("wa_message_store", { p: { connection_id: id, ...msg } });

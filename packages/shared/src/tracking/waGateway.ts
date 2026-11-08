@@ -14,6 +14,8 @@ export type GatewayMessage =
       id: string;
       at: number | null;
       text: string;
+      /** Marcador do anexo sem texto ("[áudio]", "[imagem]"…), só para a conversa não ficar com buracos; o arquivo nunca é guardado. */
+      media: string | null;
       /** Nome que a pessoa usa no WhatsApp (só em mensagens recebidas). */
       pushName: string;
       ctwa: string | null;
@@ -46,6 +48,15 @@ function textOf(m: Obj): string {
   const cap = [m.imageMessage, m.videoMessage, m.documentMessage].map((x) => (isObj(x) ? str(x.caption) : "")).find(Boolean) ?? "";
   const btn = isObj(m.buttonsResponseMessage) ? str(m.buttonsResponseMessage.selectedDisplayText) : "";
   return str(m.conversation) || str(ext.text) || cap || btn;
+}
+
+const MEDIA_LABELS: [string, string][] = [
+  ["audioMessage", "[áudio]"], ["imageMessage", "[imagem]"], ["videoMessage", "[vídeo]"], ["documentMessage", "[documento]"],
+  ["stickerMessage", "[figurinha]"], ["locationMessage", "[localização]"], ["contactMessage", "[contato]"], ["contactsArrayMessage", "[contatos]"],
+];
+function mediaOf(m: Obj): string | null {
+  for (const [key, label] of MEDIA_LABELS) if (isObj(m[key])) return label;
+  return null;
 }
 
 function contextOf(m: Obj): Obj {
@@ -86,6 +97,7 @@ function one(msg: unknown): GatewayMessage {
     id,
     at: Number.isFinite(ts) && ts > 0 ? (ts > 1e12 ? ts : ts * 1000) : null,
     text,
+    media: text ? null : mediaOf(m),
     pushName: key.fromMe === true ? "" : str(msg.pushName).trim().slice(0, 80),
     ctwa: ctwa ? ctwa.slice(0, 500) : null,
     adId: /^\d{1,32}$/.test(adId) ? adId : null,

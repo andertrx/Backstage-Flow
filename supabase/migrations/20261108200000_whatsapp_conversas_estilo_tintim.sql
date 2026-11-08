@@ -262,3 +262,101 @@ begin
   return v_n;
 end;
 $$;
+
+-- 10) (parte 4) A lista acha o contato também pelo telefone normalizado, e "Marcar venda" cria o contato se ainda não existir.
+-- Hash do telefone normalizado (BR de 12 dígitos sem o 9 ganha o 9), igual ao resto do sistema; sem telefone, usa o hash que o WhatsApp mandou.
+create function private.wa_phone_ph_hash(p_phone text, p_wa_hash text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select case when p_phone is null then p_wa_hash
+              else encode(extensions.digest(
+                     case when length(p_phone) = 12 and p_phone like '55%' and substr(p_phone, 5, 1) between '6' and '9'
+                          then substr(p_phone, 1, 4) || '9' || substr(p_phone, 5) else p_phone end, 'sha256'), 'hex') end
+$$;
+revoke all on function private.wa_phone_ph_hash(text, text) from public, anon;
+grant execute on function private.wa_phone_ph_hash(text, text) to authenticated;
+
+create or replace function private.wa_conversations_list_impl(p_client uuid, p_search text, p_limit integer, p_before timestamptz)
+returns table (person_id bigint, push_name text, phone text, phone_tail text, last_at timestamptz, last_direction text, last_preview text,
+               messages integer, origin text, from_ad boolean, ad_id text, contact_id bigint, contact_sales integer,
+               suggestion_id uuid, suggestion_reason text, suggestion_confidence text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare v_q text := nullif(btrim(coalesce(p_search, '')), ''); v_digits text;
+begin
+  if not private.wa_messages_can_read(p_client) then
+    raise exception 'Sem permissão para ver as conversas deste cliente.' using errcode = '42501';
+  end if;
+  v_digits := regexp_replace(coalesce(v_q, ''), '\D', '', 'g');
+  return query
+  select p.id, p.push_name, p.phone,
+         (select m.phone_tail from public.tracking_wa_messages m where m.connection_id = p.connection_id and m.wa_hash = p.wa_hash and m.phone_tail is not null limit 1),
+         p.last_at, p.last_direction, p.last_preview, p.messages,
+         coalesce(w.origin, 'desconhecida'), (w.ctwa_clid is not null), w.ad_id,
+         k.id, k.sales,
+         s.id, s.reason, s.confidence
+    from public.tracking_wa_people p
+    left join public.tracking_whatsapp_conversations w on w.connection_id = p.connection_id and w.wa_hash = p.wa_hash
+    left join lateral (select kk.id, kk.sales from public.tracking_contacts kk
+                        where kk.client_id = p.client_id and kk.archived_at is null and (kk.wa_hash = p.wa_hash or kk.ph_hash in (p.wa_hash, private.wa_phone_ph_hash(p.phone, p.wa_hash)))
+                        order by kk.id limit 1) k on true
+    left join lateral (select ss.id, ss.reason, ss.confidence from public.tracking_wa_suggestions ss
+                        where ss.client_id = p.client_id and ss.wa_hash = p.wa_hash and ss.status = 'pendente' order by ss.day desc limit 1) s on true
+   where p.client_id = p_client
+     and (p_before is null or p.last_at < p_before)
+     and (v_q is null or p.push_name ilike '%' || replace(replace(v_q, '%', ''), '_', '') || '%'
+          or (length(v_digits) >= 3 and p.phone like '%' || v_digits || '%'))
+   order by p.last_at desc
+   limit greatest(1, least(coalesce(p_limit, 50), 100));
+end;
+$$;
+
+-- Contato da pessoa da conversa (cria se não existir, com a origem da conversa). Quem pode marcar vendas em Contatos.
+create function private.wa_person_contact_impl(p_person bigint)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  w      public.tracking_wa_people;
+  c      public.tracking_whatsapp_connections;
+  conv   public.tracking_whatsapp_conversations;
+  k      public.tracking_contacts;
+  v_open uuid; v_click bigint; v_vis text; v_ph text;
+begin
+  select * into w from public.tracking_wa_people where id = p_person;
+  if w.id is null or not private.wa_messages_can_read(w.client_id) or not private.contacts_can_mark(w.client_id) then
+    raise exception 'Só quem marca vendas em Contatos pode marcar a venda desta conversa.' using errcode = '42501';
+  end if;
+  v_ph := private.wa_phone_ph_hash(w.phone, w.wa_hash);
+  select * into k from public.tracking_contacts t
+   where t.client_id = w.client_id and t.archived_at is null and (t.wa_hash = w.wa_hash or t.ph_hash in (w.wa_hash, v_ph)) order by t.id limit 1;
+  if k.id is not null then return k.id; end if;
+  select * into c from public.tracking_whatsapp_connections where id = w.connection_id;
+  select * into conv from public.tracking_whatsapp_conversations where connection_id = w.connection_id and wa_hash = w.wa_hash;
+  select s.id into v_open from public.tracking_contact_stages s
+   where s.client_id = w.client_id and s.archived_at is null and s.kind = 'aberta' order by s.position limit 1;
+  if v_open is null then raise exception 'Cadastre as etapas dos contatos deste cliente antes (Contatos → Etapas).' using errcode = '22023'; end if;
+  select cl.id into v_click from public.tracking_whatsapp_clicks cl where cl.code = conv.click_code and cl.container_id = c.container_id;
+  v_vis := coalesce(conv.visitor_id, 'wa' || left(w.wa_hash, 30));
+  insert into public.tracking_contacts (client_id, container_id, origin, ph_hash, wa_hash, visitor_id, session_id, wa_click_id, ref_code, touchpoint_id, stage_id)
+  values (w.client_id, c.container_id, 'whatsapp', v_ph, w.wa_hash, v_vis, coalesce(conv.session_id, v_vis), v_click, conv.click_code, conv.touchpoint_id, v_open)
+  returning * into k;
+  insert into public.tracking_contact_history (contact_id, client_id, by_user, kind, stage_id, meta_note)
+  values (k.id, w.client_id, (select auth.uid()), 'criado', v_open, 'Criado pela caixa de conversas do WhatsApp');
+  return k.id;
+end;
+$$;
+revoke all on function private.wa_person_contact_impl(bigint) from public, anon;
+grant execute on function private.wa_person_contact_impl(bigint) to authenticated;
+create function public.wa_person_contact(p_person bigint)
+returns bigint language sql set search_path = '' as $$ select private.wa_person_contact_impl(p_person) $$;
+revoke all on function public.wa_person_contact(bigint) from public, anon;
+grant execute on function public.wa_person_contact(bigint) to authenticated;

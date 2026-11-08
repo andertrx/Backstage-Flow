@@ -13,6 +13,7 @@ import { RouteError } from "./RouteError.tsx";
 
 /** Cada página só é baixada quando for aberta (o site abre mais rápido). */
 const AccountPage = lazy(() => import("@/features/account/AccountPage.tsx").then((m) => ({ default: m.AccountPage })));
+const ConversationsPage = lazy(() => import("@/features/tracking/ConversationsPage.tsx").then((m) => ({ default: m.ConversationsPage })));
 const ClientDetailPage = lazy(() => import("@/features/clients/ClientDetailPage.tsx").then((m) => ({ default: m.ClientDetailPage })));
 const ClientReportPage = lazy(() => import("@/features/client-report/ClientReportPage.tsx").then((m) => ({ default: m.ClientReportPage })));
 const PublicReportPage = lazy(() => import("@/features/client-report/PublicReportPage.tsx").then((m) => ({ default: m.PublicReportPage })));
@@ -127,6 +128,15 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="clients.view">
             <ClientDetailPage />
+          </RequirePermission>
+        ),
+      },
+      // Tracking T5.7: conversas do WhatsApp do cliente (o banco confere: administrador, gestor e Account Manager do cliente)
+      {
+        path: "clientes/:id/conversas",
+        element: (
+          <RequirePermission permission="clients.view">
+            <ConversationsPage />
           </RequirePermission>
         ),
       },

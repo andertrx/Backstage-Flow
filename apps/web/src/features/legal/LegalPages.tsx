@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { Logo } from "@/components/layout/Logo.tsx";
 
-const UPDATED = "22/10/2026";
+const UPDATED = "08/11/2026";
 
 /** Moldura das páginas públicas (sem login): Política de Privacidade e Termos de Serviço. */
 function LegalLayout({ title, children }: { title: string; children: ReactNode }) {
@@ -66,7 +66,21 @@ export function PrivacyPage() {
             impressão digital irreversível (hash SHA-256).</>,
           <><strong>Rastreamento de site (quando instalado):</strong> eventos de visita e conversão; dados que identificam uma
             pessoa (e-mail, telefone) são transformados em hash SHA-256 no navegador antes de chegar ao sistema.</>,
-          <><strong>WhatsApp:</strong> o texto das conversas nunca é guardado.</>,
+          <><strong>WhatsApp (conversas individuais):</strong> por padrão o texto das conversas não é guardado. Quando a agência liga a opção
+            “Guardar as conversas” em um número de WhatsApp de um cliente, o sistema passa a guardar o <strong>telefone completo</strong>, o
+            <strong> nome</strong> que a pessoa usa no WhatsApp, a <strong>data e o texto das mensagens</strong> trocadas com aquele número e a origem
+            da conversa (anúncio, site ou direto). Conversas em grupo nunca são guardadas. Áudios, imagens, vídeos e arquivos não são guardados:
+            aparece apenas um marcador (por exemplo, “[áudio]”).</>,
+        ]} />
+      </Section>
+
+      <Section title="2.1. Conversas de WhatsApp: quem decide, avisos e direitos">
+        <List items={[
+          "A empresa cliente da agência é quem decide ligar a guarda das conversas do seu próprio número; a agência trata esses dados em nome dela, para atendimento, conferência de vendas e envio de conversões às plataformas de anúncios.",
+          "Antes de ligar, quem ativa precisa confirmar no sistema que as pessoas são avisadas de que a conversa é registrada (o sistema oferece um texto pronto de aviso). A confirmação fica registrada com data e responsável.",
+          "Uma ferramenta de inteligência artificial pode ler as conversas guardadas para sugerir que houve uma venda. Ela apenas sugere: quem marca a venda é uma pessoa. Os textos não são usados para treinar modelos.",
+          "Só têm acesso as pessoas autorizadas da agência para aquele cliente (administrador, gestor e o responsável pela conta). Os telefones usados no rastreamento de anúncios continuam sendo transformados em hash antes de qualquer envio às plataformas.",
+          "Quem conversou pode pedir acesso, correção ou exclusão da própria conversa (LGPD, art. 18): basta pedir à empresa pelo próprio WhatsApp ou à agência pelo canal de atendimento. O administrador apaga a conversa do sistema.",
         ]} />
       </Section>
 
@@ -104,7 +118,9 @@ export function PrivacyPage() {
         <p>
           Métricas e histórico das campanhas ficam guardados enquanto a agência atender o cliente, para permitir comparações
           ao longo do tempo. Da planilha do Google Sheets fica guardada só a última leitura. Tokens de acesso são apagados
-          quando a conexão é removida.
+          quando a conexão é removida. As conversas de WhatsApp (quando a opção está ligada) ficam guardadas enquanto durar o atendimento
+          do cliente, sem apagamento automático, e são excluídas quando o administrador apaga a conversa, quando o cliente é excluído
+          ou quando a pessoa pede a exclusão.
         </p>
       </Section>
 
