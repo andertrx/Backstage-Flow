@@ -65,7 +65,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Monitoramento", path: "/monitoramento", icon: Activity, group: "Análise", permission: "monitor.view" },
   { label: "Inteligência de Resultados", path: "/inteligencia-resultados", icon: ChartPie, group: "Análise", permission: "results.view" },
   { label: "Alertas", path: "/alertas", icon: Bell, group: "Análise", permission: "internal.view" },
-  { label: "Tracking (em construção)", path: "/tracking", icon: Radar, group: "Análise", permission: "tracking.view" },
+  { label: "Tracking", path: "/tracking", icon: Radar, group: "Análise", permission: "tracking.view" },
   { label: "Sincronização", path: "/sincronizacao", icon: RefreshCw, group: "Sistema", permission: "internal.view" },
   { label: "Logs", path: "/logs", icon: ScrollText, group: "Sistema", permission: "logs.view" },
   { label: "Configurações", path: "/configuracoes", icon: Settings, group: "Sistema", permission: "users.manage" },

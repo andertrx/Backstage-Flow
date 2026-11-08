@@ -55,6 +55,14 @@ const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
   desconhecida: "neutral",
 };
 
+type TrackingTab = "sites" | "origens" | "whatsapp" | "leads";
+const TABS: { id: TrackingTab; label: string }[] = [
+  { id: "sites", label: "Sites" },
+  { id: "origens", label: "Origem e jornada" },
+  { id: "whatsapp", label: "WhatsApp" },
+  { id: "leads", label: "Leads e contatos" },
+];
+
 const paidLabel = (paid: boolean | null) => (paid === true ? "Pago" : paid === false ? "Orgânico" : "Não dá para saber");
 
 export function TrackingPage() {
@@ -63,6 +71,7 @@ export function TrackingPage() {
   const [params, updateParams] = useSearchParamsUpdater();
   const period = (["hoje", "7d", "30d"] as const).find((p) => p === params.get("periodo")) ?? "hoje";
   const clientId = params.get("cliente");
+  const tab = TABS.find((t) => t.id === params.get("aba"))?.id ?? "sites";
   const set = (key: string, value: string | null) =>
     updateParams((latest) => {
       if (value) latest.set(key, value);
@@ -127,11 +136,6 @@ export function TrackingPage() {
         </div>
       </div>
 
-      <Alert tone="info">
-        Fase atual: visitas, origem de cada chegada (UTMs, fbclid, gclid e IDs do anúncio), leads, compras, a jornada de cada lead e
-        de onde vêm as conversões por campanha. As conversões podem ser enviadas ao Meta pela API de Conversões (botão “Meta CAPI” em cada site).
-      </Alert>
-
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
 
       {isLoading ? (
@@ -164,6 +168,20 @@ export function TrackingPage() {
             </label>
           </Card>
 
+          <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" role="tablist" aria-label="Partes do tracking">
+            {TABS.map((t) => (
+              <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} data-testid={`tracking-tab-${t.id}`}
+                onClick={() => set("aba", t.id === "sites" ? null : t.id)}
+                className={tab === t.id
+                  ? "rounded-full bg-brand-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-brand"
+                  : "rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200 hover:text-slate-900"}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {tab === "sites" && (
+            <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" role="list" aria-label="Resumo do período">
             <Stat label="Sessões" value={total.sessions} />
             <Stat label="Visitantes" value={total.visitors} />
@@ -210,6 +228,12 @@ export function TrackingPage() {
             </ul>
           </section>
 
+            <LinkTester />
+            </>
+          )}
+
+          {tab === "origens" && (
+            <>
           <AttributionSection
             rows={(attribution.data ?? []).filter((r) => !clientId || r.client_id === clientId)}
             quality={(quality.data ?? []).filter((q) => visibleIds.has(q.container_id))}
@@ -217,19 +241,6 @@ export function TrackingPage() {
             onModel={(m) => set("atribuicao", m === "first" ? "primeiro" : null)}
             isLoading={attribution.isLoading}
             error={attribution.error ?? quality.error}
-            siteName={(id) => byId.get(id)?.name ?? "—"}
-          />
-
-          <WhatsAppSection
-            clicks={(waClicks.data ?? []).filter((c) => visibleIds.has(c.container_id))}
-            conversations={(waConversations.data ?? []).filter((c) => visibleIds.has(c.container_id))}
-            hasApi={(waConnections.data ?? []).some((w) => visibleIds.has(w.container_id)) || (waConversations.data ?? []).length > 0}
-            siteName={(id) => byId.get(id)?.name ?? "—"}
-            canMark={canMarkWhatsApp}
-          />
-
-          <LeadsSection
-            leads={(leads.data ?? []).filter((l) => visibleIds.has(l.container_id))}
             siteName={(id) => byId.get(id)?.name ?? "—"}
           />
 
@@ -291,10 +302,34 @@ export function TrackingPage() {
               </ul>
             </Card>
           </section>
+            </>
+          )}
+
+          {tab === "whatsapp" && (
+          <WhatsAppSection
+            clicks={(waClicks.data ?? []).filter((c) => visibleIds.has(c.container_id))}
+            conversations={(waConversations.data ?? []).filter((c) => visibleIds.has(c.container_id))}
+            hasApi={(waConnections.data ?? []).some((w) => visibleIds.has(w.container_id)) || (waConversations.data ?? []).length > 0}
+            siteName={(id) => byId.get(id)?.name ?? "—"}
+            canMark={canMarkWhatsApp}
+          />
+          )}
+
+          {tab === "leads" && (
+            <>
+          <LeadsSection
+            leads={(leads.data ?? []).filter((l) => visibleIds.has(l.container_id))}
+            siteName={(id) => byId.get(id)?.name ?? "—"}
+          />
+          <p className="text-sm text-slate-500">
+            Para marcar perfil, etapa ou venda de cada contato, use a tela de{" "}
+            <Link to="/contatos" className="font-medium text-blue-700 hover:underline">Contatos</Link>.
+          </p>
+            </>
+          )}
         </>
       )}
 
-      <LinkTester />
 
       {editing && (
         <ContainerFormModal

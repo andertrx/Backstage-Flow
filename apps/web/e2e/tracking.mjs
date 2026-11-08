@@ -6,6 +6,8 @@
 import { createHash } from "node:crypto";
 import { BASE, check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
 
+const aba = (page, id) => page.getByTestId(`tracking-tab-${id}`).click();
+
 const sha = (t) => createHash("sha256").update(t).digest("hex");
 
 const EXC = "e0000000-0000-4000-8000-000000000001";
@@ -27,7 +29,7 @@ function seedClients(db) {
 
   const links = await page.getByRole("navigation").first().getByRole("link").allInnerTexts();
   const labels = links.map((t) => t.trim().split("\n")[0]);
-  check(labels.indexOf("Tracking (em construção)") === labels.indexOf("Alertas") + 1, "menu: Tracking logo depois de Alertas");
+  check(labels.indexOf("Tracking") === labels.indexOf("Alertas") + 1, "menu: Tracking logo depois de Alertas");
 
   await page.getByRole("link", { name: "Tracking" }).first().click();
   await page.getByRole("heading", { name: "Tracking", level: 1 }).waitFor();
@@ -68,6 +70,7 @@ function seedClients(db) {
   check((await card.innerText()).includes("Nenhum evento recebido ainda"), "container sem eventos avisa para conferir a instalação");
 
   // Editar: pausar
+  await aba(page, "sites");
   await page.getByRole("button", { name: "Editar Loja Excalibur" }).click();
   const edit = page.getByRole("dialog", { name: "Editar container" });
   check(await edit.getByLabel("Cliente *").isDisabled(), "cliente do container não muda depois de criado");
@@ -90,17 +93,20 @@ function seedClients(db) {
     { event_id: "e3", container_id: cid, event_name: "PageView", occurred_at: ago(20), page_path: "/", test: true, touchpoint_id: 2, session_id: "s2", visitor_id: "v2" },
   );
   await page.reload();
-  await page.getByTestId("touchpoint-row").first().waitFor();
+  await page.getByTestId("tracking-stat").first().waitFor();
   const stats = (await page.getByTestId("tracking-stat").allInnerTexts()).map((t) => t.replace(/\s+/g, " ").trim());
   check(stats[0] === "Sessões 2" && stats[1] === "Visitantes 2" && stats[2] === "Páginas vistas 2" && stats[3] === "Sessões de anúncio 1" && stats[4] === "Origem desconhecida 1", `resumo do dia (${stats.join(" | ")})`);
+  check((await card.innerText()).includes("Último evento recebido"), "card mostra quando chegou o último evento");
+  await aba(page, "origens");
+  await page.getByTestId("touchpoint-row").first().waitFor();
   const rows = await page.getByTestId("touchpoint-row").allInnerTexts();
   check(rows[0].includes("Meta Ads") && rows[0].includes("Pago") && rows[0].includes("Confirmada") && rows[0].includes("Black Friday"), "origem Meta confirmada com a campanha");
   check(rows[1].includes("Direto") && rows[1].includes("Não dá para saber") && rows[1].includes("Desconhecida"), "acesso direto aparece como desconhecido (não inventa origem)");
   const evs = await page.getByTestId("event-row").allInnerTexts();
   check(evs.length === 3 && evs[0].includes("Lead") && evs[0].includes("Teste"), "eventos recentes marcados como teste");
-  check((await card.innerText()).includes("Último evento recebido"), "card mostra quando chegou o último evento");
 
   // Testar um link (não grava nada)
+  await aba(page, "sites");
   const tester = page.getByLabel("Testar link");
   await tester.getByLabel("URL de destino").fill("https://loja.com.br/?utm_source=facebook&utm_medium=paid_social&bf_c=120&bf_a=121");
   await tester.getByRole("button", { name: "Testar" }).click();
@@ -136,11 +142,13 @@ function seedClients(db) {
     { kind: "compra", occurred_at: ago(3), name: "Purchase", channel: null, paid: null, evidence: null, reason: null, campaign: null, page_path: null, value_micros: 199_900_000, currency: "BRL", transaction_id: "P-1", visitor_id: "v9", test: true },
   ];
   await page.reload();
-  await page.getByTestId("lead-row").first().waitFor();
+  await page.getByTestId("tracking-stat").first().waitFor();
   const convStats = (await page.getByRole("list", { name: "Conversões do período" }).innerText()).replace(/\s+/g, " ");
   check(/Leads 1 Conversões 3 Compras 2/.test(convStats), `conversões do dia (${convStats})`);
   const revenue = (await page.getByTestId("tracking-revenue").innerText()).replace(/\u00a0/g, " ");
   check(revenue.includes("R$ 199,90") && revenue.includes("US$ 50,00") && !revenue.includes("249"), "receita separada por moeda (BRL e USD nunca somados)");
+  await aba(page, "leads");
+  await page.getByTestId("lead-row").first().waitFor();
   const leadRows = await page.getByTestId("lead-row").allInnerTexts();
   check(leadRows[0].includes("E-mail") && leadRows[0].includes("Meta Ads · Confirmada · Black Friday") && leadRows[0].includes("Google Ads") && leadRows[0].includes("2 compras"), "lead com e-mail, primeira origem Meta, última Google e compras");
   check(!(await page.getByTestId("leads").innerText()).includes(sha("ana@x.com").slice(0, 12)), "o hash do e-mail não aparece na tela");
@@ -158,6 +166,7 @@ function seedClients(db) {
   db.whatsappClicks.push({ id: 1, container_id: cid, code: "K7Q2M9", clicked_at: ago(15), status: "clicado", sales: 0, test: true,
     touch: { channel: "meta", evidence: "confirmada", paid: true, utm_campaign: "Black Friday", ad_campaign_id: "120", reason: "IDs do anúncio do Meta na URL." } });
   await page.reload();
+  await aba(page, "whatsapp");
   await page.getByTestId("wa-click-row").first().waitFor();
   check((await page.getByTestId("wa-click-row").first().innerText()).includes("K7Q2M9"), "lista de cliques no WhatsApp com o código");
   const wa = page.getByRole("region", { name: "WhatsApp" });
@@ -192,6 +201,7 @@ function seedClients(db) {
   check(true, "lista mostra a conversa como Venda");
   await wa.screenshot({ path: `${SHOTS}/tracking-whatsapp.png` });
 
+  await aba(page, "sites");
   await page.getByRole("button", { name: "Código de instalação: Loja Excalibur" }).click();
   const install3 = page.getByRole("dialog", { name: "Instalar no site — Loja Excalibur" });
   await install3.getByLabel("Código de rastreio no WhatsApp").check();
@@ -199,6 +209,7 @@ function seedClients(db) {
   await install3.getByRole("button", { name: "Fechar", exact: true }).click();
 
   // 34.3: Meta CAPI
+  await aba(page, "sites");
   await page.getByRole("button", { name: "Meta API de Conversões: Loja Excalibur" }).click();
   const meta = page.getByRole("dialog", { name: /Meta — API de Conversões/ });
   check((await meta.getByTestId("capi-status").innerText()).includes("Não configurado"), "Meta CAPI: começa como não configurado");
@@ -243,6 +254,7 @@ function seedClients(db) {
   // 34.5-W2: WhatsApp pela API oficial
   check((await card.innerText()).includes("WhatsApp API · Não configurado"), "card do site mostra a situação da API oficial do WhatsApp");
   check(await page.getByTestId("wa-conversations").count() === 0, "sem API oficial: lista de conversas não aparece (app comum segue igual)");
+  await aba(page, "sites");
   await page.getByRole("button", { name: "WhatsApp API oficial: Loja Excalibur" }).click();
   const waApi = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
   await waApi.getByLabel("ID do número de telefone *").fill("+55 45 9999");
@@ -275,6 +287,7 @@ function seedClients(db) {
     { id: 78, container_id: cid, origin: "desconhecida", ad_id: null, click_code: null, first_message_at: ago(9), last_message_at: ago(8),
       messages: 1, status: "conversa", sales: 0, test: true, touch: null });
   await page.reload();
+  await aba(page, "whatsapp");
   const convRows = page.getByTestId("wa-conversation-row");
   await convRows.first().waitFor();
   const firstConv = await convRows.first().innerText();
@@ -295,6 +308,7 @@ function seedClients(db) {
   check(true, "conversa marcada como Venda na lista");
   await page.getByRole("region", { name: "WhatsApp" }).screenshot({ path: `${SHOTS}/tracking-whatsapp-conversas.png` });
 
+  await aba(page, "sites");
   await page.getByRole("button", { name: "WhatsApp API oficial: Loja Excalibur" }).click();
   const waApi2 = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
   await waApi2.getByRole("button", { name: "Apagar segredos" }).click();
@@ -319,6 +333,7 @@ function seedClients(db) {
   db.trackingQuality = [{ container_id: cid, sessions: 6, sessions_unknown: 1, paid_sessions: 5, paid_without_campaign_id: 3, leads: 5, leads_without_origin: 1,
     leads_with_contact: 1, purchases: 2, purchases_without_order: 1, purchases_without_lead: 0 }];
   await page.reload();
+  await aba(page, "origens");
   const attr = page.getByRole("region", { name: "Atribuição" });
   await attr.getByTestId("attr-campaign-row").first().waitFor();
   const bfRow = (await attr.getByTestId("attr-campaign-row").first().innerText()).replace(/\u00a0/g, " ");
@@ -340,6 +355,7 @@ function seedClients(db) {
   await attr.screenshot({ path: `${SHOTS}/tracking-atribuicao.png` });
   await attr.getByRole("button", { name: "Último contato" }).click();
 
+  await aba(page, "sites");
   await page.getByRole("button", { name: "Código de instalação: Loja Excalibur" }).click();
   const install2 = page.getByRole("dialog", { name: "Instalar no site — Loja Excalibur" });
   await install2.getByLabel("Disparar também o Pixel do Meta no navegador").check();
@@ -362,16 +378,21 @@ function seedClients(db) {
   await login(page, "/tracking");
   await page.getByRole("heading", { name: "Tracking", level: 1 }).waitFor();
   await page.getByTestId("container-card").waitFor();
+  await aba(page, "sites");
   check(await page.getByRole("button", { name: "Novo container" }).count() === 0 && await page.getByRole("button", { name: "Editar Loja" }).count() === 0, "visualizador vê o tracking mas não cria nem edita");
+  await aba(page, "sites");
   check(await page.getByRole("button", { name: "Código de instalação: Loja" }).count() === 1, "visualizador pode ver o código de instalação");
+  await aba(page, "sites");
   await page.getByRole("button", { name: "Meta API de Conversões: Loja" }).click();
   const metaV = page.getByRole("dialog", { name: /Meta — API de Conversões/ });
   await metaV.getByText("Só administradores e gestores configuram").waitFor();
   check(await metaV.getByLabel(/Token da API/).count() === 0, "visualizador vê a situação do Meta, sem campo de token");
   await metaV.getByRole("button", { name: "Fechar", exact: true }).last().click();
+  await aba(page, "sites");
   check(await page.getByRole("button", { name: "WhatsApp API oficial: Loja" }).count() === 0, "visualizador não vê a configuração da API oficial sem conexão");
   db.whatsappClicks.push({ id: 9, container_id: "t1", code: "V9SUAL", clicked_at: ago(5), status: "clicado", sales: 0, test: false, touch: null });
   await page.reload();
+  await aba(page, "whatsapp");
   const waV = page.getByRole("region", { name: "WhatsApp" });
   await waV.getByLabel("Código da conversa").fill("V9SUAL");
   await waV.getByRole("button", { name: "Buscar" }).click();
@@ -384,8 +405,10 @@ function seedClients(db) {
   db.whatsappConversations.push({ id: 5, container_id: "t1", origin: "anuncio_whatsapp", ad_id: "1", click_code: null, first_message_at: ago(4), last_message_at: ago(3),
     messages: 1, status: "conversa", sales: 0, test: false, touch: null });
   await page.reload();
+  await aba(page, "whatsapp");
   await page.getByTestId("wa-conversation-row").first().waitFor();
   check(await page.getByRole("button", { name: /Marcar conversa/ }).count() === 0, "visualizador vê as conversas da API oficial mas não marca");
+  await aba(page, "sites");
   await page.getByRole("button", { name: "WhatsApp API oficial: Loja" }).click();
   const waApiV = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
   await waApiV.getByText("Só administradores e gestores configuram a API oficial").waitFor();
