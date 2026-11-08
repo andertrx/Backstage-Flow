@@ -97,3 +97,11 @@ A mudança está só no código (branch `tracking-t5`). Para valer, é preciso *
 **Validação:** as sincronizações agendadas rodaram com sucesso na v15 (16:25 UTC) e na v16 (16:30 UTC). O botão "Sincronizar agora" (caminho manual) **não foi exercitado** depois da publicação.
 
 **Linha de base para medir (16:33 UTC):** `n_tup_upd` ads 13.288.968; ad_groups 2.485.991; campaigns 1.188.008; period_reach 1.339.872; metrics_breakdown_daily 1.107.140. Comparar depois de 24 h: o aumento deve ser muito menor que o anterior (cerca de 20 mil atualizações em `ads` a cada ~5 minutos de sincronização antes da mudança).
+
+## 10. Resultado do passo G (08/11/2026)
+
+- `VACUUM FULL` em campanhas, grupos de anúncios, alcance por período, anúncios e quebras diárias.
+- Banco: 343 MB → 317 MB. Anúncios 33 → 20 MB; quebras 43 → 35 MB; alcance 9,2 → 7,4 MB; grupos 3,7 → 2,1 MB; campanhas 1,6 → 1,1 MB.
+- Nenhuma linha perdida (contagens iguais) e nenhum espaço morto restante.
+- Sincronizações seguintes terminaram com sucesso.
+- Continuam parados, aguardando autorização: D (histórico de saldo) e F (3 índices sem uso).
