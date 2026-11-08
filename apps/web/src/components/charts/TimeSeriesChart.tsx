@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, type PointerEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { xLabelIndexes, yTicks } from "./scale.ts";
 
 export interface ChartLine {
@@ -31,6 +31,7 @@ const M = { top: 12, right: 16, bottom: 28, left: 64 };
  */
 export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, formatAxis, ariaLabel, height = 260 }: TimeSeriesChartProps) {
   const boxRef = useRef<HTMLDivElement>(null);
+  const gradId = useId();
   const [width, setWidth] = useState(640);
   const [active, setActive] = useState<number | null>(null);
 
@@ -106,7 +107,7 @@ export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, form
             {/* Grade e eixo Y */}
             {ticks.map((t) => (
               <g key={t}>
-                <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} stroke="#e2e8f0" strokeWidth={1} shapeRendering="crispEdges" />
+                <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} stroke="#e8ebf0" strokeWidth={1} strokeDasharray={t === 0 ? undefined : "3 5"} shapeRendering="crispEdges" />
                 <text x={M.left - 8} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="#64748b">{formatAxis(t)}</text>
               </g>
             ))}
@@ -117,10 +118,20 @@ export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, form
               </text>
             ))}
             {/* Área (uma linha só) */}
-            {lines.length === 1 && <path d={areaOf(lines[0].values)} fill={lines[0].color} fillOpacity={0.1} />}
+            {lines.length === 1 && (
+              <>
+                <defs>
+                  <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={lines[0].color} stopOpacity={0.28} />
+                    <stop offset="100%" stopColor={lines[0].color} stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <path className="chart-area" d={areaOf(lines[0].values)} fill={`url(#${gradId})`} />
+              </>
+            )}
             {/* Linhas */}
             {lines.map((l) => (
-              <path key={l.key} d={pathOf(l.values)} fill="none" stroke={l.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" data-testid={`line-${l.key}`} />
+              <path key={l.key} d={pathOf(l.values)} pathLength={1} className="chart-line" fill="none" stroke={l.color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" data-testid={`line-${l.key}`} />
             ))}
             {/* Pontos */}
             {lines.map((l) => markerIndexes(l.values).map((i) => (
@@ -128,7 +139,7 @@ export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, form
             )))}
       </>
     );
-  }, [lines, width, height, count, top, ticks, xLabels, formatAxis]);
+  }, [lines, width, height, count, top, ticks, xLabels, formatAxis, gradId]);
   const tipLeft = active == null ? 0 : x(active);
   const tipOnLeft = active != null && tipLeft > width * 0.6;
 
@@ -164,7 +175,7 @@ export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, form
         <div
           role="tooltip"
           data-testid="chart-tooltip"
-          className="pointer-events-none absolute z-20 min-w-44 rounded-lg bg-white px-3 py-2 text-xs shadow-lg ring-1 ring-slate-200"
+          className="pointer-events-none absolute z-20 min-w-44 rounded-xl bg-white px-3.5 py-2.5 text-xs shadow-elevated ring-1 ring-slate-200"
           style={{ top: M.top, left: tipOnLeft ? undefined : tipLeft + 12, right: tipOnLeft ? width - tipLeft + 12 : undefined }}
         >
           <p className="mb-1 font-medium text-slate-500">{pointTitles[active]}</p>

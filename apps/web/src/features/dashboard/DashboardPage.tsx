@@ -1,5 +1,5 @@
 import { can, computeKpis, DEFAULT_TIMEZONE, KPI_DEFINITIONS, type MetricTotals } from "@backstage/shared";
-import { ArrowLeftRight, History, Presentation } from "lucide-react";
+import { ArrowLeftRight, CircleDollarSign, Eye, History, type LucideIcon, MessageCircle, MousePointerClick, Percent, Presentation, Receipt, Target, TrendingUp, Users, Wallet } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -20,6 +20,12 @@ import { useDashboardFilters } from "./useDashboardFilters.ts";
 import { DataFreshness } from "@/features/sync/DataFreshness.tsx";
 import { OpsShortcut } from "@/features/operations/OpsShortcut.tsx";
 import { MonitorShortcut } from "@/features/monitoring/overview.tsx";
+
+/** Ícone de cada indicador (só aparência) e a ordem de entrada dos cartões. */
+const KPI_ICONS: Record<string, LucideIcon> = {
+  spend: CircleDollarSign, leads: Users, messages: MessageCircle, conversions: Target, cpl: Receipt, cpc: MousePointerClick, cpm: Eye, ctr: Percent, roas: TrendingUp,
+};
+const KPI_ORDER = ["spend", "balance", "leads", "messages", "conversions", "cpl", "cpc", "cpm", "ctr", "roas"];
 
 const EMPTY: MetricTotals = { spend_micros: null, impressions: null, clicks: null, leads: null, messages: null, conversions: null, conversion_value_micros: null };
 
@@ -68,6 +74,10 @@ export function DashboardPage() {
         currency={currency ?? "BRL"}
         missing={hasData ? missingReason(key, totals) : "Sem dados no período."}
         loading={isLoading}
+        icon={KPI_ICONS[key]}
+        hero={key === "spend"}
+        index={KPI_ORDER.indexOf(key)}
+        className={key === "spend" ? "col-span-2" : undefined}
       />
     );
   };
@@ -75,7 +85,7 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Olá{firstName && `, ${firstName}`}!</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-950">Olá{firstName && `, ${firstName}`}!</h1>
         <p className="mt-1 text-sm text-slate-500">Resumo geral de desempenho das contas de anúncio.</p>
       </div>
       {/* Etapa 36.7: atalho da Central (só para quem está nela; mesma consulta do sino). */}
@@ -121,9 +131,9 @@ export function DashboardPage() {
             </p>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
           {card("spend")}
-          <BalanceCard totals={balanceTotals} loading={balances.isLoading} />
+          <BalanceCard totals={balanceTotals} loading={balances.isLoading} icon={Wallet} index={KPI_ORDER.indexOf("balance")} />
           {card("leads")}
           {card("messages")}
           {card("conversions")}

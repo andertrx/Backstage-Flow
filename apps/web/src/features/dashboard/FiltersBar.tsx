@@ -79,7 +79,7 @@ export function FiltersBar({ filters, period, clients, onChange, onClear, campai
         </span>
         <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden />
       </button>
-      <div id={fieldsId} className={cn(open ? "grid" : "hidden", "gap-3 sm:grid sm:grid-cols-2", campaignFields || !accountField ? "lg:grid-cols-3" : "lg:grid-cols-4")}>
+      <div id={fieldsId} className={cn(open ? "grid" : "hidden", "gap-3 sm:grid sm:grid-cols-2", campaignFields || !accountField ? "lg:grid-cols-3 2xl:grid-cols-6" : "lg:grid-cols-4")}>
         <Field label="Período">
           {(id) => (
             <Select

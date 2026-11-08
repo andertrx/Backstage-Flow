@@ -2,7 +2,7 @@ import {
   bucketsFor, buildSeries, CHART_METRICS, type ChartMetricKey, type DateRange, GRANULARITY_LABELS, type Granularity, PLATFORM_LABELS, type SeriesRow,
 } from "@backstage/shared";
 import { BarChart3, Table2 } from "lucide-react";
-import { useMemo } from "react";
+import { type CSSProperties, useMemo } from "react";
 import { type ChartLine, TimeSeriesChart } from "@/components/charts/TimeSeriesChart.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -17,7 +17,7 @@ import type { DashboardFilters } from "./filters.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 
 /** Cores por ENTIDADE (nunca pela posição): validadas para daltonismo e contraste. */
-const COLORS: Record<string, string> = { total: "#2a78d6", meta: "#2a78d6", google: "#eb6834" };
+const COLORS: Record<string, string> = { total: "#2563eb", meta: "#2563eb", google: "#eb6834" };
 const GRANULARITIES: Granularity[] = ["day", "week", "month"];
 const MAX_DAILY_DAYS = 400;
 
@@ -65,12 +65,12 @@ export function ChartsSection({ range, filters, currency }: { range: DateRange; 
   return (
     <section aria-labelledby="evolucao" className="space-y-3">
       <h2 id="evolucao" className="text-sm font-semibold uppercase tracking-wide text-slate-500">Evolução</h2>
-      <Card className={cn("space-y-4 p-4", isFetching && !isLoading && "opacity-70")}>
+      <Card className={cn("rise space-y-4 p-5 transition-opacity", isFetching && !isLoading && "opacity-70")} style={{ "--i": 11 } as CSSProperties}>
         <div className="flex flex-wrap items-center gap-3">
           <Select aria-label="Métrica do gráfico" className="w-auto min-w-40" value={metricKey} onChange={(e) => set("grafico", e.target.value === "spend" ? null : e.target.value)}>
             {CHART_METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
           </Select>
-          <div role="group" aria-label="Agrupar por" className="inline-flex rounded-lg bg-slate-100 p-1">
+          <div role="group" aria-label="Agrupar por" className="inline-flex rounded-xl bg-slate-100 p-1">
             {GRANULARITIES.map((g) => (
               <button
                 key={g}
@@ -79,8 +79,8 @@ export function ChartsSection({ range, filters, currency }: { range: DateRange; 
                 disabled={g === "day" && !dailyAllowed}
                 title={g === "day" && !dailyAllowed ? `Para mais de ${MAX_DAILY_DAYS} dias, use semanal ou mensal.` : undefined}
                 onClick={() => set("agrupar", g === "day" ? null : g)}
-                className={cn("rounded-md px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40",
-                  granularity === g ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-800")}
+                className={cn("rounded-lg px-3 py-1 text-sm font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40",
+                  granularity === g ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-800")}
               >
                 {GRANULARITY_LABELS[g]}
               </button>
@@ -111,7 +111,7 @@ export function ChartsSection({ range, filters, currency }: { range: DateRange; 
         {error ? (
           <Alert tone="error">{errorMessage(error)}</Alert>
         ) : isLoading ? (
-          <div className="h-64 animate-pulse rounded-lg bg-slate-50" aria-label="Carregando gráfico" />
+          <div className="skeleton h-64" aria-label="Carregando gráfico" />
         ) : !hasValues ? (
           <div className="flex h-64 items-center justify-center rounded-lg bg-slate-50 px-6 text-center text-sm text-slate-500" data-testid="chart-empty">
             {metricKey === "reach"

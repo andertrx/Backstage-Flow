@@ -1,5 +1,6 @@
 import { type KpiDefinition, kpiVariation } from "@backstage/shared";
-import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from "lucide-react";
+import type { CSSProperties, ReactNode } from "react";
 import { Card } from "@/components/ui/card.tsx";
 import { InfoTooltip } from "@/components/ui/tooltip.tsx";
 import { cn } from "@/lib/cn.ts";
@@ -17,38 +18,81 @@ interface KpiCardProps {
   /** Texto exibido quando não há valor (motivo). */
   missing: string;
   loading?: boolean;
+  /** 52.3: ícone do indicador, cartão de destaque (escuro) e posição na entrada em sequência. Só aparência. */
+  icon?: LucideIcon;
+  hero?: boolean;
+  index?: number;
+  className?: string;
 }
 
 const toneClass = { good: "text-emerald-700 bg-emerald-50", bad: "text-red-700 bg-red-50", neutral: "text-slate-600 bg-slate-100" };
+const toneClassDark = { good: "text-emerald-300 bg-emerald-400/15", bad: "text-red-300 bg-red-400/15", neutral: "text-slate-300 bg-white/10" };
 const toneWord = { good: "melhora", bad: "piora", neutral: "variação" };
 
-export function KpiCard({ definition, value, previous, currency, missing, loading }: KpiCardProps) {
+/** Fundo do cartão de destaque: azul-marinho com um brilho azul discreto no canto (sem filtro de desfoque: leve). */
+const HERO_STYLE: CSSProperties = {
+  backgroundImage: "radial-gradient(circle at 100% 0%, rgb(37 99 235 / 0.5), transparent 55%), linear-gradient(135deg, #0f172a, #172554)",
+};
+
+function Shell({ label, hero, index, className, children }: { label: string; hero?: boolean; index?: number; className?: string; children: ReactNode }) {
+  return (
+    <Card
+      role="group"
+      aria-label={label}
+      style={hero ? { ...HERO_STYLE, ...(index != null ? ({ "--i": index } as CSSProperties) : {}) } : index != null ? ({ "--i": index } as CSSProperties) : undefined}
+      className={cn(
+        "flex flex-col gap-2.5 p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-elevated",
+        index != null && "rise",
+        hero && "text-white ring-slate-800",
+        className,
+      )}
+    >
+      {children}
+    </Card>
+  );
+}
+
+function Head({ label, icon: Icon, hero, tip }: { label: string; icon?: LucideIcon; hero?: boolean; tip: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex min-w-0 items-center gap-2.5">
+        {Icon && (
+          <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", hero ? "bg-white/10 text-accent-400" : "bg-brand-50 text-brand-600")}>
+            <Icon className="size-4" aria-hidden />
+          </span>
+        )}
+        <h3 className={cn("truncate text-sm font-medium", hero ? "text-slate-300" : "text-slate-500")}>{label}</h3>
+      </div>
+      <InfoTooltip label={`O que é ${label}?`} align="right">{tip}</InfoTooltip>
+    </div>
+  );
+}
+
+const valueClass = (hero?: boolean) => cn("num text-[1.75rem] font-semibold leading-tight tracking-tight", hero ? "text-white" : "text-slate-900");
+
+export function KpiCard({ definition, value, previous, currency, missing, loading, icon, hero, index, className }: KpiCardProps) {
   const variation = kpiVariation(value, previous, definition.direction);
   const Arrow = variation.trend === "up" ? ArrowUpRight : variation.trend === "down" ? ArrowDownRight : Minus;
+  const tones = hero ? toneClassDark : toneClass;
   return (
-    <Card className="flex flex-col gap-2 p-4" role="group" aria-label={definition.label}>
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-slate-500">{definition.label}</h3>
-        <InfoTooltip label={`O que é ${definition.label}?`} align="right">
-          {definition.description}
-        </InfoTooltip>
-      </div>
+    <Shell label={definition.label} hero={hero} index={index} className={className}>
+      <Head label={definition.label} icon={icon} hero={hero} tip={definition.description} />
       {loading ? (
-        <div className="h-8 w-28 animate-pulse rounded bg-slate-100" aria-label="Carregando" />
+        <div className={cn("skeleton h-9 w-32", hero && "opacity-30")} aria-label="Carregando" />
       ) : value == null ? (
-        <p className="text-sm text-slate-500" data-testid="kpi-missing">{missing}</p>
+        <p className={cn("text-sm", hero ? "text-slate-300" : "text-slate-500")} data-testid="kpi-missing">{missing}</p>
       ) : (
-        <p className="text-2xl font-semibold tracking-tight tabular-nums text-slate-900" data-testid="kpi-value">
+        <p className={valueClass(hero)} data-testid="kpi-value">
           {formatKpi(value, definition.format, currency)}
         </p>
       )}
       {!loading && value != null && (
         <div className="mt-auto flex flex-wrap items-center gap-2 text-xs">
           {variation.percent == null ? (
-            <span className="text-slate-400">Sem base de comparação</span>
+            <span className={hero ? "text-slate-400" : "text-slate-400"}>Sem base de comparação</span>
           ) : (
             <span
-              className={cn("inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 font-medium", toneClass[variation.tone])}
+              className={cn("inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-semibold", tones[variation.tone])}
               data-tone={variation.tone}
             >
               <Arrow className="size-3.5" aria-hidden />
@@ -61,31 +105,31 @@ export function KpiCard({ definition, value, previous, currency, missing, loadin
           )}
         </div>
       )}
-    </Card>
+    </Shell>
   );
 }
 
 /** Card de Saldo: soma o disponível das contas que a API informa (mesma moeda). */
-export function BalanceCard({ totals, loading }: { totals: BalanceTotals; loading?: boolean }) {
+/** Card de Saldo: soma o disponível das contas que a API informa (mesma moeda). */
+export function BalanceCard({ totals, loading, icon, index }: { totals: BalanceTotals; loading?: boolean; icon?: LucideIcon; index?: number }) {
   const { currency, availableMicros, reporting, total, alerts, critical } = totals;
   return (
-    <Card className="flex flex-col gap-2 p-4" role="group" aria-label="Saldo">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-slate-500">Saldo</h3>
-        <InfoTooltip label="O que é Saldo?" align="right">
+    <Shell label="Saldo" index={index}>
+      <Head label="Saldo" icon={icon} tip={
+        <>
           Soma do dinheiro disponível nas contas: saldo pré-pago (PIX/boleto) informado pela plataforma e orçamento do Google.
           Conta paga no cartão entra com R$ 0,00: o limite do cartão ou de gastos não é saldo. Contas sem essa informação não
           entram na soma (não inventamos valores). Detalhes de cada conta em "Saldo por conta", abaixo.
-        </InfoTooltip>
-      </div>
+        </>
+      } />
       {loading ? (
-        <div className="h-8 w-28 animate-pulse rounded bg-slate-100" aria-label="Carregando" />
+        <div className="skeleton h-9 w-32" aria-label="Carregando" />
       ) : total === 0 ? (
         <p className="text-sm text-slate-500" data-testid="kpi-missing">Nenhuma conta vinculada.</p>
       ) : availableMicros == null ? (
         <p className="text-sm text-slate-500" data-testid="kpi-missing">Informação não disponível pela API.</p>
       ) : (
-        <p className="text-2xl font-semibold tracking-tight tabular-nums text-slate-900" data-testid="kpi-value">
+        <p className={valueClass()} data-testid="kpi-value">
           {formatKpi(availableMicros / 1_000_000, "money", currency ?? "BRL")}
         </p>
       )}
@@ -95,12 +139,12 @@ export function BalanceCard({ totals, loading }: { totals: BalanceTotals; loadin
             {reporting} de {total} {total === 1 ? "conta informa" : "contas informam"}
           </span>
           {alerts > 0 && (
-            <span className={cn("rounded-md px-1.5 py-0.5 font-medium", critical ? toneClass.bad : "bg-amber-50 text-amber-800")}>
+            <span className={cn("rounded-full px-2 py-0.5 font-semibold", critical ? toneClass.bad : "bg-amber-50 text-amber-800")}>
               {alerts} {alerts === 1 ? "conta com alerta" : "contas com alerta"}
             </span>
           )}
         </div>
       )}
-    </Card>
+    </Shell>
   );
 }
