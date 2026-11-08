@@ -4,7 +4,7 @@
 > Quando fizer um item, me avise que eu marco como feito.
 
 ## Tracking T5 — pronto para cliente (08/11/2026)
-- [ ] **Pixel de teste da agência:** passar só o **número** do Pixel (o token você cola no campo do CRM, nunca no chat). Usado na T5.4 com o "código de teste" do Meta.
+- [ ] **Pixel de teste da agência:** passar só o **número** do Pixel (o token você cola no campo do CRM, nunca no chat) e o **código de teste** da aba "Testar eventos". Com isso fazemos o último passo da T5.4 (ver `docs/etapa-34-tracking/T5.4-JORNADA-COMPLETA.md`).
 - [ ] **Responde App (T5.2b pronta):** no formulário, cadastrar o webhook com o endereço e a chave de Contatos → Formulários de outros sistemas, ligar "guardar parâmetros de URL", enviar uma resposta de teste e usar "Sugerir pelos campos recebidos". **Não colar o Pixel no formulário** (para o Meta não contar o Lead duas vezes); o CRM manda pelo servidor.
 - [ ] **Política de privacidade e contrato do cliente:** incluir que as conversas de WhatsApp podem ser analisadas para medir vendas (necessário para a T5.6, conversas guardadas por 30 dias).
 - [ ] **Servidor do WhatsApp (etapa 44 e T5.3):** quando estiver no ar, em Tracking → Sites → "WhatsApp servidor" criar a conexão do cliente e cadastrar o webhook no servidor (endereço + chave). O primeiro aviso real confirma o formato (se for outro, ajusto o leitor). Sem a conta oficial do WhatsApp, o Meta recebe a venda como "conversa", não como anúncio de WhatsApp.
