@@ -12,7 +12,8 @@ Pedido do Ander (08/11/2026): deixar o tracking estruturado e testado, **sem col
 | Fase | O que | Estado |
 |---|---|---|
 | T5.1 | Aba Tracking com abas internas (Sites, Origem e jornada, WhatsApp, Leads e contatos); menu sem "(em construção)" | ✅ pronta |
-| T5.2 | Script: cliques em botões e links, campos escondidos, origem da pessoa x origem da venda; conferir webhook do Responde App | a fazer |
+| T5.2 | Script: cliques em botões e links, campos escondidos com a origem | ✅ pronta |
+| T5.2b | Link de grupo do WhatsApp (Contato) e lead por webhook (Responde App e outros formulários) | ✅ pronta |
 | T5.3 | WhatsApp por servidor não oficial: código do site, origem do anúncio, ignorar grupos e mensagens enviadas pela agência | a fazer |
 | T5.4 | Site de teste num cliente fictício, do começo ao fim (com Pixel de teste do Ander) | a fazer |
 | T5.5 | Lista "pronto para cliente" (aba Saúde) | a fazer |

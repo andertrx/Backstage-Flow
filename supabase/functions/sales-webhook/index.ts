@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
 
     const { data: auth, error: authError } = await db.rpc("sales_webhook_auth", { p_id: cred.id, p_key: cred.key });
     if (authError) throw authError;
-    if (!auth) return json(401, { error: "INVALID_KEY" });
+    if (!auth || auth.purpose === "lead") return json(401, { error: "INVALID_KEY" });
 
     const text = await req.text();
     if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return json(413, { error: "TOO_LARGE" });

@@ -5,7 +5,7 @@
 
 ## Tracking T5 — pronto para cliente (08/11/2026)
 - [ ] **Pixel de teste da agência:** passar só o **número** do Pixel (o token você cola no campo do CRM, nunca no chat). Usado na T5.4 com o "código de teste" do Meta.
-- [ ] **Responde App:** no formulário, procurar nas opções de **integrações/webhook**. Se existir, me diga o nome da opção; se só aceitar o número do Pixel, o lead fica só no Pixel do navegador (sem origem completa no CRM).
+- [ ] **Responde App (T5.2b pronta):** no formulário, cadastrar o webhook com o endereço e a chave de Contatos → Formulários de outros sistemas, ligar "guardar parâmetros de URL", enviar uma resposta de teste e usar "Sugerir pelos campos recebidos". **Não colar o Pixel no formulário** (para o Meta não contar o Lead duas vezes); o CRM manda pelo servidor.
 - [ ] **Política de privacidade e contrato do cliente:** incluir que as conversas de WhatsApp podem ser analisadas para medir vendas (necessário para a T5.6, conversas guardadas por 30 dias).
 - [ ] **Servidor do WhatsApp (etapa 44):** sem ele, a origem do anúncio de WhatsApp só vale testada com mensagens de exemplo.
 - [ ] **Stand-by (tarefa futura):** ligação com GoHighLevel e Kommo (a skill "Metrik" serve de modelo, mas com hash, token no cofre e sem contato duplicado).

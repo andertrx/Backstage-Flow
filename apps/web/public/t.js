@@ -282,6 +282,8 @@
     // mensagem chega no WhatsApp (app comum), a equipe digita o codigo no CRM e marca
     // Lead/Venda com a origem certa. Letras/numeros sem 0, O, 1, I (evita confusao).
     var WA_LINK = /^(https?:\/\/)?(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)(\/|$|\?)|^whatsapp:/i;
+    // Convite de GRUPO do WhatsApp (nao aceita mensagem pronta: sem codigo "ref", so o clique com a origem).
+    var WA_GROUP = /^(https?:\/\/)?chat\.whatsapp\.com\//i;
     var WA_CODE = el.getAttribute("data-wa-code") === "1";
     var waCode = function () {
       var a = new Uint8Array(6), c = "23456789ABCDEFGHJKMNPQRSTUVWXYZ", out = "";
@@ -308,7 +310,9 @@
         try {
           var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
           var href = a ? a.getAttribute("href") || "" : "";
-          if (!a || !WA_LINK.test(href)) return;
+          if (!a) return;
+          if (WA_GROUP.test(href)) { send("Contact", { canal: "whatsapp_grupo" }); return; }
+          if (!WA_LINK.test(href)) return;
           var data = { canal: "whatsapp" };
           if (WA_CODE && consent) {
             var code = waCode();
@@ -374,7 +378,7 @@
           var b = t && t.closest ? t.closest("a[href], button, [role='button'], input[type='submit'], input[type='button']") : null;
           if (!b) return;
           var href = b.tagName === "A" ? b.getAttribute("href") || "" : "";
-          if (WA_LINK.test(href) || /^(mailto|tel):/i.test(href)) return;
+          if (WA_LINK.test(href) || WA_GROUP.test(href) || /^(mailto|tel):/i.test(href)) return;
           var txt = String(b.tagName === "INPUT" ? b.value : (b.innerText || b.textContent || b.getAttribute("aria-label") || "")).replace(/\s+/g, " ").replace(/^ | $/g, "");
           if (/@/.test(txt) || /\d[\d\s().-]{7,}/.test(txt)) txt = "";
           txt = txt.slice(0, 80);

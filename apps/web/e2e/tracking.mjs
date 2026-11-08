@@ -749,4 +749,23 @@ const waitSent = async (page, sent, n) => {
   await browser.close();
 }
 
+{
+  // T5.2b: link de grupo do WhatsApp = Contato (canal whatsapp_grupo), sem codigo ref e sem duplicar com bf_click
+  const G = '<a href="https://chat.whatsapp.com/AbCdEf123?text=x" onclick="window.__href=this.href; event.preventDefault()">Entrar no grupo</a>';
+  const { browser, page, errors } = await launch();
+  const sent = [];
+  await site(page, sent, html("", ' data-clicks="on" data-wa-code="1"', G));
+  await page.goto(`${SITE}/?utm_source=facebook&bf_c=120`);
+  await waitSent(page, sent, 2);
+  sent.length = 0;
+  await page.getByRole("link", { name: "Entrar no grupo" }).click();
+  await waitSent(page, sent, 1);
+  await page.waitForTimeout(400);
+  const c = sent.find((b) => b.n === "Contact");
+  check(c && c.cd.canal === "whatsapp_grupo" && !("ref" in c.cd) && c.u.includes("bf_c=120"), "T5.2b: clique no link de grupo vira Contato (canal whatsapp_grupo) com a origem da visita");
+  check((await page.evaluate(() => window.__href)) === "https://chat.whatsapp.com/AbCdEf123?text=x" && !sent.some((b) => b.n === "bf_click"), "T5.2b: link de grupo não ganha código e não duplica com bf_click");
+  check(errors.length === 0, "T5.2b: sem erros (grupo)");
+  await browser.close();
+}
+
 console.log("\nEtapa 34 (tracking 34.1 a 34.5-W2, com 34.4 e T5.2): todos os testes passaram.");

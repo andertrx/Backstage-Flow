@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { SalesMapping } from "@backstage/shared";
+import type { LeadMapping, SalesMapping } from "@backstage/shared";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 
@@ -190,7 +190,10 @@ export interface SalesWebhook {
   key_hint: string;
   enabled: boolean;
   test_mode: boolean;
-  mapping: SalesMapping;
+  mapping: SalesMapping & LeadMapping;
+  /** T5.2b: "venda" (padrão) ou "lead" (formulário de outro sistema, ligado a um site do Tracking). */
+  purpose?: "venda" | "lead";
+  container_id?: string | null;
   last_received_at: string | null;
   last_result: SalesLogRow["result"] | null;
   last_reason: string | null;
@@ -215,6 +218,11 @@ export function salesWebhookUrl(id: string): string {
   return `${base.replace(/\/$/, "")}/functions/v1/sales-webhook?w=${id}`;
 }
 
+/** Endereço que o formulário de outro sistema chama (T5.2b). */
+export function leadWebhookUrl(id: string): string {
+  return salesWebhookUrl(id).replace("/sales-webhook?", "/lead-webhook?");
+}
+
 export function useSalesWebhooks(clientId: string | null) {
   return useQuery({
     queryKey: [...KEY, "sales-webhooks", clientId],
@@ -224,7 +232,7 @@ export function useSalesWebhooks(clientId: string | null) {
     refetchInterval: 15_000,
     queryFn: async () => {
       const { data, error } = await supabase.from("tracking_sales_webhooks")
-        .select("id, client_id, name, key_hint, enabled, test_mode, mapping, last_received_at, last_result, last_reason, last_keys, created_at")
+        .select("id, client_id, name, key_hint, enabled, test_mode, mapping, purpose, container_id, last_received_at, last_result, last_reason, last_keys, created_at")
         .eq("client_id", clientId!).is("archived_at", null).order("created_at");
       if (error) throw ruleError(error, "Não conseguimos carregar os sistemas de venda.");
       return data as SalesWebhook[];
@@ -261,6 +269,19 @@ export function useCreateSalesWebhook() {
   });
 }
 
+/** T5.2b: endereço de lead (formulário de outro sistema), ligado a um site do Tracking do cliente. */
+export function useCreateLeadWebhook() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { clientId: string; name: string; containerId: string }) => {
+      const { data, error } = await supabase.rpc("lead_webhook_create", { p_client: input.clientId, p_name: input.name, p_container: input.containerId });
+      if (error) throw ruleError(error, "Não conseguimos criar o endereço.");
+      return data as { id: string; key: string };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
 export function useNewSalesWebhookKey() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -276,7 +297,7 @@ export function useNewSalesWebhookKey() {
 export function useUpdateSalesWebhook() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; values: Partial<Pick<SalesWebhook, "name" | "enabled" | "test_mode" | "mapping">> & { archived_at?: string } }) => {
+    mutationFn: async (input: { id: string; values: Partial<Pick<SalesWebhook, "name" | "enabled" | "test_mode">> & { mapping?: SalesMapping | LeadMapping; archived_at?: string } }) => {
       const { error } = await supabase.from("tracking_sales_webhooks").update(input.values).eq("id", input.id);
       if (error) throw ruleError(error, "Não conseguimos salvar.");
     },

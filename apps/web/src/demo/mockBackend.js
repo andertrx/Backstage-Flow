@@ -1699,6 +1699,17 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       db.salesWebhooks.push(w);
       return res(200, { id: w.id, key });
     }
+    // Formulários de outros sistemas (Tracking T5.2b): endereço de lead ligado a um site do cliente.
+    if (url.includes("/rest/v1/rpc/lead_webhook_create")) {
+      const p = parse();
+      if (!salesAdmin(p.p_client)) return res(403, { code: "42501", message: "Só administrador e gestor configuram o recebimento de leads." });
+      if (!db.trackingContainers.some((t) => t.id === p.p_container && t.client_id === p.p_client)) return res(400, { code: "22023", message: "Escolha um site deste cliente no Tracking." });
+      const key = salesKey();
+      const w = { id: crypto.randomUUID(), client_id: p.p_client, name: String(p.p_name).trim(), key_hint: key.slice(-4), key, enabled: true, test_mode: true,
+        mapping: {}, purpose: "lead", container_id: p.p_container, last_received_at: null, last_result: null, last_reason: null, last_keys: [], created_at: new Date().toISOString(), archived_at: null };
+      db.salesWebhooks.push(w);
+      return res(200, { id: w.id, key });
+    }
     if (url.includes("/rest/v1/rpc/sales_webhook_new_key")) {
       const w = db.salesWebhooks.find((x) => x.id === parse().p_id);
       if (!w || !salesAdmin(w.client_id)) return res(403, { code: "42501", message: "Só administrador e gestor configuram sistemas de venda." });

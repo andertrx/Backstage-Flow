@@ -39,7 +39,7 @@ export function SalesSystemsModal({ clientId, onClose }: { clientId: string; onC
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [revealed, setRevealed] = useState<{ id: string; key: string } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const hooks = list.data ?? [];
+  const hooks = (list.data ?? []).filter((h) => h.purpose !== "lead");
   const selected = hooks.find((h) => h.id === selectedId) ?? hooks[0] ?? null;
 
   async function onCreate() {
@@ -267,7 +267,7 @@ function WebhookDetails({ hook, revealedKey, onKey, onProblem }: {
   );
 }
 
-function CopyLine({ label, text }: { label: string; text: string }) {
+export function CopyLine({ label, text }: { label: string; text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="space-y-1">

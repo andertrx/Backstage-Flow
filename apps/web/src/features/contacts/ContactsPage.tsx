@@ -1,5 +1,5 @@
 import { can, CHANNEL_LABELS, type Channel, hashUserData, normalizeLeadPhone } from "@backstage/shared";
-import { Archive, MessageSquareText, Plus, Search, Settings2, Store } from "lucide-react";
+import { Archive, ClipboardList, MessageSquareText, Plus, Search, Settings2, Store } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -27,6 +27,7 @@ import {
   type UpdateResult,
   useUpdateContact,
 } from "./api.ts";
+import { LeadFormsModal } from "./LeadFormsModal.tsx";
 import { SalesSystemsModal } from "./SalesSystemsModal.tsx";
 import { WhatsAppPhrasesModal } from "./WhatsAppPhrasesModal.tsx";
 import { SetupModal } from "./SetupModal.tsx";
@@ -69,6 +70,7 @@ export function ContactsPage() {
   const [creatingPhone, setCreatingPhone] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
   const [showSales, setShowSales] = useState(false);
+  const [showLeadForms, setShowLeadForms] = useState(false);
   const [showPhrases, setShowPhrases] = useState(false);
 
   const stages = useMemo(() => (setup.data?.stages ?? []).filter((s) => !s.archived_at), [setup.data]);
@@ -137,6 +139,9 @@ export function ContactsPage() {
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => setShowPhrases(true)}>
               <MessageSquareText className="size-4" aria-hidden /> Frases do WhatsApp
+            </Button>
+            <Button variant="secondary" onClick={() => setShowLeadForms(true)}>
+              <ClipboardList className="size-4" aria-hidden /> Formulários de outros sistemas
             </Button>
             <Button variant="secondary" onClick={() => setShowSales(true)}>
               <Store className="size-4" aria-hidden /> Sistemas de venda
@@ -252,6 +257,7 @@ export function ContactsPage() {
       {showPhrases && clientId && setup.data && (
         <WhatsAppPhrasesModal clientId={clientId} profiles={setup.data.profiles} stages={setup.data.stages} onClose={() => setShowPhrases(false)} />
       )}
+      {showLeadForms && clientId && <LeadFormsModal clientId={clientId} onClose={() => setShowLeadForms(false)} />}
       {showSales && clientId && <SalesSystemsModal clientId={clientId} onClose={() => setShowSales(false)} />}
       {showSetup && clientId && setup.data && (
         <SetupModal clientId={clientId} profiles={setup.data.profiles} stages={setup.data.stages} onClose={() => setShowSetup(false)} />
