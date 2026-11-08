@@ -1,8 +1,8 @@
 import { CLIENT_STATUS_LABELS, type ClientStatus } from "@backstage/shared";
-import { Badge } from "@/components/ui/badge.tsx";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge.tsx";
 
-const tones = { ativo: "success", pausado: "neutral", encerrado: "danger" } as const;
+const tones: Record<ClientStatus, StatusTone> = { ativo: "success", pausado: "neutral", encerrado: "danger" };
 
 export function ClientStatusBadge({ status }: { status: ClientStatus }) {
-  return <Badge tone={tones[status]}>{CLIENT_STATUS_LABELS[status]}</Badge>;
+  return <StatusBadge tone={tones[status]}>{CLIENT_STATUS_LABELS[status]}</StatusBadge>;
 }

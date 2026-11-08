@@ -73,6 +73,12 @@ body {
   :where(input[type="checkbox"], input[type="radio"], input[type="range"]) {
     accent-color: var(--color-brand-600);
   }
+  /* 52.5: tabelas do sistema com cabeçalho e linhas no mesmo padrão (só aparência). */
+  table thead th { font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; }
+  table thead { background-color: var(--color-slate-50); }
+  table tbody tr { transition: background-color 120ms ease; }
+  table tbody tr:hover { background-color: color-mix(in oklab, var(--color-slate-100) 55%, transparent); }
+  @media print { table tbody tr:hover { background-color: transparent; } }
   /* Números de indicadores e tabelas alinhados (algarismos de largura fixa). */
   .num { font-variant-numeric: tabular-nums; }
   .select-arrow {
