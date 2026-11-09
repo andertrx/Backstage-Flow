@@ -36,8 +36,7 @@ function seed(db) {
   // menu: total = soma, com os 3 contadores
   await page.getByTestId("nav-alerts-count").first().waitFor();
   check((await page.getByTestId("nav-alerts-count").first().innerText()).trim().startsWith("7"), "menu Alertas mostra o total (2 + 3 + 2 = 7)");
-  const sub = page.getByTestId("nav-alerts-sub");
-  check((await sub.innerText()).replace(/\s+/g, " ").trim() === "Contas 2 Campanhas 3 Tarefas 2", "menu mostra os 3 contadores separados");
+  check(await page.getByTestId("nav-alerts-sub").count() === 0, "os 3 assuntos não aparecem sob o item Alertas no menu (ficam dentro da tela Alertas)");
   await page.screenshot({ path: `${SHOTS}/alertas-tres-topo.png` });
 
   // painel do sininho Contas
@@ -49,11 +48,12 @@ function seed(db) {
   await painel.getByTestId("accounts-bell-read-all").click();
   await page.waitForFunction(() => !document.querySelector("[data-testid=accounts-bell-count]"), null, { timeout: 8000 });
   check(db.alerts.every((a) => a.status === "visto") && db.rpcCalls.filter((c) => c.fn === "set_alert_status").length === 2, "\"Marcar todos como vistos\" passa os 2 alertas para visto (nada é resolvido)");
-  check(await page.getByTestId("nav-alerts-sub-contas").innerText().then((t) => t.replace(/\s+/g, "") === "Contas"), "o número de Contas some no menu");
+  check((await page.getByTestId("nav-alerts-count").first().innerText()).trim().startsWith("5"), "o total do menu cai para 5 (só Contas foi lido)");
   await page.keyboard.press("Escape");
 
   // tela Alertas em 3 abas
-  await page.getByTestId("nav-alerts-sub-campanhas").click();  // botão (não é outro item do menu)
+  await page.getByTestId("nav-alerts-count").first().click();  // o item pai Alertas leva à tela com as abas
+  await page.getByTestId("alert-tab-campanhas").click();
   await page.waitForURL("**/alertas?aba=campanhas");
   await page.getByTestId("avisos-campanhas").waitFor();
   check(await page.getByTestId("monitor-notification-row").count() === 3, "aba Campanhas lista os 3 avisos do Monitoramento");
