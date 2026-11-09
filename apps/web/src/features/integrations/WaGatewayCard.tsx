@@ -128,6 +128,25 @@ export function WaGatewayCard() {
       {message && <Alert tone={message.tone}>{message.text}</Alert>}
 
       <div className="space-y-3 rounded-xl bg-slate-50 p-4" data-testid="wa-connection">
+        <div className="space-y-1 text-sm text-slate-700" data-testid="wa-health">
+          {s?.owner_tail ? (
+            <p>
+              Número ligado: <strong>final {s.owner_tail}</strong>{s.profile_name ? <> · perfil <strong>{s.profile_name}</strong></> : null}.
+              {" "}Confira se é o chip certo: ele serve para os avisos nos grupos e para ler as conversas do cliente.
+            </p>
+          ) : (
+            <p className="text-slate-500">Nenhum número ligado ainda.</p>
+          )}
+          {s?.health_state && s.health_state !== "conectado" && (
+            <p className="text-red-700" data-testid="wa-health-problem">
+              Sem conexão{s.health_since ? ` desde ${formatDateTime(s.health_since)}` : ""}: {s.health_message ?? "sem detalhe"}
+            </p>
+          )}
+          <p className="text-xs text-slate-500">
+            O CRM confere o servidor a cada 5 minutos{s?.last_ok_at ? ` (última resposta boa: ${formatDateTime(s.last_ok_at)})` : ""}. Se ficar fora por mais de 10 minutos,
+            você recebe um aviso no sino (Alertas → Tarefas) e outro quando voltar.
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={STATE[state].tone}>{STATE[state].label}</Badge>
           {s?.last_check_at && <span className="text-xs text-slate-500">conferido {formatDateTime(s.last_check_at)}</span>}

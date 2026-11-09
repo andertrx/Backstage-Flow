@@ -20,6 +20,14 @@ export interface WaGatewaySettings {
   connected_at: string | null;
   last_check_at: string | null;
   last_error: string | null;
+  /** Saúde conferida pelo banco a cada 5 minutos (T5.17). */
+  health_state?: string | null;
+  health_message?: string | null;
+  health_since?: string | null;
+  last_ok_at?: string | null;
+  /** Só os 4 últimos dígitos do número ligado e o nome do perfil: para saber qual chip está conectado. */
+  owner_tail?: string | null;
+  profile_name?: string | null;
 }
 
 export interface WaConnectResult {
@@ -42,7 +50,7 @@ export function useWaGateway(enabled = true) {
     enabled,
     queryFn: async () => {
       const { data, error } = await supabase.from("wa_gateway_settings")
-        .select("enabled,base_url,instance_name,has_key,key_updated_at,risk_accepted_at,connection_state,connected_at,last_check_at,last_error").eq("id", true).maybeSingle();
+        .select("enabled,base_url,instance_name,has_key,key_updated_at,risk_accepted_at,connection_state,connected_at,last_check_at,last_error,health_state,health_message,health_since,last_ok_at,owner_tail,profile_name").eq("id", true).maybeSingle();
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar a conexão do WhatsApp."));
       return data as WaGatewaySettings | null;
     },

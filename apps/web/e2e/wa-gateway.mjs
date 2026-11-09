@@ -111,4 +111,25 @@ const KEY = "chave-do-servidor-1234567890";
   await browser.close();
 }
 
+
+// ---------------------------------------------------------------- Saúde da conexão (T5.17)
+{
+  const { browser, page, errors } = await launch();
+  const db = await mockSupabase(page, { role: "admin" });
+  Object.assign(db.waGw, { has_key: true, base_url: "https://whats.exemplo.com.br", connection_state: "conectado", enabled: true,
+    owner_tail: "6623", profile_name: "Ander", health_state: "conectado", last_ok_at: new Date().toISOString() });
+  await login(page, "/configuracoes/integracoes");
+  const h = page.getByTestId("wa-health");
+  await h.waitFor();
+  const txt = (await h.innerText()).replace(/\s+/g, " ");
+  check(txt.includes("final 6623") && txt.includes("Ander"), "mostra o final do número ligado e o nome do perfil");
+  check(txt.includes("a cada 5 minutos") && txt.includes("10 minutos"), "explica a conferência a cada 5 minutos e o aviso depois de 10");
+  check(await page.getByTestId("wa-health-problem").count() === 0, "conectado: nenhum problema aparece");
+  Object.assign(db.waGw, { health_state: "sem_resposta", health_message: "O servidor não respondeu (pode estar reiniciando, fora do ar ou trocando de número).", health_since: new Date().toISOString() });
+  await page.reload();
+  await page.getByTestId("wa-health-problem").waitFor();
+  check((await page.getByTestId("wa-health-problem").innerText()).includes("não respondeu"), "com problema: mostra desde quando e a causa em português");
+  check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
+  await browser.close();
+}
 console.log("Conexão WhatsApp não oficial (Etapa 44.1): tudo certo.");

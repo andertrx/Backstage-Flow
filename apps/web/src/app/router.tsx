@@ -223,6 +223,8 @@ export const router = createBrowserRouter([
           { index: true, element: <OpsIndexRedirect /> },
           // 07/11/2026: Painel e Notificações têm menu próprio; os endereços antigos continuam valendo.
           { path: "painel", element: <RedirectKeep to="/painel" /> },
+          // T5.17: o aviso "WhatsApp sem conexão" abre a tela de Integrações.
+          { path: "whatsapp-conexao", element: <Navigate to="/configuracoes/integracoes" replace /> },
           { path: "minhas-tarefas", element: <OpsMyTasksPage /> },
           { path: "tarefas", element: <OpsTasksPage /> },
           { path: "arquivados", element: <OpsArchivePage /> },
