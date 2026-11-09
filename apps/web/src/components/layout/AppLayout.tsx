@@ -78,7 +78,7 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
                         "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
                         "focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-brand-500",
                         collapsed && "justify-center px-0",
-                        isActive ? "bg-slate-900 text-white shadow-[0_6px_14px_-6px_rgb(15_23_42/0.55)]" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                        isActive ? "nav-pop bg-slate-900 text-white shadow-[0_6px_14px_-6px_rgb(15_23_42/0.55)]" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                       )
                     }
                   >
