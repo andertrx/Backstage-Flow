@@ -15,7 +15,7 @@ await page.waitForFunction(() => document.documentElement.dataset.theme === "dar
 check(true, "o botão liga o tema escuro");
 await page.waitForTimeout(900);
 const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-check(bg === "rgb(11, 11, 13)", `fundo escuro (${bg})`);
+check(bg === "rgb(8, 8, 10)", `fundo escuro (${bg})`);
 await page.screenshot({ path: `${SHOTS}/tema-escuro-dashboard.png` });
 await page.reload();
 await page.getByRole("heading", { name: /^Olá/ }).waitFor();

@@ -5,8 +5,8 @@ import { cn } from "@/lib/cn.ts";
 export function WhatsAppPreview({ text }: { text: string }) {
   const lines = parseWhatsApp(text);
   return (
-    <div className="rounded-xl bg-[#e7f3ec] p-3" data-testid="envio-preview">
-      <div className="ml-auto max-w-md rounded-lg rounded-tr-none bg-[#d9fdd3] px-3 py-2 text-sm text-slate-900 shadow-sm">
+    <div className="rounded-xl bg-[#e7f3ec] dark:bg-[#0b1a14] p-3" data-testid="envio-preview">
+      <div className="ml-auto max-w-md rounded-lg rounded-tr-none bg-[#d9fdd3] dark:bg-[#144d37] px-3 py-2 text-sm text-slate-900 shadow-sm">
         {text.trim() === "" ? <span className="text-slate-400">A mensagem aparece aqui.</span> : lines.map((segs, i) => (
           <p key={i} className="min-h-5 whitespace-pre-wrap break-words">
             {segs.map((s, j) => (

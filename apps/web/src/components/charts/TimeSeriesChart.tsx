@@ -107,7 +107,7 @@ export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, form
             {/* Grade e eixo Y */}
             {ticks.map((t) => (
               <g key={t}>
-                <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} stroke="#e8ebf0" strokeWidth={1} strokeDasharray={t === 0 ? undefined : "3 5"} shapeRendering="crispEdges" />
+                <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} stroke="var(--color-slate-200)" strokeWidth={1} strokeDasharray={t === 0 ? undefined : "3 5"} shapeRendering="crispEdges" />
                 <text x={M.left - 8} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="#64748b">{formatAxis(t)}</text>
               </g>
             ))}
@@ -135,7 +135,7 @@ export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, form
             ))}
             {/* Pontos */}
             {lines.map((l) => markerIndexes(l.values).map((i) => (
-              <circle key={`${l.key}-${i}`} cx={x(i)} cy={y(l.values[i]!)} r={4} fill={l.color} stroke="#ffffff" strokeWidth={2} />
+              <circle key={`${l.key}-${i}`} cx={x(i)} cy={y(l.values[i]!)} r={4} fill={l.color} stroke="var(--chart-surface, #ffffff)" strokeWidth={2} />
             )))}
       </>
     );
@@ -153,7 +153,7 @@ export function TimeSeriesChart({ lines, xLabels, pointTitles, formatValue, form
           <g pointerEvents="none">
             <line x1={x(active)} x2={x(active)} y1={M.top} y2={M.top + innerH} stroke="#94a3b8" strokeWidth={1} shapeRendering="crispEdges" />
             {lines.map((l) => l.values[active] != null && (
-              <circle key={l.key} cx={x(active)} cy={y(l.values[active]!)} r={5} fill={l.color} stroke="#ffffff" strokeWidth={2} />
+              <circle key={l.key} cx={x(active)} cy={y(l.values[active]!)} r={5} fill={l.color} stroke="var(--chart-surface, #ffffff)" strokeWidth={2} />
             ))}
           </g>
         )}

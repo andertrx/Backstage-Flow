@@ -16,7 +16,7 @@ function apply(theme: Theme) {
   } catch {
     // armazenamento bloqueado: só não lembra a escolha
   }
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0b0b0d" : "#1d4ed8");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#08080a" : "#1d4ed8");
   listeners.forEach((l) => l());
 }
 

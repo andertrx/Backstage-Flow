@@ -125,11 +125,12 @@ body {
    maioria das telas acompanha sozinha. As cores da marca (azul), do verde, âmbar e vermelho continuam. */
 [data-theme="dark"] {
   color-scheme: dark;
-  --color-canvas: #0b0b0d;
-  --color-slate-50: #1b1c21;
-  --color-slate-100: #24262c;
-  --color-slate-200: #30323a;
-  --color-slate-300: #40434d;
+  --color-canvas: #08080a;
+  --chart-surface: #0f1013;
+  --color-slate-50: #131418;
+  --color-slate-100: #191b20;
+  --color-slate-200: #25272e;
+  --color-slate-300: #343742;
   --color-slate-400: #6c707c;
   --color-slate-500: #8e92a0;
   --color-slate-600: #afb3c0;
@@ -145,14 +146,19 @@ body {
   --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03);
   --shadow-elevated: 0 24px 60px -18px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(255 255 255 / 0.06);
 }
-[data-theme="dark"] .bg-white { background-color: #16171b; }
-[data-theme="dark"] .bg-white\/90 { background-color: rgb(22 23 27 / 0.9); }
+[data-theme="dark"] .bg-white { background-color: #0f1013; }
+[data-theme="dark"] .bg-white\/90 { background-color: rgb(15 16 19 / 0.9); }
 [data-theme="dark"] .bg-emerald-50 { background-color: rgb(16 185 129 / 0.14); }
 [data-theme="dark"] .bg-amber-50 { background-color: rgb(245 158 11 / 0.14); }
 [data-theme="dark"] .bg-red-50 { background-color: rgb(239 68 68 / 0.14); }
 [data-theme="dark"] .bg-sky-50, [data-theme="dark"] .bg-blue-50 { background-color: rgb(59 130 246 / 0.14); }
 [data-theme="dark"] .bg-blue-100 { background-color: rgb(59 130 246 / 0.22); }
 [data-theme="dark"] .bg-yellow-50, [data-theme="dark"] .bg-orange-50 { background-color: rgb(245 158 11 / 0.14); }
+/* Fundos claros com transparência (ex.: bg-blue-50/70) têm outro nome de classe e não caíam nas regras acima. */
+[data-theme="dark"] [class*="bg-blue-50/"], [data-theme="dark"] [class*="bg-sky-50/"] { background-color: rgb(59 130 246 / 0.12); }
+[data-theme="dark"] [class*="bg-emerald-50/"] { background-color: rgb(16 185 129 / 0.12); }
+[data-theme="dark"] [class*="bg-amber-50/"], [data-theme="dark"] [class*="bg-yellow-50/"], [data-theme="dark"] [class*="bg-orange-50/"] { background-color: rgb(245 158 11 / 0.12); }
+[data-theme="dark"] [class*="bg-red-50/"] { background-color: rgb(239 68 68 / 0.12); }
 [data-theme="dark"] .bg-red-100 { background-color: rgb(239 68 68 / 0.22); }
 [data-theme="dark"] .bg-emerald-100 { background-color: rgb(16 185 129 / 0.22); }
 [data-theme="dark"] .bg-amber-100 { background-color: rgb(245 158 11 / 0.22); }
@@ -164,6 +170,12 @@ body {
 [data-theme="dark"] .ring-red-200 { --tw-ring-color: rgb(239 68 68 / 0.3); }
 [data-theme="dark"] .ring-emerald-200 { --tw-ring-color: rgb(16 185 129 / 0.3); }
 [data-theme="dark"] .ring-amber-200 { --tw-ring-color: rgb(245 158 11 / 0.3); }
+[data-theme="dark"] .text-emerald-900, [data-theme="dark"] .text-emerald-800 { color: #6ee7b7; }
+[data-theme="dark"] .text-amber-950 { color: #fde68a; }
+[data-theme="dark"] .ring-blue-100, [data-theme="dark"] .ring-blue-300, [data-theme="dark"] .ring-sky-600\/15 { --tw-ring-color: rgb(59 130 246 / 0.25); }
+[data-theme="dark"] .ring-emerald-100 { --tw-ring-color: rgb(16 185 129 / 0.25); }
+[data-theme="dark"] .ring-orange-200, [data-theme="dark"] .ring-amber-300 { --tw-ring-color: rgb(245 158 11 / 0.3); }
+[data-theme="dark"] .border-emerald-100, [data-theme="dark"] .divide-emerald-100 > * + * { border-color: rgb(16 185 129 / 0.2); }
 [data-theme="dark"] .text-brand-600, [data-theme="dark"] .text-brand-500 { color: #7ab0fc; }
 [data-theme="dark"] .text-emerald-700 { color: #6ee7b7; }
 [data-theme="dark"] .text-amber-800 { color: #fcd34d; }
