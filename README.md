@@ -73,6 +73,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T5.9 — Ficha do cliente com abas (tudo do cliente dentro dele; marcar venda só em Conversas)](docs/etapa-34-tracking/T5.9-FICHA-DO-CLIENTE.md) ✅ 09/11
   - [T5.10 — Tracking com Painel e Configurações (as abas circuladas saem da ficha e vão para o Tracking)](docs/etapa-34-tracking/T5.10-TRACKING-PAINEL-E-CONFIGURACOES.md) ✅ 09/11
   - [T5.11 — Correção: nova venda de quem já está na etapa Venda](docs/etapa-34-tracking/T5.11-VENDA-REPETIDA.md) ✅ 09/11
+  - [T5.12 — Pedido repetido: confere também a fila do Meta](docs/etapa-34-tracking/T5.12-PEDIDO-REPETIDO.md) ✅ 09/11
   - [53.1 — Novo layout estilo Vertix: base visual (azul, menu lateral mantido)](docs/etapa-53-layout-vertix/53.1-BASE-VISUAL.md) ✅ 09/11
   - [53.2 — Novo layout: moldura (menu flutuante e cabeçalho em pílula)](docs/etapa-53-layout-vertix/53.2-MOLDURA.md) ✅ 09/11
   - [53.3 — Novo layout: cartões de números e barras hachuradas](docs/etapa-53-layout-vertix/53.3-CARTOES-E-BARRAS.md) ✅ 09/11
