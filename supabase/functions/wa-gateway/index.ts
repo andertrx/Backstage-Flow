@@ -14,7 +14,7 @@ import { z } from "npm:zod@4";
 import { adminClient, requireRole } from "../_shared/auth.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { enforceRateLimit } from "../_shared/ratelimit.ts";
-import { callGateway, type ConnState, type GatewayCfg, type GatewayReply, gatewayProblem, mapConnectionState, normalizePhone, parseConnectResponse, parseGroups } from "./logic.ts";
+import { GROUPS_TIMEOUT_MS, callGateway, type ConnState, type GatewayCfg, type GatewayReply, gatewayProblem, mapConnectionState, normalizePhone, parseConnectResponse, parseGroups } from "./logic.ts";
 
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("status") }),
@@ -36,7 +36,7 @@ async function setState(db: SupabaseClient, state: ConnState, error: string | nu
   if (e) throw new AppError(500, "DB_ERROR", "Não conseguimos guardar o estado da conexão.", e);
 }
 
-async function gw(cfg: GatewayCfg, method: "GET" | "POST" | "DELETE", path: string, opts: { query?: Record<string, string>; body?: unknown } = {}): Promise<GatewayReply> {
+async function gw(cfg: GatewayCfg, method: "GET" | "POST" | "DELETE", path: string, opts: { query?: Record<string, string>; body?: unknown; timeoutMs?: number } = {}): Promise<GatewayReply> {
   try {
     return await callGateway(cfg, method, path, opts);
   } catch (e) {
@@ -87,7 +87,7 @@ Deno.serve(handle(async (req) => {
   }
 
   if (input.action === "groups") {
-    const r = await gw(cfg, "GET", "/group/fetchAllGroups/{instance}", { query: { getParticipants: "false" } });
+    const r = await gw(cfg, "GET", "/group/fetchAllGroups/{instance}", { query: { getParticipants: "false" }, timeoutMs: GROUPS_TIMEOUT_MS });
     if (r.status >= 400) throw new AppError(502, "GATEWAY_ERROR", gatewayProblem(r.status));
     return json(req, 200, { data: { groups: parseGroups(r.body) } });
   }

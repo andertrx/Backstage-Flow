@@ -17,6 +17,8 @@ export interface GatewayReply {
 }
 
 const TIMEOUT_MS = 12_000;
+/** A lista de grupos é pesada no servidor de conexão (medido: ~41 s com muitos grupos); as demais rotas são rápidas. */
+export const GROUPS_TIMEOUT_MS = 100_000;
 
 /** Endereço completo de uma rota do servidor de conexão (a instância sempre codificada). */
 export function gatewayUrl(cfg: Pick<GatewayCfg, "baseUrl" | "instance">, path: string, query?: Record<string, string>): string {
@@ -36,11 +38,11 @@ export async function callGateway(
   cfg: GatewayCfg,
   method: "GET" | "POST" | "DELETE",
   path: string,
-  opts: { query?: Record<string, string>; body?: unknown; fetchImpl?: typeof fetch } = {},
+  opts: { query?: Record<string, string>; body?: unknown; fetchImpl?: typeof fetch; timeoutMs?: number } = {},
 ): Promise<GatewayReply> {
   if (!safeBaseUrl(cfg.baseUrl)) throw new Error("ENDERECO_INSEGURO");
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? TIMEOUT_MS);
   try {
     const res = await (opts.fetchImpl ?? fetch)(gatewayUrl(cfg, path, opts.query), {
       method,
