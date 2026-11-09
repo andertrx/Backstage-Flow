@@ -70,4 +70,37 @@ function seed(db, conectado = true) {
   check(await page.getByTestId("wa-envio-panel").count() === 0, "WhatsApp desconectado: o painel nem aparece");
   await browser.close();
 }
+// ---------------------------------------------------------------- T5.22 Fase 3: resumo e reenvio
+{
+  const { browser, page, errors } = await launch();
+  const db = await mockSupabase(page, { role: "admin" });
+  seed(db);
+  db.waAuto.push(ENVIO);
+  db.opsEnvioAprovacoes.push({ id: 1, envio_id: ENVIO, semana: "2026-11-02", decisao: "aprovado", versao_envio: 1, decidido_por: USER_ID, decidido_em: SEG_0830, origem: "manual" });
+  const d = (id, cliente_id, status, detalhe = null) => ({ id, envio_id: ENVIO, cliente_id, semana: "2026-11-02", origem: "automatico", status, tentativas: 1, detalhe, enviado_em: status === "enviado" ? t : null, atualizado_em: t });
+  db.waDisparos.push(d(1, A, "enviado"), d(2, B, "falhou", "Sem conexão"), d(3, C, "pulado", "Cliente sem grupo do WhatsApp ligado."));
+  await login(page, "/operacoes/envios");
+  const panel = page.getByTestId("envio-card").first().getByTestId("wa-envio-panel");
+  await panel.waitFor();
+  check((await panel.getByTestId("wa-resumo").innerText()).includes("1 enviado(s) · 1 falharam · 0 na fila · 1 pulado(s)"), "resumo da semana: enviados, falharam, na fila, pulados");
+  await page.screenshot({ path: `${SHOTS}/wa-reenviar.png` });
+  await panel.getByRole("button", { name: /Reenviar só para quem não recebeu/ }).click();
+  await panel.getByText("2 cliente(s) entraram na fila").waitFor();
+  check(db.rpcCalls.some((c) => c.fn === "wa_envio_reenviar" && c.p_modo === "faltantes") && !db.waDisparos.some((x) => x.cliente_id === A && x.status === "pendente"),
+    "reenviar só para quem não recebeu: Aurora (já recebeu) fica de fora");
+  await panel.getByRole("button", { name: "Enviar de novo para todos" }).click();
+  const conf = page.getByTestId("wa-reenviar-confirma");
+  await conf.waitFor();
+  check((await conf.innerText()).includes("receber a mensagem outra vez"), "enviar para todos pede confirmação e avisa da duplicidade");
+  await conf.getByRole("button", { name: "Cancelar" }).click();
+  check(!db.rpcCalls.some((c) => c.fn === "wa_envio_reenviar" && c.p_modo === "todos"), "cancelar não envia nada");
+  await panel.getByRole("button", { name: "Enviar de novo para todos" }).click();
+  await page.getByTestId("wa-reenviar-confirma").getByRole("button", { name: "Sim, enviar para todos" }).click();
+  await page.waitForFunction(() => true);
+  await page.waitForTimeout(400);
+  check(db.rpcCalls.some((c) => c.fn === "wa_envio_reenviar" && c.p_modo === "todos"), "confirmando, pede o reenvio para todos");
+  check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);
+  await browser.close();
+}
+
 console.log("OK: wa-disparos");

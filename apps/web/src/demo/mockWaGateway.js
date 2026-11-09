@@ -48,6 +48,21 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
       if (p.p_on) db.waAuto.push(p.p_envio);
       return res(204);
     }
+    if (url.includes("/rpc/wa_envio_reenviar")) {
+      const ap = db.opsEnvioAprovacoes.find((a) => a.envio_id === p.p_envio && a.decisao === "aprovado");
+      if (!db.waAuto.includes(p.p_envio)) return bad("Este envio não é automático.");
+      if (!ap) return bad("Aprove o envio desta semana antes de reenviar.");
+      let n = 0;
+      for (const c of db.opsEnvioClientes.filter((x) => x.envio_id === p.p_envio && x.ativo && !x.removido_em)) {
+        const meus = db.waDisparos.filter((d) => d.envio_id === p.p_envio && d.cliente_id === c.cliente_id && d.semana === ap.semana);
+        if (meus.some((d) => d.status === "pendente" || d.status === "enviando")) continue;
+        if (p.p_modo === "faltantes" && meus.some((d) => d.status === "enviado")) continue;
+        if ((db.opsEnvioSemana ?? []).some((x) => x.envio_id === p.p_envio && x.cliente_id === c.cliente_id && !x.receber)) continue;
+        db.waDisparos.push({ id: db.waDisparos.length + 100, envio_id: p.p_envio, cliente_id: c.cliente_id, semana: ap.semana, origem: "manual", status: "pendente", tentativas: 0, detalhe: null, enviado_em: null, atualizado_em: new Date().toISOString() });
+        n++;
+      }
+      return res(200, { na_fila: n, sem_grupo: 0 });
+    }
   }
   // Etapa 46.1 — Google Agenda de cada pessoa (função google-agenda simulada)
   if (url.includes("/functions/v1/google-agenda")) {

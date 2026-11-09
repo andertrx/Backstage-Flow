@@ -58,6 +58,19 @@ export function useSetAutomatico() {
   });
 }
 
+/** T5.22 Fase 3: reenviar um envio já aprovado na semana: "faltantes" (só quem não recebeu) ou "todos". */
+export function useReenviar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { envio: string; modo: "faltantes" | "todos" }) => {
+      const { data, error } = await supabase.rpc("wa_envio_reenviar", { p_envio: v.envio, p_modo: v.modo });
+      if (error) throw new FriendlyError(dbError(error, "Não conseguimos reenviar."));
+      return data as { na_fila: number; sem_grupo: number };
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
 export const DISPARO_LABEL: Record<DisparoStatus, string> = {
   pendente: "Na fila", enviando: "Enviando", enviado: "Enviado", falhou: "Falhou", pulado: "Pulado",
 };

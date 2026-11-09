@@ -3,13 +3,14 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { Modal } from "@/components/ui/modal.tsx";
 import { Switch } from "@/components/ui/switch.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useWaGateway } from "@/features/integrations/waGatewayApi.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import type { OpsEnvio } from "./enviosApi.ts";
-import { DISPARO_LABEL, type DisparoStatus, useSetAutomatico, useWaAutomaticos, useWaDisparos } from "./waDisparosApi.ts";
+import { DISPARO_LABEL, type DisparoStatus, useReenviar, useSetAutomatico, useWaAutomaticos, useWaDisparos } from "./waDisparosApi.ts";
 import { useWaGruposLigados } from "./waGruposApi.ts";
 import { LigarGrupoModal, type ClienteGrupo } from "./WaGrupoLigar.tsx";
 
@@ -28,6 +29,9 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
   const setAuto = useSetAutomatico();
   const grupos = useWaGruposLigados(true);
   const [ligar, setLigar] = useState<ClienteGrupo | null>(null);
+  const reenviar = useReenviar();
+  const [confirmaTodos, setConfirmaTodos] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const automatico = autos.data?.has(envio.id) ?? false;
   const ligado = Boolean(gw.data?.enabled) && gw.data?.connection_state === "conectado";
@@ -37,6 +41,23 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
   const semGrupo = envio.clientes.filter((c) => c.ativo && !comGrupo.has(c.cliente_id));
   // Sem conexão e sem nada anotado: não mostra nada (sem botão que não funciona).
   if (!ligado && !automatico && meus.length === 0) return null;
+  // Resumo da semana: o último resultado de cada cliente que recebe nesta semana
+  const ultimo = new Map<string, DisparoStatus>();
+  for (const d of [...meus].sort((a, b) => a.id - b.id)) ultimo.set(d.cliente_id, d.status);
+  const conta = { enviado: 0, falhou: 0, fila: 0, pulado: 0 };
+  for (const st of ultimo.values()) {
+    if (st === "enviado") conta.enviado++; else if (st === "falhou") conta.falhou++; else if (st === "pulado") conta.pulado++; else conta.fila++;
+  }
+  const podeReenviar = isAdmin && automatico && ligado && envio.situacao_hoje === "aprovado" && meus.length > 0;
+  const faltam = envio.clientes.filter((c) => c.ativo && c.recebe_hoje !== false && ultimo.get(c.cliente_id) !== "enviado" && ultimo.get(c.cliente_id) !== "pendente" && ultimo.get(c.cliente_id) !== "enviando").length;
+  async function reenvia(modo: "faltantes" | "todos") {
+    setError(null); setAviso(null);
+    try {
+      const r = await reenviar.mutateAsync({ envio: envio.id, modo });
+      setAviso(r.na_fila ? `${r.na_fila} cliente(s) entraram na fila (um por vez, a cada 45 segundos).` : "Ninguém entrou na fila: todos já estão na fila ou já receberam.");
+      setConfirmaTodos(false);
+    } catch (e) { setError(errorMessage(e)); setConfirmaTodos(false); }
+  }
   async function toggle(on: boolean) {
     setError(null);
     try { await setAuto.mutateAsync({ envio: envio.id, on }); } catch (e) { setError(errorMessage(e)); }
@@ -67,6 +88,29 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
         </div>
       )}
       {ligar && <LigarGrupoModal cliente={ligar} onClose={() => setLigar(null)} />}
+      {meus.length > 0 && (
+        <p className="text-sm text-slate-700" data-testid="wa-resumo">
+          <strong>Nesta semana:</strong> {conta.enviado} enviado(s) · {conta.falhou} falharam · {conta.fila} na fila · {conta.pulado} pulado(s)
+        </p>
+      )}
+      {podeReenviar && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="wa-reenviar">
+          <Button size="sm" onClick={() => void reenvia("faltantes")} loading={reenviar.isPending} disabled={faltam === 0}>Reenviar só para quem não recebeu{faltam ? ` (${faltam})` : ""}</Button>
+          <Button size="sm" variant="secondary" onClick={() => setConfirmaTodos(true)} disabled={reenviar.isPending}>Enviar de novo para todos</Button>
+        </div>
+      )}
+      {aviso && <Alert tone="success">{aviso}</Alert>}
+      {confirmaTodos && (
+        <Modal open title="Enviar de novo para todos?" onClose={() => setConfirmaTodos(false)}>
+          <div className="space-y-3 text-sm" data-testid="wa-reenviar-confirma">
+            <p className="text-slate-700">Quem já recebeu esta semana vai <strong>receber a mensagem outra vez</strong>. Isso aparece duplicado nos grupos dos clientes.</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setConfirmaTodos(false)}>Cancelar</Button>
+              <Button onClick={() => void reenvia("todos")} loading={reenviar.isPending}>Sim, enviar para todos</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {meus.length > 0 && (
         <ul className="flex flex-wrap gap-2" data-testid="wa-disparos-lista">
           {meus.map((d) => (

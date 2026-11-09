@@ -145,6 +145,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T5.21 — Só envio automático (manual removido) e aprovação fora do prazo ("Aprovar e enviar agora")](docs/etapa-43-organizacao/T5.21-SO-ENVIO-AUTOMATICO-E-APROVACAO-TARDIA.md) ✅ 09/11
   - [T5.22 (Fase 1) — Aba Clientes e marcação (@) só por número; Claude/MCP deixa de enviar](docs/etapa-43-organizacao/T5.22-FASE-1-ABA-CLIENTES-E-MARCACAO-POR-NUMERO.md) ✅ 09/11
   - [T5.22 (Fase 2) — "Quem recebe hoje": escolher, por semana, quais clientes recebem](docs/etapa-43-organizacao/T5.22-FASE-2-QUEM-RECEBE-HOJE.md) ✅ 09/11
+  - [T5.22 (Fase 3) — Resumo da semana e reenvio (só quem não recebeu / todos)](docs/etapa-43-organizacao/T5.22-FASE-3-RESUMO-E-REENVIO.md) ✅ 09/11
   - [45.1 — avisos no WhatsApp (motor: fila, agrupamento, silêncio; sem tela ainda)](docs/etapa-43-organizacao/45.1-AVISOS-NO-WHATSAPP.md) ✅ 07/11 (testado só no banco; sem envio real)
   - [45.2 — aviso "cliente sem gastar" no WhatsApp (motor, sem tela; precisão ~1 h)](docs/etapa-43-organizacao/45.2-AVISO-CLIENTE-SEM-GASTAR.md) ✅ 07/11
   - [45.3 — tela dos avisos no WhatsApp (grupo, tipos, silêncio, sem gasto por cliente)](docs/etapa-43-organizacao/45.3-TELA-DOS-AVISOS-NO-WHATSAPP.md) ✅ 07/11
