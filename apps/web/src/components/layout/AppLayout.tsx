@@ -169,7 +169,7 @@ export function AppLayout() {
       {/* Sidebar fixa no desktop (pode ser recolhida) */}
       <aside
         className={cn(
-          "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 lg:flex print:hidden",
+          "sticky top-4 m-4 mr-0 hidden h-[calc(100vh-2rem)] shrink-0 flex-col overflow-hidden rounded-3xl bg-white shadow-card ring-1 ring-slate-200/60 transition-[width] duration-200 lg:flex print:hidden",
           collapsed ? "w-[4.5rem]" : "w-64",
         )}
         data-testid="sidebar"
@@ -179,7 +179,7 @@ export function AppLayout() {
           <Logo compact={collapsed} />
         </div>
         <SidebarNav collapsed={collapsed} />
-        <div className="shrink-0 border-t border-slate-200 p-3">
+        <div className="shrink-0 border-t border-slate-100 p-3">
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
@@ -211,9 +211,9 @@ export function AppLayout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="sticky top-0 z-30 print:hidden">
+        <div className="sticky top-0 z-30 lg:px-4 lg:pt-4 print:hidden">
         <DemoBanner />
-        <header className="flex h-16 items-center gap-2 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:gap-3 sm:px-6 lg:px-8">
+        <header className="flex h-16 items-center gap-2 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:gap-3 sm:px-6 lg:rounded-full lg:border-b-0 lg:bg-white lg:px-6 lg:shadow-card lg:ring-1 lg:ring-slate-200/60">
           {hasMenu && (
             <button className="-ml-1 rounded-lg p-1 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
               <Menu className="size-6" />
