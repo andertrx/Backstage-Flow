@@ -83,6 +83,10 @@
 - [ ] Compartilhar cada planilha de cliente com o e-mail que o CRM mostra, como **Leitor**.
 - [ ] Em **Inteligência de Resultados**, escolher o cliente, conectar a planilha dele e clicar em **Atualizar agora**. Essa primeira leitura real é o teste final da Etapa 39 (depois disso, conferir a aba **Qualidade dos dados**).
 
+## Marcar pessoas (@) nos envios (T5.20, 09/11/2026)
+- [ ] **Teste real da marcação:** num grupo de teste, ligar o grupo a um cliente, escolher o seu número em uma pessoa (Ficha do cliente → Grupo do WhatsApp → Escolher números) e usar "Enviar agora" só nesse cliente. Conferir se o WhatsApp mostra a marcação azul no fim da mensagem. Se não mostrar, me avise (ajusto o formato).
+- [ ] Escolher os números das pessoas de cada cliente (Envios semanais → Grupos e @ dos clientes → "Pessoas a marcar (@)").
+
 ## WhatsApp por API não oficial (Etapa 44, 06/11/2026)
 - [ ] **Contratar o servidor de conexão** e seguir `docs/etapa-43-organizacao/44.1-SERVIDOR-PASSO-A-PASSO.md` (arquivos prontos em `infra/whatsapp-evolution/`). Eu acompanho cada passo.
 - [ ] Ter o **chip separado** à mão para ler o QR Code (ou digitar o código) na primeira conexão. Cole a chave de acesso **só no campo do CRM**, nunca no chat.

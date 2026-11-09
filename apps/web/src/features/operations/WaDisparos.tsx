@@ -12,6 +12,7 @@ import { formatDateTime } from "@/lib/format.ts";
 import type { OpsEnvio } from "./enviosApi.ts";
 import { DISPARO_LABEL, type DisparoStatus, type EnviarAgoraResult, useEnviarAgora, useSetAutomatico, useWaAutomaticos, useWaDisparos } from "./waDisparosApi.ts";
 import { useWaGruposLigados } from "./waGruposApi.ts";
+import { LigarGrupoModal, type ClienteGrupo } from "./WaGrupoLigar.tsx";
 
 const TONE: Record<DisparoStatus, "success" | "danger" | "warning" | "neutral" | "brand"> = { pendente: "brand", enviando: "brand", enviado: "success", falhou: "danger", pulado: "neutral" };
 
@@ -71,6 +72,9 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
 function EnviarAgoraModal({ envio, onClose }: { envio: OpsEnvio; onClose: () => void }) {
   const ligados = useWaGruposLigados(true);
   const grupos = useMemo(() => new Map((ligados.data ?? []).map((g) => [g.cliente_id, g.grupo_nome ?? "Grupo ligado"])), [ligados.data]);
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
+  const [ligar, setLigar] = useState<ClienteGrupo | null>(null);
   const ativos = envio.clientes.filter((c) => c.ativo);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [reenviar, setReenviar] = useState(false);
@@ -98,19 +102,22 @@ function EnviarAgoraModal({ envio, onClose }: { envio: OpsEnvio; onClose: () => 
           </>
         ) : (
           <>
-            <p className="text-sm text-slate-600">A mesma mensagem do envio vai para o grupo de cada cliente marcado, sem marcar ninguém (@). Quem já recebeu esta semana fica de fora, a menos que você marque "Enviar de novo".</p>
+            <p className="text-sm text-slate-600">A mesma mensagem do envio vai para o grupo de cada cliente marcado. Quem tem número ligado em "Quem marcar (@)" é marcado no fim da mensagem; quem não tem, não é marcado. Quem já recebeu esta semana fica de fora, a menos que você marque "Enviar de novo".</p>
             {ativos.length === 0 ? <Alert tone="warning">Este envio não tem clientes ativos.</Alert> : (
               <ul className="max-h-64 space-y-1 overflow-y-auto">
                 {ativos.map((c) => {
                   const g = grupos.get(c.cliente_id);
                   return (
-                    <li key={c.id}>
-                      <label className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-slate-50">
+                    <li key={c.id} className="flex items-center gap-2 rounded-md hover:bg-slate-50">
+                      <label className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1 text-sm">
                         <input type="checkbox" checked={sel.has(c.cliente_id)} onChange={() => toggle(c.cliente_id)} aria-label={c.cliente_nome} />
                         <span className="font-medium">{c.cliente_nome}</span>
                         {g ? <span className="text-xs text-slate-500">· {g}</span> : <Badge tone="warning">Sem grupo ligado</Badge>}
                         {c.ja_enviado_nesta_semana && <span className="text-xs text-emerald-700">· já recebeu</span>}
                       </label>
+                      {!g && isAdmin && (
+                        <Button variant="secondary" size="sm" className="mr-2 shrink-0" onClick={() => setLigar({ cliente_id: c.cliente_id, cliente_nome: c.cliente_nome, nome_grupo: c.nome_grupo })} data-testid="wa-ligar-grupo">Ligar grupo</Button>
+                      )}
                     </li>
                   );
                 })}
@@ -125,6 +132,7 @@ function EnviarAgoraModal({ envio, onClose }: { envio: OpsEnvio; onClose: () => 
           </>
         )}
       </div>
+      {ligar && <LigarGrupoModal cliente={ligar} onClose={() => setLigar(null)} />}
     </Modal>
   );
 }

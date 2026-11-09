@@ -14,13 +14,14 @@ import { z } from "npm:zod@4";
 import { adminClient, requireRole } from "../_shared/auth.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { enforceRateLimit } from "../_shared/ratelimit.ts";
-import { GROUPS_TIMEOUT_MS, callGateway, type ConnState, type GatewayCfg, type GatewayReply, gatewayProblem, mapConnectionState, normalizePhone, parseConnectResponse, parseGroups } from "./logic.ts";
+import { GROUPS_TIMEOUT_MS, callGateway, type ConnState, type GatewayCfg, type GatewayReply, gatewayProblem, mapConnectionState, normalizePhone, parseConnectResponse, parseGroups, parseParticipants } from "./logic.ts";
 
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("status") }),
   z.object({ action: z.literal("connect"), number: z.string().max(30).optional() }),
   z.object({ action: z.literal("logout") }),
   z.object({ action: z.literal("groups") }),
+  z.object({ action: z.literal("participants"), groupId: z.string().regex(/^[0-9A-Za-z._-]{5,60}@g\.us$/, "Grupo inválido.") }),
 ]);
 
 async function loadCfg(db: SupabaseClient): Promise<GatewayCfg> {
@@ -90,6 +91,13 @@ Deno.serve(handle(async (req) => {
     const r = await gw(cfg, "GET", "/group/fetchAllGroups/{instance}", { query: { getParticipants: "false" }, timeoutMs: GROUPS_TIMEOUT_MS });
     if (r.status >= 400) throw new AppError(502, "GATEWAY_ERROR", gatewayProblem(r.status));
     return json(req, 200, { data: { groups: parseGroups(r.body) } });
+  }
+
+  if (input.action === "participants") {
+    // só o número de cada participante (nunca nomes nem mensagens), para o administrador escolher quem marcar com @
+    const r = await gw(cfg, "GET", "/group/participants/{instance}", { query: { groupJid: input.groupId }, timeoutMs: GROUPS_TIMEOUT_MS });
+    if (r.status >= 400) throw new AppError(502, "GATEWAY_ERROR", gatewayProblem(r.status));
+    return json(req, 200, { data: { participants: parseParticipants(r.body) } });
   }
 
   // connect

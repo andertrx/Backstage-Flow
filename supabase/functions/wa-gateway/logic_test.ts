@@ -74,3 +74,23 @@ Deno.test("grupos: só id @g.us e nome; sem participantes; ordenados", () => {
   assert(!JSON.stringify(g).includes("5511999999999"));
   assertEquals(parseGroups(null), []);
 });
+
+import { parseParticipants } from "./logic.ts";
+
+Deno.test("participantes do grupo: só telefone real, sem repetir, com marca de admin", () => {
+  const r = parseParticipants({ participants: [
+    { id: "111@lid", phoneNumber: "5545999991111@s.whatsapp.net", admin: "superadmin" },
+    { id: "222@lid", phoneNumber: "5545988882222@s.whatsapp.net", admin: null },
+    { id: "333@lid", phoneNumber: "5545988882222@s.whatsapp.net", admin: null },
+    { id: "5545977773333@s.whatsapp.net" },
+    { id: "444@lid" },
+    { id: "5@s.whatsapp.net", phoneNumber: null },
+  ] });
+  assertEquals(r, [
+    { numero: "5545999991111", admin: true },
+    { numero: "5545988882222", admin: false },
+    { numero: "5545977773333", admin: false },
+  ]);
+  assertEquals(parseParticipants(null), []);
+  assertEquals(parseParticipants({ participants: "x" }), []);
+});

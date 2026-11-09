@@ -9,6 +9,8 @@ export function seedWaGateway() {
     waSim: { state: "close", exists: false, up: true, keyOk: true, groups: [] },
     waKey: null,
     waGrupos: [],
+    waMarcacoes: [],
+    waParticipantes: {},
     waAuto: [],
     waDisparos: [],
     waAvisosCfg: { ativo: false, grupo_id: null, grupo_nome: null, tipos: ["sem_saldo", "saldo_baixo", "conta_restrita", "pagamento_pendente", "erro_api", "envio_aprovar"],
@@ -26,6 +28,8 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
   const isFn = url.includes("/functions/v1/wa-gateway");
   const isGrupos = url.includes("/rest/v1/wa_grupos");
   const isGrupoRpc = url.includes("/rest/v1/rpc/wa_grupo_");
+  const isMarc = url.includes("/rest/v1/wa_marcacoes");
+  const isMarcRpc = url.includes("/rest/v1/rpc/wa_marcacao_");
   const podeEnvios = role === "admin" || (opsPerms.includes("ops.access") && opsPerms.includes("ops.envios"));
   const isCfg = url.includes("/rest/v1/wa_envio_config");
   const isDisp = url.includes("/rest/v1/wa_disparos");
@@ -116,6 +120,25 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
     if (p.p_silenciar) db.waSemGasto.push(p.p_cliente);
     return res(204);
   }
+  if (isMarc) return res(200, role === "admin" ? db.waMarcacoes.map(({ cliente_id, nome, numero }) => ({ cliente_id, nome, numero })) : []);
+  if (isMarcRpc) {
+    const p = parse();
+    db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
+    if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador liga pessoas aos números do WhatsApp." });
+    const bad = (message) => res(400, { code: "22023", message });
+    if (url.includes("/rpc/wa_marcacao_salvar")) {
+      let dig = String(p.p_numero ?? "").replace(/\D/g, "");
+      if (dig.length === 10 || dig.length === 11) dig = `55${dig}`;
+      if (!/^[0-9]{12,15}$/.test(dig)) return bad("Número inválido.");
+      const lista = db.waPadroesNomes?.[p.p_cliente] ?? null;
+      if (lista && !lista.includes(String(p.p_nome ?? "").trim())) return bad("Essa pessoa não está na lista de marcações do cliente.");
+      const ja = db.waMarcacoes.find((x) => x.cliente_id === p.p_cliente && x.nome === p.p_nome);
+      if (ja) ja.numero = dig; else db.waMarcacoes.push({ cliente_id: p.p_cliente, nome: p.p_nome, numero: dig });
+      return res(204);
+    }
+    db.waMarcacoes = db.waMarcacoes.filter((x) => !(x.cliente_id === p.p_cliente && x.nome === p.p_nome));
+    return res(204);
+  }
   if (isGrupos) return res(200, podeEnvios ? db.waGrupos.filter((x) => !x.desvinculado_em).map(({ cliente_id, grupo_id, grupo_nome }) => ({ cliente_id, grupo_id, grupo_nome })) : []);
   if (isGrupoRpc) {
     const p = parse();
@@ -188,6 +211,7 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
     const mapState = () => (sim.state === "open" ? "conectado" : sim.state === "connecting" ? "aguardando_leitura" : sim.exists ? "desconectado" : "desconhecido");
     if (body.action === "status") { set(mapState()); return res(200, { data: { state: g.connection_state, message: null } }); }
     if (body.action === "groups") return res(200, { data: { groups: sim.groups ?? [] } });
+    if (body.action === "participants") return res(200, { data: { participants: db.waParticipantes?.[body.groupId] ?? [] } });
     if (body.action === "logout") { sim.state = "close"; set("desconectado"); return res(200, { data: { state: "desconectado", message: null } }); }
     if (body.action === "connect") {
       const digits = String(body.number ?? "").replace(/\D/g, "");

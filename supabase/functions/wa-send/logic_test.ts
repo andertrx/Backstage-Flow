@@ -55,3 +55,29 @@ Deno.test("lote de avisos: só grupo, até 10 ids e texto válido", () => {
   assert(!avisoValido({ ...a, mensagem: " " }));
   assert(!avisoValido(null));
 });
+
+import { mentionedValido } from "./logic.ts";
+
+Deno.test("marcações (@): só números de 10 a 15 dígitos, até 30; o disparo antigo (sem lista) continua válido", () => {
+  assert(mentionedValido(["5545999991111", "5545988882222"]));
+  assert(mentionedValido([]));
+  assert(!mentionedValido(["+5545999991111"]));
+  assert(!mentionedValido(["123"]));
+  assert(!mentionedValido(Array.from({ length: 31 }, () => "5545999991111")));
+  assert(disparoValido({ ...d, mentioned: ["5545999991111"] }));
+  assert(disparoValido({ ...d, mentioned: [] }));
+  assert(!disparoValido({ ...d, mentioned: ["abc"] }));
+  assert(disparoValido(d));
+});
+
+Deno.test("o envio leva `mentioned` só quando há pessoas a marcar", async () => {
+  const corpos: Record<string, unknown>[] = [];
+  const fakeFetch = ((_u: string, init: RequestInit) => { corpos.push(JSON.parse(String(init.body))); return Promise.resolve(new Response("{}", { status: 201 })); }) as typeof fetch;
+  const cfg = { baseUrl: "https://whats.exemplo.com.br", instance: "backstage", key: "k" };
+  await enviarTexto(cfg, { grupo_id: "120363000000000001@g.us", mensagem: "Oi\n\n@5545999991111", mentioned: ["5545999991111"] }, 0, fakeFetch);
+  await enviarTexto(cfg, { grupo_id: "120363000000000001@g.us", mensagem: "Oi", mentioned: [] }, 0, fakeFetch);
+  await enviarTexto(cfg, { grupo_id: "120363000000000001@g.us", mensagem: "Oi" }, 0, fakeFetch);
+  assertEquals(corpos[0].mentioned, ["5545999991111"]);
+  assertEquals("mentioned" in corpos[1], false);
+  assertEquals("mentioned" in corpos[2], false);
+});

@@ -128,3 +128,30 @@ export function parseGroups(body: unknown): WaGroup[] {
   }
   return out.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
+
+export interface WaParticipante {
+  /** Só dígitos, com DDI (ex.: 5545999991111). */
+  numero: string;
+  admin: boolean;
+}
+
+/**
+ * Participantes de um grupo (T5.20): só o número (para o administrador escolher quem marcar com @) e se é admin do grupo.
+ * O servidor devolve `phoneNumber` ("55...@s.whatsapp.net") e um `id` que pode ser interno ("...@lid"): só vale o telefone real.
+ */
+export function parseParticipants(body: unknown): WaParticipante[] {
+  const list = obj(body)?.participants;
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  const out: WaParticipante[] = [];
+  for (const p of list) {
+    const o = obj(p);
+    const raw = [o?.phoneNumber, o?.id].find((v) => typeof v === "string" && v.endsWith("@s.whatsapp.net")) as string | undefined;
+    const numero = raw ? raw.replace(/@.*$/, "") : "";
+    if (!/^[0-9]{10,15}$/.test(numero) || seen.has(numero)) continue;
+    seen.add(numero);
+    out.push({ numero, admin: typeof o?.admin === "string" && o.admin.length > 0 });
+    if (out.length >= 1000) break;
+  }
+  return out;
+}

@@ -54,3 +54,64 @@ export function useSalvarGrupos() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });
 }
+
+// ---------------------------------------------------------------- T5.20: marcar pessoas (@) nos envios
+
+export interface WaParticipante {
+  /** Só dígitos, com DDI. */
+  numero: string;
+  admin: boolean;
+}
+
+export interface WaMarcacao {
+  cliente_id: string;
+  nome: string;
+  numero: string;
+}
+
+const KEY_MARC = ["wa-marcacoes"] as const;
+
+/** Lê, no WhatsApp conectado, quem está num grupo (só o número de cada pessoa). Só administrador. */
+export function useParticipantesGrupo() {
+  return useMutation({
+    mutationFn: async (groupId: string) => {
+      const { data, error } = await supabase.functions.invoke("wa-gateway", { body: { action: "participants", groupId } });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      return ((data as { data: { participants: WaParticipante[] } }).data.participants) ?? [];
+    },
+  });
+}
+
+/** Números já ligados às pessoas a marcar. O banco só devolve isto ao administrador (para os demais vem vazio). */
+export function useWaMarcacoes(enabled: boolean) {
+  return useQuery({
+    queryKey: KEY_MARC,
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("wa_marcacoes").select("cliente_id,nome,numero");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as pessoas a marcar."));
+      return (data as WaMarcacao[] | null) ?? [];
+    },
+  });
+}
+
+export function useSalvarMarcacoes() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (changes: { cliente_id: string; nome: string; numero: string | null }[]) => {
+      for (const c of changes) {
+        const { error } = c.numero
+          ? await supabase.rpc("wa_marcacao_salvar", { p_cliente: c.cliente_id, p_nome: c.nome, p_numero: c.numero })
+          : await supabase.rpc("wa_marcacao_remover", { p_cliente: c.cliente_id, p_nome: c.nome });
+        if (error) throw new FriendlyError(dbError(error, "Não conseguimos salvar quem marcar."));
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: KEY_MARC }),
+  });
+}
+
+/** 5545999991111 → +55 45 99999-1111 (só para mostrar). */
+export function formatarNumero(n: string): string {
+  const m = /^(\d{2})(\d{2})(\d{4,5})(\d{4})$/.exec(n);
+  return m ? `+${m[1]} ${m[2]} ${m[3]}-${m[4]}` : `+${n}`;
+}

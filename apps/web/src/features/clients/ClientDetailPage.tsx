@@ -21,6 +21,7 @@ import { ClientStatusBadge } from "./StatusBadge.tsx";
 import { timezoneLabel } from "./timezones.ts";
 import { useMyOpsPermissions } from "@/features/operations/api.ts";
 import { ClientOpsTab } from "@/features/operations/ClientOps.tsx";
+import { ClienteGrupoSecao } from "@/features/operations/WaGrupoLigar.tsx";
 import { ClientMeetingsList } from "@/features/operations/MeetingsPage.tsx";
 import { ClientMonitorCard } from "@/features/monitoring/overview.tsx";
 import { cn } from "@/lib/cn.ts";
@@ -101,6 +102,7 @@ export function ClientDetailPage() {
   // Etapa 36.3: abas da Central de Operações (só para quem acompanha o cliente lá).
   const opsPerms = useMyOpsPermissions();
   const showOps = opsCan(opsPerms.data, "ops.clients.view") || opsCan(opsPerms.data, "ops.am");
+  const showEnvios = profile?.role === "admin" || (opsCan(opsPerms.data, "ops.access") && opsCan(opsPerms.data, "ops.envios"));
   const [params, update] = useSearchParamsUpdater();
   const asked = params.get("aba") as ClientTab | null;
   const movedTab = MOVED_TO_TRACKING[params.get("aba") ?? ""];
@@ -237,6 +239,7 @@ export function ClientDetailPage() {
 
       <SectionIndex items={[
         { id: "cli-contas", label: "Contas de anúncio" },
+        ...(showEnvios ? [{ id: "cli-grupo", label: "Grupo do WhatsApp" }] : []),
         ...(can(profile?.role, "clients.edit") ? [{ id: "cli-portal", label: "Portal e e-mail" }] : []),
         ...(can(profile?.role, "users.manage") ? [{ id: "cli-acesso", label: "Acesso" }] : []),
       ]} />
@@ -249,6 +252,12 @@ export function ClientDetailPage() {
           ))}
         </div>
       </ConfigSection>
+
+      {showEnvios && (
+        <ConfigSection id="cli-grupo" title="Grupo do WhatsApp" description="O grupo onde este cliente recebe os envios semanais e quem é marcado (@) na mensagem.">
+          <ClienteGrupoSecao clienteId={client.id} clienteNome={client.name} />
+        </ConfigSection>
+      )}
 
       {can(profile?.role, "clients.edit") && (
         <ConfigSection id="cli-portal" title="Portal e e-mail do cliente" description="O link do dashboard que o cliente vê e o e-mail semanal com os números.">

@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { AlertTriangle, KeyRound, Power, QrCode, RefreshCw, Smartphone, Unplug } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -96,6 +97,11 @@ export function WaGatewayCard() {
           <span>Conexão <strong>não oficial</strong>: o WhatsApp não permite isso e pode <strong>banir o número</strong>, sem aviso. Use um chip separado. O CRM só envia o que você aprovou na semana, com pausa entre os grupos, e você pode desligar tudo aqui a qualquer hora.</span>
         </span>
       </Alert>
+
+      <p className="text-sm" data-testid="wa-ligar-grupos-atalho">
+        <span className="text-slate-600">Depois de conectar, ligue o grupo de cada cliente: </span>
+        <Link to="/envios" className="font-medium text-brand-600 hover:text-brand-700">Ligar os grupos dos clientes →</Link>
+      </p>
 
       {settings.error ? <Alert tone="error">{errorMessage(settings.error)}</Alert> : null}
 

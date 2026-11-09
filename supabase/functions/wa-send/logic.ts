@@ -6,6 +6,13 @@ export interface Disparo {
   grupo_id: string;
   mensagem: string;
   tentativa: number;
+  /** Números (só dígitos, com DDI) das pessoas marcadas com @ no fim do texto (T5.20). Opcional. */
+  mentioned?: string[];
+}
+
+/** Lista de marcações válida: até 30 números só com dígitos (10 a 15). */
+export function mentionedValido(m: unknown): m is string[] {
+  return Array.isArray(m) && m.length <= 30 && m.every((x) => typeof x === "string" && /^[0-9]{10,15}$/.test(x));
 }
 
 export interface Aviso {
@@ -34,7 +41,8 @@ export interface Resultado {
 export function disparoValido(d: unknown): d is Disparo {
   const o = d as Record<string, unknown> | null;
   return !!o && typeof o.id === "number" && typeof o.grupo_id === "string" && /^[0-9A-Za-z._-]{5,60}@g\.us$/.test(o.grupo_id) &&
-    typeof o.mensagem === "string" && o.mensagem.trim().length > 0 && o.mensagem.length <= 4000;
+    typeof o.mensagem === "string" && o.mensagem.trim().length > 0 && o.mensagem.length <= 4000 &&
+    (o.mentioned === undefined || o.mentioned === null || mentionedValido(o.mentioned));
 }
 
 /** Pausa aleatória (ms) antes de enviar, para não parecer robô. */
@@ -53,10 +61,10 @@ export function classificar(status: number | "sem_conexao"): Resultado {
   return { ok: false, retry: false, detalhe: `Resposta inesperada do servidor (código ${status}).`, acesso: false };
 }
 
-export async function enviarTexto(cfg: GatewayCfg, d: { grupo_id: string; mensagem: string }, delay: number, fetchImpl?: typeof fetch): Promise<Resultado> {
+export async function enviarTexto(cfg: GatewayCfg, d: { grupo_id: string; mensagem: string; mentioned?: string[] | null }, delay: number, fetchImpl?: typeof fetch): Promise<Resultado> {
   try {
     const r = await callGateway(cfg, "POST", "/message/sendText/{instance}", {
-      body: { number: d.grupo_id, text: d.mensagem, delay, linkPreview: false },
+      body: { number: d.grupo_id, text: d.mensagem, delay, linkPreview: false, ...(d.mentioned && d.mentioned.length ? { mentioned: d.mentioned } : {}) },
       fetchImpl,
     });
     return classificar(r.status);
