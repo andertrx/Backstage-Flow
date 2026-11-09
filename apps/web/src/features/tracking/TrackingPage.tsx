@@ -9,6 +9,7 @@ import {
 } from "@backstage/shared";
 import { Code2, ListChecks, MessageCircle, MousePointerClick, Pencil, Plus, Radar } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -41,6 +42,7 @@ import {
   useTrackingOverview,
 } from "./api.ts";
 import { AttributionSection } from "./AttributionSection.tsx";
+import { ConfigSection } from "./ConfigSection.tsx";
 import { ContainerFormModal, InstallModal } from "./ContainerModals.tsx";
 import { LeadsSection } from "./LeadsSection.tsx";
 import { ReadinessSection, type SiteReadiness } from "./ReadinessSection.tsx";
@@ -217,29 +219,32 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
           )}
 
           {tab === "sites" && (
-            <>
-          <section aria-label="Sites configurados" className="space-y-3">
-            <h2 className="text-base font-semibold text-slate-900">Sites</h2>
-            <ul className="grid gap-3 lg:grid-cols-2">
-              {visible.map((c) => (
-                <ContainerCard
-                  key={c.id}
-                  container={c}
-                  stats={stats.get(c.id)}
-                  canManage={canManage}
-                  onEdit={() => setEditing(c)}
-                  onInstall={() => setInstalling(c)}
-                  destination={destOf(c.id)}
-                  capi={capiOf(destOf(c.id))}
-                  onMeta={() => setMetaFor(c)}
-                  onRules={() => setRulesFor(c)}
-                />
-              ))}
-            </ul>
-          </section>
-
-            <LinkTester />
-            </>
+            <div className="space-y-8">
+              <ConfigSection id="cfg-sites" title="Sites" description="Cada site do cliente: código de instalação, Meta (API de Conversões) e regras de eventos.">
+                <ul className="grid gap-3 lg:grid-cols-2">
+                  {visible.map((c) => (
+                    <ContainerCard
+                      key={c.id}
+                      container={c}
+                      stats={stats.get(c.id)}
+                      canManage={canManage}
+                      onEdit={() => setEditing(c)}
+                      onInstall={() => setInstalling(c)}
+                      destination={destOf(c.id)}
+                      capi={capiOf(destOf(c.id))}
+                      onMeta={() => setMetaFor(c)}
+                      onRules={() => setRulesFor(c)}
+                    />
+                  ))}
+                </ul>
+              </ConfigSection>
+              <ConfigSection id="cfg-whatsapp" title="WhatsApp" description="Ligar o número do cliente (servidor próprio ou API oficial), guardar as conversas e o aviso de privacidade.">
+                <WhatsAppConnectionsCard sites={visible} connectionOf={waConnOf} canManage={canManage} onServer={setWaServerFor} onApi={setWaApiFor} />
+              </ConfigSection>
+              <ConfigSection id="cfg-link" title="Ferramentas" description="Conferir como um link de anúncio seria entendido pelo tracking. Nada é gravado.">
+                <LinkTester />
+              </ConfigSection>
+            </div>
           )}
 
           {tab === "origens" && (
@@ -317,7 +322,7 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
 
           {tab === "whatsapp" && (
           <>
-          <WhatsAppConnectionsCard sites={visible} connectionOf={waConnOf} canManage={canManage} onServer={setWaServerFor} onApi={setWaApiFor} />
+          <WhatsAppStatusStrip sites={visible} connectionOf={waConnOf} clientId={clientId} />
           <Alert tone="info">
             <span data-testid="wa-mark-moved">Para <strong>marcar venda</strong>, use a aba <strong>Conversas</strong> deste painel. Lá você lê a conversa antes de marcar.</span>
           </Alert>
@@ -400,11 +405,10 @@ function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onA
   onApi: (c: TrackingContainer) => void;
 }) {
   return (
-    <section aria-label="Conexões de WhatsApp dos sites" className="space-y-3" data-testid="wa-connections">
-      <h2 className="text-base font-semibold text-slate-900">Conexão do WhatsApp</h2>
+    <section aria-label="Conexões de WhatsApp dos sites" data-testid="wa-connections">
       <Card className="divide-y divide-slate-100">
         {sites.length === 0 ? (
-          <p className="p-4 text-sm text-slate-500">Cadastre o site do cliente (aba Site e origem) para ligar o WhatsApp dele.</p>
+          <p className="p-4 text-sm text-slate-500">Cadastre o site do cliente (seção Sites, acima) para ligar o WhatsApp dele.</p>
         ) : sites.map((c) => {
           const conn = connectionOf(c.id);
           const status = waConnectionStatus(conn);
@@ -439,6 +443,29 @@ function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onA
         })}
       </Card>
     </section>
+  );
+}
+
+/** No Painel: só a situação de cada conexão (ligar e configurar fica em Configurações → WhatsApp). */
+function WhatsAppStatusStrip({ sites, connectionOf, clientId }: { sites: TrackingContainer[]; connectionOf: (containerId: string) => WhatsAppConnection | undefined; clientId: string | null }) {
+  return (
+    <Card className="flex flex-wrap items-center justify-between gap-3 p-4" data-testid="wa-status-strip">
+      <ul className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        {sites.length === 0 && <li className="text-sm text-slate-500">Nenhum site cadastrado.</li>}
+        {sites.map((c) => {
+          const st = waConnectionStatus(connectionOf(c.id));
+          return (
+            <li key={c.id} className="flex flex-wrap items-center gap-2 text-sm" data-testid="wa-status-row">
+              <span className="font-medium text-slate-900">{c.name}</span>
+              <Badge tone={st.tone}>{st.label}</Badge>
+            </li>
+          );
+        })}
+      </ul>
+      <Link to={`/tracking?secao=config${clientId ? `&cliente=${clientId}` : ""}#cfg-whatsapp`} className="text-sm font-medium text-brand-700 hover:underline" data-testid="wa-go-config">
+        Ligar ou configurar o WhatsApp →
+      </Link>
+    </Card>
   );
 }
 

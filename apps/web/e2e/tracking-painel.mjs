@@ -39,11 +39,12 @@ function seed(db) {
   await page.screenshot({ path: `${SHOTS}/tracking-ficha-resumo.png`, fullPage: true });
   await page.getByTestId("client-open-tracking").click();
   await page.getByRole("heading", { name: "Tracking", level: 1 }).waitFor();
-  check(page.url().includes(`cliente=${A}`) && (await page.getByTestId("tracking-client").inputValue()) === A, "“Abrir no Tracking” já escolhe o cliente");
+  await page.waitForFunction((id) => document.querySelector('[data-testid="tracking-client"]')?.value === id, A);
+  check(page.url().includes(`cliente=${A}`), "“Abrir no Tracking” já escolhe o cliente");
 
   // Endereços antigos levam ao Tracking do cliente
   await page.goto(page.url().split("/tracking")[0] + `/clientes/${A}?aba=whatsapp`);
-  await page.getByTestId("wa-connections").waitFor();
+  await page.getByTestId("wa-status-strip").waitFor();
   check(page.url().includes("/tracking") && page.url().includes("aba=whatsapp"), "?aba=whatsapp da ficha leva ao Painel do Tracking");
   await page.goto(page.url().split("/tracking")[0] + `/clientes/${A}/conversas`);
   await page.getByTestId("wa-conversations").waitFor();
@@ -89,12 +90,21 @@ function seed(db) {
 
   // WhatsApp
   await page.getByTestId("tracking-panel-tab-whatsapp").click();
-  await page.getByTestId("wa-connections").waitFor();
-  const wa = await page.getByTestId("wa-connections").innerText();
-  check(wa.includes("atacado.com.br") && !wa.includes("varejo.com.br"), "WhatsApp: só a conexão do cliente escolhido");
-  check(await page.getByRole("button", { name: "WhatsApp pelo servidor: atacado.com.br" }).count() === 1, "WhatsApp: botão do servidor");
+  await page.getByTestId("wa-status-strip").waitFor();
+  const wa = await page.getByTestId("wa-status-strip").innerText();
+  check(wa.includes("atacado.com.br") && !wa.includes("varejo.com.br"), "WhatsApp (Painel): só a situação do cliente escolhido");
+  check(await page.getByRole("button", { name: /WhatsApp pelo servidor|WhatsApp API oficial/ }).count() === 0, "WhatsApp (Painel): sem botões de ligar (ficam em Configurações)");
   check((await page.getByTestId("wa-mark-moved").innerText()).includes("aba Conversas"), "WhatsApp: avisa que a venda se marca em Conversas");
   check(await page.getByRole("button", { name: /Marcar como Venda|Marcar como Lead/ }).count() === 0, "WhatsApp: não há botão de marcar venda aqui");
+  check(await page.getByLabel("Código da conversa").count() === 0, "WhatsApp: sem o antigo campo de código da conversa");
+  await page.getByTestId("wa-go-config").click();
+  await page.getByTestId("wa-connections").waitFor();
+  check(page.url().includes("secao=config"), "o link leva às Configurações → WhatsApp");
+  const wc = await page.getByTestId("wa-connections").innerText();
+  check(wc.includes("atacado.com.br") && !wc.includes("varejo.com.br"), "Configurações → WhatsApp: só a conexão do cliente escolhido");
+  check(await page.getByRole("button", { name: "WhatsApp pelo servidor: atacado.com.br" }).count() === 1, "Configurações → WhatsApp: botão do servidor");
+  check(await page.getByTestId("section-index").count() === 1, "Configurações tem o índice de seções");
+  await page.getByTestId("tracking-section-painel").click();
 
   // Vendas sugeridas
   await page.getByTestId("tracking-panel-tab-sugestoes").click();

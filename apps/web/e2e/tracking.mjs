@@ -235,8 +235,8 @@ function seedClients(db) {
   check((await card.innerText()).includes("Meta CAPI · Falta o token"), "card do site mostra a situação do Meta");
 
   // 34.5-W2: WhatsApp pela API oficial
-  await aba(page, "whatsapp");
-  check((await page.getByTestId("wa-connection-row").first().innerText()).includes("Não configurado"), "a aba WhatsApp mostra a situação do WhatsApp do site");
+  await aba(page, "sites");
+  check((await page.getByTestId("wa-connection-row").first().innerText()).includes("Não configurado"), "Configurações → WhatsApp mostra a situação do WhatsApp do site");
   check(await page.getByTestId("wa-conversations").count() === 0, "sem API oficial: lista de conversas não aparece (app comum segue igual)");
   await page.getByRole("button", { name: "WhatsApp API oficial: Loja Excalibur" }).click();
   const waApi = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
@@ -262,7 +262,7 @@ function seedClients(db) {
   check(/whatsapp-webhook\?c=[0-9a-f-]{36}/.test(hook) && /Token de verificação\s+\S{10,}/.test(hook), "mostra a URL do webhook e o token de verificação para colar no Meta");
   await waApi.screenshot({ path: `${SHOTS}/tracking-whatsapp-api.png` });
   await waApi.getByRole("button", { name: "Fechar", exact: true }).last().click();
-  check((await page.getByTestId("wa-connection-row").first().innerText()).includes("Ligado, sem mensagem ainda"), "a aba WhatsApp mostra a API oficial ligada");
+  check((await page.getByTestId("wa-connection-row").first().innerText()).includes("Ligado, sem mensagem ainda"), "Configurações → WhatsApp mostra a API oficial ligada");
 
   db.whatsappConversations.push(
     { id: 77, container_id: cid, origin: "anuncio_whatsapp", ad_id: "120210000000001", click_code: null, first_message_at: ago(5), last_message_at: ago(2),
@@ -279,7 +279,7 @@ function seedClients(db) {
   check(await convRows.first().getByRole("button", { name: /Marcar conversa/ }).count() === 0, "conversa da API oficial: sem botão de marcar aqui (venda se marca em Conversas)");
   await page.getByRole("region", { name: "WhatsApp", exact: true }).screenshot({ path: `${SHOTS}/tracking-whatsapp-conversas.png` });
 
-  await aba(page, "whatsapp");
+  await aba(page, "sites");
   await page.getByRole("button", { name: "WhatsApp API oficial: Loja Excalibur" }).click();
   const waApi2 = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
   await waApi2.getByRole("button", { name: "Apagar segredos" }).click();
@@ -366,21 +366,18 @@ function seedClients(db) {
   await page.reload();
   await aba(page, "whatsapp");
   const waV = page.getByRole("region", { name: "WhatsApp", exact: true });
-  await waV.getByLabel("Código da conversa").fill("V9SUAL");
-  await waV.getByRole("button", { name: "Buscar" }).click();
-  await waV.getByTestId("wa-lookup").waitFor();
-  check(await waV.getByRole("button", { name: "Marcar como Lead" }).count() === 0 && (await waV.getByTestId("wa-origin").innerText()).includes("desconhecida"),
-    "visualizador consulta o código (origem desconhecida, sem inventar) mas não marca");
+  await waV.waitFor();
+  check(await waV.getByLabel("Código da conversa").count() === 0 && await waV.getByTestId("wa-click-row").count() >= 1, "visualizador vê os cliques do WhatsApp (sem o antigo campo de código)");
   db.whatsappConnections.push({ id: "00000000-0000-4000-8000-0000000000c1", container_id: "t1", phone_number_id: "100000000000009", waba_id: "100000000000010",
     enabled: true, last_webhook_at: ago(3), last_error_at: null, last_error_message: null });
   db.waSecrets["00000000-0000-4000-8000-0000000000c1"] = { app: "x".repeat(32), verify: "v".repeat(20) };
   db.whatsappConversations.push({ id: 5, container_id: "t1", origin: "anuncio_whatsapp", ad_id: "1", click_code: null, first_message_at: ago(4), last_message_at: ago(3),
     messages: 1, status: "conversa", sales: 0, test: false, touch: null });
   await page.reload();
-  await aba(page, "whatsapp");
+  await aba(page, "sites");
   await page.getByTestId("wa-conversation-row").first().waitFor();
   check(await page.getByRole("button", { name: /Marcar conversa/ }).count() === 0, "visualizador vê as conversas da API oficial mas não marca");
-  await aba(page, "whatsapp");
+  await aba(page, "sites");
   await page.getByRole("button", { name: "WhatsApp API oficial: Loja" }).click();
   const waApiV = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
   await waApiV.getByText("Só administradores e gestores configuram a API oficial").waitFor();

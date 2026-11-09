@@ -1,6 +1,6 @@
 import { CHANNEL_LABELS, EVIDENCE_LABELS, hashUserData, splitFullName } from "@backstage/shared";
-import { MessageCircle, Search } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { MessageCircle } from "lucide-react";
+import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -8,17 +8,15 @@ import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
-import { type WhatsAppClick, type WhatsAppConversation, type WhatsAppLookup, useWhatsAppLookup, useWhatsAppMark } from "./api.ts";
-import { normalizeWaCode, parseMoneyInput, WA_CONVERSATION_STATUS_LABELS, WA_ORIGIN_LABELS, WA_STATUS_LABELS } from "./logic.ts";
+import { type WhatsAppClick, type WhatsAppConversation, useWhatsAppMark } from "./api.ts";
+import { parseMoneyInput, WA_CONVERSATION_STATUS_LABELS, WA_ORIGIN_LABELS, WA_STATUS_LABELS } from "./logic.ts";
 
 const STATUS_TONE = { clicado: "neutral", conversa: "neutral", lead: "brand", venda: "success" } as const;
 const ORIGIN_TONE = { anuncio_whatsapp: "success", site: "brand", desconhecida: "neutral" } as const;
 
 /**
- * WhatsApp.
- *  - App comum: a equipe digita o código que veio na mensagem ("ref. K7Q2M9"),
- *    vê de onde a pessoa veio e marca Lead ou Venda.
- *  - API oficial: as conversas chegam sozinhas (lista abaixo); a equipe só marca.
+ * WhatsApp (acompanhamento, no Painel): cliques vindos do site e conversas recebidas. Ligar o número fica em Configurações → WhatsApp;
+ * marcar venda, em Conversas.
  */
 export function WhatsAppSection({ clicks, conversations, hasApi, siteName, canMark }: {
   clicks: WhatsAppClick[];
@@ -27,47 +25,11 @@ export function WhatsAppSection({ clicks, conversations, hasApi, siteName, canMa
   siteName: (id: string) => string;
   canMark: boolean;
 }) {
-  const [typed, setTyped] = useState("");
-  const [code, setCode] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
-  const lookup = useWhatsAppLookup(code);
-
-  function onSearch(e: FormEvent) {
-    e.preventDefault();
-    const c = normalizeWaCode(typed);
-    if (!c) {
-      setCode(null);
-      return setFormError("Código inválido. São 6 letras/números, como K7Q2M9 (aparece no fim da mensagem: “ref. K7Q2M9”).");
-    }
-    setFormError(null);
-    setCode(c);
-  }
-
   return (
     <section aria-label="WhatsApp" className="space-y-3">
       <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
         <MessageCircle className="size-4 text-emerald-600" aria-hidden /> WhatsApp
       </h2>
-      <Card className="space-y-3 p-4">
-        <p className="text-sm text-slate-500">
-          Quando chegar uma mensagem com “ref. XXXXXX” no final, digite o código aqui para ver de onde a pessoa veio e marcar Lead ou Venda.
-        </p>
-        <form onSubmit={onSearch} className="flex flex-wrap items-end gap-2" noValidate>
-          <div className="w-48">
-            <Field label="Código da conversa">
-              {(id) => <Input id={id} value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="K7Q2M9" autoComplete="off" />}
-            </Field>
-          </div>
-          <Button type="submit" variant="secondary"><Search className="size-4" aria-hidden /> Buscar</Button>
-        </form>
-        {formError && <Alert tone="error">{formError}</Alert>}
-        {lookup.error && <Alert tone="error">{errorMessage(lookup.error)}</Alert>}
-        {code && lookup.isFetched && !lookup.data && !lookup.error && (
-          <Alert tone="warning">Código {code} não encontrado. Confira se foi digitado certo e se o site é de um cliente liberado para você.</Alert>
-        )}
-        {lookup.data && <LookupResult found={lookup.data} canMark={canMark} />}
-      </Card>
-
       {hasApi && <ConversationsCard conversations={conversations} siteName={siteName} canMark={canMark} />}
 
       <Card className="overflow-x-auto">
@@ -102,29 +64,6 @@ export function WhatsAppSection({ clicks, conversations, hasApi, siteName, canMa
         </table>
       </Card>
     </section>
-  );
-}
-
-function LookupResult({ found, canMark }: { found: WhatsAppLookup; canMark: boolean }) {
-  return (
-    <div className="space-y-3 rounded-lg bg-slate-50 p-3 text-sm" data-testid="wa-lookup">
-      <p>
-        <strong className="font-mono">{found.code}</strong> · {found.container_name} · clicou em {formatDateTime(found.clicked_at)}{" "}
-        <Badge tone={STATUS_TONE[found.status]}>{WA_STATUS_LABELS[found.status]}</Badge>
-        {found.test && <> <Badge tone="warning">Teste</Badge></>}
-      </p>
-      <p className="text-slate-700" data-testid="wa-origin">
-        Origem: <strong>{found.channel ? CHANNEL_LABELS[found.channel] : "desconhecida"}</strong>
-        {found.evidence && <> · {EVIDENCE_LABELS[found.evidence]}</>}
-        {found.campaign && <> · {found.campaign}</>}
-        {found.reason && <span className="block text-xs text-slate-500">{found.reason}</span>}
-      </p>
-      {canMark ? (
-        <MarkForm target={{ code: found.code }} askPhone />
-      ) : (
-        <p className="text-xs text-slate-500">Seu papel só permite consultar. Quem atende (operador, gestor ou admin) marca Lead/Venda.</p>
-      )}
-    </div>
   );
 }
 

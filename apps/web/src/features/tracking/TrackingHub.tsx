@@ -1,6 +1,7 @@
 import { can } from "@backstage/shared";
 import { ChartPie, MessageCircle, Radar, Settings2, Sparkles, Wallet } from "lucide-react";
-import { Link } from "react-router";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Select } from "@/components/ui/field.tsx";
@@ -10,6 +11,7 @@ import { ContactsPage } from "@/features/contacts/ContactsPage.tsx";
 import { cn } from "@/lib/cn.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { useWaSuggestions } from "./api.ts";
+import { ConfigSection, SectionIndex } from "./ConfigSection.tsx";
 import { ConversationsPanel } from "./ConversationsPage.tsx";
 import { WaAiCard } from "./SuggestionsSection.tsx";
 import { TrackingPage, type TrackingTab } from "./TrackingPage.tsx";
@@ -27,6 +29,7 @@ const SITE_PARTS: TrackingTab[] = ["resumo", "origens", "leads", "saude"];
  */
 export function TrackingHub() {
   const { profile } = useAuth();
+  const { hash } = useLocation();
   const [params, update] = useSearchParamsUpdater();
   const { data: clients = [] } = useActiveClients();
   const suggestions = useWaSuggestions(true);
@@ -58,6 +61,13 @@ export function TrackingHub() {
       }
       return p;
     });
+
+  // Link com âncora (ex.: "Ligar ou configurar o WhatsApp" no Painel): rola até a seção depois de desenhar.
+  useEffect(() => {
+    if (section !== "config" || !hash) return;
+    const t = window.setTimeout(() => document.getElementById(hash.slice(1))?.scrollIntoView({ block: "start" }), 250);
+    return () => window.clearTimeout(t);
+  }, [section, hash]);
 
   const needsClient = tab === "conversas" || tab === "contatos";
 
@@ -103,9 +113,19 @@ export function TrackingHub() {
       </div>
 
       {section === "config" ? (
-        <div className="space-y-6" data-testid="tracking-config">
+        <div className="space-y-8" data-testid="tracking-config">
+          <SectionIndex items={[
+            { id: "cfg-sites", label: "Sites" },
+            { id: "cfg-whatsapp", label: "WhatsApp" },
+            { id: "cfg-link", label: "Ferramentas" },
+            ...(profile?.role === "admin" ? [{ id: "cfg-ia", label: "IA de vendas" }] : []),
+          ]} />
           <TrackingPage clientId={clientId} tabs={["sites"]} />
-          {profile?.role === "admin" && <WaAiCard />}
+          {profile?.role === "admin" && (
+            <ConfigSection id="cfg-ia" title="IA de vendas sugeridas" description="A IA lê as conversas do dia e sugere onde pode ter havido venda. Quem decide é você.">
+              <WaAiCard />
+            </ConfigSection>
+          )}
         </div>
       ) : (
         <>
