@@ -1,15 +1,13 @@
-import { ArrowLeft, MessageCircle, Search, Sparkles, Trash2 } from "lucide-react";
+import { MessageCircle, Search, Sparkles, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
-import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
-import { useClient } from "@/features/clients/api.ts";
 import { useContactSetup } from "@/features/contacts/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatRelative } from "@/lib/format.ts";
@@ -129,7 +127,7 @@ function Chat({ clientId, person, canDelete, onDeleted }: { clientId: string; pe
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => { setNotice(null); setMarking(true); }} data-testid="wa-mark-sale">Marcar venda</Button>
           {person.contact_id != null && (
-            <Link to={`/contatos?cliente=${clientId}`} className="inline-flex items-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:text-blue-700">Ver em Contatos</Link>
+            <Link to={`/clientes/${clientId}?aba=contatos`} className="inline-flex items-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:text-blue-700">Ver em Contatos</Link>
           )}
           {canDelete && (
             <Button variant="danger" loading={del.isPending} aria-label="Apagar esta conversa"
@@ -182,24 +180,19 @@ function Chat({ clientId, person, canDelete, onDeleted }: { clientId: string; pe
  * Conversas do WhatsApp do cliente (Tracking T5.7): lista de pessoas, a conversa inteira, de onde vieram, o que a IA sugeriu
  * e o botão "Marcar venda". Só administrador, gestor e o Account Manager do cliente leem (o banco confere); só o administrador apaga.
  */
-export function ConversationsPage() {
-  const { id } = useParams();
+export function ConversationsPanel({ clientId }: { clientId: string }) {
+  const id = clientId;
   const { profile } = useAuth();
-  const { data: client, isLoading } = useClient(id);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
   const list = useWaConversations(id, search);
   const people = (list.data?.pages ?? []).flat();
   const current = people.find((p) => p.person_id === selected) ?? null;
 
-  if (isLoading) return <FullPageSpinner />;
   return (
     <div className="space-y-4">
-      <Link to={`/clientes/${id}`} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
-        <ArrowLeft className="size-4" aria-hidden /> {client?.name ?? "Cliente"}
-      </Link>
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-slate-900"><MessageCircle className="size-5" aria-hidden /> Conversas do WhatsApp</h1>
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900"><MessageCircle className="size-5" aria-hidden /> Conversas do WhatsApp</h2>
         <p className="text-sm text-slate-600">
           Todas as conversas individuais do WhatsApp deste cliente, guardadas sem prazo. Veja de onde cada pessoa veio, confira o que a IA sugeriu e marque a venda.
           O telefone e as mensagens são dados pessoais: não compartilhe fora do CRM.
@@ -216,7 +209,7 @@ export function ConversationsPage() {
             : list.isPending ? <p className="p-3 text-sm text-slate-500">Carregando…</p>
             : people.length === 0 ? (
               <p className="p-3 text-sm text-slate-500" data-testid="wa-conversations-empty">
-                {search ? "Nenhuma conversa encontrada." : "Ainda não há conversas guardadas. Ligue “Guardar as conversas” em Tracking → WhatsApp pelo servidor; as mensagens aparecem aqui daí para a frente."}
+                {search ? "Nenhuma conversa encontrada." : "Ainda não há conversas guardadas. Ligue “Guardar as conversas” na aba WhatsApp deste cliente; as mensagens aparecem aqui daí para a frente."}
               </p>
             ) : (
               <ul className="max-h-[36rem] divide-y divide-slate-100 overflow-y-auto">

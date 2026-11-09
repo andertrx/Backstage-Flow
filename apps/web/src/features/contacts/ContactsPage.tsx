@@ -50,14 +50,15 @@ function metaMessage(r: UpdateResult): string | null {
 }
 
 /** Contatos dos clientes (Tracking T3.1): no lugar da planilha. Equipe da agência e vendedor do cliente. */
-export function ContactsPage() {
+/** `fixedClientId`: dentro da ficha do cliente (aba Contatos e vendas) a tela vale só para aquele cliente. */
+export function ContactsPage({ fixedClientId }: { fixedClientId?: string } = {}) {
   const { profile } = useAuth();
   const canMark = can(profile?.role, "contacts.mark");
   const canSetup = can(profile?.role, "contacts.setup");
   const isSeller = profile?.role === "vendedor";
   const clients = useContactClients();
   const [params, update] = useSearchParamsUpdater();
-  const clientId = params.get("cliente") ?? clients.data?.[0]?.id ?? null;
+  const clientId = fixedClientId ?? params.get("cliente") ?? clients.data?.[0]?.id ?? null;
   const client = clients.data?.find((c) => c.id === clientId) ?? null;
   const setup = useContactSetup(clientId);
   const [stageFilter, setStageFilter] = useState<string | null>(null);
@@ -130,7 +131,7 @@ export function ContactsPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Contatos</h1>
+          {fixedClientId ? <h2 className="text-lg font-semibold text-slate-900">Contatos e vendas</h2> : <h1 className="text-2xl font-semibold tracking-tight">Contatos</h1>}
           <p className="mt-1 text-sm text-slate-500">
             Quem chamou ou se cadastrou, de onde veio e em que etapa está. Marcar Lojista ou Venda avisa o Meta, para ele trazer mais gente assim.
           </p>
@@ -158,7 +159,7 @@ export function ContactsPage() {
         <Alert tone="info">{isSeller ? "Nenhum cliente liberado para você ainda. Fale com a agência." : "Nenhum cliente disponível."}</Alert>
       )}
 
-      {clients.data && clients.data.length > 1 && (
+      {!fixedClientId && clients.data && clients.data.length > 1 && (
         <Field label="Cliente">
           {(id) => (
             <Select id={id} value={clientId ?? ""} onChange={(e) => {

@@ -21,7 +21,7 @@ function seed(db, official = false) {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
-  await login(page, "/tracking");
+  await login(page, "/tracking?aba=whatsapp");
   await page.getByRole("button", { name: "WhatsApp pelo servidor: loja.com.br" }).click();
   const modal = page.getByTestId("wa-server");
   await modal.waitFor();
@@ -75,7 +75,7 @@ function seed(db, official = false) {
   const { browser, page } = await launch();
   const db = await mockSupabase(page, { role: "admin" });
   seed(db, true);
-  await login(page, "/tracking");
+  await login(page, "/tracking?aba=whatsapp");
   await page.getByRole("button", { name: /WhatsApp API oficial/ }).waitFor();
   await page.waitForTimeout(500);
   check(await page.getByRole("button", { name: "WhatsApp pelo servidor: loja.com.br" }).count() === 0 && await page.getByRole("button", { name: /WhatsApp API oficial/ }).count() === 1,
@@ -87,8 +87,8 @@ function seed(db, official = false) {
     const { browser, page } = await launch();
     const db = await mockSupabase(page, { role });
     seed(db);
-    await login(page, "/tracking");
-    await page.getByTestId("container-card").waitFor();
+    await login(page, "/tracking?aba=whatsapp");
+    await page.getByTestId("wa-connection-row").waitFor();
     await page.waitForTimeout(500);
     check(await page.getByRole("button", { name: "WhatsApp pelo servidor: loja.com.br" }).count() === 0, `${role} não configura o WhatsApp pelo servidor`);
     await browser.close();

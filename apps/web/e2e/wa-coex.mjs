@@ -26,7 +26,7 @@ function seed(db) {
   check((await card.getByTestId("wa-app-status").innerText()).includes("Falta configurar"), "card do WhatsApp (Coexistence) começa sem configurar");
 
   // Antes de configurar, o Tracking não mostra o botão (sem botão de mentira)
-  await page.goto(`${BASE}/tracking`);
+  await page.goto(`${BASE}/tracking?aba=whatsapp`);
   await page.getByRole("button", { name: "WhatsApp API oficial: loja.com.br" }).click();
   const dlg = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
   await dlg.getByTestId("wa-coex-not-ready").waitFor();
@@ -49,7 +49,7 @@ function seed(db) {
   await page.screenshot({ path: `${SHOTS}/whatsapp-coexistence-app.png`, fullPage: true });
 
   // Tracking → Ligar WhatsApp Business → Meta (simulado) → retorno
-  await page.goto(`${BASE}/tracking`);
+  await page.goto(`${BASE}/tracking?aba=whatsapp`);
   await page.getByRole("button", { name: "WhatsApp API oficial: loja.com.br" }).click();
   await dlg.getByRole("button", { name: "Ligar WhatsApp Business" }).click();
   await page.getByRole("heading", { name: "Ligando o WhatsApp" }).waitFor();
@@ -89,7 +89,7 @@ function seed(db) {
   const db = await mockSupabase(page, { role: "gestor" });
   seed(db);
   db.access.push({ user_id: USER_ID, client_id: CLI, created_at: "" });
-  await login(page, "/tracking");
+  await login(page, "/tracking?aba=whatsapp");
   await page.getByRole("button", { name: "WhatsApp API oficial: loja.com.br" }).click();
   await page.getByTestId("wa-coex-not-ready").waitFor();
   check(true, "gestor sem o app da agência configurado: aviso para falar com o administrador");

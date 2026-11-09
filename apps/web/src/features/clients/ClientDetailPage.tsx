@@ -1,5 +1,5 @@
 import { can, formatCnpj, formatPhone, opsCan, PLATFORMS } from "@backstage/shared";
-import { ArrowLeft, CalendarDays, ChartPie, ClipboardList, History, Info as InfoIcon, LayoutDashboard, MessageCircle, Pencil, Power, PowerOff, Trash2, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChartPie, ClipboardList, History, Info as InfoIcon, LayoutDashboard, MessageCircle, Pencil, Power, PowerOff, Radar, Sparkles, Trash2, Wallet } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
@@ -25,8 +25,40 @@ import { ClientMeetingsList } from "@/features/operations/MeetingsPage.tsx";
 import { ClientMonitorCard } from "@/features/monitoring/overview.tsx";
 import { cn } from "@/lib/cn.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
+import { ContactsPage } from "@/features/contacts/ContactsPage.tsx";
+import { ConversationsPanel } from "@/features/tracking/ConversationsPage.tsx";
+import { SuggestionsSection } from "@/features/tracking/SuggestionsSection.tsx";
+import { TrackingPage } from "@/features/tracking/TrackingPage.tsx";
+import { useWaSuggestions } from "@/features/tracking/api.ts";
 
-type ClientTab = "dados" | "tarefas" | "historico" | "reunioes";
+type ClientTab = "dados" | "conversas" | "contatos" | "site" | "whatsapp" | "sugestoes" | "tarefas" | "historico" | "reunioes";
+
+/** Vendas sugeridas pela IA só deste cliente (a chave e o liga/desliga da IA ficam em Tracking, são do sistema todo). */
+function ClientSuggestions({ clientId, clientName }: { clientId: string; clientName: string }) {
+  const suggestions = useWaSuggestions(true);
+  return <SuggestionsSection suggestions={(suggestions.data ?? []).filter((x) => x.client_id === clientId)} clientName={() => clientName} isAdmin={false} />;
+}
+
+/** Guia curto: onde fica cada coisa dentro da ficha do cliente. */
+function ClientGuideCard() {
+  const rows: [string, string][] = [
+    ["Conversas", "ler o WhatsApp do cliente, ver de onde a pessoa veio e marcar a venda (é o único lugar para marcar venda)."],
+    ["Contatos e vendas", "funil, etapas, perfis e o histórico de vendas de cada pessoa."],
+    ["Site e origem", "site instalado, visitas, de onde vêm, Meta (API de Conversões) e a saúde do rastreamento."],
+    ["WhatsApp", "ligar o número do cliente, “Guardar as conversas” e o aviso de privacidade."],
+    ["Vendas sugeridas", "o que a IA achou de venda nas conversas deste cliente."],
+    ["Tarefas, Histórico, Reuniões", "o trabalho da agência com este cliente."],
+  ];
+  return (
+    <Card className="p-6" data-testid="client-guide">
+      <h2 className="mb-3 text-base font-semibold">Onde fica cada coisa deste cliente</h2>
+      <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+        {rows.map(([k, v]) => (<div key={k}><dt className="font-medium text-slate-900">{k}</dt><dd className="text-slate-600">{v}</dd></div>))}
+      </dl>
+      <p className="mt-3 text-xs text-slate-500">A conexão do chip (QR Code) fica em Sistema → Configurações → Integrações. As telas gerais de Tracking e Contatos continuam no menu para ver todos os clientes juntos.</p>
+    </Card>
+  );
+}
 
 function Info({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -81,7 +113,19 @@ export function ClientDetailPage() {
   const showOps = opsCan(opsPerms.data, "ops.clients.view") || opsCan(opsPerms.data, "ops.am");
   const [params, update] = useSearchParamsUpdater();
   const asked = params.get("aba") as ClientTab | null;
-  const tab: ClientTab = showOps && (asked === "tarefas" || asked === "historico" || asked === "reunioes") ? asked : "dados";
+  const allTabs: { id: ClientTab; label: string; icon: typeof InfoIcon; show: boolean }[] = [
+    { id: "dados", label: "Resumo", icon: InfoIcon, show: true },
+    { id: "conversas", label: "Conversas", icon: MessageCircle, show: canManage },
+    { id: "contatos", label: "Contatos e vendas", icon: Wallet, show: can(profile?.role, "contacts.view") },
+    { id: "site", label: "Site e origem", icon: Radar, show: can(profile?.role, "tracking.view") },
+    { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, show: can(profile?.role, "tracking.view") },
+    { id: "sugestoes", label: "Vendas sugeridas", icon: Sparkles, show: canManage && can(profile?.role, "tracking.suggestions") },
+    { id: "tarefas", label: "Tarefas", icon: ClipboardList, show: showOps },
+    { id: "historico", label: "Histórico Operacional", icon: History, show: showOps },
+    { id: "reunioes", label: "Reuniões", icon: CalendarDays, show: showOps },
+  ];
+  const tabs = allTabs.filter((t) => t.show);
+  const tab: ClientTab = tabs.find((t) => t.id === asked)?.id ?? "dados";
   const setTab = (t: ClientTab) => update((p) => { if (t === "dados") p.delete("aba"); else p.set("aba", t); return p; });
 
   if (isLoading) return <FullPageSpinner />;
@@ -127,23 +171,6 @@ export function ClientDetailPage() {
               <ChartPie className="size-4" aria-hidden /> Inteligência de Resultados
             </Link>
           )}
-          {can(profile?.role, "contacts.view") && (
-            <Link
-              to={`/contatos?cliente=${client.id}`}
-              className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400"
-            >
-              <Users className="size-4" aria-hidden /> Contatos
-            </Link>
-          )}
-          {canManage && (
-            <Link
-              to={`/clientes/${client.id}/conversas`}
-              data-testid="client-conversations"
-              className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400"
-            >
-              <MessageCircle className="size-4" aria-hidden /> Conversas do WhatsApp
-            </Link>
-          )}
           {can(profile?.role, "clients.edit") && (
             <Button variant="secondary" onClick={() => setEditing(true)}>
               <Pencil className="size-4" aria-hidden /> Editar
@@ -183,10 +210,10 @@ export function ClientDetailPage() {
         </div>
       )}
 
-      {showOps && (
-        <nav className="flex flex-wrap gap-2" aria-label="Abas do cliente">
-          {([["dados", "Dados gerais", InfoIcon], ["tarefas", "Tarefas", ClipboardList], ["historico", "Histórico Operacional", History], ["reunioes", "Reuniões", CalendarDays]] as const).map(([id, label, Icon]) => (
-            <button key={id} type="button" onClick={() => setTab(id)} aria-pressed={tab === id}
+      {tabs.length > 1 && (
+        <nav className="flex flex-wrap gap-2" aria-label="Abas do cliente" data-testid="client-tabs">
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <button key={id} type="button" onClick={() => setTab(id)} aria-pressed={tab === id} data-testid={`client-tab-${id}`}
               className={cn("inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all",
                 tab === id ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
                   : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400")}>
@@ -196,6 +223,11 @@ export function ClientDetailPage() {
         </nav>
       )}
 
+      {tab === "conversas" && <ConversationsPanel clientId={client.id} />}
+      {tab === "contatos" && <ContactsPage fixedClientId={client.id} />}
+      {tab === "site" && <TrackingPage embedded={{ clientId: client.id, tabs: ["sites", "origens", "saude"] }} />}
+      {tab === "whatsapp" && <TrackingPage embedded={{ clientId: client.id, tabs: ["whatsapp"] }} />}
+      {tab === "sugestoes" && <ClientSuggestions clientId={client.id} clientName={client.name} />}
       {(tab === "tarefas" || tab === "historico") && <ClientOpsTab clientId={client.id} tab={tab} />}
       {tab === "reunioes" && <ClientMeetingsList clientId={client.id} />}
 
@@ -217,6 +249,8 @@ export function ClientDetailPage() {
           </div>
         )}
       </Card>
+
+      <ClientGuideCard />
 
       <ClientMonitorCard clientId={client.id} />
 

@@ -42,7 +42,7 @@ export function WhatsAppCallbackPage() {
       <Card className="space-y-4 p-6">
         {result ? <Alert tone={result.tone}>{result.text}</Alert> : <FullPageSpinner label="Finalizando o cadastro com o Meta..." />}
         {result && (
-          <Link to="/tracking" className="inline-block text-sm font-medium text-brand-600 hover:text-brand-700">Voltar para o Tracking</Link>
+          <Link to="/tracking?aba=whatsapp" className="inline-block text-sm font-medium text-brand-600 hover:text-brand-700">Voltar para o Tracking</Link>
         )}
       </Card>
     </div>

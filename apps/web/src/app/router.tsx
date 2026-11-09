@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
-import { createBrowserRouter, Navigate } from "react-router";
+import { createBrowserRouter, Navigate, useParams } from "react-router";
 import { AppLayout } from "@/components/layout/AppLayout.tsx";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage.tsx";
 import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/features/auth/guards.tsx";
@@ -11,9 +11,14 @@ import { SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
 import { ClientHomeOr, RequireReportAccess } from "@/features/client-report/ClientHome.tsx";
 import { RouteError } from "./RouteError.tsx";
 
+/** Endereço antigo das conversas → aba da ficha do cliente. */
+function ClientTabRedirect({ tab }: { tab: string }) {
+  const { id } = useParams();
+  return <Navigate to={`/clientes/${id}?aba=${tab}`} replace />;
+}
+
 /** Cada página só é baixada quando for aberta (o site abre mais rápido). */
 const AccountPage = lazy(() => import("@/features/account/AccountPage.tsx").then((m) => ({ default: m.AccountPage })));
-const ConversationsPage = lazy(() => import("@/features/tracking/ConversationsPage.tsx").then((m) => ({ default: m.ConversationsPage })));
 const ClientDetailPage = lazy(() => import("@/features/clients/ClientDetailPage.tsx").then((m) => ({ default: m.ClientDetailPage })));
 const ClientReportPage = lazy(() => import("@/features/client-report/ClientReportPage.tsx").then((m) => ({ default: m.ClientReportPage })));
 const PublicReportPage = lazy(() => import("@/features/client-report/PublicReportPage.tsx").then((m) => ({ default: m.PublicReportPage })));
@@ -134,11 +139,7 @@ export const router = createBrowserRouter([
       // Tracking T5.7: conversas do WhatsApp do cliente (o banco confere: administrador, gestor e Account Manager do cliente)
       {
         path: "clientes/:id/conversas",
-        element: (
-          <RequirePermission permission="clients.view">
-            <ConversationsPage />
-          </RequirePermission>
-        ),
+        element: <ClientTabRedirect tab="conversas" />,
       },
       {
         path: "clientes/:id/dashboard",

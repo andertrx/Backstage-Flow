@@ -36,7 +36,8 @@ function seed(db) {
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
   await login(page, `/clientes/${CLI}`);
-  await page.getByTestId("client-conversations").click();
+  await page.getByTestId("client-tab-conversas").click();
+  check(page.url().includes("aba=conversas"), "a aba fica no endereço");
   await page.getByTestId("wa-conversations").waitFor();
   check(await page.getByTestId("wa-conversation").count() === 2, "lista as 2 conversas");
   const first = await page.getByTestId("wa-conversation").first().innerText();
@@ -102,10 +103,13 @@ function seed(db) {
   seed(db);
   await login(page, `/clientes/${CLI}`);
   await page.getByRole("heading", { name: "Loja Atacado" }).waitFor();
-  check(await page.getByTestId("client-conversations").count() === 0, "visualizador não vê o botão de conversas");
-  await page.goto(page.url().replace(`/clientes/${CLI}`, `/clientes/${CLI}/conversas`));
-  await page.getByText(/Sem permissão/).waitFor();
-  check(await page.getByTestId("wa-conversation").count() === 0, "e o banco não devolve nenhuma conversa");
+  check(await page.getByTestId("client-tab-conversas").count() === 0, "visualizador não vê a aba Conversas");
+  await page.goto(page.url().replace(`/clientes/${CLI}`, `/clientes/${CLI}?aba=conversas`));
+  await page.getByRole("heading", { name: "Dados cadastrais" }).waitFor();
+  check(await page.getByTestId("wa-conversation").count() === 0, "pedir a aba por fora cai no Resumo e não mostra conversas");
+  await page.goto(page.url().replace(`/clientes/${CLI}?aba=conversas`, `/clientes/${CLI}/conversas`));
+  await page.getByRole("heading", { name: "Dados cadastrais" }).waitFor();
+  check(page.url().includes(`/clientes/${CLI}`) && !page.url().endsWith("/conversas"), "o endereço antigo das conversas leva para a ficha do cliente");
   check(errors.every((e) => /403|permiss/i.test(e)) || errors.length === 0, `sem erros inesperados (${errors.join(" | ")})`);
   await browser.close();
 }

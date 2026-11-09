@@ -7,7 +7,7 @@ import {
   EVIDENCE_LABELS,
   eventLabel,
 } from "@backstage/shared";
-import { Code2, ListChecks, MousePointerClick, Pencil, Plus, Radar, Users } from "lucide-react";
+import { Code2, ListChecks, MessageCircle, MousePointerClick, Pencil, Plus, Radar, Users } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -59,7 +59,7 @@ const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
   desconhecida: "neutral",
 };
 
-type TrackingTab = "sites" | "origens" | "whatsapp" | "sugestoes" | "leads" | "saude";
+export type TrackingTab = "sites" | "origens" | "whatsapp" | "sugestoes" | "leads" | "saude";
 const TABS: { id: TrackingTab; label: string }[] = [
   { id: "sites", label: "Sites" },
   { id: "origens", label: "Origem e jornada" },
@@ -71,13 +71,19 @@ const TABS: { id: TrackingTab; label: string }[] = [
 
 const paidLabel = (paid: boolean | null) => (paid === true ? "Pago" : paid === false ? "Orgânico" : "Não dá para saber");
 
-export function TrackingPage() {
+/**
+ * `embedded`: dentro da ficha do cliente. O cliente fica fixo, o cabeçalho e o filtro de cliente somem e só aparecem as partes
+ * listadas em `tabs` (a parte escolhida fica no endereço como `sub`, para não brigar com a aba da ficha).
+ */
+export function TrackingPage({ embedded }: { embedded?: { clientId: string; tabs: TrackingTab[] } } = {}) {
   const { profile } = useAuth();
   const canManage = can(profile?.role, "tracking.manage");
   const [params, updateParams] = useSearchParamsUpdater();
   const period = (["hoje", "7d", "30d"] as const).find((p) => p === params.get("periodo")) ?? "hoje";
-  const clientId = params.get("cliente");
-  const tab = TABS.find((t) => t.id === params.get("aba"))?.id ?? "sites";
+  const clientId = embedded ? embedded.clientId : params.get("cliente");
+  const tabParam = embedded ? "sub" : "aba";
+  const shownTabs = embedded ? TABS.filter((t) => embedded.tabs.includes(t.id)) : TABS;
+  const tab = shownTabs.find((t) => t.id === params.get(tabParam))?.id ?? shownTabs[0]?.id ?? "sites";
   const set = (key: string, value: string | null) =>
     updateParams((latest) => {
       if (value) latest.set(key, value);
@@ -100,7 +106,6 @@ export function TrackingPage() {
   const capiOf = (dest: Destination | undefined) => (dest ? (capiOverview.data ?? []).find((o) => o.destination_id === dest.id) : undefined);
   const [metaFor, setMetaFor] = useState<TrackingContainer | null>(null);
   const waClicks = useWhatsAppClicks(hasContainers);
-  const canMarkWhatsApp = can(profile?.role, "tracking.whatsapp");
   const waConnections = useWhatsAppConnections(hasContainers);
   const waConversations = useWhatsAppConversations(hasContainers);
   const suggestions = useWaSuggestions(hasContainers);
@@ -139,6 +144,15 @@ export function TrackingPage() {
 
   return (
     <div className="space-y-6">
+      {embedded ? (
+        canManage && (
+          <div className="flex justify-end">
+            <Button onClick={() => setEditing("new")}>
+              <Plus className="size-4" aria-hidden /> Novo site
+            </Button>
+          </div>
+        )
+      ) : (
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Tracking</h1>
@@ -158,6 +172,7 @@ export function TrackingPage() {
           )}
         </div>
       </div>
+      )}
 
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
 
@@ -166,7 +181,7 @@ export function TrackingPage() {
       ) : !hasContainers ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center" data-testid="tracking-empty">
           <Radar className="size-8 text-slate-300" aria-hidden />
-          <p className="font-medium text-slate-900">Nenhum site configurado ainda.</p>
+          <p className="font-medium text-slate-900">{embedded ? "Este cliente ainda não tem site configurado." : "Nenhum site configurado ainda."}</p>
           <p className="max-w-md text-sm text-slate-500">
             {canManage
               ? "Crie um container para o site do cliente, informe o domínio e cole o código de instalação no site."
@@ -175,33 +190,33 @@ export function TrackingPage() {
         </Card>
       ) : (
         <>
-          <Card className="grid gap-3 p-4 sm:grid-cols-2" role="search" aria-label="Filtros do tracking">
+          {(!embedded || tab === "sites" || tab === "origens") && (<Card className={embedded ? "grid gap-3 p-4" : "grid gap-3 p-4 sm:grid-cols-2"} role="search" aria-label="Filtros do tracking">
             <label className="text-sm">
               <span className="mb-1 block font-medium text-slate-700">Período</span>
               <Select value={period} onChange={(e) => set("periodo", e.target.value === "hoje" ? null : e.target.value)}>
                 {(Object.keys(PERIOD_LABELS) as PeriodPreset[]).map((p) => <option key={p} value={p}>{PERIOD_LABELS[p]}</option>)}
               </Select>
             </label>
-            <label className="text-sm">
+            {!embedded && (<label className="text-sm">
               <span className="mb-1 block font-medium text-slate-700">Cliente</span>
               <Select value={clientId ?? ""} onChange={(e) => set("cliente", e.target.value || null)}>
                 <option value="">Todos os clientes</option>
                 {clients.filter((c) => containers.some((t) => t.client_id === c.id)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
-            </label>
-          </Card>
+            </label>)}
+          </Card>)}
 
-          <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" role="tablist" aria-label="Partes do tracking">
-            {TABS.map((t) => (
+          {shownTabs.length > 1 && (<div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" role="tablist" aria-label="Partes do tracking">
+            {shownTabs.map((t) => (
               <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} data-testid={`tracking-tab-${t.id}`}
-                onClick={() => set("aba", t.id === "sites" ? null : t.id)}
+                onClick={() => set(tabParam, t.id === shownTabs[0].id ? null : t.id)}
                 className={tab === t.id
                   ? "rounded-full bg-brand-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-brand"
                   : "rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200 hover:text-slate-900"}>
                 {t.label}{t.id === "sugestoes" && pendingSuggestions > 0 ? ` (${pendingSuggestions})` : ""}
               </button>
             ))}
-          </div>
+          </div>)}
 
           {tab === "sites" && (
             <>
@@ -243,9 +258,6 @@ export function TrackingPage() {
                   destination={destOf(c.id)}
                   capi={capiOf(destOf(c.id))}
                   onMeta={() => setMetaFor(c)}
-                  waConnection={waConnOf(c.id)}
-                  onWhatsApp={() => setWaApiFor(c)}
-                  onWaServer={() => setWaServerFor(c)}
                   onRules={() => setRulesFor(c)}
                 />
               ))}
@@ -330,13 +342,19 @@ export function TrackingPage() {
           )}
 
           {tab === "whatsapp" && (
+          <>
+          <WhatsAppConnectionsCard sites={visible} connectionOf={waConnOf} canManage={canManage} onServer={setWaServerFor} onApi={setWaApiFor} />
+          <Alert tone="info">
+            <span data-testid="wa-mark-moved">Para <strong>marcar venda</strong>, use a aba <strong>Conversas</strong> do cliente (Clientes → o cliente → Conversas). Lá você lê a conversa antes de marcar.</span>
+          </Alert>
           <WhatsAppSection
             clicks={(waClicks.data ?? []).filter((c) => visibleIds.has(c.container_id))}
             conversations={(waConversations.data ?? []).filter((c) => visibleIds.has(c.container_id))}
             hasApi={(waConnections.data ?? []).some((w) => visibleIds.has(w.container_id)) || (waConversations.data ?? []).length > 0}
             siteName={(id) => byId.get(id)?.name ?? "—"}
-            canMark={canMarkWhatsApp}
+            canMark={false}
           />
+          </>
           )}
 
           {tab === "sugestoes" && (
@@ -368,7 +386,7 @@ export function TrackingPage() {
       {editing && (
         <ContainerFormModal
           container={editing === "new" ? null : editing}
-          clients={clients.map((c) => ({ id: c.id, name: c.name }))}
+          clients={clients.filter((c) => !embedded || c.id === embedded.clientId).map((c) => ({ id: c.id, name: c.name }))}
           onClose={() => setEditing(null)}
           onSaved={(id) => {
             if (editing === "new") {
@@ -401,6 +419,57 @@ export function TrackingPage() {
   );
 }
 
+/** Conexões de WhatsApp dos sites (servidor próprio ou API oficial): o único lugar para ligar, conferir e configurar. */
+function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onApi }: {
+  sites: TrackingContainer[];
+  connectionOf: (containerId: string) => WhatsAppConnection | undefined;
+  canManage: boolean;
+  onServer: (c: TrackingContainer) => void;
+  onApi: (c: TrackingContainer) => void;
+}) {
+  return (
+    <section aria-label="Conexões de WhatsApp dos sites" className="space-y-3" data-testid="wa-connections">
+      <h2 className="text-base font-semibold text-slate-900">Conexão do WhatsApp</h2>
+      <Card className="divide-y divide-slate-100">
+        {sites.length === 0 ? (
+          <p className="p-4 text-sm text-slate-500">Cadastre o site do cliente (aba Site e origem) para ligar o WhatsApp dele.</p>
+        ) : sites.map((c) => {
+          const conn = connectionOf(c.id);
+          const status = waConnectionStatus(conn);
+          return (
+            <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 p-4" data-testid="wa-connection-row">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-slate-900">{c.name}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <Badge tone={status.tone}>{status.label}</Badge>
+                  {conn?.mode === "nao_oficial" && (
+                    <Badge tone={conn.store_messages && conn.store_ack_at ? "success" : "neutral"}>
+                      {conn.store_messages && conn.store_ack_at ? "Guardando as conversas" : "Conversas não guardadas"}
+                    </Badge>
+                  )}
+                  <span className="text-xs text-slate-500">{status.detail}</span>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(canManage || conn?.mode === "nao_oficial") && (!conn || conn.mode === "nao_oficial") && (
+                  <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onServer(c)} aria-label={`WhatsApp pelo servidor: ${c.name}`}>
+                    <MessageCircle className="size-3.5" aria-hidden /> WhatsApp pelo servidor
+                  </Button>
+                )}
+                {(canManage || conn) && conn?.mode !== "nao_oficial" && (
+                  <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onApi(c)} aria-label={`WhatsApp API oficial: ${c.name}`}>
+                    WhatsApp API oficial
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </Card>
+    </section>
+  );
+}
+
 /** Abre as instruções assim que o container recém-criado aparece na lista. */
 function InstallModalLoader({ id, containers, destinations, onClose }: { id: string; containers: TrackingContainer[]; destinations: Destination[]; onClose: () => void }) {
   const container = containers.find((c) => c.id === id);
@@ -421,7 +490,7 @@ function Stat({ label, value, hint }: { label: string; value: number; hint?: str
   );
 }
 
-function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, destination, capi, onMeta, waConnection, onWhatsApp, onWaServer, onRules }: {
+function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, destination, capi, onMeta, onRules }: {
   container: TrackingContainer;
   stats?: OverviewRow;
   canManage: boolean;
@@ -430,13 +499,9 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
   destination: Destination | undefined;
   capi: CapiOverview | undefined;
   onMeta: () => void;
-  waConnection: WhatsAppConnection | undefined;
-  onWhatsApp: () => void;
-  onWaServer: () => void;
   onRules: () => void;
 }) {
   const meta = capiStatus(destination, capi);
-  const wa = waConnectionStatus(waConnection);
   return (
     <li>
       <Card className="space-y-3 p-4" data-testid="container-card">
@@ -462,16 +527,6 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
           <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onMeta} aria-label={`Meta API de Conversões: ${c.name}`}>
             Meta CAPI · {meta.label}
           </Button>
-          {(canManage || waConnection) && waConnection?.mode !== "nao_oficial" && (
-            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onWhatsApp} aria-label={`WhatsApp API oficial: ${c.name}`}>
-              WhatsApp API · {wa.label}
-            </Button>
-          )}
-          {(canManage || waConnection?.mode === "nao_oficial") && (!waConnection || waConnection.mode === "nao_oficial") && (
-            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onWaServer} aria-label={`WhatsApp pelo servidor: ${c.name}`}>
-              WhatsApp servidor · {waConnection?.mode === "nao_oficial" ? wa.label.replace("Servidor: ", "") : "Não configurado"}
-            </Button>
-          )}
           <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onRules} aria-label={`Regras do site: ${c.name}`}>
             <ListChecks className="size-3.5" aria-hidden /> Regras · {c.rules_version ? `versão ${c.rules_version}` : "nenhuma publicada"}
           </Button>
