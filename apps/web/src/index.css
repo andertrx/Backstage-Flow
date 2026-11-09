@@ -233,3 +233,56 @@ html.pdf-mode .pdf-width { width: 186mm; max-width: 186mm; }
 }
 .hoje-rise { animation: hoje-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 70ms); }
 .hoje-pulse { animation: hoje-pulse 1.3s ease-out 1 0.6s; }
+
+
+/* ---------- Telas de entrada (login, senha): fundo vivo e logo em movimento ---------- */
+.auth-stage { background: var(--color-canvas); }
+.auth-orb { position: absolute; border-radius: 9999px; filter: blur(70px); pointer-events: none; opacity: 0.55; will-change: transform; }
+.auth-orb-a { width: 38rem; height: 38rem; left: -10rem; top: -12rem; background: radial-gradient(circle, rgb(37 99 235 / 0.55), transparent 68%); animation: auth-drift-a 18s ease-in-out infinite alternate; }
+.auth-orb-b { width: 34rem; height: 34rem; right: -9rem; bottom: -12rem; background: radial-gradient(circle, rgb(14 165 233 / 0.5), transparent 68%); animation: auth-drift-b 22s ease-in-out infinite alternate; }
+.auth-orb-c { width: 22rem; height: 22rem; left: 55%; top: 8%; background: radial-gradient(circle, rgb(99 102 241 / 0.38), transparent 70%); animation: auth-drift-c 26s ease-in-out infinite alternate; }
+[data-theme="dark"] .auth-orb { opacity: 0.45; }
+.auth-grid {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+  background-image: linear-gradient(to right, color-mix(in oklab, var(--color-slate-300) 45%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-slate-300) 45%, transparent) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 60% 55% at 50% 40%, #000 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 55% at 50% 40%, #000 20%, transparent 75%);
+}
+.auth-logo-in { animation: auth-logo-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.auth-logo-float { animation: auth-float 6s ease-in-out 1s infinite; }
+.auth-logo-glow {
+  position: absolute; left: 50%; top: 50%; width: 120%; height: 220%; transform: translate(-50%, -50%); border-radius: 9999px; pointer-events: none;
+  background: radial-gradient(closest-side, rgb(59 130 246 / 0.42), transparent); filter: blur(18px); animation: auth-glow 4.5s ease-in-out infinite;
+}
+.auth-logo-shine {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 38%, rgb(125 190 255 / 0.95) 50%, transparent 62%) no-repeat;
+  background-size: 260% 100%; background-position: 160% 0;
+  -webkit-mask: url(/brand/logo.png) center / contain no-repeat; mask: url(/brand/logo.png) center / contain no-repeat;
+  animation: auth-shine 5.5s ease-in-out 1.2s infinite;
+}
+.auth-text-in { animation: rise 0.7s ease-out 0.35s both; }
+.auth-card-in { animation: auth-card-in 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s both; }
+.auth-card-in form > * { animation: rise 0.6s ease-out both; }
+.auth-card-in form > *:nth-child(1) { animation-delay: 0.55s; }
+.auth-card-in form > *:nth-child(2) { animation-delay: 0.65s; }
+.auth-card-in form > *:nth-child(3) { animation-delay: 0.75s; }
+.auth-card-in form > *:nth-child(4) { animation-delay: 0.85s; }
+.auth-card-in form > *:nth-child(5) { animation-delay: 0.95s; }
+@keyframes auth-logo-in { from { opacity: 0; transform: translateY(18px) scale(0.86); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes auth-card-in { from { opacity: 0; transform: translateY(28px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes auth-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes auth-glow { 0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.92); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); } }
+@keyframes auth-shine { 0% { background-position: 160% 0; } 38%, 100% { background-position: -60% 0; } }
+@keyframes auth-drift-a { to { transform: translate(8rem, 5rem) scale(1.15); } }
+@keyframes auth-drift-b { to { transform: translate(-7rem, -4rem) scale(1.12); } }
+@keyframes auth-drift-c { to { transform: translate(-6rem, 6rem) scale(0.9); } }
+@media (prefers-reduced-motion: reduce) {
+  .auth-orb, .auth-logo-in, .auth-logo-float, .auth-logo-glow, .auth-logo-shine, .auth-text-in, .auth-card-in, .auth-card-in form > * { animation: none !important; }
+  .auth-logo-shine { display: none; }
+}
+[data-motion="off"] .auth-orb, [data-motion="off"] .auth-logo-in, [data-motion="off"] .auth-logo-float, [data-motion="off"] .auth-logo-glow, [data-motion="off"] .auth-logo-shine,
+[data-motion="off"] .auth-text-in, [data-motion="off"] .auth-card-in, [data-motion="off"] .auth-card-in form > * { animation: none !important; }
+[data-motion="off"] .auth-logo-shine { display: none; }

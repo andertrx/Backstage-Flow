@@ -27,7 +27,7 @@ export function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Entrar no Backstage Flow" subtitle="Painel de performance de tráfego pago">
+    <AuthLayout subtitle="Painel de performance de tráfego pago">
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         {error && <Alert tone="error">{error}</Alert>}
         <Field label="E-mail">
