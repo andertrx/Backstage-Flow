@@ -1,15 +1,16 @@
 /**
- * Logo do Backstage Flow. No menu escuro usa a versão com "backstage" em
- * branco; recolhido, só o símbolo.
+ * Logo do Backstage Flow (símbolo + "BACKSTAGE FLOW" empilhados). Há duas cores: preta (fundo claro) e branca (fundo escuro);
+ * o CSS escolhe qual aparece conforme o tema. Recolhido, só o símbolo. `inverted`: sempre a branca (peças escuras fixas).
  */
 export function Logo({ inverted = false, compact = false, size = "md" }: { inverted?: boolean; compact?: boolean; size?: "md" | "lg" }) {
-  if (compact) return <img src="/brand/symbol.png" alt="Backstage Flow" className="h-7 w-auto" />;
-  const h = size === "lg" ? "h-14 w-auto" : "h-8 w-auto";
-  // No tema escuro entra a versão com "backstage" em branco (o CSS escolhe qual imagem aparece).
+  const h = compact ? "h-8 w-auto" : size === "lg" ? "h-24 w-auto" : "h-12 w-auto";
+  const light = compact ? "/brand/symbol.png" : "/brand/logo.png";
+  const dark = compact ? "/brand/symbol-dark.png" : "/brand/logo-dark.png";
+  if (inverted) return <img src={dark} alt="Backstage Flow" className={h} />;
   return (
     <>
-      <img src={inverted ? "/brand/logo-dark.png" : "/brand/logo.png"} alt="Backstage Flow" className={inverted ? h : `${h} dark:hidden`} />
-      {!inverted && <img src="/brand/logo-dark.png" alt="" aria-hidden className={`${h} hidden dark:block`} />}
+      <img src={light} alt="Backstage Flow" className={`${h} dark:hidden`} />
+      <img src={dark} alt="" aria-hidden className={`${h} hidden dark:block`} />
     </>
   );
 }

@@ -164,6 +164,7 @@ body {
 [data-theme="dark"] .ring-red-200 { --tw-ring-color: rgb(239 68 68 / 0.3); }
 [data-theme="dark"] .ring-emerald-200 { --tw-ring-color: rgb(16 185 129 / 0.3); }
 [data-theme="dark"] .ring-amber-200 { --tw-ring-color: rgb(245 158 11 / 0.3); }
+[data-theme="dark"] .text-brand-600, [data-theme="dark"] .text-brand-500 { color: #7ab0fc; }
 [data-theme="dark"] .text-emerald-700 { color: #6ee7b7; }
 [data-theme="dark"] .text-amber-800 { color: #fcd34d; }
 [data-theme="dark"] .text-red-700 { color: #fca5a5; }
