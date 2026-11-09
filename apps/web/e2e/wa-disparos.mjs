@@ -83,6 +83,7 @@ function seed(db, conectado = true) {
   const panel = page.getByTestId("envio-card").first().getByTestId("wa-envio-panel");
   await panel.waitFor();
   check((await panel.getByTestId("wa-resumo").innerText()).includes("1 enviado(s) · 1 falharam · 0 na fila · 1 pulado(s)"), "resumo da semana: enviados, falharam, na fila, pulados");
+  check((await panel.getByTestId("wa-disparos-lista").locator("li").count()) === 3, "a lista mostra só o último resultado de cada cliente");
   await page.screenshot({ path: `${SHOTS}/wa-reenviar.png` });
   await panel.getByRole("button", { name: /Reenviar só para quem não recebeu/ }).click();
   await panel.getByText("2 cliente(s) entraram na fila").waitFor();

@@ -30,6 +30,7 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
   const grupos = useWaGruposLigados(true);
   const [ligar, setLigar] = useState<ClienteGrupo | null>(null);
   const reenviar = useReenviar();
+  const [antigas, setAntigas] = useState(false);
   const [confirmaTodos, setConfirmaTodos] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +45,8 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
   // Resumo da semana: o último resultado de cada cliente que recebe nesta semana
   const ultimo = new Map<string, DisparoStatus>();
   for (const d of [...meus].sort((a, b) => a.id - b.id)) ultimo.set(d.cliente_id, d.status);
+  const ultimoId = new Map<string, number>();
+  for (const d of [...meus].sort((a, b) => a.id - b.id)) ultimoId.set(d.cliente_id, d.id);
   const conta = { enviado: 0, falhou: 0, fila: 0, pulado: 0 };
   for (const st of ultimo.values()) {
     if (st === "enviado") conta.enviado++; else if (st === "falhou") conta.falhou++; else if (st === "pulado") conta.pulado++; else conta.fila++;
@@ -113,7 +116,7 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
       )}
       {meus.length > 0 && (
         <ul className="flex flex-wrap gap-2" data-testid="wa-disparos-lista">
-          {meus.map((d) => (
+          {(antigas ? meus : meus.filter((d) => ultimoId.get(d.cliente_id) === d.id)).map((d) => (
             <li key={d.id} className="rounded-lg bg-white px-2.5 py-1 text-xs ring-1 ring-slate-200" title={d.detalhe ?? undefined}>
               <span className="font-semibold">{nomes.get(d.cliente_id) ?? "Cliente"}</span>{" "}
               <Badge tone={TONE[d.status]}>{DISPARO_LABEL[d.status]}</Badge>
@@ -122,6 +125,11 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
             </li>
           ))}
         </ul>
+      )}
+      {meus.length > ultimoId.size && (
+        <button type="button" className="text-xs font-medium text-blue-700 hover:underline" onClick={() => setAntigas((v) => !v)} data-testid="wa-ver-antigas">
+          {antigas ? "Esconder tentativas anteriores" : `Ver tentativas anteriores (${meus.length - ultimoId.size})`}
+        </button>
       )}
       {error && <Alert tone="error">{error}</Alert>}
     </div>
