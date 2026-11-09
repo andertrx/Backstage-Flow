@@ -38,15 +38,17 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
   const [stageId, setStageId] = useState("");
   const [value, setValue] = useState("");
   const [currency, setCurrency] = useState("BRL");
+  const [order, setOrder] = useState("");
   const [error, setError] = useState<string | null>(null);
   const chosen = stageId || stages[0]?.id || "";
   const amount = Number(value.replace(",", "."));
-  const valid = Boolean(chosen) && Number.isFinite(amount) && amount >= 0 && value.trim() !== "";
+  const validOrder = order.trim() === "" || /^[A-Za-z0-9_.:/#-]{1,100}$/.test(order.trim());
+  const valid = Boolean(chosen) && Number.isFinite(amount) && amount >= 0 && value.trim() !== "" && validOrder;
 
   async function submit() {
     setError(null);
     try {
-      const r = await mark.mutateAsync({ personId: person.person_id, stageId: chosen, value: amount, currency, suggestionId: person.suggestion_id });
+      const r = await mark.mutateAsync({ personId: person.person_id, stageId: chosen, value: amount, currency, order, suggestionId: person.suggestion_id });
       onDone(r.venda_meta === "sem_site" ? "Venda registrada. Não foi enviada ao Meta: o cliente não tem site no Tracking." : "Venda registrada. Ela entra na fila da API de Conversões do Meta.");
     } catch (err) {
       setError(errorMessage(err));
@@ -79,6 +81,11 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
             <Field label="Moeda">
               {(id) => <Select id={id} value={currency} onChange={(e) => setCurrency(e.target.value)}><option value="BRL">BRL (R$)</option><option value="USD">USD (US$)</option></Select>}
             </Field>
+            <div className="sm:col-span-3">
+              <Field label="Nº do pedido (opcional)" hint={validOrder ? "Se deixar em branco, o CRM cria um nº sozinho. O mesmo nº não pode ser usado duas vezes." : "Use só letras, números e - _ . : / # (até 100 caracteres)."}>
+                {(id) => <Input id={id} value={order} maxLength={100} placeholder="Ex.: PED-1042" onChange={(e) => setOrder(e.target.value)} data-testid="mark-sale-order" />}
+              </Field>
+            </div>
           </div>
         )}
         <div className="flex justify-end gap-2">

@@ -68,11 +68,16 @@ function seed(db) {
   const sale = page.getByTestId("mark-sale");
   await sale.waitFor();
   await sale.getByLabel("Valor da venda").fill("297,00");
+  check(await sale.getByLabel("Nº do pedido (opcional)").count() === 1, "tem o campo Nº do pedido (opcional)");
+  await sale.getByLabel("Nº do pedido (opcional)").fill("PED 1");
+  check(await sale.getByRole("button", { name: "Marcar venda" }).isDisabled(), "nº do pedido com espaço é recusado antes de enviar");
+  await sale.getByLabel("Nº do pedido (opcional)").fill("PED-1042");
   await sale.getByRole("button", { name: "Marcar venda" }).click();
   await page.waitForFunction(() => document.body.textContent.includes("Venda registrada"));
   const k = db.contacts.find((c) => c.client_id === CLI && c.wa_hash === "a".repeat(64));
   check(k && k.sales === 1 && db.contactHistory.some((h) => h.contact_id === k.id && h.kind === "venda" && h.value_micros === 297_000_000 && h.currency === "BRL"), "a venda ficou no Contato, com valor e moeda");
   check(db.contactQueue.some((q) => q.contact_id === k.id && q.event_name === "Purchase" && q.value === 297), "e entrou na fila de envio ao Meta");
+  check(db.contactHistory.some((h) => h.contact_id === k.id && h.kind === "venda" && h.order_id === "PED-1042"), "o nº do pedido digitado foi o usado");
   check(db.waSuggestions.find((x) => x.id === "s1").status === "confirmada", "a sugestão da IA vira confirmada");
   await page.waitForFunction(() => !document.querySelector('[data-testid="wa-chat-suggestion"]'));
 
@@ -86,6 +91,8 @@ function seed(db) {
   await page.getByTestId("mark-sale").getByRole("button", { name: "Marcar venda" }).click();
   await page.waitForFunction(() => document.body.textContent.includes("Venda registrada"));
   check(db.contacts.some((c) => c.client_id === CLI && c.wa_hash === "b".repeat(64) && c.sales === 1), "venda orgânica registrada");
+  const kb = db.contacts.find((c) => c.client_id === CLI && c.wa_hash === "b".repeat(64));
+  check(db.contactHistory.some((h) => h.contact_id === kb.id && h.kind === "venda" && /^ct\d+-1$/.test(h.order_id)), "sem nº digitado, o CRM cria o nº sozinho");
 
   // Apagar (admin)
   page.once("dialog", (d) => d.accept());

@@ -103,11 +103,11 @@ export interface MarkSaleResult { etapa?: string; venda_meta?: string | null }
 export function useWaMarkSale() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { personId: number; stageId: string; value: number; currency: string; suggestionId?: string | null }) => {
+    mutationFn: async (input: { personId: number; stageId: string; value: number; currency: string; order?: string | null; suggestionId?: string | null }) => {
       const contact = await supabase.rpc("wa_person_contact", { p_person: input.personId });
       if (contact.error) throw ruleError(contact.error, "Não conseguimos achar o contato desta conversa.");
       const { data, error } = await supabase.rpc("contact_update", {
-        p_id: contact.data as number, p_stage: input.stageId, p_profile: null, p_value: input.value, p_currency: input.currency, p_order: null,
+        p_id: contact.data as number, p_stage: input.stageId, p_profile: null, p_value: input.value, p_currency: input.currency, p_order: input.order?.trim() ? input.order.trim() : null,
       });
       if (error) throw ruleError(error, "Não conseguimos marcar a venda.");
       if (input.suggestionId) {
