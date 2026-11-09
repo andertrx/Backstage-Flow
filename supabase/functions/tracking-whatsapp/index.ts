@@ -1,9 +1,6 @@
 /**
- * Edge Function: tracking-whatsapp (Etapas 34.5-W e 34.5-W2)
+ * Edge Function: tracking-whatsapp (Etapas 34.5-W2 e T4.2)
  *
- *   mark { code | conversationId, kind: "lead" | "venda", value?, currency?, orderId?, ud? }
- *        → admin, gestor e operador. App comum: pelo código da mensagem.
- *          API oficial: pela conversa que chegou sozinha pelo webhook.
  *   connection_save { containerId, phoneNumberId, wabaId, appSecret?, enabled }
  *   connection_reveal { containerId } → endereço do webhook e token de verificação
  *   connection_remove { containerId } → apaga os segredos e desliga
@@ -12,117 +9,20 @@
  *   coex_complete { code, state, redirectUri } → liga o número (token só no cofre)
  *        → só admin e gestor; precisa do app do Meta da agência configurado em Integrações.
  *
- * O contato do cliente (se informado) chega JÁ CIFRADO pela tela.
  */
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { adminClient, type Caller, requireRole, userClient } from "../_shared/auth.ts";
 import { recordError } from "../_shared/errorlog.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { enforceRateLimit } from "../_shared/ratelimit.ts";
-import {
-  buildMarkIngest,
-  type ConnectionInput,
-  connectionSchema,
-  MarkError,
-  type MarkInput,
-  markSchema,
-  type MarkTarget,
-  normalizeCode,
-  webhookUrl,
-} from "./logic.ts";
+import { type ConnectionInput, connectionSchema, webhookUrl } from "./logic.ts";
 import { buildCoexAuthorizeUrl, type CoexInput, coexSchema, completeCoex, credentialsReady, type AppCredentials } from "./coex.ts";
 
-const MARKERS = ["admin", "gestor", "operador"] as const;
 const MANAGERS = ["admin", "gestor"] as const;
 
 async function audit(db: SupabaseClient, caller: Caller, action: string, clientId: string, details: Record<string, unknown>) {
   const { error } = await db.from("audit_logs").insert({ actor_id: caller.id, action, target_type: "tracking_whatsapp", target_id: clientId, details });
   if (error) await recordError({ source: "servidor", code: "AUDIT_FAILED", technical: error, context: { funcao: "tracking-whatsapp", acao: action }, userId: caller.id });
-}
-
-/** Acha o alvo da marcação, conferindo com o RLS de quem pede. */
-async function resolveTarget(db: SupabaseClient, req: Request, input: MarkInput): Promise<{ target: MarkTarget; conversationId: number | null }> {
-  if (input.code != null) {
-    const code = normalizeCode(input.code);
-    if (!code) throw new AppError(400, "INVALID_INPUT", "Código inválido. São 6 letras/números, como K7Q2M9.");
-    const { data: found, error } = await userClient(req).rpc("tracking_whatsapp_lookup", { p_code: code });
-    if (error) throw new AppError(500, "DB_ERROR", "Não conseguimos buscar o código.", error);
-    if (!Array.isArray(found) || found.length === 0) throw new AppError(404, "NOT_FOUND", "Código não encontrado.");
-    const { data: c, error: e2 } = await db.from("tracking_whatsapp_clicks")
-      .select("container_id, client_id, visitor_id, session_id, page_url, fbp, fbc").eq("code", code).single();
-    if (e2) throw new AppError(500, "DB_ERROR", "Não conseguimos ler o clique.", e2);
-    return {
-      conversationId: null,
-      target: { eventPrefix: `wa.${code}`, code, ...c, action_source: "chat", ctwa_clid: null, waba_id: null, ph_hash: null },
-    };
-  }
-  const { data: visible, error } = await userClient(req).from("tracking_whatsapp_conversations").select("id").eq("id", input.conversationId!).maybeSingle();
-  if (error) throw new AppError(500, "DB_ERROR", "Não conseguimos buscar a conversa.", error);
-  if (!visible) throw new AppError(404, "NOT_FOUND", "Conversa não encontrada.");
-  const { data: v, error: e2 } = await db.from("tracking_whatsapp_conversations")
-    .select("id, container_id, client_id, visitor_id, session_id, wa_hash, origin, ctwa_clid, click_code, tracking_whatsapp_connections(waba_id)")
-    .eq("id", input.conversationId!).single();
-  if (e2) throw new AppError(500, "DB_ERROR", "Não conseguimos ler a conversa.", e2);
-  const conv = v as unknown as {
-    id: number; container_id: string; client_id: string; visitor_id: string; session_id: string; wa_hash: string; origin: string;
-    ctwa_clid: string | null; click_code: string | null; tracking_whatsapp_connections: { waba_id: string } | null;
-  };
-  let click: { page_url: string | null; fbp: string | null; fbc: string | null } = { page_url: null, fbp: null, fbc: null };
-  if (conv.click_code) {
-    const { data } = await db.from("tracking_whatsapp_clicks").select("page_url, fbp, fbc").eq("code", conv.click_code).single();
-    if (data) click = data;
-  }
-  const fromAd = conv.origin === "anuncio_whatsapp" && conv.ctwa_clid != null;
-  return {
-    conversationId: conv.id,
-    target: {
-      // Conversa que veio do botão do site usa o mesmo id da marcação pelo código (não duplica).
-      eventPrefix: conv.click_code ? `wa.${conv.click_code}` : `wac.${conv.id}`,
-      code: conv.click_code,
-      container_id: conv.container_id,
-      client_id: conv.client_id,
-      visitor_id: conv.visitor_id,
-      session_id: conv.session_id,
-      ...click,
-      action_source: fromAd ? "business_messaging" : "chat",
-      ctwa_clid: fromAd ? conv.ctwa_clid : null,
-      waba_id: conv.tracking_whatsapp_connections?.waba_id ?? null,
-      ph_hash: conv.wa_hash,
-    },
-  };
-}
-
-async function mark(db: SupabaseClient, req: Request, caller: Caller, input: MarkInput) {
-  const { target, conversationId } = await resolveTarget(db, req, input);
-  const { data: container } = await db.from("tracking_containers").select("test_mode").eq("id", target.container_id).single();
-  let payload;
-  try {
-    payload = buildMarkIngest(input, target, { test: container?.test_mode ?? false, now: new Date(), randomId: crypto.randomUUID().slice(0, 8) });
-  } catch (err) {
-    if (err instanceof MarkError) throw new AppError(400, "INVALID_INPUT", err.userMessage);
-    throw err;
-  }
-  const { data: result, error } = await db.rpc("tracking_ingest", { p: payload });
-  if (error) throw new AppError(500, "DB_ERROR", "Não conseguimos registrar a marcação.", error);
-  const status = (result as { status: string }).status;
-  if (status === "compra_duplicada") throw new AppError(409, "INVALID_STATE", "Este nº de pedido já foi registrado para este site.");
-  if (status === "duplicado") return { status: "ja_marcado" };
-  if (status !== "ok") throw new AppError(500, "DB_ERROR", "Não conseguimos registrar a marcação.", result);
-  const leadId = (result as { lead_id?: number }).lead_id ?? null;
-
-  if (target.code) {
-    const { error: e } = await db.rpc("tracking_whatsapp_mark", { p_code: target.code, p_kind: input.kind, p_user_id: caller.id, p_lead_id: leadId });
-    if (e) throw new AppError(500, "DB_ERROR", "Não conseguimos atualizar o clique.", e);
-  }
-  if (conversationId) {
-    const { error: e } = await db.rpc("tracking_whatsapp_conversation_mark", { p_id: conversationId, p_kind: input.kind, p_user_id: caller.id, p_lead_id: leadId });
-    if (e) throw new AppError(500, "DB_ERROR", "Não conseguimos atualizar a conversa.", e);
-  }
-  await audit(db, caller, `tracking_whatsapp.${input.kind}`, target.client_id, {
-    codigo: target.code, conversa: conversationId, valor: input.value ?? null, moeda: input.currency ?? null, pedido: input.orderId ?? null,
-    contato_cifrado: input.ud ? Object.keys(input.ud) : [],
-  });
-  return { status: "ok", leadId };
 }
 
 async function visibleContainer(req: Request, id: string) {
@@ -238,16 +138,12 @@ Deno.serve(handle(async (req) => {
     await enforceRateLimit(db, "tracking.manage", callerCoex.id);
     return json(req, 200, { data: await coex(db, req, callerCoex, parsedCoex.data) });
   }
-  const isConnection = typeof body?.action === "string" && body.action.startsWith("connection_");
-  const parsed = isConnection ? connectionSchema.safeParse(body) : markSchema.safeParse(body);
+  const parsed = connectionSchema.safeParse(body);
   if (!parsed.success) {
-    await requireRole(req, db, MARKERS);
+    await requireRole(req, db, MANAGERS);
     throw new AppError(400, "INVALID_INPUT", parsed.error.issues[0]?.message ?? "Dados inválidos.", parsed.error.message);
   }
-  const caller = await requireRole(req, db, isConnection ? MANAGERS : MARKERS);
-  await enforceRateLimit(db, isConnection ? "tracking.manage" : "tracking.whatsapp", caller.id);
-  const data = isConnection
-    ? await connection(db, req, caller, parsed.data as ConnectionInput)
-    : await mark(db, req, caller, parsed.data as MarkInput);
-  return json(req, 200, { data });
+  const caller = await requireRole(req, db, MANAGERS);
+  await enforceRateLimit(db, "tracking.manage", caller.id);
+  return json(req, 200, { data: await connection(db, req, caller, parsed.data) });
 }, "tracking-whatsapp"));

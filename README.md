@@ -80,6 +80,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T5.16 — Situação da conversa mostra valor e nº do pedido (e novo logo)](docs/etapa-34-tracking/T5.16-VENDA-NA-CONVERSA.md) ✅ 09/11
   - [T5.17 — Saúde do WhatsApp dos envios e aviso quando cai](docs/etapa-34-tracking/T5.17-SAUDE-DO-WHATSAPP.md) ✅ 09/11
   - [T5.18 — Aviso de WhatsApp caiu/voltou também no aparelho e por e-mail](docs/etapa-34-tracking/T5.18-aviso-whatsapp-aparelho-email.md) ✅ 09/11
+  - [T5.19 — Limpeza: saiu a marcação antiga por código/conversa](docs/etapa-34-tracking/T5.19-limpeza-marcar-por-codigo.md) ✅ 09/11
   - [53.1 — Novo layout estilo Vertix: base visual (azul, menu lateral mantido)](docs/etapa-53-layout-vertix/53.1-BASE-VISUAL.md) ✅ 09/11
   - [53.2 — Novo layout: moldura (menu flutuante e cabeçalho em pílula)](docs/etapa-53-layout-vertix/53.2-MOLDURA.md) ✅ 09/11
   - [53.3 — Novo layout: cartões de números e barras hachuradas](docs/etapa-53-layout-vertix/53.3-CARTOES-E-BARRAS.md) ✅ 09/11

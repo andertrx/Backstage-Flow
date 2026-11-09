@@ -2032,16 +2032,6 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/rpc/tracking_quality")) {
       return res(200, db.trackingQuality);
     }
-    if (url.includes("/rest/v1/rpc/tracking_whatsapp_lookup")) {
-      let code = String(parse().p_code ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-      if (code.length === 9 && code.startsWith("REF")) code = code.slice(3);
-      const c = db.whatsappClicks.find((x) => x.code === code);
-      if (!c) return res(200, []);
-      const k = db.trackingContainers.find((x) => x.id === c.container_id);
-      return res(200, [{ id: c.id, code: c.code, container_id: c.container_id, client_id: k?.client_id, container_name: k?.name ?? "", clicked_at: c.clicked_at,
-        page_url: c.page_url ?? null, status: c.status, sales: c.sales, lead_marked_at: null, test: c.test,
-        channel: c.touch?.channel ?? null, paid: c.touch?.paid ?? null, evidence: c.touch?.evidence ?? null, reason: c.touch?.reason ?? null, campaign: c.touch?.utm_campaign ?? null }]);
-    }
     if (url.includes("/rest/v1/tracking_leads")) {
       return res(200, [...db.trackingLeads].sort((a, b) => b.last_converted_at.localeCompare(a.last_converted_at)).slice(0, 50));
     }
@@ -2585,7 +2575,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       }
     }
 
-    // --- Edge Function tracking-whatsapp (marcar Lead/Venda)
+    // --- Edge Function tracking-whatsapp (conexão da API oficial e cadastro oficial do Meta)
     if (url.includes("/functions/v1/tracking-whatsapp")) {
       const body = parse();
       db.functionCalls.push({ fn: "tracking-whatsapp", ...body });
@@ -2645,23 +2635,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         conn.enabled = false;
         return res(200, { data: { removed: true } });
       }
-      if (!["admin", "gestor", "operador"].includes(role)) return res(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para esta ação." } });
-      const c = body.conversationId != null
-        ? db.whatsappConversations.find((x) => x.id === body.conversationId)
-        : db.whatsappClicks.find((x) => x.code === body.code);
-      if (!c) return res(404, { error: { code: "NOT_FOUND", message: body.conversationId != null ? "Conversa não encontrada." : "Código não encontrado." } });
-      if (body.kind === "lead") {
-        if (c.status === "lead" || c.status === "venda") return res(200, { data: { status: "ja_marcado" } });
-        c.status = "lead";
-      } else {
-        if (body.orderId && (c.orders ?? []).includes(body.orderId)) {
-          return res(409, { error: { code: "INVALID_STATE", message: "Este nº de pedido já foi registrado para este site." } });
-        }
-        c.orders = [...(c.orders ?? []), body.orderId].filter(Boolean);
-        c.status = "venda";
-        c.sales = (c.sales ?? 0) + 1;
-      }
-      return res(200, { data: { status: "ok", leadId: 1 } });
+      return res(400, { error: { code: "INVALID_INPUT", message: "Dados inválidos." } });
     }
 
     // --- Edge Function admin-users
