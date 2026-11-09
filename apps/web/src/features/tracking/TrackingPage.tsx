@@ -417,7 +417,7 @@ function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onA
           return (
             <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 p-4" data-testid="wa-connection-row">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-900">{c.name}</p>
+                <p className="truncate text-sm font-medium text-slate-900">{c.clients?.name ? <><span className="font-semibold">{c.clients.name}</span><span className="text-slate-400"> · </span></> : null}{c.name}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <Badge tone={status.tone}>{status.label}</Badge>
                   {conn?.mode === "nao_oficial" && (
@@ -461,7 +461,7 @@ function WhatsAppStatusStrip({ sites, connectionOf, clientId }: { sites: Trackin
           const st = waConnectionStatus(connectionOf(c.id));
           return (
             <li key={c.id} className="flex flex-wrap items-center gap-2 text-sm" data-testid="wa-status-row">
-              <span className="font-medium text-slate-900">{c.name}</span>
+              <span className="font-medium text-slate-900">{c.clients?.name ? `${c.clients.name} · ` : ""}{c.name}</span>
               <Badge tone={st.tone}>{st.label}</Badge>
             </li>
           );

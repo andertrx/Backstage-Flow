@@ -102,6 +102,7 @@ function seed(db) {
   check(page.url().includes("secao=config"), "o link leva às Configurações → WhatsApp");
   const wc = await page.getByTestId("wa-connections").innerText();
   check(wc.includes("atacado.com.br") && !wc.includes("varejo.com.br"), "Configurações → WhatsApp: só a conexão do cliente escolhido");
+  check(wc.replace(/\s+/g, " ").includes("Loja Atacado · atacado.com.br"), "Configurações → WhatsApp: o nome da empresa (cliente) vem na frente do nome do site");
   check(await page.getByRole("button", { name: "WhatsApp pelo servidor: atacado.com.br" }).count() === 1, "Configurações → WhatsApp: botão do servidor");
   check(await page.getByTestId("section-index").count() === 1, "Configurações tem o índice de seções");
   await page.getByTestId("tracking-section-painel").click();
@@ -123,10 +124,8 @@ function seed(db) {
   check(await page.getByRole("button", { name: "Novo site" }).count() === 1 && await page.getByTestId("wa-ai-card").count() === 1, "Configurações: Novo site e chave da IA (administrador)");
   await page.screenshot({ path: `${SHOTS}/tracking-configuracoes.png`, fullPage: true });
 
-  // Inteligência de Resultados agora fica no Tracking
-  await page.getByTestId("tracking-results-link").click();
-  await page.waitForURL(/inteligencia-resultados/);
-  check(page.url().includes(`cliente=${A}`), "Inteligência de Resultados abre com o cliente escolhido");
+  // O botão Inteligência de Resultados não fica mais dentro do Tracking (a tela tem o seu item no menu)
+  check(await page.getByTestId("tracking-results-link").count() === 0 && await page.locator("main").getByRole("link", { name: "Inteligência de Resultados" }).count() === 0, "Tracking não tem o botão Inteligência de Resultados");
   check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
   await browser.close();
 }

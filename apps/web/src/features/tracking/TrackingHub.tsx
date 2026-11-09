@@ -1,7 +1,7 @@
 import { can } from "@backstage/shared";
-import { ChartPie, MessageCircle, Radar, Settings2, Sparkles, Wallet } from "lucide-react";
+import { MessageCircle, Radar, Settings2, Sparkles, Wallet } from "lucide-react";
 import { useEffect } from "react";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Select } from "@/components/ui/field.tsx";
@@ -80,15 +80,6 @@ export function TrackingHub() {
             Conversas, contatos, vendas, origens e eventos dos sites dos clientes. Os dados do site são coletados pelo nosso script (sem dados pessoais).
           </p>
         </div>
-        {can(role, "results.view") && (
-          <Link
-            to={`/inteligencia-resultados${clientId ? `?cliente=${clientId}` : ""}`}
-            data-testid="tracking-results-link"
-            className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400"
-          >
-            <ChartPie className="size-4" aria-hidden /> Inteligência de Resultados
-          </Link>
-        )}
       </div>
 
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-3">
