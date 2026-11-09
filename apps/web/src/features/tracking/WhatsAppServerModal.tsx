@@ -11,6 +11,7 @@ import {
   type TrackingContainer,
   useWaUnofficialEnabled,
   useWaUnofficialNewKey,
+  useWaAiSuggest,
   useWaStoreMessages,
   useWaUnofficialSave,
   waInboundUrl,
@@ -54,6 +55,7 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
   const newKey = useWaUnofficialNewKey();
   const toggle = useWaUnofficialEnabled();
   const store = useWaStoreMessages();
+  const ai = useWaAiSuggest();
   const official = connection && connection.mode !== "nao_oficial";
   const [phone, setPhone] = useState(connection?.mode === "nao_oficial" ? connection.display_phone ?? "" : "");
   const [revealed, setRevealed] = useState<{ id: string; key: string } | null>(null);
@@ -192,6 +194,22 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
                 </div>
               </Alert>
             )}
+          </section>
+        )}
+        {mine && canManage && (
+          <section className="space-y-2" data-testid="wa-server-ai">
+            <h4 className="font-medium text-slate-800">5. IA que sugere vendas (só este WhatsApp)</h4>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={!!mine.ai_suggest && !!mine.store_messages} disabled={!mine.store_messages || !mine.store_ack_at || ai.isPending}
+                aria-label="IA que sugere vendas neste WhatsApp"
+                onChange={(e) => void run(() => ai.mutateAsync({ id: mine.id, on: e.target.checked }))} />
+              <span className="font-medium">IA sugere vendas nas conversas deste WhatsApp</span>
+            </label>
+            <p className="text-xs text-slate-500">
+              Uma vez por dia (3h da manhã) a IA lê as conversas guardadas <strong>só deste cliente</strong> e sugere onde pode ter havido venda; quem decide é você (Tracking → Painel → Vendas sugeridas).
+              {!mine.store_messages || !mine.store_ack_at ? " Para ligar, primeiro ligue “Guardar as conversas” (item 4). " : " "}
+              Precisa também da chave e do interruptor geral da IA (Tracking → Configurações → IA de vendas sugeridas). Cada cliente novo começa com a IA <strong>desligada</strong>.
+            </p>
           </section>
         )}
         {!canManage && <p className="text-slate-500">Só administrador e gestor configuram o WhatsApp do site.</p>}

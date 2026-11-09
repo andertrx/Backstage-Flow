@@ -75,6 +75,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T5.11 — Correção: nova venda de quem já está na etapa Venda](docs/etapa-34-tracking/T5.11-VENDA-REPETIDA.md) ✅ 09/11
   - [T5.12 — Pedido repetido: confere também a fila do Meta](docs/etapa-34-tracking/T5.12-PEDIDO-REPETIDO.md) ✅ 09/11
   - [T5.13 — Configurações do Tracking em seções; WhatsApp dividido (ligar × acompanhar)](docs/etapa-34-tracking/T5.13-CONFIGURACOES-EM-SECOES.md) ✅ 09/11
+  - [T5.14 — IA que sugere vendas, por WhatsApp (empresa)](docs/etapa-34-tracking/T5.14-IA-POR-WHATSAPP.md) ✅ 09/11
   - [53.1 — Novo layout estilo Vertix: base visual (azul, menu lateral mantido)](docs/etapa-53-layout-vertix/53.1-BASE-VISUAL.md) ✅ 09/11
   - [53.2 — Novo layout: moldura (menu flutuante e cabeçalho em pílula)](docs/etapa-53-layout-vertix/53.2-MOLDURA.md) ✅ 09/11
   - [53.3 — Novo layout: cartões de números e barras hachuradas](docs/etapa-53-layout-vertix/53.3-CARTOES-E-BARRAS.md) ✅ 09/11

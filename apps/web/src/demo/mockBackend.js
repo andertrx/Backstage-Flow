@@ -1921,6 +1921,14 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       if (p.p_on && !w.store_ack_at) w.store_ack_at = new Date().toISOString();
       return res(204);
     }
+    if (url.includes("/rest/v1/rpc/wa_unofficial_set_ai")) {
+      const p = parse();
+      const w = db.whatsappConnections.find((x) => x.id === p.p_id && x.mode === "nao_oficial");
+      if (!w || !["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor ligam ou desligam a IA de vendas deste WhatsApp." });
+      if (p.p_on && !(w.store_messages && w.store_ack_at)) return res(400, { code: "22023", message: "Ligue antes \"Guardar as conversas\" (e confirme o aviso): a IA só lê conversas guardadas." });
+      w.ai_suggest = Boolean(p.p_on);
+      return res(204);
+    }
     if (url.includes("/rest/v1/rpc/wa_conversations_list")) {
       const p = parse();
       if (!canManageClient(p.p_client)) return res(403, { code: "42501", message: "Sem permissão para ver as conversas deste cliente." });

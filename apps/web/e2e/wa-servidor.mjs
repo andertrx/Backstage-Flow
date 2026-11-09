@@ -62,6 +62,15 @@ function seed(db, official = false) {
   await page.getByTestId("wa-store-ack").getByRole("button", { name: "Confirmar e ligar" }).click();
   await page.waitForFunction(() => document.body.textContent.includes("Guarda das conversas ligada."));
   check(w.store_messages === true && Boolean(w.store_ack_at), "liga a guarda e registra o aceite do aviso");
+  // IA que sugere vendas: por WhatsApp, nasce desligada e só liga com as conversas guardadas
+  const aiBox = modal.getByRole("checkbox", { name: "IA que sugere vendas neste WhatsApp" });
+  check(w.ai_suggest !== true && await aiBox.isChecked() === false && await aiBox.isEnabled(), "IA por WhatsApp nasce desligada e liberada (conversas já guardadas)");
+  await aiBox.click();
+  await page.waitForFunction(() => document.querySelector('[data-testid="wa-server-ai"] input')?.checked === true);
+  check(w.ai_suggest === true, "liga a IA só para este WhatsApp");
+  await aiBox.click();
+  await page.waitForFunction(() => document.querySelector('[data-testid="wa-server-ai"] input')?.checked === false);
+  check(w.ai_suggest === false, "desliga a IA deste WhatsApp");
   const old = w.inbound_key;
   page.once("dialog", (d) => d.accept());
   await modal.getByRole("button", { name: "Gerar nova chave" }).click();

@@ -423,6 +423,9 @@ function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onA
                       {conn.store_messages && conn.store_ack_at ? "Guardando as conversas" : "Conversas não guardadas"}
                     </Badge>
                   )}
+                  {conn?.mode === "nao_oficial" && conn.store_messages && conn.store_ack_at && (
+                    <Badge tone={conn.ai_suggest ? "brand" : "neutral"}>{conn.ai_suggest ? "IA sugerindo vendas" : "IA desligada"}</Badge>
+                  )}
                   <span className="text-xs text-slate-500">{status.detail}</span>
                 </div>
               </div>
