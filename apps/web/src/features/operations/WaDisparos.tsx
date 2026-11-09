@@ -1,24 +1,23 @@
 import { MessageCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Modal } from "@/components/ui/modal.tsx";
 import { Switch } from "@/components/ui/switch.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useWaGateway } from "@/features/integrations/waGatewayApi.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import type { OpsEnvio } from "./enviosApi.ts";
-import { DISPARO_LABEL, type DisparoStatus, type EnviarAgoraResult, useEnviarAgora, useSetAutomatico, useWaAutomaticos, useWaDisparos } from "./waDisparosApi.ts";
+import { DISPARO_LABEL, type DisparoStatus, useSetAutomatico, useWaAutomaticos, useWaDisparos } from "./waDisparosApi.ts";
 import { useWaGruposLigados } from "./waGruposApi.ts";
 import { LigarGrupoModal, type ClienteGrupo } from "./WaGrupoLigar.tsx";
 
 const TONE: Record<DisparoStatus, "success" | "danger" | "warning" | "neutral" | "brand"> = { pendente: "brand", enviando: "brand", enviado: "success", falhou: "danger", pulado: "neutral" };
 
 /**
- * Etapa 44.3 — painel do envio pelo WhatsApp conectado: chave "enviar sozinho" (só administrador), "Enviar agora" e
- * o resultado de cada grupo. Só aparece quando a conexão do WhatsApp está ligada em Integrações.
+ * Etapa 44.3 / T5.21 — painel do envio pelo WhatsApp conectado: chave "enviar sozinho" (só administrador) e o resultado
+ * de cada grupo. Não há envio manual: o que sai é só o automático, depois de aprovado. Só aparece quando a conexão do WhatsApp está ligada em Integrações.
  */
 export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
   const { profile } = useAuth();
@@ -27,12 +26,15 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
   const autos = useWaAutomaticos();
   const disparos = useWaDisparos();
   const setAuto = useSetAutomatico();
-  const [open, setOpen] = useState(false);
+  const grupos = useWaGruposLigados(true);
+  const [ligar, setLigar] = useState<ClienteGrupo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const automatico = autos.data?.has(envio.id) ?? false;
   const ligado = Boolean(gw.data?.enabled) && gw.data?.connection_state === "conectado";
   const meus = (disparos.data ?? []).filter((d) => d.envio_id === envio.id && d.semana === envio.semana);
   const nomes = new Map(envio.clientes.map((c) => [c.cliente_id, c.cliente_nome]));
+  const comGrupo = new Set((grupos.data ?? []).map((g) => g.cliente_id));
+  const semGrupo = envio.clientes.filter((c) => c.ativo && !comGrupo.has(c.cliente_id));
   // Sem conexão e sem nada anotado: não mostra nada (sem botão que não funciona).
   if (!ligado && !automatico && meus.length === 0) return null;
   async function toggle(on: boolean) {
@@ -48,9 +50,23 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
           <Switch checked={automatico} onChange={toggle} disabled={setAuto.isPending || (!ligado && !automatico)} label="Enviar sozinho pelo WhatsApp conectado" />
         )}
         {automatico && <Badge tone="brand">Automático: sai sozinho depois de aprovado</Badge>}
-        {ligado && !envio.arquivado_em && <Button variant="secondary" className="ml-auto px-3 py-1.5 text-xs" onClick={() => setOpen(true)}>Enviar agora</Button>}
       </div>
-      {automatico && <p className="text-xs text-slate-500">Neste modo o Claude (MCP) não envia este envio: só o WhatsApp conectado, para não duplicar.</p>}
+      {automatico && <p className="text-xs text-slate-500">Neste modo o Claude (MCP) não envia este envio: só o WhatsApp conectado, para não duplicar. O envio sai depois da sua aprovação da semana; se o horário passar sem aprovar, aprove depois (botão "Aprovar e enviar agora") e ele sai logo para quem ainda não recebeu.</p>}
+      {automatico && semGrupo.length > 0 && (
+        <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200" data-testid="wa-sem-grupo">
+          <p className="font-medium">{semGrupo.length} cliente(s) sem grupo ligado: o envio automático vai pular {semGrupo.length === 1 ? "esse cliente" : "esses clientes"}.</p>
+          <ul className="mt-1 flex flex-wrap gap-2">
+            {semGrupo.slice(0, 6).map((c) => (
+              <li key={c.cliente_id} className="flex items-center gap-1.5">
+                <span>{c.cliente_nome}</span>
+                {isAdmin && <Button variant="secondary" size="sm" onClick={() => setLigar({ cliente_id: c.cliente_id, cliente_nome: c.cliente_nome, nome_grupo: c.nome_grupo })} data-testid="wa-ligar-grupo">Ligar grupo</Button>}
+              </li>
+            ))}
+          </ul>
+          {semGrupo.length > 6 && <p className="mt-1">… e mais {semGrupo.length - 6}. Ligue os outros em "Grupos e @ dos clientes".</p>}
+        </div>
+      )}
+      {ligar && <LigarGrupoModal cliente={ligar} onClose={() => setLigar(null)} />}
       {meus.length > 0 && (
         <ul className="flex flex-wrap gap-2" data-testid="wa-disparos-lista">
           {meus.map((d) => (
@@ -64,75 +80,6 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
         </ul>
       )}
       {error && <Alert tone="error">{error}</Alert>}
-      {open && <EnviarAgoraModal envio={envio} onClose={() => setOpen(false)} />}
     </div>
-  );
-}
-
-function EnviarAgoraModal({ envio, onClose }: { envio: OpsEnvio; onClose: () => void }) {
-  const ligados = useWaGruposLigados(true);
-  const grupos = useMemo(() => new Map((ligados.data ?? []).map((g) => [g.cliente_id, g.grupo_nome ?? "Grupo ligado"])), [ligados.data]);
-  const { profile } = useAuth();
-  const isAdmin = profile?.role === "admin";
-  const [ligar, setLigar] = useState<ClienteGrupo | null>(null);
-  const ativos = envio.clientes.filter((c) => c.ativo);
-  const [sel, setSel] = useState<Set<string>>(new Set());
-  const [reenviar, setReenviar] = useState(false);
-  const [result, setResult] = useState<EnviarAgoraResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const enviar = useEnviarAgora();
-  const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  async function go() {
-    setError(null);
-    try { setResult(await enviar.mutateAsync({ envio: envio.id, clientes: [...sel], reenviar })); } catch (e) { setError(errorMessage(e)); }
-  }
-  return (
-    <Modal open title={`Enviar agora: ${envio.nome}`} onClose={onClose}>
-      <div className="space-y-3" data-testid="wa-enviar-agora">
-        {result ? (
-          <>
-            <Alert tone="success">{result.enfileirados} mensagem(ns) na fila. Elas saem uma de cada vez, com pausa entre elas (cerca de 1 por minuto).</Alert>
-            {result.pulados.length > 0 && (
-              <Alert tone="warning">
-                <p className="font-medium">Não entraram na fila:</p>
-                <ul className="list-disc pl-5">{result.pulados.map((p) => <li key={p.cliente_id}>{p.nome}: {p.motivo}</li>)}</ul>
-              </Alert>
-            )}
-            <div className="flex justify-end"><Button onClick={onClose}>Fechar</Button></div>
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-slate-600">A mesma mensagem do envio vai para o grupo de cada cliente marcado. Quem tem número ligado em "Quem marcar (@)" é marcado no fim da mensagem; quem não tem, não é marcado. Quem já recebeu esta semana fica de fora, a menos que você marque "Enviar de novo".</p>
-            {ativos.length === 0 ? <Alert tone="warning">Este envio não tem clientes ativos.</Alert> : (
-              <ul className="max-h-64 space-y-1 overflow-y-auto">
-                {ativos.map((c) => {
-                  const g = grupos.get(c.cliente_id);
-                  return (
-                    <li key={c.id} className="flex items-center gap-2 rounded-md hover:bg-slate-50">
-                      <label className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1 text-sm">
-                        <input type="checkbox" checked={sel.has(c.cliente_id)} onChange={() => toggle(c.cliente_id)} aria-label={c.cliente_nome} />
-                        <span className="font-medium">{c.cliente_nome}</span>
-                        {g ? <span className="text-xs text-slate-500">· {g}</span> : <Badge tone="warning">Sem grupo ligado</Badge>}
-                        {c.ja_enviado_nesta_semana && <span className="text-xs text-emerald-700">· já recebeu</span>}
-                      </label>
-                      {!g && isAdmin && (
-                        <Button variant="secondary" size="sm" className="mr-2 shrink-0" onClick={() => setLigar({ cliente_id: c.cliente_id, cliente_nome: c.cliente_nome, nome_grupo: c.nome_grupo })} data-testid="wa-ligar-grupo">Ligar grupo</Button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={reenviar} onChange={(e) => setReenviar(e.target.checked)} /> Enviar de novo, mesmo para quem já recebeu</label>
-            {error && <Alert tone="error">{error}</Alert>}
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-              <Button onClick={go} loading={enviar.isPending} disabled={sel.size === 0}>Enviar para {sel.size} cliente(s)</Button>
-            </div>
-          </>
-        )}
-      </div>
-      {ligar && <LigarGrupoModal cliente={ligar} onClose={() => setLigar(null)} />}
-    </Modal>
   );
 }

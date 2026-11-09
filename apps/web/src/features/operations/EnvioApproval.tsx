@@ -47,7 +47,7 @@ export function EnvioApprovalModal({ envio, onClose }: { envio: OpsEnvio; onClos
     } catch (err) { setError(errorMessage(err)); }
   }
   return (
-    <Modal title={`Envio semanal de hoje — aprovar até ${envio.horario}`} open size="lg" onClose={onClose}>
+    <Modal title={envio.aprovacao_tardia ? "Envio semanal sem aprovação — aprove para enviar agora" : `Envio semanal de hoje — aprovar até ${envio.horario}`} open size="lg" onClose={onClose}>
       <div className="space-y-4 text-sm" data-testid="envio-aprovacao">
         <p className="flex items-center gap-2 text-slate-700">
           <Send className="size-4 text-blue-600" aria-hidden />
@@ -75,7 +75,9 @@ export function EnvioApprovalModal({ envio, onClose }: { envio: OpsEnvio; onClos
         </div>
         <label className="flex items-start gap-2 rounded-lg bg-blue-50 p-3 text-slate-800">
           <input type="checkbox" className="mt-0.5" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
-          <span><strong>Analisei a mensagem e os grupos.</strong> Está aprovado para enviar hoje às {envio.horario}.</span>
+          {envio.aprovacao_tardia
+            ? <span><strong>Analisei a mensagem e os grupos.</strong> O horário ({envio.horario}) já passou: ao aprovar, o envio sai agora para quem ainda não recebeu esta semana.</span>
+            : <span><strong>Analisei a mensagem e os grupos.</strong> Está aprovado para enviar hoje às {envio.horario}.</span>}
         </label>
         {error && <Alert tone="error">{error}</Alert>}
         <div className="flex flex-wrap justify-end gap-2">
@@ -84,10 +86,12 @@ export function EnvioApprovalModal({ envio, onClose }: { envio: OpsEnvio; onClos
             <XCircle className="size-4" aria-hidden /> Não enviar esta semana
           </Button>
           <Button onClick={() => run(true)} disabled={!checked} loading={decide.isPending && decide.variables?.aprovar === true}>
-            <CheckCircle2 className="size-4" aria-hidden /> Aprovar envio
+            <CheckCircle2 className="size-4" aria-hidden /> {envio.aprovacao_tardia ? "Aprovar e enviar agora" : "Aprovar envio"}
           </Button>
         </div>
-        <p className="text-xs text-slate-500">Sem decisão até {envio.horario}, o envio desta semana não sai. Se o envio for editado depois de aprovado, ele pede aprovação de novo.</p>
+        <p className="text-xs text-slate-500">{envio.aprovacao_tardia
+          ? "Você pode aprovar até o fim da semana, sem mudar o dia nem o horário do envio. O envio sai em até alguns minutos, uma mensagem por vez."
+          : `Sem decisão até ${envio.horario}, o envio desta semana não sai. Se o envio for editado depois de aprovado, ele pede aprovação de novo.`}</p>
       </div>
     </Modal>
   );

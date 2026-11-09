@@ -39,9 +39,16 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
     const a = aprovacaoDe(e);
     const valida = Boolean(a && a.decisao === "aprovado" && a.versao_envio === e.versao);
     const hoje = e.ativo && !e.arquivado_em && e.dia_semana === now.dow;
-    const sit = !hoje ? "nao_hoje" : valida ? "aprovado" : a?.decisao === "recusado" ? "recusado" : now.hora >= e.horario ? "nao_aprovado_a_tempo"
-      : now.hora >= (e.horario <= "07:00" ? "00:00" : "07:00") ? "aguardando_aprovacao" : "antes_da_janela";
-    return { semana: now.semana, situacao_hoje: sit, pode_enviar_agora: hoje && valida && now.hora >= e.horario,
+    // T5.21: nos envios automáticos a aprovação pode ser dada depois do horário (até o fim da semana) e o envio sai logo
+    const auto = (db.waAuto ?? []).includes(e.id);
+    const ordem = (d) => (d + 6) % 7;
+    const atrasado = e.ativo && !e.arquivado_em && (ordem(e.dia_semana) < ordem(now.dow) || (e.dia_semana === now.dow && now.hora >= e.horario));
+    const janela = now.hora >= (e.horario <= "07:00" ? "00:00" : "07:00");
+    const sit = !e.ativo || e.arquivado_em ? "nao_hoje"
+      : auto ? (valida ? "aprovado" : a?.decisao === "recusado" ? "recusado" : atrasado ? "nao_aprovado_a_tempo" : !hoje ? "nao_hoje" : janela ? "aguardando_aprovacao" : "antes_da_janela")
+      : !hoje ? "nao_hoje" : valida ? "aprovado" : a?.decisao === "recusado" ? "recusado" : now.hora >= e.horario ? "nao_aprovado_a_tempo" : janela ? "aguardando_aprovacao" : "antes_da_janela";
+    return { semana: now.semana, situacao_hoje: sit, automatico: auto, aprovacao_tardia: auto && atrasado && !valida && a?.decisao !== "recusado",
+      pode_enviar_agora: !auto && hoje && valida && now.hora >= e.horario,
       aprovacao: a ? { decisao: a.decisao, versao_envio: a.versao_envio, decidido_em: a.decidido_em, decidido_por_nome: name(a.decidido_por), origem: a.origem, valida } : null };
   };
 
@@ -113,14 +120,15 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
     return res(200, { hoje: { dia_semana: now.dow, inicio_semana: now.weekStart }, envios: out });
   }
   if (rpc("ops_envio_pendentes")) {
-    return res(200, db.opsEnvios.filter((e) => situacao(e).situacao_hoje === "aguardando_aprovacao").map((e) => json(e, true)));
+    return res(200, db.opsEnvios.filter((e) => situacao(e).situacao_hoje === "aguardando_aprovacao" || situacao(e).aprovacao_tardia).map((e) => json(e, true)));
   }
   if (rpc("ops_envio_decidir")) {
     const e = db.opsEnvios.find((x) => x.id === p.p_id);
     if (!e) return bad("Envio não encontrado.");
     if (e.versao !== p.p_versao) return res(409, { code: "40001", message: "O envio foi alterado depois que você abriu. Confira de novo antes de aprovar." });
-    if (!["aguardando_aprovacao", "aprovado", "recusado"].includes(situacao(e).situacao_hoje)) return bad("Este envio não está esperando aprovação agora (só no dia, até o horário do envio).");
-    if (now.hora >= e.horario) return bad("Passou do horário do envio: a decisão desta semana já foi fechada.");
+    const sit0 = situacao(e);
+    if (!["aguardando_aprovacao", "aprovado", "recusado"].includes(sit0.situacao_hoje) && !(sit0.automatico && sit0.situacao_hoje === "nao_aprovado_a_tempo")) return bad("Este envio não está esperando aprovação agora (só no dia, até o horário do envio).");
+    if (!sit0.automatico && now.hora >= e.horario) return bad("Passou do horário do envio: a decisão desta semana já foi fechada.");
     const row = { envio_id: e.id, semana: now.semana, decisao: p.p_aprovar ? "aprovado" : "recusado", versao_envio: e.versao, decidido_por: userId,
       decidido_em: new Date().toISOString(), origem: "manual" };
     const ex = aprovacaoDe(e);

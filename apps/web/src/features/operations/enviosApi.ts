@@ -72,6 +72,10 @@ export interface OpsEnvio {
   semana: string;
   aprovacao: OpsEnvioAprovacao | null;
   situacao_hoje: EnvioSituacaoHoje;
+  /** T5.21: envio automático (WhatsApp conectado). */
+  automatico?: boolean;
+  /** T5.21: automático sem decisão depois do horário: ainda dá para aprovar (e o envio sai logo). */
+  aprovacao_tardia?: boolean;
   pode_enviar_agora: boolean;
 }
 

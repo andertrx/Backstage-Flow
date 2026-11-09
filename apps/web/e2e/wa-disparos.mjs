@@ -1,5 +1,5 @@
 /**
- * Teste de navegador da Etapa 44.3 — envio pelo WhatsApp conectado (chave "enviar sozinho" e "Enviar agora").
+ * Teste de navegador da Etapa 44.3 — envio pelo WhatsApp conectado (chave "enviar sozinho"; sem envio manual desde a T5.21).
  * Supabase e servidor de conexão SIMULADOS; nenhuma mensagem real é enviada.
  */
 import { check, launch, login, mockSupabase, SHOTS, USER_ID } from "./support.mjs";
@@ -45,27 +45,16 @@ function seed(db, conectado = true) {
   check(db.waAuto.includes(ENVIO) && db.rpcCalls.some((c) => c.fn === "wa_envio_set_automatico" && c.p_on === true), "liga o envio automático");
   check((await panel.innerText()).includes("não envia este envio"), "avisa que o Claude (MCP) não envia mais este envio");
 
-  await panel.getByRole("button", { name: "Enviar agora" }).click();
-  const modal = page.getByTestId("wa-enviar-agora");
-  await modal.waitFor();
-  check((await modal.innerText()).includes("Sem grupo ligado"), "mostra quem está sem grupo ligado");
-  await modal.getByLabel("Loja Aurora").check();
-  await modal.getByLabel("Loja Cais").check();
-  await page.screenshot({ path: `${SHOTS}/wa-enviar-agora.png` });
-  await modal.getByRole("button", { name: /Enviar para 2 cliente/ }).click();
-  await modal.getByText("1 mensagem(ns) na fila").waitFor();
-  check((await modal.innerText()).includes("Loja Cais: Sem grupo do WhatsApp ligado."), "Cais fica de fora com o motivo");
-  await modal.getByRole("button", { name: "Fechar" }).click();
-  await panel.getByTestId("wa-disparos-lista").getByText("Na fila").waitFor();
-  check((await panel.getByTestId("wa-disparos-lista").innerText()).includes("Loja Aurora"), "mostra o disparo na fila");
-
-  // De novo: já está na fila
-  await panel.getByRole("button", { name: "Enviar agora" }).click();
-  await modal.getByLabel("Loja Aurora").check();
-  await modal.getByRole("button", { name: /Enviar para 1 cliente/ }).click();
-  await modal.getByText("Já está na fila.").waitFor();
-  check(true, "segundo pedido para o mesmo cliente: já está na fila");
-  await modal.getByRole("button", { name: "Fechar" }).click();
+  // T5.21: não existe envio manual; o painel avisa quem está sem grupo e o resultado de cada grupo aparece na lista
+  check(await panel.getByRole("button", { name: "Enviar agora" }).count() === 0, "não há mais botão de envio manual");
+  const sem = panel.getByTestId("wa-sem-grupo");
+  await sem.waitFor();
+  check((await sem.innerText()).includes("Loja Cais") && !(await sem.innerText()).includes("Loja Aurora"), "avisa quem está sem grupo ligado (Cais) e não cita quem já tem (Aurora)");
+  check(await sem.getByTestId("wa-ligar-grupo").count() === 1, "cada cliente sem grupo tem o botão 'Ligar grupo'");
+  db.waDisparos.push({ id: 1, envio_id: ENVIO, cliente_id: A, semana: "2026-11-02", origem: "automatico", status: "pendente", tentativas: 0, detalhe: null, enviado_em: null, atualizado_em: t });
+  await page.reload();
+  await page.getByTestId("envio-card").first().getByTestId("wa-disparos-lista").getByText("Na fila").waitFor();
+  check((await page.getByTestId("wa-disparos-lista").innerText()).includes("Loja Aurora"), "mostra o disparo na fila");
   await page.screenshot({ path: `${SHOTS}/wa-disparos-painel.png` });
   check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);
   await browser.close();

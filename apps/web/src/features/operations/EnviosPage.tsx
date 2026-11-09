@@ -38,6 +38,8 @@ const SITUACAO: Partial<Record<EnvioSituacaoHoje, { label: string; tone: "succes
   recusado: { label: "Hoje: não enviar esta semana", tone: "neutral" },
   nao_aprovado_a_tempo: { label: "Hoje: não aprovado a tempo (não sai)", tone: "danger" },
 };
+/** T5.21: automático que passou do horário sem decisão: ainda dá para aprovar e o envio sai logo. */
+const SITUACAO_TARDIA = { label: "Sem aprovação ainda: aprove para enviar agora", tone: "warning" } as const;
 const DECISAO_LABEL = { aprovado: "Aprovado", recusado: "Não enviar", sem_resposta: "Sem resposta (não saiu)" } as const;
 
 /**
@@ -253,8 +255,9 @@ function CopyAgentInstruction({ envio }: { envio: OpsEnvio }) {
 function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
   const archive = useArchiveEnvio();
   const [reviewing, setReviewing] = useState(false);
-  const sit = SITUACAO[envio.situacao_hoje];
-  const podeDecidir = ["aguardando_aprovacao", "aprovado", "recusado"].includes(envio.situacao_hoje);
+  const tardia = Boolean(envio.aprovacao_tardia);
+  const sit = tardia ? SITUACAO_TARDIA : SITUACAO[envio.situacao_hoje];
+  const podeDecidir = tardia || ["aguardando_aprovacao", "aprovado", "recusado"].includes(envio.situacao_hoje);
   const [error, setError] = useState<string | null>(null);
   const ativos = envio.clientes.filter((c) => c.ativo);
   const arquivado = Boolean(envio.arquivado_em);
@@ -277,8 +280,8 @@ function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
         </div>
         <div className="flex flex-wrap gap-2">
           {!arquivado && podeDecidir && (
-            <Button className="px-3 py-1.5 text-xs" variant={envio.situacao_hoje === "aguardando_aprovacao" ? "primary" : "secondary"} onClick={() => setReviewing(true)}
-              aria-label={`Revisar e aprovar ${envio.nome}`}>Revisar e aprovar</Button>
+            <Button className="px-3 py-1.5 text-xs" variant={tardia || envio.situacao_hoje === "aguardando_aprovacao" ? "primary" : "secondary"} onClick={() => setReviewing(true)}
+              aria-label={`Revisar e aprovar ${envio.nome}`}>{tardia ? "Aprovar e enviar agora" : "Revisar e aprovar"}</Button>
           )}
           {!arquivado && <CopyAgentInstruction envio={envio} />}
           {!arquivado && <CopyCommand envio={envio} />}

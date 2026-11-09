@@ -58,14 +58,20 @@ async function abrirEnvios(page, path = "/operacoes/envios") {
   check((await card.innerText()).includes("Nenhum grupo ligado: o envio automático não vai enviar nada"), "card avisa quando não há nenhum grupo ligado");
   check(await page.getByTestId("wa-marcacoes-abrir").isDisabled(), "'Pessoas a marcar (@)' só abre depois de ligar grupos");
 
-  // 3) "Enviar agora": a etiqueta virou botão "Ligar grupo" e abre a busca com a sugestão pelo nome
+  // 3) Painel do envio automático: a lista de clientes sem grupo tem o botão "Ligar grupo" e abre a busca com a sugestão pelo nome
   await abrirEnvios(page);
   await page.getByRole("button", { name: "Envios", exact: true }).click();
-  await page.getByTestId("envio-card").first().getByTestId("wa-envio-panel").getByRole("button", { name: "Enviar agora" }).click();
-  const agora = page.getByTestId("wa-enviar-agora");
-  await agora.waitFor();
-  check((await agora.innerText()).includes("marcado no fim da mensagem"), "o texto do 'Enviar agora' explica a marcação (@)");
-  await agora.getByTestId("wa-ligar-grupo").first().click();
+  const painel = page.getByTestId("envio-card").first().getByTestId("wa-envio-panel");
+  await painel.waitFor();
+  db.waAuto.push(ENVIO);
+  await page.reload();
+  const dec2 = page.getByTestId("envio-aprovacao").getByRole("button", { name: "Decidir depois" });
+  await dec2.waitFor({ timeout: 3000 }).then(() => dec2.click()).catch(() => {});
+  await page.getByRole("button", { name: "Envios", exact: true }).click();
+  const sem = page.getByTestId("wa-sem-grupo");
+  await sem.waitFor();
+  check((await sem.innerText()).includes("2 cliente(s) sem grupo ligado"), "o painel avisa quantos clientes estão sem grupo");
+  await sem.getByTestId("wa-ligar-grupo").first().click();
   const um = page.getByTestId("wa-ligar-um");
   await um.getByLabel("Grupo de Loja Aurora").waitFor();
   check(db.functionCalls.some((c) => c.fn === "wa-gateway" && c.action === "groups"), "ao abrir, já busca os grupos no WhatsApp");
@@ -74,7 +80,6 @@ async function abrirEnvios(page, path = "/operacoes/envios") {
   await um.getByText("Ligação salva.").waitFor();
   check(db.waGrupos.some((g) => g.cliente_id === A && g.grupo_id === G1 && !g.desvinculado_em), "a ligação foi gravada");
   await um.getByRole("button", { name: "Fechar" }).click();
-  await agora.getByRole("button", { name: "Cancelar" }).click();
 
   // 4) Ficha do cliente: seção "Grupo do WhatsApp" com o grupo ligado e escolha de números
   await page.goto(page.url().split("/").slice(0, 3).join("/") + `/clientes/${A}`);

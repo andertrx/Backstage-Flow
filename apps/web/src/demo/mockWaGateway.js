@@ -48,26 +48,6 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
       if (p.p_on) db.waAuto.push(p.p_envio);
       return res(204);
     }
-    if (url.includes("/rpc/wa_envio_enviar_agora")) {
-      if (!g.enabled) return bad("Os envios automáticos estão desligados. Ligue em Configurações → Integrações (com o WhatsApp conectado).");
-      const envio = db.opsEnvios.find((e) => e.id === p.p_envio && !e.arquivado_em);
-      if (!envio) return bad("Envio não encontrado ou arquivado.");
-      if (!(p.p_clientes ?? []).length) return bad("Escolha ao menos um cliente.");
-      const semana = (() => { const d = db.envioAgora ? new Date(db.envioAgora) : new Date(); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); })();
-      let ok = 0; const pulados = [];
-      for (const cid of p.p_clientes) {
-        const nome = db.clients.find((c) => c.id === cid)?.name ?? "Cliente";
-        const oc = db.opsEnvioClientes.find((c) => c.envio_id === envio.id && c.cliente_id === cid && c.ativo && !c.removido_em);
-        const grupo = db.waGrupos.find((x) => !x.desvinculado_em && x.cliente_id === cid);
-        if (!oc) { pulados.push({ cliente_id: cid, nome, motivo: "Cliente não está ativo neste envio." }); continue; }
-        if (!grupo) { pulados.push({ cliente_id: cid, nome, motivo: "Sem grupo do WhatsApp ligado." }); continue; }
-        if (!p.p_reenviar && db.opsEnvioExecucoes.some((x) => x.envio_id === envio.id && x.cliente_id === cid && x.status === "enviado")) { pulados.push({ cliente_id: cid, nome, motivo: "Já recebeu nesta semana." }); continue; }
-        if (db.waDisparos.some((d) => d.envio_id === envio.id && d.cliente_id === cid && ["pendente", "enviando"].includes(d.status))) { pulados.push({ cliente_id: cid, nome, motivo: "Já está na fila." }); continue; }
-        db.waDisparos.push({ id: db.waDisparos.length + 1, envio_id: envio.id, cliente_id: cid, semana, origem: "manual", status: "pendente", tentativas: 0, detalhe: null, enviado_em: null, atualizado_em: new Date().toISOString() });
-        ok += 1;
-      }
-      return res(200, { enfileirados: ok, pulados });
-    }
   }
   // Etapa 46.1 — Google Agenda de cada pessoa (função google-agenda simulada)
   if (url.includes("/functions/v1/google-agenda")) {

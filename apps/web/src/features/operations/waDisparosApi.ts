@@ -17,11 +17,6 @@ export interface WaDisparo {
   enviado_em: string | null;
   atualizado_em: string;
 }
-export interface EnviarAgoraResult {
-  enfileirados: number;
-  pulados: { cliente_id: string; nome: string; motivo: string }[];
-}
-
 const KEY = ["wa-disparos"] as const;
 const dbError = (e: { code?: string; message: string }, fb: string) => (e.code === "22023" || e.code === "42501" ? e.message : friendlyDbError(e, fb));
 
@@ -60,18 +55,6 @@ export function useSetAutomatico() {
       if (error) throw new FriendlyError(dbError(error, "Não conseguimos mudar o envio automático."));
     },
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
-  });
-}
-
-export function useEnviarAgora() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (v: { envio: string; clientes: string[]; reenviar: boolean }) => {
-      const { data, error } = await supabase.rpc("wa_envio_enviar_agora", { p_envio: v.envio, p_clientes: v.clientes, p_reenviar: v.reenviar });
-      if (error) throw new FriendlyError(dbError(error, "Não conseguimos enfileirar o envio."));
-      return data as EnviarAgoraResult;
-    },
-    onSettled: () => { qc.invalidateQueries({ queryKey: KEY }); qc.invalidateQueries({ queryKey: ["ops", "envios"] }); },
   });
 }
 

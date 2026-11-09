@@ -142,6 +142,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [44.2 — ligar o grupo do WhatsApp de cada cliente (nada é enviado)](docs/etapa-43-organizacao/44.2-LIGAR-GRUPOS-DO-WHATSAPP.md) ✅ 07/11 (regra substituída pela 47.2)
   - [44.3 — disparos pelo WhatsApp conectado, sem marcar @ (enviar sozinho e enviar agora)](docs/etapa-43-organizacao/44.3-DISPAROS-PELO-WHATSAPP.md) ✅ 07/11 (testado só com servidor simulado)
   - [T5.20 — Ligar grupos com facilidade (botão, ficha do cliente, Integrações) e marcar pessoas (@) nos envios](docs/etapa-43-organizacao/T5.20-GRUPOS-E-MARCACOES.md) ✅ 09/11 (marcação real no WhatsApp ainda a testar)
+  - [T5.21 — Só envio automático (manual removido) e aprovação fora do prazo ("Aprovar e enviar agora")](docs/etapa-43-organizacao/T5.21-SO-ENVIO-AUTOMATICO-E-APROVACAO-TARDIA.md) ✅ 09/11
   - [45.1 — avisos no WhatsApp (motor: fila, agrupamento, silêncio; sem tela ainda)](docs/etapa-43-organizacao/45.1-AVISOS-NO-WHATSAPP.md) ✅ 07/11 (testado só no banco; sem envio real)
   - [45.2 — aviso "cliente sem gastar" no WhatsApp (motor, sem tela; precisão ~1 h)](docs/etapa-43-organizacao/45.2-AVISO-CLIENTE-SEM-GASTAR.md) ✅ 07/11
   - [45.3 — tela dos avisos no WhatsApp (grupo, tipos, silêncio, sem gasto por cliente)](docs/etapa-43-organizacao/45.3-TELA-DOS-AVISOS-NO-WHATSAPP.md) ✅ 07/11
