@@ -36,7 +36,7 @@ export function ProgressBar({ done, total, unit = "obrigatórias" }: { done: num
   return (
     <span className="flex items-center gap-2" aria-label={`Progresso: ${pct}%`}>
       <span className="hatch h-2 w-24 overflow-hidden rounded-full">
-        <span className="block h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-500" style={{ width: `${pct}%` }} />
+        <span className="bar-grow block h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-500" style={{ width: `${pct}%` }} />
       </span>
       <span className="text-xs font-semibold text-slate-600">{pct}% · {done}/{total} {unit}</span>
     </span>

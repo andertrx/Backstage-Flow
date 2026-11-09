@@ -1,6 +1,9 @@
 @import "@fontsource-variable/inter";
 @import "tailwindcss";
 
+/* Tema escuro: ligado por data-theme="dark" no <html> (botão sol/lua no topo). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
   --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   /* Etapa 52.1 — azul único da marca (antes: anil). Mesma escala do azul da Central, então o sistema passa a ter UM azul. */
@@ -116,6 +119,71 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------- Tema escuro (53.4) ----------
+   O sistema usa a escala "slate" do Tailwind para fundos, bordas e textos; no escuro ela é invertida aqui, então a
+   maioria das telas acompanha sozinha. As cores da marca (azul), do verde, âmbar e vermelho continuam. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-canvas: #0b0b0d;
+  --color-slate-50: #1b1c21;
+  --color-slate-100: #24262c;
+  --color-slate-200: #30323a;
+  --color-slate-300: #40434d;
+  --color-slate-400: #6c707c;
+  --color-slate-500: #8e92a0;
+  --color-slate-600: #afb3c0;
+  --color-slate-700: #cdd0da;
+  --color-slate-800: #e4e6ed;
+  --color-slate-900: #f3f4f7;
+  --color-slate-950: #ffffff;
+  --color-brand-50: #14213f;
+  --color-brand-100: #1b2d58;
+  --color-brand-200: #243f7c;
+  --color-brand-700: #8db4fd;
+  --color-brand-800: #a9c6fe;
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03);
+  --shadow-elevated: 0 24px 60px -18px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+[data-theme="dark"] .bg-white { background-color: #16171b; }
+[data-theme="dark"] .bg-white\/90 { background-color: rgb(22 23 27 / 0.9); }
+[data-theme="dark"] .bg-emerald-50 { background-color: rgb(16 185 129 / 0.14); }
+[data-theme="dark"] .bg-amber-50 { background-color: rgb(245 158 11 / 0.14); }
+[data-theme="dark"] .bg-red-50 { background-color: rgb(239 68 68 / 0.14); }
+[data-theme="dark"] .bg-sky-50, [data-theme="dark"] .bg-blue-50 { background-color: rgb(59 130 246 / 0.14); }
+[data-theme="dark"] .bg-blue-100 { background-color: rgb(59 130 246 / 0.22); }
+[data-theme="dark"] .bg-yellow-50, [data-theme="dark"] .bg-orange-50 { background-color: rgb(245 158 11 / 0.14); }
+[data-theme="dark"] .bg-red-100 { background-color: rgb(239 68 68 / 0.22); }
+[data-theme="dark"] .bg-emerald-100 { background-color: rgb(16 185 129 / 0.22); }
+[data-theme="dark"] .bg-amber-100 { background-color: rgb(245 158 11 / 0.22); }
+[data-theme="dark"] .text-sky-700, [data-theme="dark"] .text-sky-800, [data-theme="dark"] .text-blue-700, [data-theme="dark"] .text-blue-800, [data-theme="dark"] .text-blue-900 { color: #93c5fd; }
+[data-theme="dark"] .text-orange-700, [data-theme="dark"] .text-yellow-800, [data-theme="dark"] .text-amber-900 { color: #fcd34d; }
+[data-theme="dark"] .text-red-800, [data-theme="dark"] .text-red-600 { color: #fca5a5; }
+[data-theme="dark"] .text-emerald-800, [data-theme="dark"] .text-emerald-600 { color: #6ee7b7; }
+[data-theme="dark"] .ring-sky-200, [data-theme="dark"] .ring-blue-200 { --tw-ring-color: rgb(59 130 246 / 0.3); }
+[data-theme="dark"] .ring-red-200 { --tw-ring-color: rgb(239 68 68 / 0.3); }
+[data-theme="dark"] .ring-emerald-200 { --tw-ring-color: rgb(16 185 129 / 0.3); }
+[data-theme="dark"] .ring-amber-200 { --tw-ring-color: rgb(245 158 11 / 0.3); }
+[data-theme="dark"] .text-emerald-700 { color: #6ee7b7; }
+[data-theme="dark"] .text-amber-800 { color: #fcd34d; }
+[data-theme="dark"] .text-red-700 { color: #fca5a5; }
+/* Peças escuras no claro (menu ativo, dicas) ficam claras no escuro: o texto delas precisa escurecer. */
+[data-theme="dark"] .bg-slate-900.text-white, [data-theme="dark"] .bg-slate-800.text-white { color: #0b0b0d; }
+[data-theme="dark"] .skeleton { background: linear-gradient(90deg, #1f2127 25%, #2a2c33 50%, #1f2127 75%); background-size: 200% 100%; }
+[data-theme="dark"] .hatch { background-color: #1f2127; background-image: repeating-linear-gradient(135deg, #34363e 0 2px, transparent 2px 5px); }
+
+/* Troca de tema em círculo (o círculo é animado em lib/theme.ts). */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(root) { z-index: 2; }
+::view-transition-old(root) { z-index: 1; }
+
+/* Entrada da moldura (53.4): menu e cabeçalho deslizam uma vez ao abrir o sistema. */
+@keyframes shell-in-left { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@keyframes shell-in-top { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
+@keyframes bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.shell-in-left { animation: shell-in-left 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.shell-in-top { animation: shell-in-top 480ms cubic-bezier(0.22, 1, 0.36, 1) 80ms backwards; }
+.bar-grow { transform-origin: left; animation: bar-grow 700ms cubic-bezier(0.22, 1, 0.36, 1) 150ms backwards; }
 
 /* PDF do dashboard do cliente (Etapa 19): A4, cores de fundo mantidas,
    blocos sem quebra no meio. */

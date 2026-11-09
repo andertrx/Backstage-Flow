@@ -26,7 +26,7 @@ interface KpiCardProps {
 }
 
 const toneClass = { good: "text-emerald-700 bg-emerald-50", bad: "text-red-700 bg-red-50", neutral: "text-slate-600 bg-slate-100" };
-const toneClassDark = { good: "text-emerald-300 bg-emerald-400/15", bad: "text-red-300 bg-red-400/15", neutral: "text-slate-300 bg-white/10" };
+const toneClassDark = { good: "text-emerald-300 bg-emerald-400/15", bad: "text-red-300 bg-red-400/15", neutral: "text-blue-100 bg-white/15" };
 const toneWord = { good: "melhora", bad: "piora", neutral: "variação" };
 
 /** Fundo do cartão de destaque (estilo Vertix, em azul): degradê vivo com um brilho claro no canto (sem filtro de desfoque: leve). */
@@ -80,7 +80,7 @@ export function KpiCard({ definition, value, previous, currency, missing, loadin
       {loading ? (
         <div className={cn("skeleton h-9 w-32", hero && "opacity-30")} aria-label="Carregando" />
       ) : value == null ? (
-        <p className={cn("text-sm", hero ? "text-slate-300" : "text-slate-500")} data-testid="kpi-missing">{missing}</p>
+        <p className={cn("text-sm", hero ? "text-blue-100" : "text-slate-500")} data-testid="kpi-missing">{missing}</p>
       ) : (
         <p className={valueClass(hero)} data-testid="kpi-value">
           {formatKpi(value, definition.format, currency)}
@@ -89,7 +89,7 @@ export function KpiCard({ definition, value, previous, currency, missing, loadin
       {!loading && value != null && (
         <div className="mt-auto flex flex-wrap items-center gap-2 text-xs">
           {variation.percent == null ? (
-            <span className={hero ? "text-slate-400" : "text-slate-400"}>Sem base de comparação</span>
+            <span className={hero ? "text-blue-200" : "text-slate-400"}>Sem base de comparação</span>
           ) : (
             <span
               className={cn("inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-semibold", tones[variation.tone])}

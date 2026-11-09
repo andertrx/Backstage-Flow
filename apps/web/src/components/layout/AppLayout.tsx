@@ -1,6 +1,6 @@
 import { can, opsCan, ROLE_LABELS } from "@backstage/shared";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronsLeft, ChevronsRight, LogOut, Menu, X } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, LogOut, Menu, Moon, Sun, X } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation, useNavigate } from "react-router";
 import { IconButton } from "@/components/ui/icon-button.tsx";
@@ -21,6 +21,7 @@ import { GlobalSearch } from "@/features/search/GlobalSearch.tsx";
 import { cn } from "@/lib/cn.ts";
 import { exitDemo, isDemoMode } from "@/lib/demo.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
+import { setTheme, useTheme } from "@/lib/theme.ts";
 import { Logo } from "./Logo.tsx";
 import { gruposRecolhidosPadrao, navGroupsFor, navItemForPath } from "./navigation.ts";
 
@@ -169,7 +170,7 @@ export function AppLayout() {
       {/* Sidebar fixa no desktop (pode ser recolhida) */}
       <aside
         className={cn(
-          "sticky top-4 m-4 mr-0 hidden h-[calc(100vh-2rem)] shrink-0 flex-col overflow-hidden rounded-3xl bg-white shadow-card ring-1 ring-slate-200/60 transition-[width] duration-200 lg:flex print:hidden",
+          "shell-in-left sticky top-4 m-4 mr-0 hidden h-[calc(100vh-2rem)] shrink-0 flex-col overflow-hidden rounded-3xl bg-white shadow-card ring-1 ring-slate-200/60 transition-[width] duration-200 lg:flex print:hidden",
           collapsed ? "w-[4.5rem]" : "w-64",
         )}
         data-testid="sidebar"
@@ -211,7 +212,7 @@ export function AppLayout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="sticky top-0 z-30 lg:px-4 lg:pt-4 print:hidden">
+        <div className="shell-in-top sticky top-0 z-30 lg:px-4 lg:pt-4 print:hidden">
         <DemoBanner />
         <header className="flex h-16 items-center gap-2 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:gap-3 sm:px-6 lg:rounded-full lg:border-b-0 lg:bg-white lg:px-6 lg:shadow-card lg:ring-1 lg:ring-slate-200/60">
           {hasMenu && (
@@ -220,6 +221,7 @@ export function AppLayout() {
             </button>
           )}
           <p className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-slate-700" data-testid="header-section">{section}</p>
+          <ThemeToggle />
           {can(profile?.role, "internal.view") && <GlobalSearch />}
           {/* 43.5: três sininhos, um por assunto: Contas, Campanhas e Tarefas */}
           {can(profile?.role, "internal.view") && <AlertsBell />}
@@ -264,5 +266,23 @@ export function AppLayout() {
       {opsCan(opsPermissions, "ops.envios") && <EnvioApprovalReminder />}
       <ScrollRestoration />
     </div>
+  );
+}
+
+/** Botão sol/lua: troca entre tema claro e escuro (a escolha fica salva neste navegador). */
+function ThemeToggle() {
+  const theme = useTheme();
+  const dark = theme === "dark";
+  return (
+    <IconButton
+      label={dark ? "Mudar para o tema claro" : "Mudar para o tema escuro"}
+      data-testid="theme-toggle"
+      aria-pressed={dark}
+      icon={dark ? <Sun aria-hidden /> : <Moon aria-hidden />}
+      onClick={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        setTheme(dark ? "light" : "dark", { x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      }}
+    />
   );
 }

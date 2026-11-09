@@ -75,6 +75,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [53.1 — Novo layout estilo Vertix: base visual (azul, menu lateral mantido)](docs/etapa-53-layout-vertix/53.1-BASE-VISUAL.md) ✅ 09/11
   - [53.2 — Novo layout: moldura (menu flutuante e cabeçalho em pílula)](docs/etapa-53-layout-vertix/53.2-MOLDURA.md) ✅ 09/11
   - [53.3 — Novo layout: cartões de números e barras hachuradas](docs/etapa-53-layout-vertix/53.3-CARTOES-E-BARRAS.md) ✅ 09/11
+  - [53.4 — Novo layout: tema escuro e animações](docs/etapa-53-layout-vertix/53.4-TEMA-ESCURO-E-ANIMACOES.md) ✅ 09/11
   - [T5.7 — Conversas do WhatsApp estilo Tintim (texto sem prazo, telefone completo, marcar venda)](docs/etapa-34-tracking/T5.7-CONVERSAS-WHATSAPP.md) ✅ 08/11 *(falta revisão jurídica do texto e confirmar o aviso no site)*
   - [T5.6 — Vendas sugeridas pela IA (texto 2 dias; sugestão até decidir)](docs/etapa-34-tracking/T5.6-VENDAS-SUGERIDAS.md) ✅ 08/11 *(falta a chave da Anthropic e conversas reais)*
 - [Etapa 35 — Meta Ads Campaign Builder (auditoria e plano)](docs/etapa-35-campaign-builder/35.0-AUDITORIA.md) *(em espera: prompt enviado por engano; auditoria guardada para depois)*
