@@ -27,7 +27,7 @@ let published = null;
   const db = await mockSupabase(page, { role: "admin" });
   db.clients.push(client);
   db.trackingContainers.push({ ...container });
-  await login(page, "/tracking");
+  await login(page, "/tracking?secao=config");
   await page.getByRole("button", { name: "Regras do site: Loja Atacado" }).click();
   await page.getByTestId("rules-modal").waitFor();
   check((await page.getByTestId("rules-status").innerText()).includes("Nenhuma versão publicada") && await page.getByTestId("rules-publish").isDisabled(),
@@ -126,7 +126,7 @@ let published = null;
   db.trackingRules.push({ ...published[0], container_id: container.id, client_id: CLI, position: 0, enabled: true, archived_at: null,
     created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" });
   db.trackingRuleVersions.push({ container_id: container.id, version: 1, rules: [published[0]], rules_count: 1, restored_from: null, published_at: "2026-10-02T00:00:00Z" });
-  await login(page, "/tracking");
+  await login(page, "/tracking?secao=config");
   await page.getByRole("button", { name: "Regras do site: Loja Atacado" }).click();
   await page.getByTestId("rule-row").waitFor();
   check(await page.getByTestId("rule-new").count() === 0 && await page.getByTestId("rules-publish").count() === 0

@@ -68,6 +68,7 @@ function seed(db) {
     "Site e origem: Resumo, Origem e jornada, Leads recebidos e Saúde");
   check(await page.getByTestId("container-card").count() === 0, "o Painel não repete os cartões de site (ficam em Configurações)");
   await page.getByTestId("tracking-client").selectOption(A);
+  await page.waitForURL(new RegExp(`cliente=${A}`));
   await page.getByTestId("tracking-tab-saude").click();
   const saude = await page.locator("main").innerText();
   check(saude.includes("atacado.com.br") && !saude.includes("varejo.com.br"), "Saúde: só o site do cliente escolhido");

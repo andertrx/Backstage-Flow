@@ -57,10 +57,10 @@ const rankNames = async (page) => (await page.getByTestId("ri-ranking-row").allI
   const { browser, page, errors } = await launch();
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
-  await login(page, `/clientes/${EXC}`);
-  await page.locator(`main a[href^="/inteligencia-resultados?cliente=${EXC}"]`).click();
+  await login(page, `/tracking?cliente=${EXC}`);
+  await page.getByTestId("tracking-results-link").click();
   await page.getByTestId("ri-overview").waitFor();
-  check(page.url().includes(`cliente=${EXC}`), "atalho na ficha do cliente abre o módulo já no cliente");
+  check(page.url().includes(`cliente=${EXC}`), "atalho no Tracking abre o módulo já no cliente");
 
   // Visão geral
   check(await kpi(page, "ri-card-contacts") === "8", "cards: 8 contatos únicos no período");

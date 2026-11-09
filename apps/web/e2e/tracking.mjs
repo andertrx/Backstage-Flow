@@ -101,9 +101,11 @@ function seedClients(db) {
     { event_id: "e3", container_id: cid, event_name: "PageView", occurred_at: ago(20), page_path: "/", test: true, touchpoint_id: 2, session_id: "s2", visitor_id: "v2" },
   );
   await page.reload();
+  await aba(page, "resumo");
   await page.getByTestId("tracking-stat").first().waitFor();
   const stats = (await page.getByTestId("tracking-stat").allInnerTexts()).map((t) => t.replace(/\s+/g, " ").trim());
   check(stats[0] === "Sessões 2" && stats[1] === "Visitantes 2" && stats[2] === "Páginas vistas 2" && stats[3] === "Sessões de anúncio 1" && stats[4] === "Origem desconhecida 1", `resumo do dia (${stats.join(" | ")})`);
+  await aba(page, "sites");
   check((await card.innerText()).includes("Último evento recebido"), "card mostra quando chegou o último evento");
   await aba(page, "origens");
   await page.getByTestId("touchpoint-row").first().waitFor();
@@ -150,6 +152,7 @@ function seedClients(db) {
     { kind: "compra", occurred_at: ago(3), name: "Purchase", channel: null, paid: null, evidence: null, reason: null, campaign: null, page_path: null, value_micros: 199_900_000, currency: "BRL", transaction_id: "P-1", visitor_id: "v9", test: true },
   ];
   await page.reload();
+  await aba(page, "resumo");
   await page.getByTestId("tracking-stat").first().waitFor();
   const convStats = (await page.getByRole("list", { name: "Conversões do período" }).innerText()).replace(/\s+/g, " ");
   check(/Leads 1 Conversões 3 Compras 2/.test(convStats), `conversões do dia (${convStats})`);
@@ -177,36 +180,8 @@ function seedClients(db) {
   await aba(page, "whatsapp");
   await page.getByTestId("wa-click-row").first().waitFor();
   check((await page.getByTestId("wa-click-row").first().innerText()).includes("K7Q2M9"), "lista de cliques no WhatsApp com o código");
-  const wa = page.getByRole("region", { name: "WhatsApp" });
-  await wa.getByLabel("Código da conversa").fill("abc");
-  await wa.getByRole("button", { name: "Buscar" }).click();
-  await wa.getByText("Código inválido").waitFor();
-  check(true, "código inválido: explica o formato");
-  await wa.getByLabel("Código da conversa").fill("ref. k7q-2m9");
-  await wa.getByRole("button", { name: "Buscar" }).click();
-  await wa.getByTestId("wa-lookup").waitFor();
-  check((await wa.getByTestId("wa-origin").innerText()).includes("Meta Ads · Confirmada · Black Friday"), "busca pelo código (do jeito que veio na mensagem) mostra a origem");
-  await wa.getByLabel("Telefone do cliente (opcional)").fill("(45) 99999-8888");
-  await wa.getByLabel("Nome (opcional)").fill("Ana Souza");
-  await wa.getByRole("button", { name: "Marcar como Lead" }).click();
-  await wa.getByText("Lead registrado.").waitFor();
-  const leadCall = db.functionCalls.filter((c) => c.fn === "tracking-whatsapp").at(-1);
-  check(leadCall.code === "K7Q2M9" && leadCall.kind === "lead" && leadCall.ud.ph === sha("5545999998888") && leadCall.ud.fn === sha("ana") && leadCall.ud.ln === sha("souza"),
-    "Lead marcado com o contato cifrado na tela (padrão do Meta)");
-  check(!/99999|Ana|Souza/i.test(JSON.stringify(leadCall)), "telefone e nome legíveis não saem da tela");
-  await wa.getByRole("button", { name: "Marcar como Venda" }).click();
-  await wa.getByText("Informe o valor da venda").waitFor();
-  await wa.getByLabel("Valor da venda").fill("350,00");
-  await wa.getByLabel("Nº do pedido (recomendado)").fill("PED-1");
-  await wa.getByRole("button", { name: "Marcar como Venda" }).click();
-  await wa.getByText("Venda registrada.").waitFor();
-  const saleCall = db.functionCalls.filter((c) => c.fn === "tracking-whatsapp").at(-1);
-  check(saleCall.kind === "venda" && saleCall.value === 350 && saleCall.currency === "BRL" && saleCall.orderId === "PED-1", "venda com valor, moeda e nº do pedido");
-  await wa.getByRole("button", { name: "Marcar como Venda" }).click();
-  await wa.getByText("Este nº de pedido já foi registrado").waitFor();
-  check(true, "mesmo nº de pedido não conta duas vezes");
-  await page.getByTestId("wa-click-row").first().getByText("Venda").waitFor();
-  check(true, "lista mostra a conversa como Venda");
+  const wa = page.getByRole("region", { name: "WhatsApp", exact: true });
+  check(await wa.getByRole("button", { name: /Marcar como (Lead|Venda)/ }).count() === 0, "Tracking não marca mais lead/venda por aqui (Conversas é o lugar)");
   await wa.screenshot({ path: `${SHOTS}/tracking-whatsapp.png` });
 
   await aba(page, "sites");
@@ -260,9 +235,9 @@ function seedClients(db) {
   check((await card.innerText()).includes("Meta CAPI · Falta o token"), "card do site mostra a situação do Meta");
 
   // 34.5-W2: WhatsApp pela API oficial
-  check((await card.innerText()).includes("WhatsApp API · Não configurado"), "card do site mostra a situação da API oficial do WhatsApp");
+  await aba(page, "whatsapp");
+  check((await page.getByTestId("wa-connection-row").first().innerText()).includes("Não configurado"), "a aba WhatsApp mostra a situação do WhatsApp do site");
   check(await page.getByTestId("wa-conversations").count() === 0, "sem API oficial: lista de conversas não aparece (app comum segue igual)");
-  await aba(page, "sites");
   await page.getByRole("button", { name: "WhatsApp API oficial: Loja Excalibur" }).click();
   const waApi = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
   await waApi.getByLabel("ID do número de telefone *").fill("+55 45 9999");
@@ -287,7 +262,7 @@ function seedClients(db) {
   check(/whatsapp-webhook\?c=[0-9a-f-]{36}/.test(hook) && /Token de verificação\s+\S{10,}/.test(hook), "mostra a URL do webhook e o token de verificação para colar no Meta");
   await waApi.screenshot({ path: `${SHOTS}/tracking-whatsapp-api.png` });
   await waApi.getByRole("button", { name: "Fechar", exact: true }).last().click();
-  check((await card.innerText()).includes("WhatsApp API · Ligado, sem mensagem ainda"), "card mostra a API oficial ligada");
+  check((await page.getByTestId("wa-connection-row").first().innerText()).includes("Ligado, sem mensagem ainda"), "a aba WhatsApp mostra a API oficial ligada");
 
   db.whatsappConversations.push(
     { id: 77, container_id: cid, origin: "anuncio_whatsapp", ad_id: "120210000000001", click_code: null, first_message_at: ago(5), last_message_at: ago(2),
@@ -301,22 +276,10 @@ function seedClients(db) {
   const firstConv = await convRows.first().innerText();
   check(firstConv.includes("Anúncio de WhatsApp") && firstConv.includes("Anúncio 120210000000001 · confirmada") && (await convRows.nth(1).innerText()).includes("Direto no WhatsApp"),
     "conversas da API oficial chegam com a origem (anúncio confirmado / direto, sem inventar)");
-  await convRows.first().getByRole("button", { name: /Marcar conversa/ }).click();
-  const markForm = page.getByTestId("wa-conversations").getByTestId("wa-mark-form");
-  check(await markForm.getByLabel("Telefone do cliente (opcional)").count() === 0, "conversa da API oficial: telefone já vai sozinho (em código), não precisa digitar");
-  await markForm.getByRole("button", { name: "Marcar como Lead" }).click();
-  await markForm.getByText("Lead registrado.").waitFor();
-  const convCall = db.functionCalls.filter((c) => c.fn === "tracking-whatsapp").at(-1);
-  check(convCall.conversationId === 77 && convCall.code === undefined && convCall.kind === "lead", "marcação pela conversa (sem código)");
-  await markForm.getByLabel("Valor da venda").fill("90,00");
-  await markForm.getByLabel("Nº do pedido (recomendado)").fill("P-77");
-  await markForm.getByRole("button", { name: "Marcar como Venda" }).click();
-  await markForm.getByText("Venda registrada.").waitFor();
-  await convRows.first().getByText("Venda").waitFor();
-  check(true, "conversa marcada como Venda na lista");
-  await page.getByRole("region", { name: "WhatsApp" }).screenshot({ path: `${SHOTS}/tracking-whatsapp-conversas.png` });
+  check(await convRows.first().getByRole("button", { name: /Marcar conversa/ }).count() === 0, "conversa da API oficial: sem botão de marcar aqui (venda se marca em Conversas)");
+  await page.getByRole("region", { name: "WhatsApp", exact: true }).screenshot({ path: `${SHOTS}/tracking-whatsapp-conversas.png` });
 
-  await aba(page, "sites");
+  await aba(page, "whatsapp");
   await page.getByRole("button", { name: "WhatsApp API oficial: Loja Excalibur" }).click();
   const waApi2 = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
   await waApi2.getByRole("button", { name: "Apagar segredos" }).click();
@@ -385,6 +348,7 @@ function seedClients(db) {
   db.trackingContainers.push({ id: "t1", client_id: EXC, name: "Loja", public_key: "bf_0123456789abcdef01234567", allowed_domains: ["loja.com.br"], status: "ativo", test_mode: false, consent_mode: "nao_exigir", retention_days: 180, created_at: ago(60) });
   await login(page, "/tracking");
   await page.getByRole("heading", { name: "Tracking", level: 1 }).waitFor();
+  await aba(page, "sites");
   await page.getByTestId("container-card").waitFor();
   await aba(page, "sites");
   check(await page.getByRole("button", { name: "Novo site" }).count() === 0 && await page.getByRole("button", { name: "Editar Loja" }).count() === 0, "visualizador vê o tracking mas não cria nem edita");
@@ -401,7 +365,7 @@ function seedClients(db) {
   db.whatsappClicks.push({ id: 9, container_id: "t1", code: "V9SUAL", clicked_at: ago(5), status: "clicado", sales: 0, test: false, touch: null });
   await page.reload();
   await aba(page, "whatsapp");
-  const waV = page.getByRole("region", { name: "WhatsApp" });
+  const waV = page.getByRole("region", { name: "WhatsApp", exact: true });
   await waV.getByLabel("Código da conversa").fill("V9SUAL");
   await waV.getByRole("button", { name: "Buscar" }).click();
   await waV.getByTestId("wa-lookup").waitFor();
@@ -416,7 +380,7 @@ function seedClients(db) {
   await aba(page, "whatsapp");
   await page.getByTestId("wa-conversation-row").first().waitFor();
   check(await page.getByRole("button", { name: /Marcar conversa/ }).count() === 0, "visualizador vê as conversas da API oficial mas não marca");
-  await aba(page, "sites");
+  await aba(page, "whatsapp");
   await page.getByRole("button", { name: "WhatsApp API oficial: Loja" }).click();
   const waApiV = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
   await waApiV.getByText("Só administradores e gestores configuram a API oficial").waitFor();
