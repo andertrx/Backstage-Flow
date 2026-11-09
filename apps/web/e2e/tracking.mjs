@@ -269,6 +269,7 @@ function seedClients(db) {
       messages: 3, status: "conversa", sales: 0, test: true, touch: { channel: "meta", evidence: "confirmada", utm_campaign: null } },
     { id: 78, container_id: cid, origin: "desconhecida", ad_id: null, click_code: null, first_message_at: ago(9), last_message_at: ago(8),
       messages: 1, status: "conversa", sales: 0, test: true, touch: null });
+  db.waConvSales = [{ conversation_id: 77, order_id: "P-77", value: 90, currency: "BRL", at: ago(1) }];
   await page.reload();
   await aba(page, "whatsapp");
   const convRows = page.getByTestId("wa-conversation-row");
@@ -276,6 +277,8 @@ function seedClients(db) {
   const firstConv = await convRows.first().innerText();
   check(firstConv.includes("Anúncio de WhatsApp") && firstConv.includes("Anúncio 120210000000001 · confirmada") && (await convRows.nth(1).innerText()).includes("Direto no WhatsApp"),
     "conversas da API oficial chegam com a origem (anúncio confirmado / direto, sem inventar)");
+  check((await convRows.first().getByTestId("wa-conv-sale").innerText()).replace(/\u00a0/g, " ").includes("R$ 90,00 · pedido P-77"), "a conversa com venda mostra o valor e o nº do pedido ao lado de Venda");
+  check(await convRows.nth(1).getByTestId("wa-conv-sale").count() === 0, "conversa sem venda não mostra valor");
   check(await convRows.first().getByRole("button", { name: /Marcar conversa/ }).count() === 0, "conversa da API oficial: sem botão de marcar aqui (venda se marca em Conversas)");
   await page.getByRole("region", { name: "WhatsApp", exact: true }).screenshot({ path: `${SHOTS}/tracking-whatsapp-conversas.png` });
 

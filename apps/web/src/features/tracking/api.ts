@@ -489,6 +489,21 @@ export interface WhatsAppConversation {
   touch: { channel: Channel; evidence: Evidence; utm_campaign: string | null } | null;
 }
 
+/** Vendas marcadas em cada conversa da API oficial (valor e nº do pedido), para mostrar ao lado de "Venda". */
+export interface WaConversationSale { conversation_id: number; order_id: string | null; value: number | null; currency: string | null; at: string }
+export function useWaConversationSales(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "whatsapp-conversation-sales"],
+    enabled,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("wa_conversation_sales");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as vendas das conversas."));
+      return (data ?? []) as WaConversationSale[];
+    },
+  });
+}
+
 export function useWhatsAppConversations(enabled: boolean) {
   return useQuery({
     queryKey: [...KEY, "whatsapp-conversations"],

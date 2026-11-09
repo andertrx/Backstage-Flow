@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { errorMessage } from "@/lib/errors.ts";
-import { formatDateTime } from "@/lib/format.ts";
-import { type WhatsAppClick, type WhatsAppConversation, useWhatsAppMark } from "./api.ts";
+import { formatDateTime, formatMoney } from "@/lib/format.ts";
+import { type WaConversationSale, type WhatsAppClick, type WhatsAppConversation, useWhatsAppMark } from "./api.ts";
 import { parseMoneyInput, WA_CONVERSATION_STATUS_LABELS, WA_ORIGIN_LABELS, WA_STATUS_LABELS } from "./logic.ts";
 
 const STATUS_TONE = { clicado: "neutral", conversa: "neutral", lead: "brand", venda: "success" } as const;
@@ -18,19 +18,21 @@ const ORIGIN_TONE = { anuncio_whatsapp: "success", site: "brand", desconhecida: 
  * WhatsApp (acompanhamento, no Painel): cliques vindos do site e conversas recebidas. Ligar o número fica em Configurações → WhatsApp;
  * marcar venda, em Conversas.
  */
-export function WhatsAppSection({ clicks, conversations, hasApi, siteName, canMark }: {
+export function WhatsAppSection({ clicks, conversations, hasApi, siteName, canMark, sales = [] }: {
   clicks: WhatsAppClick[];
   conversations: WhatsAppConversation[];
   hasApi: boolean;
   siteName: (id: string) => string;
   canMark: boolean;
+  /** Vendas marcadas por conversa (valor e nº do pedido). */
+  sales?: WaConversationSale[];
 }) {
   return (
     <section aria-label="WhatsApp" className="space-y-3">
       <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
         <MessageCircle className="size-4 text-emerald-600" aria-hidden /> WhatsApp
       </h2>
-      {hasApi && <ConversationsCard conversations={conversations} siteName={siteName} canMark={canMark} />}
+      {hasApi && <ConversationsCard conversations={conversations} siteName={siteName} canMark={canMark} sales={sales} />}
 
       <Card className="overflow-x-auto">
         <table className="min-w-full text-sm">
@@ -68,7 +70,7 @@ export function WhatsAppSection({ clicks, conversations, hasApi, siteName, canMa
 }
 
 /** Conversas recebidas pela API oficial: origem já vem pronta, a equipe só marca. */
-function ConversationsCard({ conversations, siteName, canMark }: { conversations: WhatsAppConversation[]; siteName: (id: string) => string; canMark: boolean }) {
+function ConversationsCard({ conversations, siteName, canMark, sales }: { conversations: WhatsAppConversation[]; siteName: (id: string) => string; canMark: boolean; sales: WaConversationSale[] }) {
   const [open, setOpen] = useState<number | null>(null);
   return (
     <Card className="overflow-x-auto">
@@ -89,7 +91,7 @@ function ConversationsCard({ conversations, siteName, canMark }: { conversations
         </thead>
         <tbody className="divide-y divide-slate-100" data-testid="wa-conversations">
           {conversations.map((c) => (
-            <ConversationRow key={c.id} c={c} siteName={siteName} canMark={canMark} open={open === c.id} onToggle={() => setOpen(open === c.id ? null : c.id)} />
+            <ConversationRow key={c.id} c={c} sales={sales.filter((x) => x.conversation_id === c.id)} siteName={siteName} canMark={canMark} open={open === c.id} onToggle={() => setOpen(open === c.id ? null : c.id)} />
           ))}
           {conversations.length === 0 && (
             <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-500">Nenhuma conversa recebida ainda. Confira a conexão em “WhatsApp API” no card do site.</td></tr>
@@ -100,8 +102,8 @@ function ConversationsCard({ conversations, siteName, canMark }: { conversations
   );
 }
 
-function ConversationRow({ c, siteName, canMark, open, onToggle }: {
-  c: WhatsAppConversation; siteName: (id: string) => string; canMark: boolean; open: boolean; onToggle: () => void;
+function ConversationRow({ c, sales, siteName, canMark, open, onToggle }: {
+  c: WhatsAppConversation; sales: WaConversationSale[]; siteName: (id: string) => string; canMark: boolean; open: boolean; onToggle: () => void;
 }) {
   return (
     <>
@@ -121,6 +123,12 @@ function ConversationRow({ c, siteName, canMark, open, onToggle }: {
         <td className="px-3 py-2">
           <Badge tone={STATUS_TONE[c.status]}>{WA_CONVERSATION_STATUS_LABELS[c.status]}{c.sales > 1 ? ` (${c.sales})` : ""}</Badge>
           {c.test && <> <Badge tone="warning">Teste</Badge></>}
+          {sales.map((s, i) => (
+            <span key={`${s.order_id}-${i}`} className="mt-1 block text-xs text-slate-600" data-testid="wa-conv-sale">
+              {s.value != null ? formatMoney(s.value, s.currency ?? "BRL") : "Valor não informado"}
+              {s.order_id ? ` · pedido ${s.order_id}` : ""} · {formatDateTime(s.at)}
+            </span>
+          ))}
         </td>
         <td className="px-3 py-2 text-right">
           {canMark && (

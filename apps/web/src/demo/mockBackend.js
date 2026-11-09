@@ -1921,6 +1921,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       if (p.p_on && !w.store_ack_at) w.store_ack_at = new Date().toISOString();
       return res(204);
     }
+    if (url.includes("/rest/v1/rpc/wa_conversation_sales")) return res(200, db.waConvSales ?? []);
     if (url.includes("/rest/v1/rpc/wa_unofficial_set_ai")) {
       const p = parse();
       const w = db.whatsappConnections.find((x) => x.id === p.p_id && x.mode === "nao_oficial");

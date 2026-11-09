@@ -32,6 +32,7 @@ import {
   useWhatsAppClicks,
   useWhatsAppConnections,
   useWhatsAppConversations,
+  useWaConversationSales,
   useAttribution,
   useTrackingQuality,
   type WhatsAppConnection,
@@ -110,6 +111,7 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
   const waClicks = useWhatsAppClicks(hasContainers);
   const waConnections = useWhatsAppConnections(hasContainers);
   const waConversations = useWhatsAppConversations(hasContainers);
+  const waConvSales = useWaConversationSales(hasContainers);
   const suggestions = useWaSuggestions(hasContainers);
   const waConnOf = (containerId: string) => (waConnections.data ?? []).find((w) => w.container_id === containerId);
   const [waApiFor, setWaApiFor] = useState<TrackingContainer | null>(null);
@@ -332,6 +334,7 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
             hasApi={(waConnections.data ?? []).some((w) => visibleIds.has(w.container_id)) || (waConversations.data ?? []).length > 0}
             siteName={(id) => byId.get(id)?.name ?? "—"}
             canMark={false}
+            sales={waConvSales.data ?? []}
           />
           </>
           )}
