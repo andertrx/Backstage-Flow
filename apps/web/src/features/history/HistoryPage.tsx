@@ -303,7 +303,7 @@ export function HistoryPage() {
           )}
         </div>
         {progress != null && progress < 100 && (
-          <div className="h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Importação do histórico">
+          <div className="hatch h-2 overflow-hidden rounded-full" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Importação do histórico">
             <div className="h-full rounded-full bg-brand-500 transition-[width]" style={{ width: `${progress}%` }} />
           </div>
         )}

@@ -84,6 +84,8 @@ body {
   @media print { table tbody tr:hover { background-color: transparent; } }
   /* Números de indicadores e tabelas alinhados (algarismos de largura fixa). */
   .num { font-variant-numeric: tabular-nums; }
+  /* Trilho hachurado das barras de progresso (estilo Vertix). */
+  .hatch { background-image: repeating-linear-gradient(135deg, var(--color-slate-200) 0 2px, transparent 2px 5px); background-color: var(--color-slate-100); }
   .select-arrow {
     appearance: none;
     padding-right: 2.25rem !important;

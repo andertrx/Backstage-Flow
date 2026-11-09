@@ -29,9 +29,9 @@ const toneClass = { good: "text-emerald-700 bg-emerald-50", bad: "text-red-700 b
 const toneClassDark = { good: "text-emerald-300 bg-emerald-400/15", bad: "text-red-300 bg-red-400/15", neutral: "text-slate-300 bg-white/10" };
 const toneWord = { good: "melhora", bad: "piora", neutral: "variação" };
 
-/** Fundo do cartão de destaque: azul-marinho com um brilho azul discreto no canto (sem filtro de desfoque: leve). */
+/** Fundo do cartão de destaque (estilo Vertix, em azul): degradê vivo com um brilho claro no canto (sem filtro de desfoque: leve). */
 const HERO_STYLE: CSSProperties = {
-  backgroundImage: "radial-gradient(circle at 100% 0%, rgb(37 99 235 / 0.5), transparent 55%), linear-gradient(135deg, #0f172a, #172554)",
+  backgroundImage: "radial-gradient(circle at 100% 0%, rgb(255 255 255 / 0.28), transparent 50%), linear-gradient(145deg, #3b82f6, #1d4ed8 70%, #1e3a8a)",
 };
 
 function Shell({ label, hero, index, className, children }: { label: string; hero?: boolean; index?: number; className?: string; children: ReactNode }) {
@@ -43,7 +43,7 @@ function Shell({ label, hero, index, className, children }: { label: string; her
       className={cn(
         "flex flex-col gap-2.5 p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-elevated",
         index != null && "rise",
-        hero && "text-white ring-slate-800",
+        hero && "text-white ring-brand-700/30 shadow-brand",
         className,
       )}
     >
@@ -57,11 +57,11 @@ function Head({ label, icon: Icon, hero, tip }: { label: string; icon?: LucideIc
     <div className="flex items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-2.5">
         {Icon && (
-          <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", hero ? "bg-white/10 text-accent-400" : "bg-brand-50 text-brand-600")}>
+          <span className={cn("grid size-8 shrink-0 place-items-center rounded-full", hero ? "bg-white/20 text-white" : "bg-brand-50 text-brand-600")}>
             <Icon className="size-4" aria-hidden />
           </span>
         )}
-        <h3 className={cn("truncate text-sm font-medium", hero ? "text-slate-300" : "text-slate-500")}>{label}</h3>
+        <h3 className={cn("truncate text-sm font-medium", hero ? "text-blue-100" : "text-slate-500")}>{label}</h3>
       </div>
       <InfoTooltip label={`O que é ${label}?`} align="right">{tip}</InfoTooltip>
     </div>
