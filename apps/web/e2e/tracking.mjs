@@ -377,7 +377,7 @@ function seedClients(db) {
   db.whatsappConversations.push({ id: 5, container_id: "t1", origin: "anuncio_whatsapp", ad_id: "1", click_code: null, first_message_at: ago(4), last_message_at: ago(3),
     messages: 1, status: "conversa", sales: 0, test: false, touch: null });
   await page.reload();
-  await aba(page, "sites");
+  await aba(page, "whatsapp");
   await page.getByTestId("wa-conversation-row").first().waitFor();
   check(await page.getByRole("button", { name: /Marcar conversa/ }).count() === 0, "visualizador vê as conversas da API oficial mas não marca");
   await aba(page, "sites");
