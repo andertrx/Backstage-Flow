@@ -38,11 +38,11 @@ begin
   if (v_j ->> 'envios_atualizados')::int < 1 then raise exception 'envio atualizado pelo padrão'; end if;
   v_cli := (public.ops_envio_get(v_e) -> 'clientes') -> 0;
   if v_cli ->> 'nome_grupo' <> 'Grupo T1 novo' or v_cli -> 'contatos_marcar' <> '["Ana", "Bruno"]'::jsonb then raise exception 'padrão levado ao envio: %', v_cli; end if;
-  if (select versao from public.ops_envios where id = v_e) <> v_v + 1 then raise exception 'versão nova (pede aprovação de novo)'; end if;
+  if (select versao from public.ops_envios where id = v_e) <> v_v then raise exception 'a aprovação não pode cair (versão igual)'; end if;
   -- Salvar igual não mexe no envio
   v_j := public.ops_envio_padrao_save(v_c1, jsonb_build_object('nome_grupo', 'Grupo T1 novo', 'contatos_marcar', jsonb_build_array('Ana', 'Bruno', 'Caio'),
     'contatos_desligados', jsonb_build_array('Caio')));
-  if (v_j ->> 'envios_atualizados')::int <> 0 or (select versao from public.ops_envios where id = v_e) <> v_v + 1 then raise exception 'sem mudança, sem versão nova'; end if;
+  if (v_j ->> 'envios_atualizados')::int <> 0 or (select versao from public.ops_envios where id = v_e) <> v_v then raise exception 'sem mudança, sem versão nova'; end if;
   v_ok := v_ok + 1;
 
   -- Envio arquivado não recebe o padrão

@@ -110,7 +110,7 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
       Object.assign(c, { nome_grupo: grupo, contatos_marcar: names, contatos_desligados: off, updated_at: t });
       mudou.add(e);
     }
-    for (const e of mudou) Object.assign(e, { versao: e.versao + 1, atualizado_por: userId, updated_at: t });
+    // T5.22: mudar só grupo/@ de um cliente não muda a versão do envio (a aprovação da semana continua valendo)
     return res(200, { envios_atualizados: mudou.size });
   }
   if (rpc("ops_envio_list")) {
