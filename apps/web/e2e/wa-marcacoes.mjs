@@ -1,6 +1,6 @@
 /**
  * Teste de navegador da T5.20 — ligar o grupo do WhatsApp (botão "Ligar grupo", ficha do cliente, atalho em Integrações)
- * e escolher quem marcar (@). Supabase e servidor de conexão SIMULADOS; nada é enviado.
+ * e escolher quem marcar (@) por número. Supabase e servidor de conexão SIMULADOS; nada é enviado.
  */
 import { check, launch, login, mockSupabase, SHOTS, USER_ID } from "./support.mjs";
 
@@ -22,7 +22,6 @@ function seed(db) {
     db.opsEnvioClientes.push({ id: crypto.randomUUID(), envio_id: ENVIO, cliente_id: id, nome_grupo: grupo, contatos_marcar: ["Ana", "Beto"], ativo: true, observacao: null, removido_em: null, created_at: t, updated_at: t });
     db.opsEnvioPadroes.push({ cliente_id: id, nome_grupo: grupo, contatos_marcar: ["Ana", "Beto"], contatos_desligados: [], atualizado_por: USER_ID, created_at: t, updated_at: t });
   }
-  db.waPadroesNomes = { [A]: ["Ana", "Beto"], [B]: ["Ana", "Beto"] };
   Object.assign(db.waGw, { base_url: "https://whats.exemplo.com.br", has_key: true, risk_accepted_at: t, enabled: true, connection_state: "conectado" });
   db.waSim.state = "open";
   db.waSim.groups = [{ id: G1, name: "Acelera A. - Aurora", size: 8 }, { id: G2, name: "STG - Brisa (Marketing)", size: 5 }];
@@ -52,11 +51,11 @@ async function abrirEnvios(page, path = "/operacoes/envios") {
 
   // 2) Envios: com nenhum grupo ligado o card avisa e fica em destaque; "Pessoas a marcar" espera o grupo
   await abrirEnvios(page, "/envios");
-  await page.getByRole("button", { name: "Grupos e @ dos clientes" }).click();
+  await page.getByRole("button", { name: "Clientes", exact: true }).click();
   const card = page.getByTestId("wa-grupos-card");
   await card.waitFor();
   check((await card.innerText()).includes("Nenhum grupo ligado: o envio automático não vai enviar nada"), "card avisa quando não há nenhum grupo ligado");
-  check(await page.getByTestId("wa-marcacoes-abrir").isDisabled(), "'Pessoas a marcar (@)' só abre depois de ligar grupos");
+  check(await page.getByTestId("cliente-grupo-marcar").first().isDisabled(), "'Pessoas a marcar' só abre depois de ligar o grupo");
 
   // 3) Painel do envio automático: a lista de clientes sem grupo tem o botão "Ligar grupo" e abre a busca com a sugestão pelo nome
   await abrirEnvios(page);
@@ -86,42 +85,40 @@ async function abrirEnvios(page, path = "/operacoes/envios") {
   const sec = page.getByTestId("cliente-grupo-wa");
   await sec.waitFor();
   await page.getByTestId("cliente-grupo-nome").waitFor();
-  check((await sec.innerText()).includes("2 pessoa(s) a marcar nos envios · 0 com número"), "ficha mostra o grupo e quantas pessoas a marcar já têm número");
+  check((await sec.innerText()).includes("Ninguém marcado nos envios"), "ficha mostra o grupo e que ninguém está marcado ainda");
   await page.getByTestId("cliente-grupo-marcar").click();
   const mm = page.getByTestId("wa-marcacoes-modal");
-  await mm.getByLabel("Número de Ana").waitFor();
+  await mm.getByLabel("Número da pessoa").waitFor();
   check(db.functionCalls.some((c) => c.fn === "wa-gateway" && c.action === "participants" && c.groupId === G1), "lê quem está no grupo (só números)");
-  const optsTxt = await mm.getByLabel("Número de Ana").innerText();
+  const optsTxt = await mm.getByLabel("Número da pessoa").innerText();
   check(optsTxt.includes("+55 45 99999-1111 · admin do grupo") && optsTxt.includes("+55 45 98888-2222"), "mostra os números formatados e quem é admin do grupo");
-  await mm.getByLabel("Número de Ana").selectOption(P[1]);
-  await mm.getByLabel("Número de Beto").selectOption(P[1]);
-  await mm.getByText("mesmo número").waitFor();
-  check(await mm.getByRole("button", { name: /Salvar/ }).isDisabled(), "dois nomes com o mesmo número: não deixa salvar");
-  await mm.getByLabel("Número de Beto").selectOption(P[2]);
+  check((await mm.innerText()).includes("Nomes que este cliente já tinha: Ana, Beto"), "os nomes antigos aparecem só como ajuda para o apelido");
+  await mm.getByLabel("Apelido da pessoa").fill("Dono");
+  await mm.getByLabel("Número da pessoa").selectOption(P[1]);
+  await mm.getByRole("button", { name: "Adicionar" }).click();
+  await mm.getByTestId("wa-marcacao-linha").first().waitFor();
+  await mm.getByLabel("Apelido da pessoa").fill("Sócia");
+  check(!(await mm.getByLabel("Número da pessoa").innerText()).includes("98888-2222"), "número já usado não aparece de novo na lista");
+  await mm.getByLabel("Número da pessoa").selectOption(P[2]);
+  await mm.getByRole("button", { name: "Adicionar" }).click();
+  await mm.getByTestId("wa-marcacao-linha").nth(1).waitFor();
   await page.screenshot({ path: `${SHOTS}/wa-marcacoes-modal.png` });
-  await mm.getByRole("button", { name: /Salvar/ }).click();
-  await mm.getByText("Salvo.").waitFor();
-  check(db.waMarcacoes.length === 2 && db.waMarcacoes.find((m) => m.nome === "Ana")?.numero === P[1] && db.waMarcacoes.find((m) => m.nome === "Beto")?.numero === P[2], "grava o número de cada pessoa");
-  await mm.getByRole("button", { name: "Fechar" }).click();
-  await page.waitForFunction(() => document.querySelector('[data-testid="cliente-grupo-wa"]')?.innerText.includes("2 com número"));
-  check(true, "a ficha passa a mostrar 2 com número");
+  check(db.waMarcacoes.length === 2 && db.waMarcacoes.find((m) => m.nome === "Dono")?.numero === P[1] && db.waMarcacoes.find((m) => m.nome === "Sócia")?.numero === P[2], "grava o número de cada pessoa");
 
-  // 5) Remover um número (volta para "sem número")
-  await page.getByTestId("cliente-grupo-marcar").click();
-  await mm.getByLabel("Número de Beto").selectOption("");
-  await mm.getByRole("button", { name: /Salvar/ }).click();
-  await mm.getByText("Salvo.").waitFor();
-  check(db.waMarcacoes.length === 1 && db.waMarcacoes[0].nome === "Ana", "tirar o número remove só a marcação dessa pessoa");
+  // 5) Desligar uma pessoa (fica guardada) e tirar outra
+  await mm.getByRole("switch", { name: "Marcar Dono" }).click();
+  await page.waitForTimeout(300);
+  await mm.getByRole("button", { name: "Tirar Sócia" }).click();
+  await page.waitForTimeout(300);
+  check(db.waMarcacoes.length === 1 && db.waMarcacoes[0].nome === "Dono" && db.waMarcacoes[0].ativo === false, "desligar guarda a pessoa sem marcar; tirar remove só a outra");
   await mm.getByRole("button", { name: "Fechar" }).click();
 
-  // 6) Envios: 'Pessoas a marcar (@)' lista os clientes com grupo ligado e quantos têm número
+  // 6) Aba Clientes: mostra o grupo ligado de Aurora e "Sem grupo ligado" de Brisa
   await abrirEnvios(page, "/envios");
-  await page.getByRole("button", { name: "Grupos e @ dos clientes" }).click();
-  await page.getByTestId("wa-marcacoes-abrir").click();
-  const idx = page.getByTestId("wa-marcacoes-index");
-  await idx.waitFor();
-  const linhas = await idx.getByTestId("wa-marcacoes-index-linha").allInnerTexts();
-  check(linhas.length === 2 && linhas[0].includes("1 de 2 com número") && linhas[1].includes("Sem grupo ligado"), "resumo: Aurora 1 de 2 com número; Brisa ainda sem grupo");
+  await page.getByRole("button", { name: "Clientes", exact: true }).click();
+  const linhas = await page.getByTestId("envio-padrao").allInnerTexts();
+  check(linhas.length === 2 && linhas[0].includes("Loja Aurora") && linhas[0].includes("Acelera A. - Aurora") && linhas[1].includes("Sem grupo ligado"), "aba Clientes: Aurora com grupo ligado; Brisa ainda sem grupo");
+  check(!(await page.getByTestId("ops-envios").innerText()).includes("@Ana"), "nenhum @nome antigo aparece na tela");
   await page.screenshot({ path: `${SHOTS}/wa-marcacoes-index.png` });
   check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
   await browser.close();
@@ -133,7 +130,7 @@ async function abrirEnvios(page, path = "/operacoes/envios") {
   const db = await mockSupabase(page, { role: "gestor" });
   seed(db);
   db.waGrupos.push({ id: "g1", cliente_id: A, grupo_id: G1, grupo_nome: "Acelera A. - Aurora", desvinculado_em: null });
-  db.waMarcacoes.push({ cliente_id: A, nome: "Ana", numero: P[0] });
+  db.waMarcacoes.push({ cliente_id: A, nome: "Ana", numero: P[0], ativo: true });
   await login(page, `/clientes/${A}`);
   const sec = page.getByTestId("cliente-grupo-wa");
   if (await sec.count() === 0) await sec.waitFor({ timeout: 4000 }).catch(() => {});

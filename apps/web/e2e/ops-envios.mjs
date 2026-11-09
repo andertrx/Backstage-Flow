@@ -16,39 +16,17 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   const db = await mockSupabase(page, { role: "admin" });
   db.clients.push(client(LOJA_A, "Loja Aurora"), client(LOJA_B, "Loja Brisa"));
+  // T5.22: o grupo vem da aba Clientes (ligado no WhatsApp); aqui já está guardado
+  const tp = "2026-10-27T12:00:00Z";
+  db.opsEnvioPadroes.push(
+    { cliente_id: LOJA_A, nome_grupo: "Loja Aurora — Agência", contatos_marcar: ["Ana Paula", "Bruno"], contatos_desligados: [], atualizado_por: USER_ID, created_at: tp, updated_at: tp },
+    { cliente_id: LOJA_B, nome_grupo: "Brisa | Agência", contatos_marcar: [], contatos_desligados: [], atualizado_por: USER_ID, created_at: tp, updated_at: tp });
   await login(page, "/operacoes/envios");
   await page.getByTestId("envios-empty").waitFor();
   // 43.6: o endereço antigo leva ao novo, e Envios semanais tem menu próprio (fora das abas da Central)
   check(new URL(page.url()).pathname === "/envios", "o endereço antigo /operacoes/envios leva a /envios");
   check(await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Envios semanais" }).count() === 1, "Envios semanais tem item próprio no menu (admin)");
   check(await page.getByRole("navigation", { name: "Central de Operações" }).count() === 0, "Envios semanais não fica mais dentro da Central");
-
-  // 41.4: o grupo e os @ ficam em "Grupos e @ dos clientes" (o envio só liga/desliga cada cliente)
-  await page.getByRole("button", { name: "Grupos e @ dos clientes" }).click();
-  const novoPadrao = async (cliente) => {
-    await page.getByLabel("Adicionar cliente").selectOption({ label: cliente });
-    await page.getByRole("button", { name: "Adicionar", exact: true }).click();
-    return page.getByTestId("envio-padrao-form");
-  };
-  let pf = await novoPadrao("Loja Aurora");
-  await pf.getByRole("button", { name: "Salvar" }).click();
-  check((await pf.innerText()).includes('Informe o nome do grupo de "Loja Aurora".'), "nome do grupo obrigatório");
-  await pf.getByLabel("Nome do grupo").fill("Loja Aurora — Agência");
-  const add = (n) => pf.getByLabel("Adicionar pessoa para marcar em Loja Aurora").fill(n).then(() => pf.getByRole("button", { name: "Adicionar", exact: true }).click());
-  await add("Bruno");
-  await add("Ana Paula");
-  await pf.getByRole("button", { name: "Subir Ana Paula" }).click();
-  await add("11 98765-4321");
-  await pf.getByRole("button", { name: "Salvar" }).click();
-  check((await pf.innerText()).includes("não o telefone"), "telefone em Quem marcar é recusado");
-  await pf.getByRole("button", { name: "Tirar 11 98765-4321" }).click();
-  await pf.getByRole("button", { name: "Salvar" }).click();
-  await pf.waitFor({ state: "detached" });
-  pf = await novoPadrao("Loja Brisa");
-  await pf.getByLabel("Nome do grupo").fill("Brisa | Agência");
-  await pf.getByRole("button", { name: "Salvar" }).click();
-  await pf.waitFor({ state: "detached" });
-  await page.getByRole("button", { name: "Envios", exact: true }).click();
 
   // Validação: mensagem e cliente obrigatórios
   await page.getByRole("button", { name: "Novo envio" }).click();
@@ -70,8 +48,8 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   // Selecionar todos liga os dois; a lista mostra o grupo e os @ (só conferência); desligar a Brisa
   await form.getByRole("button", { name: "Selecionar todos" }).click();
   check(await form.getByLabel("Incluir Loja Aurora").isChecked() && await form.getByLabel("Incluir Loja Brisa").isChecked(), "Selecionar todos liga todos");
-  check((await form.getByTestId("envio-cliente").first().innerText()).includes("Loja Aurora — Agência · @Ana Paula @Bruno") && await form.getByLabel("Nome do grupo").count() === 0,
-    "lista só para ligar/desligar: grupo e @ aparecem para conferência, sem campos");
+  check((await form.getByTestId("envio-cliente").first().innerText()).includes("Grupo: Loja Aurora — Agência") && await form.getByLabel("Nome do grupo").count() === 0 && !(await form.innerText()).includes("@"),
+    "lista só para ligar/desligar: mostra o grupo, sem campos e sem @nome");
   await form.getByLabel("Incluir Loja Brisa").uncheck();
   await page.screenshot({ path: `${SHOTS}/envios-formulario.png` });
   await form.getByRole("button", { name: "Salvar" }).click();
@@ -84,12 +62,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   const card = await page.getByTestId("envio-card").innerText();
   check(card.includes("Sexta-feira às 10:30") && card.includes("1 grupo(s) ativo(s)"), "card com dia, horário e grupos ativos");
 
-  // Copiar comando: só grupos ativos, nomes na ordem
-  await page.getByRole("button", { name: "Copiar comando de Feedback semanal" }).click();
-  const cmd = await page.evaluate(() => navigator.clipboard.readText());
-  check(cmd.startsWith("Envie esta mensagem nos grupos abaixo e marque as pessoas indicadas em uma segunda mensagem logo depois.")
-    && cmd.includes("Oi, pessoal! 👋\n*Como foi a semana?*") && cmd.includes('Grupo "Loja Aurora — Agência" (cliente Loja Aurora): marcar @Ana Paula @Bruno')
-    && !cmd.includes("Brisa"), "comando copiado com a mensagem e só os grupos ativos");
+  check(await page.getByRole("button", { name: /Copiar comando|Instrução da tarefa/ }).count() === 0, "não há mais 'Copiar comando' nem 'Instrução da tarefa' (o CRM envia sozinho)");
   await page.screenshot({ path: `${SHOTS}/envios-lista.png` });
 
   // Editar: ligar a Brisa e depois desligar — fica guardada no envio (não apaga)

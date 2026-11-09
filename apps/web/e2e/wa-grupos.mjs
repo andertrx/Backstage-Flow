@@ -1,5 +1,5 @@
 /**
- * Teste de navegador da Etapa 44.2 — ligar o grupo do WhatsApp a cada cliente (Envios → Grupos e @ dos clientes).
+ * Teste de navegador da Etapa 44.2 — ligar o grupo do WhatsApp a cada cliente (Envios → Clientes).
  * Supabase e servidor de conexão SIMULADOS. Nada é enviado nesta etapa.
  */
 import { check, launch, login, mockSupabase, SHOTS, USER_ID } from "./support.mjs";
@@ -34,7 +34,7 @@ function seed(db) {
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
   await login(page, "/operacoes/envios");
-  await page.getByRole("button", { name: "Grupos e @ dos clientes" }).click();
+  await page.getByRole("button", { name: "Clientes", exact: true }).click();
   const card = page.getByTestId("wa-grupos-card");
   await card.waitFor();
   check((await card.innerText()).includes("0 de 3 ligados"), "começa com 0 de 3 grupos ligados");
@@ -85,7 +85,7 @@ function seed(db) {
   seed(db);
   db.waGw.connection_state = "desconectado";
   await login(page, "/operacoes/envios");
-  await page.getByRole("button", { name: "Grupos e @ dos clientes" }).click();
+  await page.getByRole("button", { name: "Clientes", exact: true }).click();
   const card = page.getByTestId("wa-grupos-card");
   await card.waitFor();
   check(await card.getByRole("button", { name: "Buscar e ligar grupos" }).isDisabled(), "WhatsApp desconectado: não deixa buscar grupos");

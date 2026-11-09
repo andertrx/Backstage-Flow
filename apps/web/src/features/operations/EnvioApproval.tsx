@@ -1,4 +1,4 @@
-import { cleanContacts, ENVIO_WEEKDAYS } from "@backstage/shared";
+import { ENVIO_WEEKDAYS } from "@backstage/shared";
 import { CheckCircle2, Send, XCircle } from "lucide-react";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -22,7 +22,7 @@ function dismiss(e: OpsEnvio) {
 
 /**
  * Etapa 41.2: no dia do envio, das 7h até o horário (Brasília), pede a aprovação em qualquer tela do CRM.
- * Sem aprovação até o horário, o envio da semana não sai (o MCP só entrega ao agente os aprovados).
+ * Sem aprovação até o horário, o envio da semana não sai (no envio automático dá para aprovar depois).
  * "Decidir depois" esconde por 30 minutos; volta enquanto estiver dentro do prazo.
  */
 export function EnvioApprovalReminder() {
@@ -33,7 +33,7 @@ export function EnvioApprovalReminder() {
   return <EnvioApprovalModal key={dismissKey(next)} envio={next} onClose={() => { dismiss(next); force((n) => n + 1); }} />;
 }
 
-/** Revisão completa: mensagem como vai sair, grupos e quem será marcado. Aprovar só depois de marcar "analisei". */
+/** Revisão completa: mensagem como vai sair e grupos que vão receber (quem é marcado fica em cada cliente). Aprovar só depois de marcar "analisei". */
 export function EnvioApprovalModal({ envio, onClose }: { envio: OpsEnvio; onClose: () => void }) {
   const decide = useDecidirEnvio();
   const [checked, setChecked] = useState(false);
@@ -58,19 +58,15 @@ export function EnvioApprovalModal({ envio, onClose }: { envio: OpsEnvio; onClos
           <WhatsAppPreview text={envio.mensagem} />
         </div>
         <div className="space-y-1.5">
-          <p className="font-medium text-slate-700">Grupos e quem será marcado (na mensagem seguinte)</p>
+          <p className="font-medium text-slate-700">Grupos que vão receber</p>
           <ol className="max-h-60 divide-y divide-slate-100 overflow-y-auto rounded-lg ring-1 ring-slate-200" data-testid="envio-aprovacao-grupos">
-            {grupos.map((c, i) => {
-              const names = cleanContacts(c.contatos_marcar);
-              return (
-                <li key={c.id} className="flex flex-wrap gap-x-2 px-3 py-2">
-                  <span className="w-6 text-right text-xs font-semibold text-slate-400">{i + 1}.</span>
-                  <span className="min-w-0 flex-1"><span className="font-medium text-slate-900">{c.nome_grupo}</span> <span className="text-xs text-slate-500">({c.cliente_nome})</span>
-                    <span className="block text-xs text-slate-600">{names.length ? names.map((n) => `@${n}`).join(" ") : "sem marcação"}</span></span>
-                  {c.ja_enviado_nesta_semana && <span className="text-xs font-semibold text-emerald-700">já enviado nesta semana</span>}
-                </li>
-              );
-            })}
+            {grupos.map((c, i) => (
+              <li key={c.id} className="flex flex-wrap gap-x-2 px-3 py-2">
+                <span className="w-6 text-right text-xs font-semibold text-slate-400">{i + 1}.</span>
+                <span className="min-w-0 flex-1"><span className="font-medium text-slate-900">{c.cliente_nome}</span> <span className="text-xs text-slate-500">({c.nome_grupo})</span></span>
+                {c.ja_enviado_nesta_semana && <span className="text-xs font-semibold text-emerald-700">já enviado nesta semana</span>}
+              </li>
+            ))}
           </ol>
         </div>
         <label className="flex items-start gap-2 rounded-lg bg-blue-50 p-3 text-slate-800">

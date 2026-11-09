@@ -1,15 +1,16 @@
-import { AtSign, Link2 } from "lucide-react";
+import { AtSign, Link2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Select } from "@/components/ui/field.tsx";
+import { Input, Select } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
+import { Switch } from "@/components/ui/switch.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
-import { type OpsEnvioContato, useEnvioPadroes } from "./enviosApi.ts";
+import { useEnvioPadroes, useSaveEnvioPadrao } from "./enviosApi.ts";
 import {
-  formatarNumero, useBuscarGruposWa, useParticipantesGrupo, useSalvarGrupos, useSalvarMarcacoes, useWaGruposLigados, useWaMarcacoes, type WaMarcacao,
+  formatarNumero, useAtivarMarcacao, useBuscarGruposWa, useParticipantesGrupo, useSalvarGrupos, useSalvarMarcacoes, useWaGruposLigados, useWaMarcacoes,
 } from "./waGruposApi.ts";
 import { sugerirGrupos, type WaGrupoOpt } from "./waGruposLogic.ts";
 
@@ -29,6 +30,8 @@ export interface ClienteGrupo {
 export function LigarGrupoModal({ cliente, onClose }: { cliente: ClienteGrupo; onClose: () => void }) {
   const buscar = useBuscarGruposWa();
   const salvar = useSalvarGrupos();
+  const salvarPadrao = useSaveEnvioPadrao();
+  const padroes = useEnvioPadroes();
   const ligados = useWaGruposLigados(true);
   const [grupos, setGrupos] = useState<WaGrupoOpt[] | null>(null);
   const [escolha, setEscolha] = useState("");
@@ -55,6 +58,10 @@ export function LigarGrupoModal({ cliente, onClose }: { cliente: ClienteGrupo; o
     try {
       const g = grupos?.find((x) => x.id === escolha) ?? null;
       await salvar.mutateAsync([{ cliente_id: cliente.cliente_id, grupo: g }]);
+      // cliente novo nos envios: o nome do grupo do WhatsApp vira o nome do grupo no CRM (só se ainda não existir)
+      if (g && padroes.data && !padroes.data.some((p) => p.cliente_id === cliente.cliente_id)) {
+        await salvarPadrao.mutateAsync({ cliente_id: cliente.cliente_id, nome_grupo: g.name.slice(0, 200), contatos_marcar: [], contatos_desligados: [] });
+      }
       setFeito(true);
     } catch (e) { setErro(errorMessage(e)); }
   }
@@ -89,136 +96,103 @@ export function LigarGrupoModal({ cliente, onClose }: { cliente: ClienteGrupo; o
   );
 }
 
-/** Escolhe, na lista de quem está no grupo, o número de cada pessoa a marcar (@) nos envios deste cliente. */
-export function MarcacoesModal({ cliente, grupoId, contatos, onClose }: { cliente: { cliente_id: string; cliente_nome: string }; grupoId: string; contatos: OpsEnvioContato[]; onClose: () => void }) {
+/**
+ * T5.22 — pessoas a marcar (@) de um cliente, SEMPRE por número: o administrador dá um apelido (só para ele se achar)
+ * e escolhe o número na lista de quem está no grupo. Cada pessoa pode ser ligada/desligada ou removida.
+ * `sugestoes` = nomes antigos do cliente, só como ajuda para o apelido.
+ */
+export function MarcacoesModal({ cliente, grupoId, sugestoes, onClose }: { cliente: { cliente_id: string; cliente_nome: string }; grupoId: string; sugestoes: string[]; onClose: () => void }) {
   const part = useParticipantesGrupo();
   const marc = useWaMarcacoes(true);
   const salvar = useSalvarMarcacoes();
+  const ativar = useAtivarMarcacao();
   const [lista, setLista] = useState<{ numero: string; admin: boolean }[] | null>(null);
-  const [escolha, setEscolha] = useState<Record<string, string>>({});
+  const [apelido, setApelido] = useState("");
+  const [numero, setNumero] = useState("");
   const [erro, setErro] = useState<string | null>(null);
-  const [feito, setFeito] = useState(false);
-  const atuais = useMemo(() => new Map((marc.data ?? []).filter((m) => m.cliente_id === cliente.cliente_id).map((m) => [m.nome, m.numero])), [marc.data, cliente.cliente_id]);
+  const pessoas = useMemo(() => (marc.data ?? []).filter((m) => m.cliente_id === cliente.cliente_id), [marc.data, cliente.cliente_id]);
+  const usados = new Set(pessoas.map((p) => p.numero));
+  const livres = (lista ?? []).filter((p) => !usados.has(p.numero));
+  const dicas = sugestoes.filter((n) => !pessoas.some((p) => p.nome === n));
 
   async function carregar() {
     setErro(null);
     try { setLista(await part.mutateAsync(grupoId)); } catch (e) { setErro(errorMessage(e)); }
   }
   useEffect(() => { void carregar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
-  useEffect(() => { setEscolha(Object.fromEntries(contatos.map((c) => [c.nome, atuais.get(c.nome) ?? ""]))); }, [atuais, contatos]);
 
-  // um número só pode servir a uma pessoa do mesmo cliente
-  const usados = new Map<string, number>();
-  for (const v of Object.values(escolha)) if (v) usados.set(v, (usados.get(v) ?? 0) + 1);
-  const duplicado = [...usados.values()].some((x) => x > 1);
-  const mudancas = contatos.filter((c) => (escolha[c.nome] ?? "") !== (atuais.get(c.nome) ?? ""));
-  // número já ligado que saiu do grupo continua aparecendo, para não sumir sem aviso
-  const opcoes = (nome: string) => {
-    const base = lista ?? [];
-    const cur = escolha[nome] ?? "";
-    return cur && !base.some((p) => p.numero === cur) ? [...base, { numero: cur, admin: false }] : base;
-  };
-
-  async function gravar() {
+  async function adicionar() {
     setErro(null);
     try {
-      await salvar.mutateAsync(mudancas.map((c) => ({ cliente_id: cliente.cliente_id, nome: c.nome, numero: escolha[c.nome] || null })));
-      setFeito(true);
+      await salvar.mutateAsync([{ cliente_id: cliente.cliente_id, nome: apelido.trim(), numero }]);
+      setApelido(""); setNumero("");
     } catch (e) { setErro(errorMessage(e)); }
+  }
+  async function remover(nome: string) {
+    setErro(null);
+    try { await salvar.mutateAsync([{ cliente_id: cliente.cliente_id, nome, numero: null }]); } catch (e) { setErro(errorMessage(e)); }
+  }
+  async function ligar(nome: string, ativo: boolean) {
+    setErro(null);
+    try { await ativar.mutateAsync({ cliente_id: cliente.cliente_id, nome, ativo }); } catch (e) { setErro(errorMessage(e)); }
   }
 
   return (
-    <Modal open title={`Quem marcar (@): ${cliente.cliente_nome}`} size="lg" onClose={onClose}>
-      <div className="space-y-3 text-sm" data-testid="wa-marcacoes-modal">
+    <Modal open title={`Pessoas a marcar (@): ${cliente.cliente_nome}`} size="lg" onClose={onClose}>
+      <div className="space-y-4 text-sm" data-testid="wa-marcacoes-modal">
         <p className="text-slate-600">
-          O WhatsApp marca pelo <strong>número</strong>. Para cada pessoa abaixo, escolha o número dela na lista de quem está no grupo. Pessoa sem número fica sem ser marcada.
-          Os números ficam guardados numa tabela protegida (só administrador).
+          O WhatsApp marca pelo <strong>número</strong>. Escolha o número de cada pessoa na lista de quem está no grupo e dê um apelido só para você se achar.
+          Os números ficam numa tabela protegida (só administrador).
         </p>
+        <ul className="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200" aria-label="Pessoas marcadas">
+          {pessoas.map((p) => (
+            <li key={p.nome} className="flex flex-wrap items-center gap-2 px-3 py-2" data-testid="wa-marcacao-linha">
+              <Switch checked={p.ativo} onChange={(v) => void ligar(p.nome, v)} label={`Marcar ${p.nome}`} disabled={ativar.isPending} />
+              <span className={`min-w-0 flex-1 font-medium ${p.ativo ? "text-slate-900" : "text-slate-400 line-through"}`}>{p.nome}</span>
+              <span className="tabular-nums text-xs text-slate-500">{formatarNumero(p.numero)}</span>
+              {!p.ativo && <span className="text-xs text-slate-500">desligado</span>}
+              <button type="button" className="rounded p-1 text-slate-500 hover:text-red-600" onClick={() => void remover(p.nome)} aria-label={`Tirar ${p.nome}`}><X className="size-3.5" /></button>
+            </li>
+          ))}
+          {pessoas.length === 0 && <li className="px-3 py-3 text-slate-500" data-testid="wa-marcacao-vazio">Ninguém será marcado neste cliente. Adicione abaixo.</li>}
+        </ul>
         {!lista ? (
           <div className="space-y-2">
             {erro ? <Alert tone="error">{erro}</Alert> : <p className="text-slate-500" aria-live="polite">{part.isPending ? "Lendo quem está no grupo…" : null}</p>}
             {erro && <Button onClick={() => void carregar()} loading={part.isPending}>Tentar de novo</Button>}
           </div>
         ) : (
-          <>
-            <p className="text-xs text-slate-500">{lista.length} pessoa(s) no grupo. O WhatsApp não informa o nome de quem participa, só o número.</p>
-            <ul className="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200">
-              {contatos.map((c) => (
-                <li key={c.nome} className="flex flex-wrap items-center gap-2 px-3 py-2" data-testid="wa-marcacao-linha">
-                  <span className="min-w-0 flex-1 font-medium text-slate-900">{c.nome}{!c.ativo && <span className="ml-2 text-xs font-normal text-slate-500">(desligado nos envios)</span>}</span>
-                  <Select aria-label={`Número de ${c.nome}`} className="w-64" value={escolha[c.nome] ?? ""} onChange={(e) => { setEscolha((s) => ({ ...s, [c.nome]: e.target.value })); setFeito(false); }}>
-                    <option value="">— sem número (não marca) —</option>
-                    {opcoes(c.nome).map((p) => <option key={p.numero} value={p.numero}>{formatarNumero(p.numero)}{p.admin ? " · admin do grupo" : ""}</option>)}
-                  </Select>
-                  {atuais.get(c.nome) && (escolha[c.nome] ?? "") === atuais.get(c.nome) && <Badge tone="success">ligado</Badge>}
-                </li>
-              ))}
-            </ul>
-            {duplicado && <Alert tone="error">Dois nomes estão com o mesmo número. Cada número só pode servir a uma pessoa.</Alert>}
-            {erro && <Alert tone="error">{erro}</Alert>}
-            {feito && <Alert tone="success">Salvo. Nos próximos envios o texto termina com o @ de cada pessoa ligada.</Alert>}
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={onClose}>{feito ? "Fechar" : "Cancelar"}</Button>
-              <Button onClick={() => void gravar()} loading={salvar.isPending} disabled={duplicado || mudancas.length === 0}>Salvar{mudancas.length ? ` (${mudancas.length})` : ""}</Button>
+          <div className="space-y-2 rounded-lg bg-slate-50 p-3">
+            <p className="font-medium text-slate-800">Adicionar pessoa ({lista.length} no grupo)</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input aria-label="Apelido da pessoa" placeholder="Apelido (ex.: Dono)" className="w-48" list="wa-apelidos" maxLength={80} value={apelido} onChange={(e) => setApelido(e.target.value)} />
+              <datalist id="wa-apelidos">{dicas.map((n) => <option key={n} value={n} />)}</datalist>
+              <Select aria-label="Número da pessoa" className="w-64" value={numero} onChange={(e) => setNumero(e.target.value)}>
+                <option value="">— escolha o número —</option>
+                {livres.map((p) => <option key={p.numero} value={p.numero}>{formatarNumero(p.numero)}{p.admin ? " · admin do grupo" : ""}</option>)}
+              </Select>
+              <Button onClick={() => void adicionar()} loading={salvar.isPending} disabled={!apelido.trim() || !numero}>Adicionar</Button>
             </div>
-          </>
+            {dicas.length > 0 && <p className="text-xs text-slate-500">Nomes que este cliente já tinha: {dicas.join(", ")} (use como apelido, se quiser).</p>}
+            <p className="text-xs text-slate-500">O WhatsApp não informa o nome de quem participa, só o número.</p>
+          </div>
         )}
+        {lista && erro && <Alert tone="error">{erro}</Alert>}
+        <div className="flex justify-end"><Button variant="ghost" onClick={onClose}>Fechar</Button></div>
       </div>
     </Modal>
   );
 }
 
-export interface ClienteMarcacao extends ClienteGrupo {
-  contatos: OpsEnvioContato[];
-}
-
-/** Resumo para a página de Envios: quem já tem grupo ligado e quantas pessoas a marcar já têm número. */
-export function MarcacoesIndexModal({ clientes, onClose }: { clientes: ClienteMarcacao[]; onClose: () => void }) {
-  const ligados = useWaGruposLigados(true);
-  const marc = useWaMarcacoes(true);
-  const [alvo, setAlvo] = useState<ClienteMarcacao | null>(null);
-  const grupo = useMemo(() => new Map((ligados.data ?? []).map((g) => [g.cliente_id, g.grupo_id])), [ligados.data]);
-  const tem = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const x of marc.data ?? [] as WaMarcacao[]) m.set(x.cliente_id, (m.get(x.cliente_id) ?? 0) + 1);
-    return m;
-  }, [marc.data]);
-  const ordenados = useMemo(() => [...clientes].filter((c) => c.contatos.length > 0).sort((a, b) => a.cliente_nome.localeCompare(b.cliente_nome)), [clientes]);
-  return (
-    <>
-      <Modal open title="Pessoas a marcar (@) nos envios" size="lg" onClose={onClose}>
-        <div className="space-y-3 text-sm" data-testid="wa-marcacoes-index">
-          <p className="text-slate-600">Cada cliente precisa do grupo ligado para escolher os números. Clique em "Escolher números" no cliente.</p>
-          <ul className="max-h-[55vh] divide-y divide-slate-100 overflow-y-auto rounded-lg ring-1 ring-slate-200">
-            {ordenados.map((c) => {
-              const n = tem.get(c.cliente_id) ?? 0;
-              return (
-                <li key={c.cliente_id} className="flex flex-wrap items-center gap-2 px-3 py-2" data-testid="wa-marcacoes-index-linha">
-                  <span className="min-w-0 flex-1 font-medium text-slate-900">{c.cliente_nome}</span>
-                  <Badge tone={n >= c.contatos.length ? "success" : "neutral"}>{n} de {c.contatos.length} com número</Badge>
-                  {grupo.has(c.cliente_id)
-                    ? <Button variant="secondary" onClick={() => setAlvo(c)}>Escolher números</Button>
-                    : <Badge tone="warning">Sem grupo ligado</Badge>}
-                </li>
-              );
-            })}
-          </ul>
-          <div className="flex justify-end"><Button variant="ghost" onClick={onClose}>Fechar</Button></div>
-        </div>
-      </Modal>
-      {alvo && grupo.get(alvo.cliente_id) && <MarcacoesModal cliente={alvo} grupoId={grupo.get(alvo.cliente_id)!} contatos={alvo.contatos} onClose={() => setAlvo(null)} />}
-    </>
-  );
-}
-
-/** Botões da ficha do cliente e do "Enviar agora": ligar/trocar grupo e escolher quem marcar. */
-export function GrupoDoClienteAcoes({ cliente, contatos, isAdmin }: { cliente: ClienteGrupo; contatos: OpsEnvioContato[]; isAdmin: boolean }) {
+/** Botões da ficha do cliente e da aba Clientes: ligar/trocar grupo e escolher quem marcar. */
+export function GrupoDoClienteAcoes({ cliente, sugestoes, isAdmin }: { cliente: ClienteGrupo; sugestoes: string[]; isAdmin: boolean }) {
   const ligados = useWaGruposLigados(true);
   const marc = useWaMarcacoes(isAdmin);
   const [ligar, setLigar] = useState(false);
   const [marcar, setMarcar] = useState(false);
   const g = (ligados.data ?? []).find((x) => x.cliente_id === cliente.cliente_id);
-  const n = (marc.data ?? []).filter((m) => m.cliente_id === cliente.cliente_id).length;
+  const mine = (marc.data ?? []).filter((m) => m.cliente_id === cliente.cliente_id);
+  const n = mine.filter((m) => m.ativo).length;
   return (
     <div className="space-y-3" data-testid="cliente-grupo-wa">
       <div className="flex flex-wrap items-center gap-2">
@@ -226,21 +200,19 @@ export function GrupoDoClienteAcoes({ cliente, contatos, isAdmin }: { cliente: C
         {g ? <span className="font-medium text-slate-900" data-testid="cliente-grupo-nome">{g.grupo_nome ?? "Grupo ligado"}</span> : <Badge tone="warning">Sem grupo ligado</Badge>}
         {isAdmin && <Button variant={g ? "secondary" : "primary"} onClick={() => setLigar(true)} data-testid="cliente-grupo-ligar">{g ? "Trocar grupo" : "Ligar grupo"}</Button>}
       </div>
-      {contatos.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <AtSign className="size-4 text-slate-400" aria-hidden />
-          <span className="text-sm text-slate-700">{contatos.length} pessoa(s) a marcar nos envios{isAdmin ? ` · ${n} com número` : ""}</span>
-          {isAdmin && <Button variant="secondary" disabled={!g} title={g ? undefined : "Ligue o grupo primeiro"} onClick={() => setMarcar(true)} data-testid="cliente-grupo-marcar">Escolher números</Button>}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <AtSign className="size-4 text-slate-400" aria-hidden />
+        <span className="text-sm text-slate-700" data-testid="cliente-grupo-marcados">{isAdmin ? (n ? `${n} pessoa(s) marcada(s) nos envios` : "Ninguém marcado nos envios") : "Marcações dos envios"}</span>
+        {isAdmin && <Button variant="secondary" disabled={!g} title={g ? undefined : "Ligue o grupo primeiro"} onClick={() => setMarcar(true)} data-testid="cliente-grupo-marcar">Pessoas a marcar</Button>}
+      </div>
       {!isAdmin && <p className="text-xs text-slate-500">Só o administrador liga o grupo e escolhe os números.</p>}
       {ligar && <LigarGrupoModal cliente={cliente} onClose={() => setLigar(false)} />}
-      {marcar && g && <MarcacoesModal cliente={cliente} grupoId={g.grupo_id} contatos={contatos} onClose={() => setMarcar(false)} />}
+      {marcar && g && <MarcacoesModal cliente={cliente} grupoId={g.grupo_id} sugestoes={sugestoes} onClose={() => setMarcar(false)} />}
     </div>
   );
 }
 
-/** Seção "Grupo do WhatsApp" da ficha do cliente (T5.20). */
+/** Seção "Grupo do WhatsApp" da ficha do cliente. */
 export function ClienteGrupoSecao({ clienteId, clienteNome }: { clienteId: string; clienteNome: string }) {
   const { profile } = useAuth();
   const padroes = useEnvioPadroes();
@@ -248,7 +220,7 @@ export function ClienteGrupoSecao({ clienteId, clienteNome }: { clienteId: strin
   return (
     <GrupoDoClienteAcoes
       cliente={{ cliente_id: clienteId, cliente_nome: clienteNome, nome_grupo: p?.nome_grupo ?? clienteNome }}
-      contatos={p?.contatos ?? []}
+      sugestoes={(p?.contatos ?? []).map((c) => c.nome)}
       isAdmin={profile?.role === "admin"}
     />
   );

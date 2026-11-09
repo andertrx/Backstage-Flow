@@ -100,7 +100,7 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
     if (p.p_silenciar) db.waSemGasto.push(p.p_cliente);
     return res(204);
   }
-  if (isMarc) return res(200, role === "admin" ? db.waMarcacoes.map(({ cliente_id, nome, numero }) => ({ cliente_id, nome, numero })) : []);
+  if (isMarc) return res(200, role === "admin" ? db.waMarcacoes.map(({ cliente_id, nome, numero, ativo }) => ({ cliente_id, nome, numero, ativo: ativo !== false })) : []);
   if (isMarcRpc) {
     const p = parse();
     db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
@@ -110,10 +110,15 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
       let dig = String(p.p_numero ?? "").replace(/\D/g, "");
       if (dig.length === 10 || dig.length === 11) dig = `55${dig}`;
       if (!/^[0-9]{12,15}$/.test(dig)) return bad("Número inválido.");
-      const lista = db.waPadroesNomes?.[p.p_cliente] ?? null;
-      if (lista && !lista.includes(String(p.p_nome ?? "").trim())) return bad("Essa pessoa não está na lista de marcações do cliente.");
+      if (!String(p.p_nome ?? "").trim()) return bad("Dê um nome (apelido) à pessoa, até 200 letras.");
+      if (db.waMarcacoes.some((x) => x.cliente_id === p.p_cliente && x.numero === dig && x.nome !== p.p_nome)) return bad("Esse número já está ligado a outra pessoa deste cliente.");
       const ja = db.waMarcacoes.find((x) => x.cliente_id === p.p_cliente && x.nome === p.p_nome);
-      if (ja) ja.numero = dig; else db.waMarcacoes.push({ cliente_id: p.p_cliente, nome: p.p_nome, numero: dig });
+      if (ja) ja.numero = dig; else db.waMarcacoes.push({ cliente_id: p.p_cliente, nome: p.p_nome, numero: dig, ativo: true });
+      return res(204);
+    }
+    if (url.includes("/rpc/wa_marcacao_ativar")) {
+      const ja = db.waMarcacoes.find((x) => x.cliente_id === p.p_cliente && x.nome === p.p_nome);
+      if (ja) ja.ativo = Boolean(p.p_ativo);
       return res(204);
     }
     db.waMarcacoes = db.waMarcacoes.filter((x) => !(x.cliente_id === p.p_cliente && x.nome === p.p_nome));

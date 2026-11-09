@@ -54,16 +54,18 @@ begin
   perform public.ops_envio_decidir(e1, 2, true);
   v_ok := v_ok + 1;
 
-  -- Chegou o horário (simulado): pode enviar; o agente registra "enviado"
+  -- Chegou o horário (simulado): o Claude/MCP não envia mais (pode_enviar_agora sempre falso) e não registra "enviado"
   perform set_config('role', 'postgres', true);
   update public.ops_envios set horario = v_passado::time where id = e1;
   perform set_config('role', 'authenticated', true);
   v_s := public.ops_envio_get(e1);
-  if not (v_s ->> 'pode_enviar_agora')::boolean then raise exception 'pode enviar no horário: %', v_s; end if;
+  if (v_s ->> 'pode_enviar_agora')::boolean then raise exception 'pode_enviar_agora deve ser sempre falso: %', v_s; end if;
   perform set_config('request.headers', '{"x-backstage-origin": "mcp"}', true);
-  perform public.ops_envio_execucao_add(e1, v_c1, 'enviado', 'ok', null);
+  begin
+    perform public.ops_envio_execucao_add(e1, v_c1, 'enviado', 'ok', null);
+    raise exception 'MCP não deveria registrar enviado';
+  exception when sqlstate '22023' then null; end;
   perform set_config('request.headers', '{}', true);
-  if not ((public.ops_envio_get(e1) -> 'clientes' -> 0 ->> 'ja_enviado_nesta_semana')::boolean) then raise exception 'já enviado'; end if;
   begin
     perform public.ops_envio_decidir(e1, 2, false);
     raise exception 'decidir depois do horário deveria ser recusado';

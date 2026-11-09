@@ -70,11 +70,8 @@ function envioOut(e: Envio, soPendentes: boolean) {
 }
 
 const COMO_ENVIAR = [
-  "Só envie os envios com pode_enviar_agora = true (aprovados no CRM nesta semana). Nunca envie os outros.",
-  "Em cada grupo (procure pelo nome exato): 1) envie a mensagem exatamente como está, com as quebras de linha e emojis;",
-  "2) logo depois, numa SEGUNDA mensagem, marque as pessoas de marcar_na_ordem, na ordem (digite @ e o nome e escolha a pessoa na lista).",
-  "Depois de cada grupo, registre com backstage_registrar_execucao_envio: enviado, falhou (ex.: grupo não encontrado) ou pulado, com um detalhe curto.",
-  "Pule os grupos com ja_enviado_nesta_semana = true.",
+  "O envio é feito pelo próprio CRM, pelo WhatsApp conectado, depois que a pessoa aprova a semana. O Claude não envia nem marca ninguém.",
+  "Use estas ferramentas só para consultar. Em caso de problema num grupo, registre com backstage_registrar_execucao_envio: falhou ou pulado, com um detalhe curto.",
 ].join(" ");
 
 async function loadEnvio(ctx: ToolContext, id: string): Promise<Envio> {
@@ -142,7 +139,7 @@ export const ENVIO_TOOLS: ToolSpec[] = [
     name: "backstage_registrar_execucao_envio",
     title: "Registrar o resultado do envio num grupo",
     description: "Registra no histórico do CRM o resultado do envio semanal num grupo: enviado, falhou ou pulado, com um detalhe curto. "
-      + "\"enviado\" só é aceito se o envio foi aprovado no CRM nesta semana.",
+      + "\"enviado\" não é aceito: quem envia é o CRM.",
     input: {
       envio_id: uuid,
       cliente_id: uuid,

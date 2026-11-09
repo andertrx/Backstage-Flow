@@ -84,8 +84,9 @@
 - [ ] Em **Inteligência de Resultados**, escolher o cliente, conectar a planilha dele e clicar em **Atualizar agora**. Essa primeira leitura real é o teste final da Etapa 39 (depois disso, conferir a aba **Qualidade dos dados**).
 
 ## Marcar pessoas (@) nos envios (T5.20, 09/11/2026)
-- [ ] **Teste real da marcação:** num grupo de teste, ligar o grupo a um cliente, escolher o seu número em uma pessoa (Ficha do cliente → Grupo do WhatsApp → Escolher números) e usar "Enviar agora" só nesse cliente. Conferir se o WhatsApp mostra a marcação azul no fim da mensagem. Se não mostrar, me avise (ajusto o formato).
-- [ ] Escolher os números das pessoas de cada cliente (Envios semanais → Grupos e @ dos clientes → "Pessoas a marcar (@)").
+- [ ] **Teste real da marcação:** num grupo de teste, ligar o grupo a um cliente e adicionar o seu número em "Pessoas a marcar" (Envios → aba Clientes, ou Ficha do cliente → Grupo do WhatsApp). Aprovar um envio de teste só com esse cliente e conferir se o WhatsApp mostra a marcação azul no fim da mensagem. Se não mostrar, me avise (ajusto o formato). (O botão "Enviar agora" não existe mais.)
+- [ ] Adicionar as pessoas (número + apelido) de cada cliente (Envios → aba Clientes → "Pessoas a marcar").
+- [ ] T5.22: publicar a função `mcp` (só o texto do guia mudou; vai junto com a Fase 2).
 
 ## WhatsApp por API não oficial (Etapa 44, 06/11/2026)
 - [ ] **Contratar o servidor de conexão** e seguir `docs/etapa-43-organizacao/44.1-SERVIDOR-PASSO-A-PASSO.md` (arquivos prontos em `infra/whatsapp-evolution/`). Eu acompanho cada passo.

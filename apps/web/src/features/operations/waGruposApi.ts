@@ -67,6 +67,8 @@ export interface WaMarcacao {
   cliente_id: string;
   nome: string;
   numero: string;
+  /** T5.22: desligada = fica guardada, mas não é marcada. */
+  ativo: boolean;
 }
 
 const KEY_MARC = ["wa-marcacoes"] as const;
@@ -88,7 +90,7 @@ export function useWaMarcacoes(enabled: boolean) {
     queryKey: KEY_MARC,
     enabled,
     queryFn: async () => {
-      const { data, error } = await supabase.from("wa_marcacoes").select("cliente_id,nome,numero");
+      const { data, error } = await supabase.from("wa_marcacoes").select("cliente_id,nome,numero,ativo").order("id");
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as pessoas a marcar."));
       return (data as WaMarcacao[] | null) ?? [];
     },
@@ -105,6 +107,18 @@ export function useSalvarMarcacoes() {
           : await supabase.rpc("wa_marcacao_remover", { p_cliente: c.cliente_id, p_nome: c.nome });
         if (error) throw new FriendlyError(dbError(error, "Não conseguimos salvar quem marcar."));
       }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: KEY_MARC }),
+  });
+}
+
+/** T5.22: liga/desliga a marcação de uma pessoa sem apagar o número. */
+export function useAtivarMarcacao() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { cliente_id: string; nome: string; ativo: boolean }) => {
+      const { error } = await supabase.rpc("wa_marcacao_ativar", { p_cliente: v.cliente_id, p_nome: v.nome, p_ativo: v.ativo });
+      if (error) throw new FriendlyError(dbError(error, "Não conseguimos mudar a marcação."));
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: KEY_MARC }),
   });

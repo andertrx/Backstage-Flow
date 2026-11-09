@@ -642,7 +642,7 @@ Deno.test("Envios semanais: só o liberado (aprovado e no horário), grupos pend
   assertEquals(lib.envios[0].grupos.map((g: { nome_grupo: string }) => g.nome_grupo), ["Acelera A. – Loja A"], "pula o grupo já enviado nesta semana");
   assertEquals(lib.envios[0].grupos[0].marcar_na_ordem, ["Ana Paula", "Bruno"]);
   assertEquals(lib.envios[0].mensagem, "Bom dia! ☀️\nComo foi a semana?");
-  assertMatch(lib.como_enviar, /SEGUNDA mensagem/);
+  assertMatch(lib.como_enviar, /feito pelo próprio CRM/);
   const one = json(await client.callTool({ name: "backstage_get_envio", arguments: { envio_id: ENVIO_OK } }));
   assertEquals([one.grupos.length, one.grupos[2].ativo_neste_envio], [3, false]);
   const ok = json(await client.callTool({ name: "backstage_registrar_execucao_envio", arguments: { envio_id: ENVIO_OK, cliente_id: CLI_A, status: "enviado", detalhe: "ok" } }));
