@@ -71,6 +71,7 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
       return { ...c, cliente_nome: clientName(c.cliente_id), nome_grupo: pd ? pd.nome_grupo : c.nome_grupo, tem_padrao: Boolean(pd),
         contatos_marcar: names.filter((n) => !off.includes(n)), contatos: contatosJson(names, off),
         ultima_execucao: ex[0] ? { executado_em: ex[0].executado_em, status: ex[0].status, detalhe: ex[0].detalhe } : null,
+        recebe_hoje: !(db.opsEnvioSemana ?? []).some((x) => x.envio_id === e.id && x.cliente_id === c.cliente_id && x.semana === now.semana && !x.receber),
         ja_enviado_nesta_semana: ex.some((x) => x.status === "enviado" && x.executado_em >= now.weekStart) };
     }).sort((a, b) => (a.cliente_nome ?? "").localeCompare(b.cliente_nome ?? "")),
   });
@@ -134,6 +135,17 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
     const ex = aprovacaoDe(e);
     if (ex) Object.assign(ex, row); else db.opsEnvioAprovacoes.push({ id: db.opsEnvioAprovacoes.length + 1, ...row });
     return res(200, situacao(e));
+  }
+  if (rpc("ops_envio_semana_set")) {
+    const e = db.opsEnvios.find((x) => x.id === p.p_envio);
+    if (!e) return bad("Envio não encontrado.");
+    db.opsEnvioSemana ??= [];
+    for (const c of p.p_clientes ?? []) {
+      if (!db.opsEnvioClientes.some((x) => x.envio_id === e.id && x.cliente_id === c.cliente_id && !x.removido_em)) return bad("Este cliente não faz parte deste envio.");
+      db.opsEnvioSemana = db.opsEnvioSemana.filter((x) => !(x.envio_id === e.id && x.cliente_id === c.cliente_id && x.semana === now.semana));
+      if (!c.receber) db.opsEnvioSemana.push({ envio_id: e.id, cliente_id: c.cliente_id, semana: now.semana, receber: false });
+    }
+    return res(200, json(e, false));
   }
   if (rpc("ops_envio_aprovacoes")) {
     const f = p.f ?? {};

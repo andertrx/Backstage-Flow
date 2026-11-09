@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { WhatsAppPreview } from "./WhatsAppPreview.tsx";
-import { type OpsEnvio, useDecidirEnvio, useEnviosPendentes } from "./enviosApi.ts";
+import { type OpsEnvio, useDecidirEnvio, useEnviosPendentes, useQuemRecebe } from "./enviosApi.ts";
 
 const DISMISS_KEY = "ops.envios.depois";
 const SNOOZE_MS = 30 * 60_000;
@@ -36,12 +36,18 @@ export function EnvioApprovalReminder() {
 /** Revisão completa: mensagem como vai sair e grupos que vão receber (quem é marcado fica em cada cliente). Aprovar só depois de marcar "analisei". */
 export function EnvioApprovalModal({ envio, onClose }: { envio: OpsEnvio; onClose: () => void }) {
   const decide = useDecidirEnvio();
+  const quem = useQuemRecebe();
   const [checked, setChecked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const grupos = envio.clientes.filter((c) => c.ativo);
+  // T5.22: quem recebe hoje (padrão: todos; a escolha vale só para esta semana)
+  const [recebe, setRecebe] = useState<Record<string, boolean>>(() => Object.fromEntries(grupos.map((c) => [c.cliente_id, c.recebe_hoje !== false])));
+  const marcados = grupos.filter((c) => recebe[c.cliente_id]).length;
   async function run(aprovar: boolean) {
     setError(null);
     try {
+      const mudou = grupos.filter((c) => (c.recebe_hoje !== false) !== recebe[c.cliente_id]);
+      if (aprovar && mudou.length) await quem.mutateAsync({ id: envio.id, clientes: mudou.map((c) => ({ cliente_id: c.cliente_id, receber: recebe[c.cliente_id] })) });
       await decide.mutateAsync({ id: envio.id, versao: envio.versao, aprovar });
       onClose();
     } catch (err) { setError(errorMessage(err)); }
@@ -57,17 +63,22 @@ export function EnvioApprovalModal({ envio, onClose }: { envio: OpsEnvio; onClos
           <p className="font-medium text-slate-700">Mensagem, como vai sair</p>
           <WhatsAppPreview text={envio.mensagem} />
         </div>
-        <div className="space-y-1.5">
-          <p className="font-medium text-slate-700">Grupos que vão receber</p>
-          <ol className="max-h-60 divide-y divide-slate-100 overflow-y-auto rounded-lg ring-1 ring-slate-200" data-testid="envio-aprovacao-grupos">
-            {grupos.map((c, i) => (
-              <li key={c.id} className="flex flex-wrap gap-x-2 px-3 py-2">
-                <span className="w-6 text-right text-xs font-semibold text-slate-400">{i + 1}.</span>
+        <div className="space-y-1.5" data-testid="envio-quem-recebe">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium text-slate-700">Quem recebe hoje <span className="font-normal text-slate-500">({marcados} de {grupos.length})</span></p>
+            <Button type="button" variant="ghost" className="px-2 py-1 text-xs" onClick={() => setRecebe(Object.fromEntries(grupos.map((c) => [c.cliente_id, true])))}>Selecionar todos</Button>
+            <Button type="button" variant="ghost" className="px-2 py-1 text-xs" onClick={() => setRecebe(Object.fromEntries(grupos.map((c) => [c.cliente_id, false])))}>Tirar todos</Button>
+          </div>
+          <ul className="max-h-60 divide-y divide-slate-100 overflow-y-auto rounded-lg ring-1 ring-slate-200" data-testid="envio-aprovacao-grupos">
+            {grupos.map((c) => (
+              <li key={c.id} className="flex items-center gap-3 px-3 py-2">
+                <input type="checkbox" checked={Boolean(recebe[c.cliente_id])} onChange={(e) => setRecebe((v) => ({ ...v, [c.cliente_id]: e.target.checked }))} aria-label={`Enviar para ${c.cliente_nome}`} />
                 <span className="min-w-0 flex-1"><span className="font-medium text-slate-900">{c.cliente_nome}</span> <span className="text-xs text-slate-500">({c.nome_grupo})</span></span>
                 {c.ja_enviado_nesta_semana && <span className="text-xs font-semibold text-emerald-700">já enviado nesta semana</span>}
               </li>
             ))}
-          </ol>
+          </ul>
+          <p className="text-xs text-slate-500">Vale só para esta semana: na próxima, todos voltam marcados.</p>
         </div>
         <label className="flex items-start gap-2 rounded-lg bg-blue-50 p-3 text-slate-800">
           <input type="checkbox" className="mt-0.5" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
@@ -81,7 +92,7 @@ export function EnvioApprovalModal({ envio, onClose }: { envio: OpsEnvio; onClos
           <Button variant="secondary" onClick={() => run(false)} loading={decide.isPending && decide.variables?.aprovar === false}>
             <XCircle className="size-4" aria-hidden /> Não enviar esta semana
           </Button>
-          <Button onClick={() => run(true)} disabled={!checked} loading={decide.isPending && decide.variables?.aprovar === true}>
+          <Button onClick={() => run(true)} disabled={!checked || marcados === 0} loading={(decide.isPending && decide.variables?.aprovar === true) || quem.isPending}>
             <CheckCircle2 className="size-4" aria-hidden /> {envio.aprovacao_tardia ? "Aprovar e enviar agora" : "Aprovar envio"}
           </Button>
         </div>

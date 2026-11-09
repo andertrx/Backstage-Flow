@@ -63,9 +63,19 @@ function seed(db) {
   await page.getByTestId("envio-aprovacao").waitFor();
   check(db.opsEnvioAprovacoes.length === 0, "\"Decidir depois\" não registra decisão e o pop-up volta depois de 30 minutos");
 
-  await page.getByTestId("envio-aprovacao").getByRole("checkbox").check();
-  await page.getByTestId("envio-aprovacao").getByRole("button", { name: "Aprovar envio" }).click();
-  await page.getByTestId("envio-aprovacao").waitFor({ state: "detached" });
+  const quemPop = page.getByTestId("envio-aprovacao");
+  check(await quemPop.getByLabel("Enviar para Loja Aurora").isChecked() && await quemPop.getByLabel("Enviar para Loja Brisa").isChecked() && (await quemPop.innerText()).includes("Quem recebe hoje (2 de 2)"),
+    "Quem recebe hoje: todos vêm marcados (padrão)");
+  await quemPop.getByLabel("Enviar para Loja Brisa").uncheck();
+  check((await quemPop.innerText()).includes("(1 de 2)"), "desmarcar tira o cliente da conta");
+  await quemPop.getByRole("button", { name: "Tirar todos" }).click();
+  check(await quemPop.getByRole("button", { name: "Aprovar envio" }).isDisabled(), "sem nenhum cliente marcado não dá para aprovar");
+  await quemPop.getByRole("button", { name: "Selecionar todos" }).click();
+  await quemPop.getByLabel("Enviar para Loja Brisa").uncheck();
+  await quemPop.getByLabel(/Analisei a mensagem/).check();
+  await quemPop.getByRole("button", { name: "Aprovar envio" }).click();
+  await quemPop.waitFor({ state: "detached" });
+  check((db.opsEnvioSemana ?? []).length === 1 && db.opsEnvioSemana[0].cliente_id === B && db.opsEnvioSemana[0].receber === false, "a escolha de quem recebe fica guardada para a semana");
   check(db.opsEnvioAprovacoes[0]?.decisao === "aprovado" && db.opsEnvioAprovacoes[0].versao_envio === 1 && db.opsEnvioAprovacoes[0].semana === "2026-11-02",
     "aprovação registrada para a semana, na versão vista");
   await page.goto(`${BASE}/operacoes/envios`);

@@ -204,6 +204,7 @@ function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
           {envio.clientes.map((c) => (
             <li key={c.id} className={cn("rounded-lg px-2.5 py-1 text-xs ring-1", c.ativo ? "bg-white text-slate-700 ring-slate-200" : "bg-slate-50 text-slate-400 ring-slate-100")}>
               <span className="font-semibold">{c.cliente_nome}</span> · {c.nome_grupo}
+              {c.recebe_hoje === false && <span className="ml-1 text-amber-700">· fora desta semana</span>}
               {c.ja_enviado_nesta_semana && <span className="ml-1 text-emerald-700">· enviado nesta semana</span>}
             </li>
           ))}

@@ -22,6 +22,8 @@ export interface OpsEnvioCliente {
   observacao: string | null;
   ultima_execucao: { executado_em: string; status: EnvioStatus; detalhe: string | null } | null;
   ja_enviado_nesta_semana: boolean;
+  /** T5.22: recebe nesta semana? (padrão sim; só muda se alguém desmarcou) */
+  recebe_hoje?: boolean;
 }
 
 export interface OpsEnvioContato {
@@ -189,6 +191,14 @@ export function useDecidirEnvio() {
     const { data, error } = await supabase.rpc("ops_envio_decidir", { p_id: v.id, p_versao: v.versao, p_aprovar: v.aprovar });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos registrar a decisão."));
     return data as { situacao_hoje: EnvioSituacaoHoje };
+  });
+}
+
+/** T5.22: quem recebe o envio nesta semana. Vale só para a semana atual; semana nova volta ao padrão (todos). */
+export function useQuemRecebe() {
+  return useEnviosMutation(async (v: { id: string; clientes: { cliente_id: string; receber: boolean }[] }) => {
+    const { error } = await supabase.rpc("ops_envio_semana_set", { p_envio: v.id, p_clientes: v.clientes });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos salvar quem recebe."));
   });
 }
 
