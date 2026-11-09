@@ -79,6 +79,7 @@ function seed(db) {
   await form.getByLabel("Cliente").selectOption({ label: "Loja Brisa" });
   check(await form.getByLabel("Conta de anúncios").inputValue() !== "" && await form.getByLabel("Campanha de destino").inputValue() === "", "trocar o cliente limpa o resto (cliente com uma só BM e conta já vem escolhido)");
   await page.getByText("1 página(s) desta conta.").waitFor();
+  await form.getByLabel("Página do Facebook").locator("option:checked").filter({ hasText: "Loja Brisa" }).waitFor({ state: "attached" }).catch(() => {});
   check(await form.getByLabel("Página do Facebook").locator("option:checked").innerText() === "Loja Brisa"
     && await form.getByLabel("Perfil do Instagram").locator("option:checked").innerText() === "@lojabrisa", "conta com uma só página: página e Instagram já vêm escolhidos");
   await form.getByLabel("Cliente").selectOption({ label: "Loja Aurora" });

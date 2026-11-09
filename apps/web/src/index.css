@@ -193,6 +193,7 @@ body {
 .page-stagger > * > *:nth-child(6) { animation-delay: 250ms; }
 .page-stagger > * > *:nth-child(n+7) { animation-delay: 300ms; }
 @media print { .page-stagger > * > * { animation: none; } }
+[data-motion="off"] .page-stagger > * > *, [data-motion="off"] .shell-in-left, [data-motion="off"] .shell-in-top { animation: none; }
 .shell-in-left { animation: shell-in-left 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
 .shell-in-top { animation: shell-in-top 480ms cubic-bezier(0.22, 1, 0.36, 1) 80ms backwards; }
 .bar-grow { transform-origin: left; animation: bar-grow 700ms cubic-bezier(0.22, 1, 0.36, 1) 150ms backwards; }
