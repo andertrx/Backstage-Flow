@@ -24,6 +24,7 @@ import { ClientOpsTab } from "@/features/operations/ClientOps.tsx";
 import { ClientMeetingsList } from "@/features/operations/MeetingsPage.tsx";
 import { ClientMonitorCard } from "@/features/monitoring/overview.tsx";
 import { cn } from "@/lib/cn.ts";
+import { ConfigSection, SectionIndex } from "@/components/ui/section.tsx";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 
 type ClientTab = "dados" | "tarefas" | "historico" | "reunioes";
@@ -234,19 +235,33 @@ export function ClientDetailPage() {
 
       <ClientGuideCard />
 
-      <ClientMonitorCard clientId={client.id} />
+      <SectionIndex items={[
+        { id: "cli-contas", label: "Contas de anúncio" },
+        ...(can(profile?.role, "clients.edit") ? [{ id: "cli-portal", label: "Portal e e-mail" }] : []),
+        ...(can(profile?.role, "users.manage") ? [{ id: "cli-acesso", label: "Acesso" }] : []),
+      ]} />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {PLATFORMS.map((p) => (
-          <PlatformAccountsCard key={p.id} clientId={client.id} platform={p.id} icon={platformLook(p.id).icon} />
-        ))}
-      </div>
+      <ConfigSection id="cli-contas" title="Contas de anúncio" description="Contas do Meta Ads e do Google Ads ligadas a este cliente e os alertas de desempenho.">
+        <ClientMonitorCard clientId={client.id} />
+        <div className="grid gap-6 lg:grid-cols-2">
+          {PLATFORMS.map((p) => (
+            <PlatformAccountsCard key={p.id} clientId={client.id} platform={p.id} icon={platformLook(p.id).icon} />
+          ))}
+        </div>
+      </ConfigSection>
 
-      {can(profile?.role, "clients.edit") && <ClientPortalCard clientId={client.id} />}
+      {can(profile?.role, "clients.edit") && (
+        <ConfigSection id="cli-portal" title="Portal e e-mail do cliente" description="O link do dashboard que o cliente vê e o e-mail semanal com os números.">
+          <ClientPortalCard clientId={client.id} />
+          <ClientEmailCard clientId={client.id} timezone={client.timezone} />
+        </ConfigSection>
+      )}
 
-      {can(profile?.role, "clients.edit") && <ClientEmailCard clientId={client.id} timezone={client.timezone} />}
-
-      {can(profile?.role, "users.manage") && <ClientAccessCard clientId={client.id} />}
+      {can(profile?.role, "users.manage") && (
+        <ConfigSection id="cli-acesso" title="Acesso" description="Quem do lado do cliente pode entrar no sistema.">
+          <ClientAccessCard clientId={client.id} />
+        </ConfigSection>
+      )}
       </>)}
 
       {editing && <ClientFormModal client={client} onClose={() => setEditing(false)} />}

@@ -42,7 +42,7 @@ import {
   useTrackingOverview,
 } from "./api.ts";
 import { AttributionSection } from "./AttributionSection.tsx";
-import { ConfigSection } from "./ConfigSection.tsx";
+import { ConfigSection } from "@/components/ui/section.tsx";
 import { ContainerFormModal, InstallModal } from "./ContainerModals.tsx";
 import { LeadsSection } from "./LeadsSection.tsx";
 import { ReadinessSection, type SiteReadiness } from "./ReadinessSection.tsx";

@@ -1,5 +1,6 @@
 import { PLATFORMS } from "@backstage/shared";
 import type { ComponentType, ReactNode } from "react";
+import { ConfigSection, SectionIndex } from "@/components/ui/section.tsx";
 import { EmailSettingsCard } from "./EmailSettingsCard.tsx";
 import { GoogleIntegrationCard } from "./GoogleIntegrationCard.tsx";
 import { GoogleSheetsCard } from "./GoogleSheetsCard.tsx";
@@ -24,29 +25,17 @@ const SECOES = [
 ] as const;
 
 function Secao({ id, titulo, texto, children }: { id: string; titulo: string; texto: string; children: ReactNode }) {
-  return (
-    <section id={id} aria-labelledby={`${id}-t`} className="scroll-mt-4 space-y-4" data-testid={`secao-${id}`}>
-      <div className="border-b border-slate-200 pb-2">
-        <p id={`${id}-t`} className="text-xs font-semibold uppercase tracking-wide text-slate-500">{titulo}</p>
-        <p className="text-sm text-slate-500">{texto}</p>
-      </div>
-      {children}
-    </section>
-  );
+  return <ConfigSection id={id} title={titulo} description={texto} testId={`secao-${id}`}>{children}</ConfigSection>;
 }
 
 export function IntegrationsPage() {
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-4xl space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Integrações</h1>
         <p className="mt-1 text-sm text-slate-500">Conexões oficiais com as plataformas de anúncio, o envio de e-mails, o Google Sheets e o WhatsApp.</p>
       </div>
-      <nav aria-label="Seções das integrações" className="flex flex-wrap gap-2 text-sm" data-testid="integracoes-indice">
-        {SECOES.map((s) => (
-          <a key={s.id} href={`#${s.id}`} className="rounded-full bg-white px-3 py-1 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">{s.titulo}</a>
-        ))}
-      </nav>
+      <SectionIndex testId="integracoes-indice" items={SECOES.map((s) => ({ id: s.id, label: s.titulo }))} />
       <Secao id="anuncios" titulo="Anúncios" texto="Conexões oficiais com as plataformas de anúncio.">
         {PLATFORMS.map((p) => {
           const Card = INTEGRATION_CARDS[p.id];

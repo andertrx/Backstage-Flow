@@ -11,7 +11,7 @@ import { ContactsPage } from "@/features/contacts/ContactsPage.tsx";
 import { cn } from "@/lib/cn.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { useWaSuggestions } from "./api.ts";
-import { ConfigSection, SectionIndex } from "./ConfigSection.tsx";
+import { ConfigSection, SectionIndex } from "@/components/ui/section.tsx";
 import { ConversationsPanel } from "./ConversationsPage.tsx";
 import { WaAiCard } from "./SuggestionsSection.tsx";
 import { TrackingPage, type TrackingTab } from "./TrackingPage.tsx";

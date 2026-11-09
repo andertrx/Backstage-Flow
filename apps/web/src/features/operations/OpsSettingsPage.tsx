@@ -1,4 +1,5 @@
 import { Building2, Users } from "lucide-react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/cn.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { RequireOps } from "./OpsLayout.tsx";
@@ -9,6 +10,7 @@ import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { MeetingCategoriesSettings } from "./MeetingSettings.tsx";
 import { OnboardingTemplatesSettings } from "./OnboardingTemplatesSettings.tsx";
+import { SectionIndex } from "@/components/ui/section.tsx";
 import { ActivityTypesSettings, ClientStagesSettings, QueueSettings } from "./FlowSettings.tsx";
 
 /**
@@ -42,16 +44,25 @@ export function OpsSettingsPage() {
               As colunas do funil de vendas e os motivos de perda agora ficam em{" "}
               <Link to="/comercial?ver=config" className="font-medium underline">Comercial → Configurações do comercial</Link>.
             </Alert>
-            <SectorsSettingsPage />
-            <StatusSettings />
-            <ClientStagesSettings />
-            <OnboardingTemplatesSettings />
-            <QueueSettings />
-            <ActivityTypesSettings />
-            <MeetingCategoriesSettings />
+            <SectionIndex testId="ops-settings-index" items={[
+              { id: "cfg-setores", label: "Setores" }, { id: "cfg-status", label: "Status das tarefas" }, { id: "cfg-etapas", label: "Etapas dos clientes" },
+              { id: "cfg-modelos", label: "Tarefas padrão" }, { id: "cfg-filas", label: "Filas por setor" }, { id: "cfg-atividades", label: "Tipos de atividade" }, { id: "cfg-reunioes", label: "Tipos de reunião" },
+            ]} />
+            <Bloco id="cfg-setores"><SectorsSettingsPage /></Bloco>
+            <Bloco id="cfg-status"><StatusSettings /></Bloco>
+            <Bloco id="cfg-etapas"><ClientStagesSettings /></Bloco>
+            <Bloco id="cfg-modelos"><OnboardingTemplatesSettings /></Bloco>
+            <Bloco id="cfg-filas"><QueueSettings /></Bloco>
+            <Bloco id="cfg-atividades"><ActivityTypesSettings /></Bloco>
+            <Bloco id="cfg-reunioes"><MeetingCategoriesSettings /></Bloco>
           </div>
         )}
       </div>
     </RequireOps>
   );
+}
+
+/** Divisão entre os blocos desta tela: linha separadora e espaço, com âncora para o índice (cada bloco já traz o próprio título). */
+function Bloco({ id, children }: { id: string; children: ReactNode }) {
+  return <div id={id} className="scroll-mt-24 border-t border-slate-200 pt-8 first-of-type:border-t-0">{children}</div>;
 }
