@@ -23,7 +23,7 @@ import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { RequireOps } from "./OpsLayout.tsx";
 import { EnvioApprovalModal } from "./EnvioApproval.tsx";
 import { originLabel } from "./origin.ts";
-import { WaEnvioPanel } from "./WaDisparos.tsx";
+import { ClientesStatus, WaEnvioPanel } from "./WaDisparos.tsx";
 import { GrupoDoClienteAcoes, LigarGrupoModal } from "./WaGrupoLigar.tsx";
 import { WaGruposCard } from "./WaGruposCard.tsx";
 import { WhatsAppPreview } from "./WhatsAppPreview.tsx";
@@ -199,17 +199,7 @@ function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
         </div>
       </div>
       <p className="line-clamp-2 whitespace-pre-line text-sm text-slate-500">{envio.mensagem}</p>
-      {envio.clientes.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
-          {envio.clientes.map((c) => (
-            <li key={c.id} className={cn("rounded-lg px-2.5 py-1 text-xs ring-1", c.ativo ? "bg-white text-slate-700 ring-slate-200" : "bg-slate-50 text-slate-400 ring-slate-100")}>
-              <span className="font-semibold">{c.cliente_nome}</span> · {c.nome_grupo}
-              {c.recebe_hoje === false && <span className="ml-1 text-amber-700">· fora desta semana</span>}
-              {c.ja_enviado_nesta_semana && <span className="ml-1 text-emerald-700">· enviado nesta semana</span>}
-            </li>
-          ))}
-        </ul>
-      )}
+      {envio.clientes.length > 0 && <ClientesStatus envio={envio} />}
       {!arquivado && <WaEnvioPanel envio={envio} />}
       {error && <Alert tone="error">{error}</Alert>}
       {reviewing && <EnvioApprovalModal envio={envio} onClose={() => setReviewing(false)} />}

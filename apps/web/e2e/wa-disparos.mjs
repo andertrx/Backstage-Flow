@@ -53,8 +53,9 @@ function seed(db, conectado = true) {
   check(await sem.getByTestId("wa-ligar-grupo").count() === 1, "cada cliente sem grupo tem o botão 'Ligar grupo'");
   db.waDisparos.push({ id: 1, envio_id: ENVIO, cliente_id: A, semana: "2026-11-02", origem: "automatico", status: "pendente", tentativas: 0, detalhe: null, enviado_em: null, atualizado_em: t });
   await page.reload();
-  await page.getByTestId("envio-card").first().getByTestId("wa-disparos-lista").getByText("Na fila").waitFor();
-  check((await page.getByTestId("wa-disparos-lista").innerText()).includes("Loja Aurora"), "mostra o disparo na fila");
+  await page.getByTestId("envio-card").first().getByTestId("envio-clientes-abrir").click();
+  await page.getByTestId("envio-clientes-lista").getByText("Na fila").waitFor();
+  check((await page.getByTestId("envio-clientes-lista").innerText()).includes("Loja Aurora"), "mostra o disparo na fila na lista única");
   await page.screenshot({ path: `${SHOTS}/wa-disparos-painel.png` });
   check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);
   await browser.close();
@@ -83,7 +84,11 @@ function seed(db, conectado = true) {
   const panel = page.getByTestId("envio-card").first().getByTestId("wa-envio-panel");
   await panel.waitFor();
   check((await panel.getByTestId("wa-resumo").innerText()).includes("1 enviado(s) · 1 falharam · 0 na fila · 1 pulado(s)"), "resumo da semana: enviados, falharam, na fila, pulados");
-  check((await panel.getByTestId("wa-disparos-lista").locator("li").count()) === 3, "a lista mostra só o último resultado de cada cliente");
+  const card = page.getByTestId("envio-card").first();
+  check(await card.getByTestId("envio-clientes-lista").count() === 0 && (await card.getByTestId("envio-clientes-abrir").innerText()).includes("Quem recebeu nesta semana: 1 de 3"), "lista única recolhida: 'Quem recebeu nesta semana: 1 de 3'");
+  await card.getByTestId("envio-clientes-abrir").click();
+  const linhas = await card.getByTestId("envio-cliente-linha").allInnerTexts();
+  check(linhas.length === 3 && linhas[0].includes("Enviado") && linhas[1].includes("Falhou") && linhas[2].includes("Pulado"), "uma linha por cliente com o último resultado");
   await page.screenshot({ path: `${SHOTS}/wa-reenviar.png` });
   await panel.getByRole("button", { name: /Reenviar só para quem não recebeu/ }).click();
   await panel.getByText("2 cliente(s) entraram na fila").waitFor();

@@ -1,4 +1,4 @@
-import { MessageCircle } from "lucide-react";
+import { ChevronDown, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -30,14 +30,12 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
   const grupos = useWaGruposLigados(true);
   const [ligar, setLigar] = useState<ClienteGrupo | null>(null);
   const reenviar = useReenviar();
-  const [antigas, setAntigas] = useState(false);
   const [confirmaTodos, setConfirmaTodos] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const automatico = autos.data?.has(envio.id) ?? false;
   const ligado = Boolean(gw.data?.enabled) && gw.data?.connection_state === "conectado";
   const meus = (disparos.data ?? []).filter((d) => d.envio_id === envio.id && d.semana === envio.semana);
-  const nomes = new Map(envio.clientes.map((c) => [c.cliente_id, c.cliente_nome]));
   const comGrupo = new Set((grupos.data ?? []).map((g) => g.cliente_id));
   const semGrupo = envio.clientes.filter((c) => c.ativo && !comGrupo.has(c.cliente_id));
   // Sem conexão e sem nada anotado: não mostra nada (sem botão que não funciona).
@@ -45,8 +43,6 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
   // Resumo da semana: o último resultado de cada cliente que recebe nesta semana
   const ultimo = new Map<string, DisparoStatus>();
   for (const d of [...meus].sort((a, b) => a.id - b.id)) ultimo.set(d.cliente_id, d.status);
-  const ultimoId = new Map<string, number>();
-  for (const d of [...meus].sort((a, b) => a.id - b.id)) ultimoId.set(d.cliente_id, d.id);
   const conta = { enviado: 0, falhou: 0, fila: 0, pulado: 0 };
   for (const st of ultimo.values()) {
     if (st === "enviado") conta.enviado++; else if (st === "falhou") conta.falhou++; else if (st === "pulado") conta.pulado++; else conta.fila++;
@@ -114,24 +110,50 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
           </div>
         </Modal>
       )}
-      {meus.length > 0 && (
-        <ul className="flex flex-wrap gap-2" data-testid="wa-disparos-lista">
-          {(antigas ? meus : meus.filter((d) => ultimoId.get(d.cliente_id) === d.id)).map((d) => (
-            <li key={d.id} className="rounded-lg bg-white px-2.5 py-1 text-xs ring-1 ring-slate-200" title={d.detalhe ?? undefined}>
-              <span className="font-semibold">{nomes.get(d.cliente_id) ?? "Cliente"}</span>{" "}
-              <Badge tone={TONE[d.status]}>{DISPARO_LABEL[d.status]}</Badge>
-              {d.enviado_em && <span className="ml-1 text-slate-500">{formatDateTime(d.enviado_em)}</span>}
-              {d.status === "falhou" || d.status === "pulado" ? <span className="ml-1 text-slate-500">· {d.detalhe}</span> : null}
+      {error && <Alert tone="error">{error}</Alert>}
+    </div>
+  );
+}
+
+/**
+ * Quem recebeu: uma lista só, recolhida (clique para abrir), com uma linha por cliente do envio e o último resultado da semana.
+ * Tentativas anteriores (ex.: "sem grupo", de antes de ligar o grupo) aparecem na própria linha, em texto pequeno.
+ */
+export function ClientesStatus({ envio }: { envio: OpsEnvio }) {
+  const disparos = useWaDisparos();
+  const [aberto, setAberto] = useState(false);
+  const meus = (disparos.data ?? []).filter((d) => d.envio_id === envio.id && d.semana === envio.semana).sort((a, b) => a.id - b.id);
+  const linhas = envio.clientes.map((c) => {
+    const tentativas = meus.filter((d) => d.cliente_id === c.cliente_id);
+    const ultimo = tentativas[tentativas.length - 1];
+    const enviou = c.ja_enviado_nesta_semana || ultimo?.status === "enviado";
+    return { c, ultimo, anteriores: tentativas.slice(0, -1), enviou };
+  });
+  const ativos = linhas.filter((l) => l.c.ativo);
+  const enviados = ativos.filter((l) => l.enviou).length;
+  return (
+    <div className="space-y-2" data-testid="envio-clientes-status">
+      <button type="button" aria-expanded={aberto} onClick={() => setAberto((v) => !v)}
+        className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-blue-700" data-testid="envio-clientes-abrir">
+        <ChevronDown className={`size-4 transition-transform ${aberto ? "rotate-180" : ""}`} aria-hidden />
+        Quem recebeu nesta semana: {enviados} de {ativos.length}
+      </button>
+      {aberto && (
+        <ul className="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200" data-testid="envio-clientes-lista">
+          {linhas.map(({ c, ultimo, anteriores, enviou }) => (
+            <li key={c.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 text-sm ${c.ativo ? "" : "opacity-60"}`} data-testid="envio-cliente-linha">
+              <span className="min-w-0 flex-1"><span className="font-medium text-slate-900">{c.cliente_nome}</span> <span className="text-xs text-slate-500">· {c.nome_grupo}</span></span>
+              {!c.ativo ? <Badge>Desligado no envio</Badge>
+                : c.recebe_hoje === false && !enviou ? <Badge tone="warning">Fora desta semana</Badge>
+                : ultimo ? <Badge tone={TONE[ultimo.status]}>{DISPARO_LABEL[ultimo.status]}</Badge>
+                : enviou ? <Badge tone="success">Enviado</Badge> : <Badge>Ainda não enviado</Badge>}
+              {(ultimo?.enviado_em) && <span className="text-xs text-slate-500">{formatDateTime(ultimo.enviado_em)}</span>}
+              {ultimo && (ultimo.status === "falhou" || ultimo.status === "pulado") && ultimo.detalhe && <span className="text-xs text-slate-500">· {ultimo.detalhe}</span>}
+              {anteriores.length > 0 && <span className="w-full text-xs text-slate-400">{anteriores.length} tentativa(s) anterior(es): {anteriores.map((d) => `${DISPARO_LABEL[d.status]}${d.detalhe ? ` (${d.detalhe.replace(/\.$/, "")})` : ""}`).join("; ")}</span>}
             </li>
           ))}
         </ul>
       )}
-      {meus.length > ultimoId.size && (
-        <button type="button" className="text-xs font-medium text-blue-700 hover:underline" onClick={() => setAntigas((v) => !v)} data-testid="wa-ver-antigas">
-          {antigas ? "Esconder tentativas anteriores" : `Ver tentativas anteriores (${meus.length - ultimoId.size})`}
-        </button>
-      )}
-      {error && <Alert tone="error">{error}</Alert>}
     </div>
   );
 }
