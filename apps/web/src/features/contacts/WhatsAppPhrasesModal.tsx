@@ -75,7 +75,7 @@ export function WhatsAppPhrasesModal({ clientId, profiles, stages, onClose }: {
         </p>
         {data.data && !data.data.whatsappOn && (
           <Alert tone="warning">
-            Este cliente ainda não tem o WhatsApp ligado ao CRM (Tracking → WhatsApp API, pela API oficial ou Coexistence). As frases ficam salvas e
+            Este cliente ainda não tem o WhatsApp ligado ao CRM (Tracking → Configurações → WhatsApp: pelo servidor, API oficial ou Coexistence). As frases ficam salvas e
             passam a valer quando ligar.
           </Alert>
         )}

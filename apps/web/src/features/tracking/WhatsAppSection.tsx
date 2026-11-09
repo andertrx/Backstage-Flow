@@ -1,15 +1,10 @@
-import { CHANNEL_LABELS, EVIDENCE_LABELS, hashUserData, splitFullName } from "@backstage/shared";
+import { CHANNEL_LABELS, EVIDENCE_LABELS } from "@backstage/shared";
 import { MessageCircle } from "lucide-react";
-import { useState } from "react";
-import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
-import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
-import { Field, Input, Select } from "@/components/ui/field.tsx";
-import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatMoney } from "@/lib/format.ts";
-import { type WaConversationSale, type WhatsAppClick, type WhatsAppConversation, useWhatsAppMark } from "./api.ts";
-import { parseMoneyInput, WA_CONVERSATION_STATUS_LABELS, WA_ORIGIN_LABELS, WA_STATUS_LABELS } from "./logic.ts";
+import { type WaConversationSale, type WhatsAppClick, type WhatsAppConversation } from "./api.ts";
+import { WA_CONVERSATION_STATUS_LABELS, WA_ORIGIN_LABELS, WA_STATUS_LABELS } from "./logic.ts";
 
 const STATUS_TONE = { clicado: "neutral", conversa: "neutral", lead: "brand", venda: "success" } as const;
 const ORIGIN_TONE = { anuncio_whatsapp: "success", site: "brand", desconhecida: "neutral" } as const;
@@ -18,12 +13,11 @@ const ORIGIN_TONE = { anuncio_whatsapp: "success", site: "brand", desconhecida: 
  * WhatsApp (acompanhamento, no Painel): cliques vindos do site e conversas recebidas. Ligar o número fica em Configurações → WhatsApp;
  * marcar venda, em Conversas.
  */
-export function WhatsAppSection({ clicks, conversations, hasApi, siteName, canMark, sales = [] }: {
+export function WhatsAppSection({ clicks, conversations, hasApi, siteName, sales = [] }: {
   clicks: WhatsAppClick[];
   conversations: WhatsAppConversation[];
   hasApi: boolean;
   siteName: (id: string) => string;
-  canMark: boolean;
   /** Vendas marcadas por conversa (valor e nº do pedido). */
   sales?: WaConversationSale[];
 }) {
@@ -32,7 +26,7 @@ export function WhatsAppSection({ clicks, conversations, hasApi, siteName, canMa
       <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
         <MessageCircle className="size-4 text-emerald-600" aria-hidden /> WhatsApp
       </h2>
-      {hasApi && <ConversationsCard conversations={conversations} siteName={siteName} canMark={canMark} sales={sales} />}
+      {hasApi && <ConversationsCard conversations={conversations} siteName={siteName} sales={sales} />}
 
       <Card className="overflow-x-auto">
         <table className="min-w-full text-sm">
@@ -69,9 +63,8 @@ export function WhatsAppSection({ clicks, conversations, hasApi, siteName, canMa
   );
 }
 
-/** Conversas recebidas pela API oficial: origem já vem pronta, a equipe só marca. */
-function ConversationsCard({ conversations, siteName, canMark, sales }: { conversations: WhatsAppConversation[]; siteName: (id: string) => string; canMark: boolean; sales: WaConversationSale[] }) {
-  const [open, setOpen] = useState<number | null>(null);
+/** Conversas recebidas pela API oficial: a origem já vem pronta (marcar venda é só em Conversas). */
+function ConversationsCard({ conversations, siteName, sales }: { conversations: WhatsAppConversation[]; siteName: (id: string) => string; sales: WaConversationSale[] }) {
   return (
     <Card className="overflow-x-auto">
       <div className="px-3 pt-3">
@@ -86,15 +79,14 @@ function ConversationsCard({ conversations, siteName, canMark, sales }: { conver
             <th className="px-3 py-2 font-medium">Origem</th>
             <th className="px-3 py-2 font-medium">Mensagens</th>
             <th className="px-3 py-2 font-medium">Situação</th>
-            <th className="px-3 py-2 font-medium"><span className="sr-only">Ações</span></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100" data-testid="wa-conversations">
           {conversations.map((c) => (
-            <ConversationRow key={c.id} c={c} sales={sales.filter((x) => x.conversation_id === c.id)} siteName={siteName} canMark={canMark} open={open === c.id} onToggle={() => setOpen(open === c.id ? null : c.id)} />
+            <ConversationRow key={c.id} c={c} sales={sales.filter((x) => x.conversation_id === c.id)} siteName={siteName} />
           ))}
           {conversations.length === 0 && (
-            <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-500">Nenhuma conversa recebida ainda. Confira a conexão em “WhatsApp API” no card do site.</td></tr>
+            <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-500">Nenhuma conversa recebida ainda. Confira a conexão em Configurações → WhatsApp.</td></tr>
           )}
         </tbody>
       </table>
@@ -102,9 +94,7 @@ function ConversationsCard({ conversations, siteName, canMark, sales }: { conver
   );
 }
 
-function ConversationRow({ c, sales, siteName, canMark, open, onToggle }: {
-  c: WhatsAppConversation; sales: WaConversationSale[]; siteName: (id: string) => string; canMark: boolean; open: boolean; onToggle: () => void;
-}) {
+function ConversationRow({ c, sales, siteName }: { c: WhatsAppConversation; sales: WaConversationSale[]; siteName: (id: string) => string }) {
   return (
     <>
       <tr data-testid="wa-conversation-row">
@@ -130,99 +120,8 @@ function ConversationRow({ c, sales, siteName, canMark, open, onToggle }: {
             </span>
           ))}
         </td>
-        <td className="px-3 py-2 text-right">
-          {canMark && (
-            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onToggle} aria-expanded={open} aria-label={`Marcar conversa de ${formatDateTime(c.last_message_at)}`}>
-              Marcar
-            </Button>
-          )}
-        </td>
       </tr>
-      {open && (
-        <tr>
-          <td colSpan={6} className="bg-slate-50 px-3 py-3">
-            <MarkForm target={{ conversationId: c.id }} askPhone={false} />
-          </td>
-        </tr>
-      )}
     </>
   );
 }
 
-/** Marca Lead ou Venda. O contato digitado é cifrado (SHA-256) aqui, antes de sair da tela. */
-function MarkForm({ target, askPhone }: { target: { code: string } | { conversationId: number }; askPhone: boolean }) {
-  const mark = useWhatsAppMark();
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [value, setValue] = useState("");
-  const [currency, setCurrency] = useState("BRL");
-  const [orderId, setOrderId] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  async function submit(kind: "lead" | "venda") {
-    setError(null);
-    setNotice(null);
-    let amount: number | undefined;
-    if (kind === "venda") {
-      const v = parseMoneyInput(value);
-      if (v == null) return setError("Informe o valor da venda (ex.: 350,00).");
-      amount = v;
-    }
-    const { first, last } = splitFullName(name);
-    const ud = await hashUserData({ email, phone: askPhone ? phone : "", firstName: first, lastName: last });
-    try {
-      const r = await mark.mutateAsync({
-        action: "mark", ...target, kind,
-        ...(kind === "venda" ? { value: amount, currency, orderId: orderId.trim() || undefined } : {}),
-        ...(Object.keys(ud).length ? { ud } : {}),
-      });
-      setNotice(r.status === "ja_marcado" ? "Esta conversa já estava marcada como Lead." : kind === "venda" ? "Venda registrada." : "Lead registrado.");
-      setPhone("");
-      setEmail("");
-      setName("");
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  }
-
-  return (
-    <div className="space-y-3 text-sm" data-testid="wa-mark-form">
-      {error && <Alert tone="error">{error}</Alert>}
-      {notice && <Alert tone="success">{notice}</Alert>}
-      <div className={`grid gap-3 ${askPhone ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
-        {askPhone && (
-          <Field label="Telefone do cliente (opcional)" hint="Melhora o reconhecimento no Meta. É cifrado antes de sair desta tela.">
-            {(id) => <Input id={id} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(45) 99999-8888" autoComplete="off" />}
-          </Field>
-        )}
-        <Field label="E-mail (opcional)" hint={askPhone ? undefined : "O telefone já vai sozinho (em código) pela API oficial."}>
-          {(id) => <Input id={id} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />}
-        </Field>
-        <Field label="Nome (opcional)">
-          {(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />}
-        </Field>
-      </div>
-      <Button type="button" variant="secondary" loading={mark.isPending} onClick={() => submit("lead")}>Marcar como Lead</Button>
-      <div className="grid gap-3 border-t border-slate-200 pt-3 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-end">
-        <Field label="Valor da venda">
-          {(id) => <Input id={id} value={value} onChange={(e) => setValue(e.target.value)} placeholder="350,00" inputMode="decimal" />}
-        </Field>
-        <Field label="Moeda">
-          {(id) => (
-            <Select id={id} value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              <option value="BRL">BRL</option>
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-            </Select>
-          )}
-        </Field>
-        <Field label="Nº do pedido (recomendado)" hint="Evita contar a mesma venda duas vezes.">
-          {(id) => <Input id={id} value={orderId} onChange={(e) => setOrderId(e.target.value)} placeholder="PED-123" />}
-        </Field>
-        <Button type="button" loading={mark.isPending} onClick={() => submit("venda")}>Marcar como Venda</Button>
-      </div>
-    </div>
-  );
-}

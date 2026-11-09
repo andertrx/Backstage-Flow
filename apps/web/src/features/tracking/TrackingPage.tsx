@@ -333,7 +333,6 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
             conversations={(waConversations.data ?? []).filter((c) => visibleIds.has(c.container_id))}
             hasApi={(waConnections.data ?? []).some((w) => visibleIds.has(w.container_id)) || (waConversations.data ?? []).length > 0}
             siteName={(id) => byId.get(id)?.name ?? "—"}
-            canMark={false}
             sales={waConvSales.data ?? []}
           />
           </>

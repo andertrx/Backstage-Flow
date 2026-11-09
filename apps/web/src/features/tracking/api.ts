@@ -361,23 +361,6 @@ export interface WhatsAppClick {
   touch: { channel: Channel; evidence: Evidence; utm_campaign: string | null; ad_campaign_id: string | null } | null;
 }
 
-export interface WhatsAppLookup {
-  id: number;
-  code: string;
-  container_id: string;
-  container_name: string;
-  clicked_at: string;
-  page_url: string | null;
-  status: "clicado" | "lead" | "venda";
-  sales: number;
-  test: boolean;
-  channel: Channel | null;
-  paid: boolean | null;
-  evidence: Evidence | null;
-  reason: string | null;
-  campaign: string | null;
-}
-
 export function useWhatsAppClicks(enabled: boolean) {
   return useQuery({
     queryKey: [...KEY, "whatsapp"],
@@ -392,43 +375,6 @@ export function useWhatsAppClicks(enabled: boolean) {
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os cliques no WhatsApp."));
       return data as unknown as WhatsAppClick[];
     },
-  });
-}
-
-export function useWhatsAppLookup(code: string | null) {
-  return useQuery({
-    queryKey: [...KEY, "whatsapp-lookup", code],
-    enabled: code != null,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("tracking_whatsapp_lookup", { p_code: code });
-      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos buscar o código."));
-      return ((data ?? []) as WhatsAppLookup[])[0] ?? null;
-    },
-  });
-}
-
-export interface WhatsAppMark {
-  action: "mark";
-  /** App comum: código da mensagem. API oficial: id da conversa. Um OU outro. */
-  code?: string;
-  conversationId?: number;
-  kind: "lead" | "venda";
-  value?: number;
-  currency?: string;
-  orderId?: string;
-  /** Contato do cliente já cifrado aqui na tela (SHA-256). */
-  ud?: { em?: string; ph?: string; fn?: string; ln?: string };
-}
-
-export function useWhatsAppMark() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (body: WhatsAppMark) => {
-      const { data, error } = await supabase.functions.invoke("tracking-whatsapp", { body });
-      if (error) throw new FriendlyError(await friendlyFunctionError(error));
-      return (data as { data: { status: "ok" | "ja_marcado" } }).data;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });
 }
 

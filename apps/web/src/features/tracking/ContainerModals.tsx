@@ -170,8 +170,8 @@ export function InstallModal({ container, pixelId = null, onClose }: { container
           <span>
             <span className="font-medium text-slate-800">Código de rastreio no WhatsApp</span>
             <span className="block text-xs text-slate-500">
-              A mensagem do botão do WhatsApp ganha no final “(ref. K7Q2M9)”. Quando ela chegar, a equipe digita o código na tela Tracking e
-              marca Lead/Venda com a origem certa (funciona com o WhatsApp comum).
+              A mensagem do botão do WhatsApp ganha no final “(ref. K7Q2M9)”. Quando a pessoa enviar, o CRM lê o código sozinho e liga a conversa à
+              página ou ao anúncio de origem (ninguém digita nada). Precisa do WhatsApp deste site ligado em Configurações → WhatsApp.
             </span>
           </span>
         </label>
