@@ -72,6 +72,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T5.5 — Lista "pronto para cliente" (aba Saúde do Tracking)](docs/etapa-34-tracking/T5.5-PRONTO-PARA-CLIENTE.md) ✅ 08/11
   - [T5.9 — Ficha do cliente com abas (tudo do cliente dentro dele; marcar venda só em Conversas)](docs/etapa-34-tracking/T5.9-FICHA-DO-CLIENTE.md) ✅ 09/11
   - [T5.10 — Tracking com Painel e Configurações (as abas circuladas saem da ficha e vão para o Tracking)](docs/etapa-34-tracking/T5.10-TRACKING-PAINEL-E-CONFIGURACOES.md) ✅ 09/11
+  - [53.1 — Novo layout estilo Vertix: base visual (azul, menu lateral mantido)](docs/etapa-53-layout-vertix/53.1-BASE-VISUAL.md) ✅ 09/11
   - [T5.7 — Conversas do WhatsApp estilo Tintim (texto sem prazo, telefone completo, marcar venda)](docs/etapa-34-tracking/T5.7-CONVERSAS-WHATSAPP.md) ✅ 08/11 *(falta revisão jurídica do texto e confirmar o aviso no site)*
   - [T5.6 — Vendas sugeridas pela IA (texto 2 dias; sugestão até decidir)](docs/etapa-34-tracking/T5.6-VENDAS-SUGERIDAS.md) ✅ 08/11 *(falta a chave da Anthropic e conversas reais)*
 - [Etapa 35 — Meta Ads Campaign Builder (auditoria e plano)](docs/etapa-35-campaign-builder/35.0-AUDITORIA.md) *(em espera: prompt enviado por engano; auditoria guardada para depois)*

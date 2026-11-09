@@ -36,7 +36,7 @@ export function Modal({ title, open, onClose, children, size = "md" }: ModalProp
         // Altura pela parte VISÍVEL da tela (dvh): no celular, "vh" conta a área atrás da barra do navegador e cortava a janela.
         // No celular a janela vira uma folha de baixo para cima; no computador continua centralizada.
         style={{ maxHeight: "92dvh" }}
-        className={`animate-sheet-in sm:animate-modal-in max-h-[92vh] w-full overflow-y-auto overscroll-contain rounded-t-2xl bg-white shadow-elevated sm:rounded-2xl ${size === "lg" ? "sm:max-w-2xl" : "sm:max-w-md"}`}
+        className={`animate-sheet-in sm:animate-modal-in max-h-[92vh] w-full overflow-y-auto overscroll-contain rounded-t-3xl sm:rounded-3xl bg-white shadow-elevated ${size === "lg" ? "sm:max-w-2xl" : "sm:max-w-md"}`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">

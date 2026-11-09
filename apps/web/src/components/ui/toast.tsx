@@ -19,7 +19,7 @@ export function ToastViewport() {
         const { box, icon: Icon, iconColor } = tones[t.tone];
         return (
           <div key={t.id} role={t.tone === "error" ? "alert" : "status"} data-testid="toast"
-            className={cn("animate-toast-in pointer-events-auto flex w-full max-w-sm items-start gap-2.5 rounded-xl bg-white p-3.5 text-sm text-slate-800 shadow-elevated ring-1", box)}>
+            className={cn("animate-toast-in pointer-events-auto flex w-full max-w-sm items-start gap-2.5 rounded-2xl bg-white p-3.5 text-sm text-slate-800 shadow-elevated ring-1", box)}>
             <Icon className={cn("mt-0.5 size-4 shrink-0", iconColor)} aria-hidden />
             <p className="min-w-0 flex-1 break-words">{t.message}</p>
             <button type="button" onClick={() => dismissToast(t.id)} aria-label="Fechar aviso"

@@ -2,8 +2,8 @@ import { type ComponentProps, type InputHTMLAttributes, type ReactNode, type Sel
 import { cn } from "@/lib/cn.ts";
 
 const control =
-  "block w-full rounded-lg border-0 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 transition-shadow duration-150 " +
-  "placeholder:text-slate-400 hover:ring-slate-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:shadow-none";
+  "block w-full rounded-xl border-0 bg-white px-3.5 py-2 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 transition-shadow duration-150 " +
+  "placeholder:text-slate-400 hover:ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:shadow-none";
 
 // Seta própria dos selects (classe `.select-arrow` em index.css). Continuam sendo o select nativo: seguro no celular e nos testes.
 const selectArrow = "select-arrow";

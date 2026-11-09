@@ -18,8 +18,9 @@
   --color-accent-400: #22d3ee;
   --color-accent-500: #06b6d4;
   /* Fundo da página e sombras padrão (duas apenas). */
-  --color-canvas: #f7f8fa;
-  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
+  /* Layout novo (T6.1, estilo Vertix): fundo cinza suave, cartões brancos bem arredondados, sombra quase invisível. */
+  --color-canvas: #eef0f4;
+  --shadow-card: 0 1px 0 rgb(15 23 42 / 0.02);
   --shadow-elevated: 0 12px 32px -8px rgb(15 23 42 / 0.2), 0 4px 12px -4px rgb(15 23 42 / 0.1);
   --shadow-brand: 0 4px 14px -4px rgb(37 99 235 / 0.55);
   /* Movimento: curtos, sem loop. */
@@ -76,6 +77,8 @@ body {
   /* 52.5: tabelas do sistema com cabeçalho e linhas no mesmo padrão (só aparência). */
   table thead th { font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; }
   table thead { background-color: var(--color-slate-50); }
+  table thead th:first-child { border-top-left-radius: 0.75rem; }
+  table thead th:last-child { border-top-right-radius: 0.75rem; }
   table tbody tr { transition: background-color 120ms ease; }
   table tbody tr:hover { background-color: color-mix(in oklab, var(--color-slate-100) 55%, transparent); }
   @media print { table tbody tr:hover { background-color: transparent; } }

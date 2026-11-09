@@ -14,7 +14,7 @@ const tones: Record<Tone, { box: string; icon: typeof Info }> = {
 export function Alert({ tone = "info", children }: { tone?: Tone; children: ReactNode }) {
   const { box, icon: Icon } = tones[tone];
   return (
-    <div role={tone === "error" ? "alert" : "status"} className={cn("flex gap-2 rounded-lg p-3 text-sm ring-1 ring-inset", box)}>
+    <div role={tone === "error" ? "alert" : "status"} className={cn("flex gap-2 rounded-xl p-3 text-sm ring-1 ring-inset", box)}>
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       <div>{children}</div>
     </div>

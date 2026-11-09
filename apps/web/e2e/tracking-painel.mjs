@@ -70,6 +70,7 @@ function seed(db) {
   await page.getByTestId("tracking-client").selectOption(A);
   await page.waitForURL(new RegExp(`cliente=${A}`));
   await page.getByTestId("tracking-tab-saude").click();
+  await page.getByTestId("readiness-site").first().waitFor();
   const saude = await page.locator("main").innerText();
   check(saude.includes("atacado.com.br") && !saude.includes("varejo.com.br"), "Saúde: só o site do cliente escolhido");
   check(page.url().includes("aba=site") === false && page.url().includes("sub=saude"), "a parte escolhida fica no endereço");

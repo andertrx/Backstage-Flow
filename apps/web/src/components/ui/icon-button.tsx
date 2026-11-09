@@ -27,7 +27,7 @@ export function IconButton({ label, icon, variant = "ghost", size = "md", classN
       aria-label={label}
       title={label}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-lg transition-all duration-150 active:scale-95",
+        "inline-flex shrink-0 items-center justify-center rounded-full transition-all duration-150 active:scale-95",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-50",
         "[&_svg]:size-4",
         sizes[size],
