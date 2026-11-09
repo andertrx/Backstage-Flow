@@ -135,7 +135,7 @@ function ConversationsCard({ conversations, siteName, canMark }: { conversations
     <Card className="overflow-x-auto">
       <div className="px-3 pt-3">
         <h3 className="text-sm font-semibold text-slate-900">Conversas recebidas (API oficial)</h3>
-        <p className="text-xs text-slate-500">Chegam sozinhas pelo webhook do Meta. Aqui só o número em código (hash) é guardado; o texto das conversas só fica guardado se “Guardar as conversas” estiver ligado (Clientes → Conversas do WhatsApp).</p>
+        <p className="text-xs text-slate-500">Chegam sozinhas pelo webhook do Meta. Aqui só o número em código (hash) é guardado; o texto das conversas só fica guardado se “Guardar as conversas” estiver ligado (Tracking → Painel → Conversas).</p>
       </div>
       <table className="mt-2 min-w-full text-sm">
         <thead className="bg-slate-50 text-left text-xs text-slate-500">

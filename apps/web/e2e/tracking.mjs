@@ -6,7 +6,14 @@
 import { createHash } from "node:crypto";
 import { BASE, check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
 
-const aba = (page, id) => page.getByTestId(`tracking-tab-${id}`).click();
+/** Vai até a parte pedida: "sites" fica em Configurações; as demais, no Painel (Site e origem tem partes próprias). */
+const aba = async (page, id) => {
+  if (id === "sites") return page.getByTestId("tracking-section-config").click();
+  await page.getByTestId("tracking-section-painel").click();
+  if (id === "whatsapp" || id === "sugestoes") return page.getByTestId(`tracking-panel-tab-${id}`).click();
+  await page.getByTestId("tracking-panel-tab-site").click();
+  await page.getByTestId(`tracking-tab-${id}`).click();
+};
 
 const sha = (t) => createHash("sha256").update(t).digest("hex");
 
@@ -36,7 +43,8 @@ function seedClients(db) {
   await page.getByTestId("tracking-empty").waitFor();
   check(true, "sem containers: mensagem explicando o que fazer");
 
-  await page.getByRole("button", { name: "Novo container" }).click();
+  await aba(page, "sites");
+  await page.getByRole("button", { name: "Novo site" }).click();
   const dialog = page.getByRole("dialog", { name: "Novo container de tracking" });
   await dialog.getByLabel("Cliente *").selectOption(EXC);
   await dialog.getByLabel("Nome do site *").fill("Loja Excalibur");
@@ -379,7 +387,7 @@ function seedClients(db) {
   await page.getByRole("heading", { name: "Tracking", level: 1 }).waitFor();
   await page.getByTestId("container-card").waitFor();
   await aba(page, "sites");
-  check(await page.getByRole("button", { name: "Novo container" }).count() === 0 && await page.getByRole("button", { name: "Editar Loja" }).count() === 0, "visualizador vê o tracking mas não cria nem edita");
+  check(await page.getByRole("button", { name: "Novo site" }).count() === 0 && await page.getByRole("button", { name: "Editar Loja" }).count() === 0, "visualizador vê o tracking mas não cria nem edita");
   await aba(page, "sites");
   check(await page.getByRole("button", { name: "Código de instalação: Loja" }).count() === 1, "visualizador pode ver o código de instalação");
   await aba(page, "sites");

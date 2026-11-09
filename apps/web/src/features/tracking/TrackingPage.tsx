@@ -7,9 +7,8 @@ import {
   EVIDENCE_LABELS,
   eventLabel,
 } from "@backstage/shared";
-import { Code2, ListChecks, MessageCircle, MousePointerClick, Pencil, Plus, Radar, Users } from "lucide-react";
+import { Code2, ListChecks, MessageCircle, MousePointerClick, Pencil, Plus, Radar } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
-import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -59,30 +58,31 @@ const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
   desconhecida: "neutral",
 };
 
-export type TrackingTab = "sites" | "origens" | "whatsapp" | "sugestoes" | "leads" | "saude";
+/** "sites" é a parte de Configurações (código de instalação, Meta, regras); as demais são do Painel. */
+export type TrackingTab = "resumo" | "sites" | "origens" | "whatsapp" | "sugestoes" | "leads" | "saude";
 const TABS: { id: TrackingTab; label: string }[] = [
-  { id: "sites", label: "Sites" },
+  { id: "resumo", label: "Resumo" },
   { id: "origens", label: "Origem e jornada" },
+  { id: "leads", label: "Leads recebidos" },
+  { id: "saude", label: "Saúde" },
+  { id: "sites", label: "Sites" },
   { id: "whatsapp", label: "WhatsApp" },
   { id: "sugestoes", label: "Vendas sugeridas" },
-  { id: "leads", label: "Leads e contatos" },
-  { id: "saude", label: "Saúde" },
 ];
 
 const paidLabel = (paid: boolean | null) => (paid === true ? "Pago" : paid === false ? "Orgânico" : "Não dá para saber");
 
 /**
- * `embedded`: dentro da ficha do cliente. O cliente fica fixo, o cabeçalho e o filtro de cliente somem e só aparecem as partes
- * listadas em `tabs` (a parte escolhida fica no endereço como `sub`, para não brigar com a aba da ficha).
+ * Partes do Tracking (a tela em si é o `TrackingHub`: Painel e Configurações). `clientId` vazio = todos os clientes;
+ * `tabs` diz quais partes aparecem; a parte escolhida fica no endereço como `sub`.
  */
-export function TrackingPage({ embedded }: { embedded?: { clientId: string; tabs: TrackingTab[] } } = {}) {
+export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs: TrackingTab[] }) {
   const { profile } = useAuth();
   const canManage = can(profile?.role, "tracking.manage");
   const [params, updateParams] = useSearchParamsUpdater();
   const period = (["hoje", "7d", "30d"] as const).find((p) => p === params.get("periodo")) ?? "hoje";
-  const clientId = embedded ? embedded.clientId : params.get("cliente");
-  const tabParam = embedded ? "sub" : "aba";
-  const shownTabs = embedded ? TABS.filter((t) => embedded.tabs.includes(t.id)) : TABS;
+  const tabParam = "sub";
+  const shownTabs = TABS.filter((t) => tabs.includes(t.id));
   const tab = shownTabs.find((t) => t.id === params.get(tabParam))?.id ?? shownTabs[0]?.id ?? "sites";
   const set = (key: string, value: string | null) =>
     updateParams((latest) => {
@@ -109,7 +109,6 @@ export function TrackingPage({ embedded }: { embedded?: { clientId: string; tabs
   const waConnections = useWhatsAppConnections(hasContainers);
   const waConversations = useWhatsAppConversations(hasContainers);
   const suggestions = useWaSuggestions(hasContainers);
-  const pendingSuggestions = (suggestions.data ?? []).filter((x) => x.status === "pendente").length;
   const waConnOf = (containerId: string) => (waConnections.data ?? []).find((w) => w.container_id === containerId);
   const [waApiFor, setWaApiFor] = useState<TrackingContainer | null>(null);
   const [waServerFor, setWaServerFor] = useState<TrackingContainer | null>(null);
@@ -144,34 +143,12 @@ export function TrackingPage({ embedded }: { embedded?: { clientId: string; tabs
 
   return (
     <div className="space-y-6">
-      {embedded ? (
-        canManage && (
-          <div className="flex justify-end">
-            <Button onClick={() => setEditing("new")}>
-              <Plus className="size-4" aria-hidden /> Novo site
-            </Button>
-          </div>
-        )
-      ) : (
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Tracking</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Visitas, origens e eventos dos sites dos clientes, coletados pelo nosso script (sem dados pessoais).
-          </p>
+      {tabs.includes("sites") && canManage && (
+        <div className="flex justify-end">
+          <Button onClick={() => setEditing("new")}>
+            <Plus className="size-4" aria-hidden /> Novo site
+          </Button>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {/* T3.1: contatos dos clientes (no lugar da planilha) */}
-          <Link to="/contatos" className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400">
-            <Users className="size-4" aria-hidden /> Contatos
-          </Link>
-          {canManage && (
-            <Button onClick={() => setEditing("new")}>
-              <Plus className="size-4" aria-hidden /> Novo container
-            </Button>
-          )}
-        </div>
-      </div>
       )}
 
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
@@ -181,29 +158,22 @@ export function TrackingPage({ embedded }: { embedded?: { clientId: string; tabs
       ) : !hasContainers ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center" data-testid="tracking-empty">
           <Radar className="size-8 text-slate-300" aria-hidden />
-          <p className="font-medium text-slate-900">{embedded ? "Este cliente ainda não tem site configurado." : "Nenhum site configurado ainda."}</p>
+          <p className="font-medium text-slate-900">{clientId ? "Este cliente ainda não tem site configurado." : "Nenhum site configurado ainda."}</p>
           <p className="max-w-md text-sm text-slate-500">
             {canManage
-              ? "Crie um container para o site do cliente, informe o domínio e cole o código de instalação no site."
+              ? "Em Configurações, crie o site do cliente, informe o domínio e cole o código de instalação no site."
               : "Peça a um administrador ou gestor para configurar o site do cliente."}
           </p>
         </Card>
       ) : (
         <>
-          {(!embedded || tab === "sites" || tab === "origens") && (<Card className={embedded ? "grid gap-3 p-4" : "grid gap-3 p-4 sm:grid-cols-2"} role="search" aria-label="Filtros do tracking">
+          {(tab === "resumo" || tab === "origens") && (<Card className="grid gap-3 p-4" role="search" aria-label="Filtros do tracking">
             <label className="text-sm">
               <span className="mb-1 block font-medium text-slate-700">Período</span>
               <Select value={period} onChange={(e) => set("periodo", e.target.value === "hoje" ? null : e.target.value)}>
                 {(Object.keys(PERIOD_LABELS) as PeriodPreset[]).map((p) => <option key={p} value={p}>{PERIOD_LABELS[p]}</option>)}
               </Select>
             </label>
-            {!embedded && (<label className="text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Cliente</span>
-              <Select value={clientId ?? ""} onChange={(e) => set("cliente", e.target.value || null)}>
-                <option value="">Todos os clientes</option>
-                {clients.filter((c) => containers.some((t) => t.client_id === c.id)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-            </label>)}
           </Card>)}
 
           {shownTabs.length > 1 && (<div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" role="tablist" aria-label="Partes do tracking">
@@ -213,12 +183,12 @@ export function TrackingPage({ embedded }: { embedded?: { clientId: string; tabs
                 className={tab === t.id
                   ? "rounded-full bg-brand-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-brand"
                   : "rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200 hover:text-slate-900"}>
-                {t.label}{t.id === "sugestoes" && pendingSuggestions > 0 ? ` (${pendingSuggestions})` : ""}
+                {t.label}
               </button>
             ))}
           </div>)}
 
-          {tab === "sites" && (
+          {tab === "resumo" && (
             <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" role="list" aria-label="Resumo do período">
             <Stat label="Sessões" value={total.sessions} />
@@ -243,7 +213,11 @@ export function TrackingPage({ embedded }: { embedded?: { clientId: string; tabs
               )}
             </div>
           </div>
+            </>
+          )}
 
+          {tab === "sites" && (
+            <>
           <section aria-label="Sites configurados" className="space-y-3">
             <h2 className="text-base font-semibold text-slate-900">Sites</h2>
             <ul className="grid gap-3 lg:grid-cols-2">
@@ -345,7 +319,7 @@ export function TrackingPage({ embedded }: { embedded?: { clientId: string; tabs
           <>
           <WhatsAppConnectionsCard sites={visible} connectionOf={waConnOf} canManage={canManage} onServer={setWaServerFor} onApi={setWaApiFor} />
           <Alert tone="info">
-            <span data-testid="wa-mark-moved">Para <strong>marcar venda</strong>, use a aba <strong>Conversas</strong> do cliente (Clientes → o cliente → Conversas). Lá você lê a conversa antes de marcar.</span>
+            <span data-testid="wa-mark-moved">Para <strong>marcar venda</strong>, use a aba <strong>Conversas</strong> deste painel. Lá você lê a conversa antes de marcar.</span>
           </Alert>
           <WhatsAppSection
             clicks={(waClicks.data ?? []).filter((c) => visibleIds.has(c.container_id))}
@@ -361,7 +335,6 @@ export function TrackingPage({ embedded }: { embedded?: { clientId: string; tabs
             <SuggestionsSection
               suggestions={(suggestions.data ?? []).filter((x) => !clientId || x.client_id === clientId)}
               clientName={(id) => clients.find((c) => c.id === id)?.name ?? "Cliente"}
-              isAdmin={profile?.role === "admin"}
             />
           )}
 
@@ -374,8 +347,7 @@ export function TrackingPage({ embedded }: { embedded?: { clientId: string; tabs
             siteName={(id) => byId.get(id)?.name ?? "—"}
           />
           <p className="text-sm text-slate-500">
-            Para marcar perfil, etapa ou venda de cada contato, use a tela de{" "}
-            <Link to="/contatos" className="font-medium text-blue-700 hover:underline">Contatos</Link>.
+            Para marcar perfil, etapa ou venda de cada contato, use a aba <strong>Contatos e vendas</strong> deste painel.
           </p>
             </>
           )}
@@ -386,7 +358,7 @@ export function TrackingPage({ embedded }: { embedded?: { clientId: string; tabs
       {editing && (
         <ContainerFormModal
           container={editing === "new" ? null : editing}
-          clients={clients.filter((c) => !embedded || c.id === embedded.clientId).map((c) => ({ id: c.id, name: c.name }))}
+          clients={clients.filter((c) => !clientId || c.id === clientId).map((c) => ({ id: c.id, name: c.name }))}
           onClose={() => setEditing(null)}
           onSaved={(id) => {
             if (editing === "new") {

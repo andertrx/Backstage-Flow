@@ -15,7 +15,7 @@ export function SuggestionsPage() {
         <h1 className="text-xl font-semibold text-slate-900">Vendas sugeridas</h1>
         <p className="text-sm text-slate-600">A IA lê as conversas do dia e sugere onde pode ter havido venda. Confira no WhatsApp e decida. Aparecem só os seus clientes.</p>
       </div>
-      <SuggestionsSection suggestions={suggestions.data ?? []} clientName={(id) => clients.find((c) => c.id === id)?.name ?? "Cliente"} isAdmin={false} />
+      <SuggestionsSection suggestions={suggestions.data ?? []} clientName={(id) => clients.find((c) => c.id === id)?.name ?? "Cliente"} />
     </div>
   );
 }

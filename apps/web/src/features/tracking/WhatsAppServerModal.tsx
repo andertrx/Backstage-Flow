@@ -170,7 +170,7 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
             </label>
             <p className="text-xs text-slate-500">
               Guarda o <strong>telefone completo</strong>, o nome do WhatsApp e o <strong>texto</strong> das conversas individuais, <strong>sem prazo</strong>: nada é apagado sozinho.
-              Só administrador, gestor e o Account Manager do cliente leem (em Clientes → Conversas do WhatsApp); só o administrador apaga. Grupos nunca entram.
+              Só administrador, gestor e o Account Manager do cliente leem (em Tracking → Painel → Conversas); só o administrador apaga. Grupos nunca entram.
               Áudio, imagem e arquivos aparecem só como marcador (“[áudio]”): o arquivo em si não é guardado.
             </p>
             {ack && (

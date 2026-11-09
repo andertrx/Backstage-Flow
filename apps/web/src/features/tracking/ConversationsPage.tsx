@@ -249,3 +249,8 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
     </div>
   );
 }
+
+/** Conversas de um cliente para quem não tem o Tracking (Account Manager): o banco só devolve se a pessoa for do cliente. */
+export function ConversationsStandalone({ clientId }: { clientId: string }) {
+  return <ConversationsPanel clientId={clientId} />;
+}

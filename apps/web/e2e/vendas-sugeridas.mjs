@@ -24,13 +24,16 @@ function seed(db) {
   seed(db);
   await login(page, "/tracking?aba=sugestoes");
   await page.getByTestId("wa-suggestions").waitFor();
-  check((await page.getByTestId("tracking-tab-sugestoes").innerText()).includes("(2)"), "a aba mostra quantas sugestões esperam");
+  check((await page.getByTestId("tracking-panel-tab-sugestoes").innerText()).includes("(2)"), "a aba mostra quantas sugestões esperam");
   check(await page.getByTestId("wa-suggestion").count() === 2, "lista as 2 sugestões pendentes");
   const txt = await page.getByTestId("wa-suggestions").innerText();
   check(txt.includes("João") && txt.includes("final 8888") && txt.includes("Loja Atacado") && txt.includes("comprovante do PIX") && txt.includes("Confiança alta"),
     "cada sugestão mostra nome, final do número, cliente, motivo e confiança (sem texto da conversa)");
 
-  // IA: chave inválida é recusada; válida liga; a chave nunca volta
+  // IA: chave inválida é recusada; válida liga; a chave nunca volta (fica em Tracking → Configurações)
+  check(await page.getByTestId("wa-ai-card").count() === 0, "a chave da IA não fica na aba de vendas sugeridas");
+  await page.getByTestId("tracking-section-config").click();
+  await page.getByTestId("wa-ai-card").waitFor();
   const card = page.getByTestId("wa-ai-card");
   check(await card.getByRole("checkbox", { name: "Ligar a IA" }).isDisabled(), "sem chave, não liga a IA");
   await card.getByLabel(/Chave da Anthropic/).fill("chave-errada");
@@ -46,7 +49,9 @@ function seed(db) {
   check(db.waAiSettings.has_key && db.waAiSettings.enabled, "chave salva e IA ligada");
   check(!(await page.content()).includes(KEY) && JSON.stringify(db.waAiSettings).includes(KEY) === false, "a chave nunca aparece na tela nem fica no registro da configuração");
 
-  // Decidir
+  // Decidir (de volta ao Painel)
+  await page.getByTestId("tracking-section-painel").click();
+  await page.getByTestId("tracking-panel-tab-sugestoes").click();
   await page.getByTestId("wa-suggestion").filter({ hasText: "João" }).getByRole("button", { name: "Houve venda" }).click();
   await page.getByText("Já decididas (1)").waitFor();
   const s1 = db.waSuggestions.find((x) => x.id === "s1");

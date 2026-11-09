@@ -10,11 +10,15 @@ import { PLATFORM_VIEW_LIST } from "@/features/platforms/logic.ts";
 import { SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
 import { ClientHomeOr, RequireReportAccess } from "@/features/client-report/ClientHome.tsx";
 import { RouteError } from "./RouteError.tsx";
+import { can } from "@backstage/shared";
+import { useAuth } from "@/features/auth/AuthProvider.tsx";
 
-/** Endereço antigo das conversas → aba da ficha do cliente. */
-function ClientTabRedirect({ tab }: { tab: string }) {
+/** Endereço das conversas de um cliente: no Tracking → Painel; quem não tem o Tracking (Account Manager, papel Equipe) abre só as conversas dele. */
+function ClientConversationsRoute() {
   const { id } = useParams();
-  return <Navigate to={`/clientes/${id}?aba=${tab}`} replace />;
+  const { profile } = useAuth();
+  if (can(profile?.role, "tracking.manage")) return <Navigate to={`/tracking?cliente=${id}&aba=conversas`} replace />;
+  return <ClientConversationsStandalone clientId={id ?? ""} />;
 }
 
 /** Cada página só é baixada quando for aberta (o site abre mais rápido). */
@@ -46,7 +50,8 @@ const OpsNotificationsRoute = lazy(() => import("@/features/operations/Notificat
 const OpsDashboardRoute = lazy(() => import("@/features/operations/DashboardPage.tsx").then((m) => ({ default: m.DashboardRoute })));
 const OpsSettingsPage = lazy(() => import("@/features/operations/OpsSettingsPage.tsx").then((m) => ({ default: m.OpsSettingsPage })));
 const SuggestionsPage = lazy(() => import("@/features/tracking/SuggestionsPage.tsx").then((m) => ({ default: m.SuggestionsPage })));
-const TrackingPage = lazy(() => import("@/features/tracking/TrackingPage.tsx").then((m) => ({ default: m.TrackingPage })));
+const TrackingHub = lazy(() => import("@/features/tracking/TrackingHub.tsx").then((m) => ({ default: m.TrackingHub })));
+const ClientConversationsStandalone = lazy(() => import("@/features/tracking/ConversationsPage.tsx").then((m) => ({ default: m.ConversationsStandalone })));
 const WhatsAppCallbackPage = lazy(() => import("@/features/tracking/WhatsAppCallbackPage.tsx").then((m) => ({ default: m.WhatsAppCallbackPage })));
 const GoogleAgendaCallbackPage = lazy(() => import("@/features/google-agenda/GoogleAgendaCallbackPage.tsx").then((m) => ({ default: m.GoogleAgendaCallbackPage })));
 const SyncPage = lazy(() => import("@/features/sync/SyncPage.tsx").then((m) => ({ default: m.SyncPage })));
@@ -139,7 +144,11 @@ export const router = createBrowserRouter([
       // Tracking T5.7: conversas do WhatsApp do cliente (o banco confere: administrador, gestor e Account Manager do cliente)
       {
         path: "clientes/:id/conversas",
-        element: <ClientTabRedirect tab="conversas" />,
+        element: (
+          <RequirePermission permission="tracking.suggestions">
+            <ClientConversationsRoute />
+          </RequirePermission>
+        ),
       },
       {
         path: "clientes/:id/dashboard",
@@ -302,7 +311,7 @@ export const router = createBrowserRouter([
         path: "tracking",
         element: (
           <RequirePermission permission="tracking.view">
-            <TrackingPage />
+            <TrackingHub />
           </RequirePermission>
         ),
       },

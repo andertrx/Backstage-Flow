@@ -16,7 +16,7 @@ const CONF: Record<WaSuggestion["confidence"], { label: string; tone: "success" 
   baixa: { label: "Confiança baixa", tone: "neutral" },
 };
 
-function AiCard() {
+export function WaAiCard() {
   const settings = useWaAiSettings(true);
   const save = useWaAiSave();
   const removeKey = useWaAiRemoveKey();
@@ -43,7 +43,7 @@ function AiCard() {
       </div>
       <p className="text-sm text-slate-600">
         Uma vez por dia (3h da manhã), a IA lê as conversas do dia dos sites com “Guardar as conversas” ligado e sugere onde pode ter havido venda.
-        Ela <strong>só sugere</strong>: você confere a conversa aqui no CRM (Clientes → Conversas do WhatsApp) e marca a venda.
+        Ela <strong>só sugere</strong>: você confere a conversa aqui no CRM (Tracking → Painel → Conversas) e marca a venda.
       </p>
       {error && <Alert tone="error">{error}</Alert>}
       <div className="flex flex-wrap items-end gap-2">
@@ -121,10 +121,9 @@ function Row({ s, client, onDecide, busy, pending }: {
  * a conversa (T5.7: dentro do CRM). "Houve venda" só anota a decisão — a venda em si é marcada na conversa ou no Contato (que alimenta a API de Conversões).
  * Decidida, a sugestão some sozinha em 30 dias.
  */
-export function SuggestionsSection({ suggestions, clientName, isAdmin }: {
+export function SuggestionsSection({ suggestions, clientName }: {
   suggestions: WaSuggestion[];
   clientName: (id: string) => string;
-  isAdmin: boolean;
 }) {
   const decide = useWaSuggestionDecide();
   const [error, setError] = useState<string | null>(null);
@@ -146,7 +145,6 @@ export function SuggestionsSection({ suggestions, clientName, isAdmin }: {
 
   return (
     <div className="space-y-4" data-testid="wa-suggestions">
-      {isAdmin && <AiCard />}
       {error && <Alert tone="error">{error}</Alert>}
       <Card className="overflow-hidden">
         <div className="border-b border-slate-100 p-4">

@@ -16,7 +16,7 @@ db.clients.push(client(CLI, "Loja Atacado"));
 db.trackingContainers.push({ id: "t-cont", client_id: CLI, name: "loja.com.br", public_key: "bf_0123456789abcdef01234567", allowed_domains: ["loja.com.br"],
   status: "ativo", test_mode: false, consent_mode: "nao_exigir", retention_days: 180, created_at: "2026-10-01T00:00:00Z", rules_version: null });
 
-await login(page, "/tracking?aba=saude");
+await login(page, "/tracking?aba=site&sub=saude");
 const site = page.getByTestId("readiness-site");
 await site.waitFor();
 const state = (id) => site.locator(`[data-item="${id}"]`).getAttribute("data-state");

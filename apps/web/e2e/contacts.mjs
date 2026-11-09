@@ -97,9 +97,9 @@ function seed(db) {
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
   await login(page, "/tracking");
-  await page.getByRole("link", { name: "Contatos" }).click();
-  await page.getByRole("heading", { name: "Contatos" }).waitFor();
-  await page.getByLabel("Cliente", { exact: true }).selectOption({ label: "Loja Atacado" });
+  await page.getByTestId("tracking-client").selectOption({ label: "Loja Atacado" });
+  await page.getByTestId("tracking-panel-tab-contatos").click();
+  await page.getByRole("heading", { name: "Contatos e vendas" }).waitFor();
   await page.getByLabel("Código da mensagem ou telefone").fill("K7Q2M9");
   await page.getByRole("button", { name: "Buscar" }).click();
   await page.getByTestId("contact-modal").waitFor();
