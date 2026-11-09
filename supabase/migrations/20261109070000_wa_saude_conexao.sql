@@ -89,7 +89,7 @@ begin
         for a in select id from public.profiles where role = 'admin' and active loop
           perform private.ops_notify(a.id, 'whatsapp.caiu', 'WhatsApp dos envios sem conexão',
             'Há ' || v_min || ' min sem conexão: ' || coalesce(s.health_message, 'sem detalhe') || ' Os avisos nos grupos não saem até voltar.',
-            '/configuracoes/integracoes', v_key);
+            '/operacoes/whatsapp-conexao', v_key);
         end loop;
         update public.wa_gateway_settings set alert_sent = true, last_alert_at = now() where id;
       elsif s.health_state = 'conectado' and s.alert_sent then
@@ -97,7 +97,7 @@ begin
         for a in select id from public.profiles where role = 'admin' and active loop
           perform private.ops_notify(a.id, 'whatsapp.voltou', 'WhatsApp dos envios voltou',
             'A conexão voltou' || case when s.owner_tail is not null then ' (número terminado em ' || s.owner_tail || ')' else '' end || '.',
-            '/configuracoes/integracoes', v_key);
+            '/operacoes/whatsapp-conexao', v_key);
         end loop;
         update public.wa_gateway_settings set alert_sent = false where id;
       end if;

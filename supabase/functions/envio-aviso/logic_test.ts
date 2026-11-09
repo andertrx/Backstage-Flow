@@ -25,3 +25,18 @@ Deno.test("e-mail escapa o texto e traz saudação e botão", () => {
   assertStringIncludes(e.text, `Revisar e aprovar: ${ENVIOS_URL}`);
   assertEquals(avisoEmail({ ...base, nome_pessoa: null }).text.includes("Olá.\n"), true);
 });
+
+import { waAvisoEmail, waAvisoPush, WA_CONEXAO_URL } from "./logic.ts";
+const wa = { tipo: "caiu" as const, titulo: "WhatsApp dos envios sem conexão", corpo: "Há 10 min sem conexão: <teste> & mais.", nome_pessoa: "Ander Rodrigues" };
+
+Deno.test("aviso de WhatsApp caiu/voltou: push com link de Integrações e e-mail escapado", () => {
+  const p = waAvisoPush(wa);
+  assertEquals(p.url, "https://www.backstageflow.com.br/configuracoes/integracoes");
+  assertEquals(p.tag, "wa-conexao-caiu");
+  const e = waAvisoEmail(wa);
+  assertStringIncludes(e.html, "&lt;teste&gt; &amp; mais.");
+  assert(!e.html.includes("<teste>"));
+  assertStringIncludes(e.html, `href="${WA_CONEXAO_URL}"`);
+  assertStringIncludes(e.text, "Olá, Ander.");
+  assertEquals(waAvisoPush({ ...wa, tipo: "voltou" }).tag, "wa-conexao-voltou");
+});

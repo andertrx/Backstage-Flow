@@ -14,7 +14,7 @@ import { recordError } from "../_shared/errorlog.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { resendResult, SITE_URL } from "../client-report-email/logic.ts";
 import { sendPush, type Subscription } from "../ops-push/webpush.ts";
-import { type AvisoEnvio, avisoEmail, avisoPush } from "./logic.ts";
+import { type AvisoEnvio, type AvisoWa, avisoEmail, avisoPush, waAvisoEmail, waAvisoPush } from "./logic.ts";
 
 const RESEND_URL = "https://api.resend.com/emails";
 const schema = z.object({ action: z.literal("send") });
@@ -26,6 +26,15 @@ interface QueueRow extends AvisoEnvio {
   email: string | null;
   subscriptions: Subscription[] | null;
 }
+/** Aviso de WhatsApp dos envios (caiu/voltou); mesma fila de aparelho e e-mail, outra tabela. */
+interface WaRow extends AvisoWa {
+  id: number;
+  push_pendente: boolean;
+  email_pendente: boolean;
+  email: string | null;
+  subscriptions: Subscription[] | null;
+}
+type Kind = "envio" | "wa";
 interface Sender { from: string; replyTo: string | null; key: string }
 
 async function loadSender(db: SupabaseClient): Promise<Sender | string> {
@@ -36,32 +45,32 @@ async function loadSender(db: SupabaseClient): Promise<Sender | string> {
   return { from: `${s.from_name} <${s.from_email}>`, replyTo: s.reply_to, key: key as string };
 }
 
-async function mark(db: SupabaseClient, id: number, canal: "push" | "email", status: string, reason: string | null) {
-  const { error } = await db.rpc("ops_envio_aviso_mark", { p_id: id, p_canal: canal, p_status: status, p_reason: reason });
+async function mark(db: SupabaseClient, id: number, canal: "push" | "email", status: string, reason: string | null, kind: Kind = "envio") {
+  const { error } = await db.rpc(kind === "wa" ? "wa_saude_aviso_mark" : "ops_envio_aviso_mark", { p_id: id, p_canal: canal, p_status: status, p_reason: reason });
   if (error) await recordError({ source: "servidor", code: "ENVIO_AVISO_MARK_FAILED", technical: error, context: { funcao: "envio-aviso" } });
 }
 
-async function pushRow(db: SupabaseClient, keys: { publicKey: string; privateJwk: string } | null, row: QueueRow) {
+async function pushRow(db: SupabaseClient, keys: { publicKey: string; privateJwk: string } | null, row: QueueRow | WaRow, kind: Kind = "envio") {
   const subs = row.subscriptions ?? [];
-  if (!subs.length) return mark(db, row.id, "push", "sem_aparelho", null);
-  if (!keys) return mark(db, row.id, "push", "falhou", "As chaves de notificação ainda não foram criadas.");
+  if (!subs.length) return mark(db, row.id, "push", "sem_aparelho", null, kind);
+  if (!keys) return mark(db, row.id, "push", "falhou", "As chaves de notificação ainda não foram criadas.", kind);
   let ok = 0;
   let lastStatus = 0;
   for (const s of subs) {
-    const r = await sendPush(s, avisoPush(row), { ...keys, subject: SITE_URL });
+    const r = await sendPush(s, kind === "wa" ? waAvisoPush(row as WaRow) : avisoPush(row as QueueRow), { ...keys, subject: SITE_URL });
     if (r.ok) ok++; else lastStatus = r.status;
     await db.rpc("ops_push_mark", {
       p_id: s.id, p_ok: r.ok, p_gone: r.gone,
       p_error: r.ok ? null : r.gone ? `O navegador cancelou a autorização (${r.status}).` : `Serviço de notificação respondeu ${r.status || "sem conexão"}.`,
     });
   }
-  return ok > 0 ? mark(db, row.id, "push", "enviado", null) : mark(db, row.id, "push", "falhou", `Nenhum aparelho recebeu (resposta ${lastStatus || "sem conexão"}).`);
+  return ok > 0 ? mark(db, row.id, "push", "enviado", null, kind) : mark(db, row.id, "push", "falhou", `Nenhum aparelho recebeu (resposta ${lastStatus || "sem conexão"}).`, kind);
 }
 
-async function emailRow(db: SupabaseClient, sender: Sender | string, row: QueueRow) {
-  if (!row.email) return mark(db, row.id, "email", "sem_email", null);
-  if (typeof sender === "string") return mark(db, row.id, "email", "falhou", sender);
-  const email = avisoEmail(row);
+async function emailRow(db: SupabaseClient, sender: Sender | string, row: QueueRow | WaRow, kind: Kind = "envio") {
+  if (!row.email) return mark(db, row.id, "email", "sem_email", null, kind);
+  if (typeof sender === "string") return mark(db, row.id, "email", "falhou", sender, kind);
+  const email = kind === "wa" ? waAvisoEmail(row as WaRow) : avisoEmail(row as QueueRow);
   let reason: string | null = null;
   try {
     const res = await fetch(RESEND_URL, {
@@ -74,7 +83,7 @@ async function emailRow(db: SupabaseClient, sender: Sender | string, row: QueueR
   } catch {
     reason = "Não conseguimos falar com o Resend agora.";
   }
-  return mark(db, row.id, "email", reason === null ? "enviado" : "falhou", reason);
+  return mark(db, row.id, "email", reason === null ? "enviado" : "falhou", reason, kind);
 }
 
 Deno.serve(handle(async (req) => {
@@ -87,19 +96,27 @@ Deno.serve(handle(async (req) => {
   const { data, error } = await db.rpc("ops_envio_aviso_fila");
   if (error) throw new AppError(500, "DB_ERROR", "Não conseguimos ler a fila de avisos.", error);
   const rows = (data as QueueRow[] | null) ?? [];
-  if (!rows.length) return json(req, 200, { data: { avisos: 0 } });
+  const { data: waData, error: waError } = await db.rpc("wa_saude_aviso_fila");
+  if (waError) await recordError({ source: "servidor", code: "WA_AVISO_FILA_FAILED", technical: waError, context: { funcao: "envio-aviso" } });
+  const waRows = (waData as WaRow[] | null) ?? [];
+  if (!rows.length && !waRows.length) return json(req, 200, { data: { avisos: 0 } });
 
+  const all = [...rows, ...waRows];
   let keys: { publicKey: string; privateJwk: string } | null = null;
-  if (rows.some((r) => r.push_pendente && (r.subscriptions ?? []).length)) {
+  if (all.some((r) => r.push_pendente && (r.subscriptions ?? []).length)) {
     const { data: k } = await db.rpc("ops_push_keys");
     const g = (k ?? {}) as { public?: string | null; private?: string | null };
     if (g.public && g.private) keys = { publicKey: g.public, privateJwk: g.private };
   }
-  const sender = rows.some((r) => r.email_pendente) ? await loadSender(db) : "";
+  const sender = all.some((r) => r.email_pendente) ? await loadSender(db) : "";
 
   for (const row of rows) {
     if (row.push_pendente) await pushRow(db, keys, row);
     if (row.email_pendente) await emailRow(db, sender, row);
   }
-  return json(req, 200, { data: { avisos: rows.length } });
+  for (const row of waRows) {
+    if (row.push_pendente) await pushRow(db, keys, row, "wa");
+    if (row.email_pendente) await emailRow(db, sender, row, "wa");
+  }
+  return json(req, 200, { data: { avisos: all.length } });
 }, "envio-aviso"));
