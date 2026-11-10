@@ -125,29 +125,40 @@ function seed(db, official = false) {
   }
 }
 {
-  // T5.26: cliente SEM site liga só o WhatsApp (sem cadastrar site nem domínio)
+  // T5.26: "Por cliente": cada cliente pode ter só WhatsApp, só site, ou os dois
   const { browser, page, errors } = await launch();
   const db = await mockSupabase(page, { role: "admin" });
-  db.clients.push(client(CLI, "Loja Só WhatsApp"));
+  const SO_WA = "e0000000-0000-4000-8000-000000005302", SO_SITE = "e0000000-0000-4000-8000-000000005303";
+  db.clients.push(client(CLI, "Loja Os Dois"), client(SO_WA, "Loja Só WhatsApp"), client(SO_SITE, "Loja Só Site"));
   await login(page, "/tracking?secao=config");
-  const blk = page.getByTestId("wa-sem-site");
-  await blk.waitFor();
-  await blk.getByLabel("Cliente sem site").selectOption({ label: "Loja Só WhatsApp" });
-  await blk.getByRole("button", { name: "Ligar só o WhatsApp" }).click();
+  const lista = page.getByTestId("cli-site-whatsapp");
+  await lista.waitFor();
+  const linha = (nome) => lista.getByTestId("cli-site-whatsapp-row").filter({ hasText: nome });
+  check((await linha("Loja Só WhatsApp").innerText()).includes("sem site") && (await linha("Loja Só WhatsApp").innerText()).includes("não ligado"), "cada cliente mostra o site e o WhatsApp separados");
+
+  // 1) só WhatsApp: sem cadastrar site
+  await linha("Loja Só WhatsApp").getByRole("button", { name: /Ligar WhatsApp/ }).click();
   const modal = page.getByTestId("wa-server");
   await modal.waitFor();
-  check(db.trackingContainers.length === 1 && db.trackingContainers[0].kind === "whatsapp" && db.trackingContainers[0].allowed_domains.length === 0, "cria o recipiente técnico do WhatsApp, sem domínio");
+  check(db.trackingContainers.length === 1 && db.trackingContainers[0].kind === "whatsapp" && db.trackingContainers[0].allowed_domains.length === 0, "só WhatsApp: cria o recipiente técnico, sem domínio");
   await modal.getByLabel("Número com DDD (só números)").fill("(45) 99999-1234");
   await modal.getByRole("button", { name: "Criar conexão" }).click();
   await page.getByTestId("wa-server-key").waitFor();
-  check(db.whatsappConnections.length === 1 && db.whatsappConnections[0].mode === "nao_oficial" && db.whatsappConnections[0].client_id === CLI, "o WhatsApp do cliente é ligado normalmente, sem site");
+  check(db.whatsappConnections.length === 1 && db.whatsappConnections[0].client_id === SO_WA && db.whatsappConnections[0].mode === "nao_oficial", "o WhatsApp é ligado sem site");
   await page.getByRole("button", { name: "Fechar", exact: true }).last().click();
-  await page.reload();
-  const row = page.getByTestId("wa-connection-row").first();
-  await row.waitFor();
-  check((await row.innerText()).includes("Só WhatsApp (sem site)"), "aparece na lista do WhatsApp como 'Só WhatsApp (sem site)'");
-  check(await page.getByText("WhatsApp (sem site)", { exact: true }).count() === 0, "o recipiente técnico nunca aparece como um site");
-  check(await page.getByTestId("wa-sem-site").count() === 0, "o cliente que já tem WhatsApp some da lista de 'sem site'");
+
+  // 2) só site: sem WhatsApp
+  await linha("Loja Só Site").getByRole("button", { name: /Adicionar site/ }).click();
+  const form = page.getByRole("dialog").last();
+  await form.getByLabel(/Domínios autorizados/).fill("lojasosite.com.br");
+  await form.getByLabel("Nome do site *").fill("lojasosite.com.br").catch(() => {});
+  await form.getByRole("button", { name: /Salvar|Criar/ }).click();
+  await page.waitForFunction(() => document.body.textContent.includes("lojasosite.com.br"));
+  check(db.trackingContainers.some((c) => c.client_id === SO_SITE && c.kind !== "whatsapp") && !db.whatsappConnections.some((w) => w.client_id === SO_SITE), "só site: cadastra o site e o WhatsApp continua não ligado");
+
+  // 3) o recipiente técnico nunca aparece como site
+  const sitesSecao = page.locator("#cfg-sites");
+  check(!(await sitesSecao.innerText()).includes("WhatsApp (sem site)"), "o recipiente técnico não aparece na lista de sites");
   check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
   await browser.close();
 }
