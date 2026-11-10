@@ -4,6 +4,8 @@
 alter table public.tracking_whatsapp_connections add column history_days integer default 30
   check (history_days is null or history_days between 0 and 365);
 comment on column public.tracking_whatsapp_connections.history_days is 'T5.23: quantos dias do histórico antigo do aparelho entram ao guardar as conversas (0 = não importar histórico; vazio = tudo). Vale para as mensagens que chegarem depois.';
+-- Quem já estava ligado antes desta mudança continua como era (sem limite); o padrão de 30 dias vale só para conexões novas.
+update public.tracking_whatsapp_connections set history_days = null;
 
 -- Histórico fora do período escolhido não é guardado.
 create or replace function private.wa_message_store(p jsonb)

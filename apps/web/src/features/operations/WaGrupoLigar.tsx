@@ -40,10 +40,10 @@ export function LigarGrupoModal({ cliente, onClose }: { cliente: ClienteGrupo; o
   const emUso = useMemo(() => new Map((ligados.data ?? []).map((g) => [g.cliente_id, g.grupo_id])), [ligados.data]);
   const atual = emUso.get(cliente.cliente_id) ?? "";
 
-  async function carregar() {
+  async function carregar(forcar = false) {
     setErro(null);
     try {
-      const g = await buscar.mutateAsync();
+      const g = await buscar.mutateAsync({ forcar });
       setGrupos(g);
       const sug = sugerirGrupos([{ cliente_id: cliente.cliente_id, nome_grupo: cliente.nome_grupo }], g, emUso);
       setEscolha(atual || sug.get(cliente.cliente_id)?.grupoId || "");
@@ -77,7 +77,8 @@ export function LigarGrupoModal({ cliente, onClose }: { cliente: ClienteGrupo; o
           </div>
         ) : (
           <>
-            <p className="text-slate-600">{grupos.length} grupo(s) no WhatsApp. Grupo no CRM: <strong>{cliente.nome_grupo || "—"}</strong>.</p>
+            <p className="text-slate-600">{grupos.length} grupo(s) no WhatsApp. Grupo no CRM: <strong>{cliente.nome_grupo || "—"}</strong>.{" "}
+              <button type="button" className="text-blue-700 hover:underline disabled:opacity-50" disabled={buscar.isPending} onClick={() => void carregar(true)} data-testid="wa-atualizar-grupos">Atualizar lista</button></p>
             <Select aria-label={`Grupo de ${cliente.cliente_nome}`} value={escolha} onChange={(e) => { setEscolha(e.target.value); setFeito(false); }}>
               <option value="">— sem grupo ligado —</option>
               {grupos.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}

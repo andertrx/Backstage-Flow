@@ -38,9 +38,10 @@ export function useWaDisparos() {
     queryKey: [...KEY, "lista"],
     refetchInterval: (q) => ((q.state.data as WaDisparo[] | undefined) ?? []).some((d) => d.status === "pendente" || d.status === "enviando") ? 15_000 : false,
     queryFn: async () => {
+      const desde = new Date(Date.now() - 21 * 86_400_000).toISOString().slice(0, 10);
       const { data, error } = await supabase.from("wa_disparos")
         .select("id,envio_id,cliente_id,semana,origem,status,tentativas,detalhe,enviado_em,atualizado_em")
-        .order("id", { ascending: false }).limit(300);
+        .gte("semana", desde).order("id", { ascending: false }).limit(1000);
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os disparos."));
       return (data as WaDisparo[] | null) ?? [];
     },

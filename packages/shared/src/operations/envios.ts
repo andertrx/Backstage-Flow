@@ -88,38 +88,6 @@ export function validateEnvio(input: EnvioInput, clientName: (id: string) => str
   return errors;
 }
 
-export interface EnvioParaComando {
-  nome: string;
-  mensagem: string;
-  dia_semana: number;
-  horario: string;
-  clientes: { cliente_nome: string; nome_grupo: string; contatos_marcar: readonly string[]; contatos_desligados?: readonly string[]; ativo: boolean }[];
-}
-
-/** Texto do botão "Copiar comando": para colar no Claude. Só os grupos ativos. */
-export function buildEnvioCommand(e: EnvioParaComando, envioId?: string): string {
-  const grupos = e.clientes.filter((c) => c.ativo);
-  const lines = [
-    "Envie esta mensagem nos grupos abaixo e marque as pessoas indicadas em uma segunda mensagem logo depois.",
-    "",
-    `Envio: ${e.nome} (${ENVIO_WEEKDAYS[e.dia_semana] ?? "?"}, ${e.horario}, horário de Brasília)`,
-    "",
-    "Mensagem (copie exatamente, com as quebras de linha):",
-    "-----",
-    e.mensagem.trim(),
-    "-----",
-    "",
-    "Grupos:",
-    ...grupos.map((c, i) => {
-      const names = contatosLigados(c);
-      return `${i + 1}. Grupo "${c.nome_grupo.trim()}" (cliente ${c.cliente_nome}): ${names.length ? `marcar ${names.map((n) => `@${n}`).join(" ")}` : "sem marcação"}`;
-    }),
-  ];
-  lines.push("", envioId
-    ? `Depois de cada grupo, registre o resultado (enviado, falhou ou pulado, com um detalhe) no Backstage Flow com a ferramenta backstage_registrar_execucao_envio (envio ${envioId}).`
-    : "Depois de cada grupo, me diga o resultado (enviado, falhou ou pulado).");
-  return lines.join("\n");
-}
 
 export type WaSegment = { text: string; bold?: boolean; italic?: boolean; strike?: boolean; mono?: boolean };
 
@@ -142,24 +110,4 @@ export function parseWhatsApp(text: string): WaSegment[][] {
     lines.push(out);
   }
   return lines;
-}
-
-/**
- * Etapa 41.2/41.5: instrução da tarefa agendada no computador da pessoa (app do Claude + Claude no Chrome + WhatsApp Web
- * + conector do Backstage Flow). Uma tarefa por envio: a instrução leva o código do envio (ENV-001) e só trata dele.
- * Curta: se o envio não estiver liberado, para na primeira consulta (gasta pouco). O conteúdo vem sempre do CRM.
- */
-export function envioAgentInstruction(codigo: string, nome: string): string {
-  return [
-    `Você é o agente do envio ${codigo} ("${nome}") dos Envios semanais do Backstage Flow. Siga exatamente estes passos:`,
-    `1. Chame a ferramenta backstage_list_envios com envio = "${codigo}" e liberados_agora = true.`,
-    "2. Se a lista vier vazia (total 0), responda apenas com o aviso que veio e pare. Não abra o navegador.",
-    `3. Trate SOMENTE o envio ${codigo}. Para cada grupo dele: abra o WhatsApp Web (web.whatsapp.com) no Chrome, procure o grupo pelo nome exato (nome_grupo),`,
-    "   cole a mensagem exatamente como veio (com as quebras de linha e emojis) e envie. Logo depois, numa SEGUNDA mensagem,",
-    "   marque as pessoas de marcar_na_ordem, na ordem: digite @ e o nome e escolha a pessoa na lista que aparece. Envie.",
-    "4. Depois de cada grupo, registre o resultado com backstage_registrar_execucao_envio (envio_id, cliente_id, status):",
-    "   enviado; falhou (com o motivo, ex.: grupo não encontrado, pessoa não encontrada para marcar); ou pulado.",
-    "5. Não envie nada que não esteja nessa lista, não responda nem leia outras conversas e não altere nada no WhatsApp.",
-    `6. No fim, responda com um resumo curto do envio ${codigo}: quantos grupos enviados, falhados e pulados.`,
-  ].join("\n");
 }

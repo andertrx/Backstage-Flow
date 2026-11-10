@@ -43,7 +43,7 @@ function seed(db, conectado = true) {
   await sw.click();
   await panel.getByText("Automático: sai sozinho depois de aprovado").waitFor();
   check(db.waAuto.includes(ENVIO) && db.rpcCalls.some((c) => c.fn === "wa_envio_set_automatico" && c.p_on === true), "liga o envio automático");
-  check((await panel.innerText()).includes("não envia este envio"), "avisa que o Claude (MCP) não envia mais este envio");
+  check((await panel.innerText()).includes("Quem envia é o próprio CRM"), "avisa que quem envia é o CRM");
 
   // T5.21: não existe envio manual; o painel avisa quem está sem grupo e o resultado de cada grupo aparece na lista
   check(await panel.getByRole("button", { name: "Enviar agora" }).count() === 0, "não há mais botão de envio manual");

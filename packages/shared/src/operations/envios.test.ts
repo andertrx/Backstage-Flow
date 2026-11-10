@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEnvioCommand, cleanContacts, cleanDesligados, contatosLigados, envioAgentInstruction, type EnvioInput, looksLikePhone, parseWhatsApp, validateEnvio } from "./envios.ts";
+import { cleanContacts, cleanDesligados, contatosLigados, type EnvioInput, looksLikePhone, parseWhatsApp, validateEnvio } from "./envios.ts";
 
 const base = (): EnvioInput => ({
   nome: "Feedback semanal",
@@ -47,26 +47,6 @@ describe("validateEnvio (Etapa 41)", () => {
   });
 });
 
-describe("buildEnvioCommand", () => {
-  const e = { nome: "Feedback", mensagem: "Oi! 👋\nTudo certo?", dia_semana: 5, horario: "10:30", clientes: [
-    { cliente_nome: "Loja A", nome_grupo: "Loja A — Agência", contatos_marcar: ["Ana", "Bruno"], ativo: true },
-    { cliente_nome: "Loja B", nome_grupo: "Loja B", contatos_marcar: [], ativo: true },
-    { cliente_nome: "Loja C", nome_grupo: "Loja C", contatos_marcar: ["Caio"], ativo: false },
-  ] };
-  it("monta o texto com a mensagem inteira e os grupos ativos, na ordem dos nomes", () => {
-    const t = buildEnvioCommand(e);
-    expect(t.startsWith("Envie esta mensagem nos grupos abaixo e marque as pessoas indicadas em uma segunda mensagem logo depois.")).toBe(true);
-    expect(t).toContain("Oi! 👋\nTudo certo?");
-    expect(t).toContain('1. Grupo "Loja A — Agência" (cliente Loja A): marcar @Ana @Bruno');
-    expect(t).toContain('2. Grupo "Loja B" (cliente Loja B): sem marcação');
-    expect(t).not.toContain("Loja C");
-    expect(t).toContain("Sexta-feira, 10:30");
-  });
-  it("com o ID do envio, pede para registrar pelo MCP", () => {
-    expect(buildEnvioCommand(e, "abc")).toContain("backstage_registrar_execucao_envio (envio abc)");
-  });
-});
-
 describe("parseWhatsApp", () => {
   it("negrito, itálico, riscado e quebras de linha", () => {
     expect(parseWhatsApp("Olá *time*!\n_obrigado_ ~x~")).toEqual([
@@ -79,29 +59,11 @@ describe("parseWhatsApp", () => {
   });
 });
 
-describe("instrução da tarefa agendada (41.2/41.5)", () => {
-  it("uma por envio: busca só o código dele, para cedo quando não está liberado e registra cada grupo", () => {
-    const t = envioAgentInstruction("ENV-007", "Feedback semanal");
-    expect(t).toContain('backstage_list_envios com envio = "ENV-007" e liberados_agora = true');
-    expect(t).toContain("Trate SOMENTE o envio ENV-007");
-    expect(t).toMatch(/vier vazia.*pare/);
-    expect(t).toContain("SEGUNDA mensagem");
-    expect(t).toContain("backstage_registrar_execucao_envio");
-    expect(t).not.toContain("ENV-001");
-  });
-});
-
 describe("ligar e desligar quem marcar (41.3)", () => {
   it("só os ligados, na ordem; desligado fora da lista é ignorado", () => {
     expect(contatosLigados({ contatos_marcar: ["Ana", "Bruno", " Caio "], contatos_desligados: ["Bruno"] })).toEqual(["Ana", "Caio"]);
     expect(contatosLigados({ contatos_marcar: ["Ana"] })).toEqual(["Ana"]);
     expect(cleanDesligados(["Ana", "Bruno"], ["Bruno", "Zé"])).toEqual(["Bruno"]);
-  });
-  it("o comando não marca quem está desligado", () => {
-    const t = buildEnvioCommand({ nome: "F", mensagem: "Oi", dia_semana: 1, horario: "09:00",
-      clientes: [{ cliente_nome: "Loja A", nome_grupo: "G", contatos_marcar: ["Ana", "Bruno"], contatos_desligados: ["Ana"], ativo: true }] });
-    expect(t).toContain('marcar @Bruno');
-    expect(t).not.toContain("@Ana");
   });
   it("desligado continua contando no limite e na regra do telefone", () => {
     expect(validateEnvio({ ...base(), clientes: [{ ...base().clientes[0], contatos_marcar: ["11 98765-4321"], contatos_desligados: ["11 98765-4321"] }] })).toHaveLength(1);

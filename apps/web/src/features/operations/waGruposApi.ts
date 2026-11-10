@@ -30,12 +30,19 @@ export function useWaGruposLigados(enabled = true) {
 }
 
 /** Busca agora, no WhatsApp conectado, a lista de grupos (só id e nome). Só administrador. */
+let gruposCache: { em: number; lista: (WaGrupoOpt & { size: number | null })[] } | null = null;
+const GRUPOS_CACHE_MS = 5 * 60_000;
+
+/** A busca leva uns 40 segundos: a lista fica guardada 5 minutos. `{ forcar: true }` busca de novo ("Atualizar lista"). */
 export function useBuscarGruposWa() {
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (opts?: { forcar?: boolean }) => {
+      if (!opts?.forcar && gruposCache && Date.now() - gruposCache.em < GRUPOS_CACHE_MS) return gruposCache.lista;
       const { data, error } = await supabase.functions.invoke("wa-gateway", { body: { action: "groups" } });
       if (error) throw new FriendlyError(await friendlyFunctionError(error));
-      return ((data as { data: { groups: (WaGrupoOpt & { size: number | null })[] } }).data.groups) ?? [];
+      const lista = ((data as { data: { groups: (WaGrupoOpt & { size: number | null })[] } }).data.groups) ?? [];
+      gruposCache = { em: Date.now(), lista };
+      return lista;
     },
   });
 }

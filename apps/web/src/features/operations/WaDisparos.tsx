@@ -71,7 +71,7 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
         )}
         {automatico && <Badge tone="brand">Automático: sai sozinho depois de aprovado</Badge>}
       </div>
-      {automatico && <p className="text-xs text-slate-500">Neste modo o Claude (MCP) não envia este envio: só o WhatsApp conectado, para não duplicar. O envio sai depois da sua aprovação da semana; se o horário passar sem aprovar, aprove depois (botão "Aprovar e enviar agora") e ele sai logo para quem ainda não recebeu.</p>}
+      {automatico && <p className="text-xs text-slate-500">Quem envia é o próprio CRM, pelo WhatsApp conectado. O envio sai depois da sua aprovação da semana; se o horário passar sem aprovar, aprove depois (botão "Aprovar e enviar agora") e ele sai logo para quem ainda não recebeu.</p>}
       {automatico && semGrupo.length > 0 && (
         <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200" data-testid="wa-sem-grupo">
           <p className="font-medium">{semGrupo.length} cliente(s) sem grupo ligado: o envio automático vai pular {semGrupo.length === 1 ? "esse cliente" : "esses clientes"}.</p>
@@ -83,7 +83,7 @@ export function WaEnvioPanel({ envio }: { envio: OpsEnvio }) {
               </li>
             ))}
           </ul>
-          {semGrupo.length > 6 && <p className="mt-1">… e mais {semGrupo.length - 6}. Ligue os outros em "Grupos e @ dos clientes".</p>}
+          {semGrupo.length > 6 && <p className="mt-1">… e mais {semGrupo.length - 6}. Ligue os outros na aba "Clientes".</p>}
         </div>
       )}
       {ligar && <LigarGrupoModal cliente={ligar} onClose={() => setLigar(null)} />}
