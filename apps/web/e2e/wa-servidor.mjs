@@ -71,6 +71,27 @@ function seed(db, official = false) {
   await aiBox.click();
   await page.waitForFunction(() => document.querySelector('[data-testid="wa-server-ai"] input')?.checked === false);
   check(w.ai_suggest === false, "desliga a IA deste WhatsApp");
+  // T5.23: período do histórico e limpeza dos dados de conversa (só administrador, com dupla confirmação)
+  const per = modal.getByLabel("Período do histórico a guardar");
+  check(await per.inputValue() === "todo", "conexão antiga: histórico sem limite (como era)");
+  await per.selectOption("60");
+  await page.waitForFunction(() => document.querySelector('[data-testid="wa-history-days"] select')?.value === "60");
+  check(w.history_days === 60, "escolher o período grava os dias do histórico");
+  db.waMessages.push({ id: 1 }, { id: 2 }, { id: 3 });
+  db.waPeople.push({ id: 1 });
+  await modal.getByRole("button", { name: "Limpar dados deste cliente" }).click();
+  const lm = page.getByTestId("wa-limpar-modal");
+  await lm.waitFor();
+  check((await lm.innerText()).includes("3 mensagem(ns)") && (await lm.innerText()).includes("1 pessoa(s)") && (await lm.innerText()).includes("13 conversa(s)"), "passo 1: mostra o que será apagado e o que fica");
+  await lm.getByRole("button", { name: "Cancelar" }).click();
+  check((db.waLimpezas ?? []).length === 0 && db.waMessages.length === 3, "cancelar não apaga nada");
+  await modal.getByRole("button", { name: "Limpar dados deste cliente" }).click();
+  await lm.getByRole("button", { name: "Continuar" }).click();
+  check((await lm.innerText()).includes("quer mesmo apagar"), "passo 2: pergunta de novo");
+  await page.screenshot({ path: `${process.env.SHOTS_DIR ?? "test-results"}/wa-limpar-confirmar.png` });
+  await lm.getByRole("button", { name: "Sim, apagar tudo" }).click();
+  await page.waitForFunction(() => document.body.textContent.includes("Apagado: 3 mensagem(ns)"));
+  check(db.waMessages.length === 0 && db.waPeople.length === 0 && db.waLimpezas.length === 1, "confirmando duas vezes, apaga");
   const old = w.inbound_key;
   page.once("dialog", (d) => d.accept());
   await modal.getByRole("button", { name: "Gerar nova chave" }).click();

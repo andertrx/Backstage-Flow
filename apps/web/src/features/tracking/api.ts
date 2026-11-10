@@ -403,6 +403,8 @@ export interface WhatsAppConnection {
   store_messages?: boolean;
   store_ack_at?: string | null;
   ai_suggest?: boolean;
+  /** T5.23: dias de histórico antigo que entram (0 = nenhum; vazio = tudo). */
+  history_days?: number | null;
 }
 
 export function useWhatsAppConnections(enabled: boolean) {
@@ -413,7 +415,7 @@ export function useWhatsAppConnections(enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_whatsapp_connections")
-        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint, store_messages, store_ack_at, ai_suggest");
+        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint, store_messages, store_ack_at, ai_suggest, history_days");
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conexões do WhatsApp."));
       return data as WhatsAppConnection[];
     },
@@ -742,6 +744,44 @@ export function useWaStoreMessages() {
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos salvar."));
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+/** T5.23: quantos dias do histórico antigo do aparelho entram ao guardar as conversas (vale para o que chegar depois). */
+export function useWaHistoryDays() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; days: number | null }) => {
+      const { error } = await supabase.rpc("wa_unofficial_set_history", { p_id: input.id, p_days: input.days });
+      if (error) throw new FriendlyError(readableDbError(error, "Não conseguimos salvar o período."));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export interface WaLimparContagem { mensagens: number; pessoas: number; sugestoes: number; conversas_mantidas: number }
+
+/** T5.23: quanto será apagado na limpeza dos dados de conversa do cliente (só administrador). */
+export function useWaLimparContagem() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase.rpc("wa_unofficial_limpar_contagem", { p_id: id });
+      if (error) throw new FriendlyError(readableDbError(error, "Não conseguimos contar os dados."));
+      return data as WaLimparContagem;
+    },
+  });
+}
+
+/** T5.23: apaga texto, telefone, nome e sugestões do cliente; mantém conversas, vendas marcadas e contagens. Só administrador. */
+export function useWaLimpar() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase.rpc("wa_unofficial_limpar", { p_id: id, p_confirmar: "APAGAR" });
+      if (error) throw new FriendlyError(readableDbError(error, "Não conseguimos apagar."));
+      return data as { mensagens: number; pessoas: number; sugestoes: number };
+    },
+    onSuccess: () => queryClient.invalidateQueries(),
   });
 }
 

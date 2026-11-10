@@ -1921,6 +1921,25 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       if (p.p_on && !w.store_ack_at) w.store_ack_at = new Date().toISOString();
       return res(204);
     }
+    if (url.includes("/rest/v1/rpc/wa_unofficial_set_history")) {
+      const p = parse();
+      const w = db.whatsappConnections.find((x) => x.id === p.p_id && x.mode === "nao_oficial");
+      if (!w || !["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor mudam o período do histórico." });
+      w.history_days = p.p_days;
+      return res(204);
+    }
+    if (url.includes("/rest/v1/rpc/wa_unofficial_limpar")) {
+      const p = parse();
+      const w = db.whatsappConnections.find((x) => x.id === p.p_id && x.mode === "nao_oficial");
+      if (!w || role !== "admin") return res(403, { code: "42501", message: "Só o administrador limpa os dados de conversa." });
+      db.waLimpezas ??= [];
+      const n = { mensagens: (db.waMessages ?? []).length, pessoas: (db.waPeople ?? []).length, sugestoes: 0, conversas_mantidas: 13 };
+      if (url.includes("limpar_contagem")) return res(200, n);
+      if (p.p_confirmar !== "APAGAR") return res(400, { code: "22023", message: "Confirmação inválida: digite APAGAR." });
+      db.waLimpezas.push({ id: p.p_id });
+      db.waMessages = []; db.waPeople = [];
+      return res(200, { mensagens: n.mensagens, pessoas: n.pessoas, sugestoes: n.sugestoes });
+    }
     if (url.includes("/rest/v1/rpc/wa_conversation_sales")) return res(200, db.waConvSales ?? []);
     if (url.includes("/rest/v1/rpc/wa_unofficial_set_ai")) {
       const p = parse();

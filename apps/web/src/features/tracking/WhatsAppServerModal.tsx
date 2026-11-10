@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Field, Input } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
+import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatRelative } from "@/lib/format.ts";
 import {
@@ -12,6 +13,9 @@ import {
   useWaUnofficialEnabled,
   useWaUnofficialNewKey,
   useWaAiSuggest,
+  useWaHistoryDays,
+  useWaLimpar,
+  useWaLimparContagem,
   useWaStoreMessages,
   useWaUnofficialSave,
   waInboundUrl,
@@ -56,6 +60,13 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
   const toggle = useWaUnofficialEnabled();
   const store = useWaStoreMessages();
   const ai = useWaAiSuggest();
+  const history = useWaHistoryDays();
+  const contagem = useWaLimparContagem();
+  const limpar = useWaLimpar();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
+  const [limpeza, setLimpeza] = useState<{ passo: 1 | 2; n: { mensagens: number; pessoas: number; sugestoes: number; conversas_mantidas: number } } | null>(null);
+  const [limpou, setLimpou] = useState<string | null>(null);
   const official = connection && connection.mode !== "nao_oficial";
   const [phone, setPhone] = useState(connection?.mode === "nao_oficial" ? connection.display_phone ?? "" : "");
   const [revealed, setRevealed] = useState<{ id: string; key: string } | null>(null);
@@ -175,6 +186,23 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
               Só administrador, gestor e o Account Manager do cliente leem (em Tracking → Painel → Conversas); só o administrador apaga. Grupos nunca entram.
               Áudio, imagem e arquivos aparecem só como marcador (“[áudio]”): o arquivo em si não é guardado.
             </p>
+            {mine.store_messages && (
+              <label className="flex flex-wrap items-center gap-2 text-sm" data-testid="wa-history-days">
+                <span className="font-medium">Histórico antigo do aparelho:</span>
+                <select className="rounded-md border border-slate-300 bg-white px-2 py-1" aria-label="Período do histórico a guardar" disabled={history.isPending}
+                  value={mine.history_days === null || mine.history_days === undefined ? "todo" : String(mine.history_days)}
+                  onChange={(e) => void run(() => history.mutateAsync({ id: mine.id, days: e.target.value === "todo" ? null : Number(e.target.value) }))}>
+                  <option value="0">não puxar (só mensagens novas)</option>
+                  <option value="30">últimos 30 dias</option>
+                  <option value="60">últimos 60 dias</option>
+                  <option value="90">últimos 90 dias</option>
+                  <option value="180">últimos 180 dias</option>
+                  <option value="365">último ano</option>
+                  <option value="todo">tudo o que o aparelho enviar</option>
+                </select>
+                <span className="text-xs text-slate-500">Vale para o histórico que chegar daqui para frente; não apaga o que já foi guardado.</span>
+              </label>
+            )}
             {ack && (
               <Alert tone="warning">
                 <div className="space-y-2" data-testid="wa-store-ack">
@@ -212,7 +240,49 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
             </p>
           </section>
         )}
+        {mine && isAdmin && (
+          <section className="space-y-2" data-testid="wa-server-limpar">
+            <h4 className="font-medium text-slate-800">6. Limpar os dados de conversa deste cliente</h4>
+            <p className="text-xs text-slate-500">
+              Apaga o <strong>texto das mensagens, os telefones, os nomes e as sugestões</strong> deste cliente (de <strong>todos os WhatsApps dele</strong>).
+              Mantém as conversas (só com o código cifrado do telefone), as vendas marcadas e as contagens. Não dá para desfazer.
+            </p>
+            <Button type="button" variant="secondary" loading={contagem.isPending}
+              onClick={() => { setLimpou(null); setError(null); contagem.mutate(mine.id, { onSuccess: (n) => setLimpeza({ passo: 1, n }), onError: (e) => setError(errorMessage(e)) }); }}>
+              Limpar dados deste cliente
+            </Button>
+            {limpou && <Alert tone="success">{limpou}</Alert>}
+          </section>
+        )}
         {!canManage && <p className="text-slate-500">Só administrador e gestor configuram o WhatsApp do site.</p>}
+        {limpeza && mine && (
+          <Modal open title={limpeza.passo === 1 ? "Limpar os dados de conversa?" : "Tem certeza mesmo?"} onClose={() => setLimpeza(null)}>
+            <div className="space-y-3 text-sm" data-testid="wa-limpar-modal">
+              {limpeza.passo === 1 ? (
+                <>
+                  <p>Vão ser apagados: <strong>{limpeza.n.mensagens}</strong> mensagem(ns), <strong>{limpeza.n.pessoas}</strong> pessoa(s) com telefone e nome e <strong>{limpeza.n.sugestoes}</strong> sugestão(ões).</p>
+                  <p className="text-slate-600">Ficam: {limpeza.n.conversas_mantidas} conversa(s) (sem texto nem telefone), as vendas marcadas e as contagens.</p>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" onClick={() => setLimpeza(null)}>Cancelar</Button>
+                    <Button onClick={() => setLimpeza({ ...limpeza, passo: 2 })}>Continuar</Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Alert tone="warning">Isto não pode ser desfeito. Você quer mesmo apagar esses dados do servidor?</Alert>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" onClick={() => setLimpeza(null)}>Não, voltar</Button>
+                    <Button loading={limpar.isPending} onClick={() => limpar.mutate(mine.id, {
+                      onSuccess: (r) => { setLimpeza(null); setLimpou(`Apagado: ${r.mensagens} mensagem(ns), ${r.pessoas} pessoa(s) e ${r.sugestoes} sugestão(ões).`); },
+                      onError: (e) => { setLimpeza(null); setError(errorMessage(e)); } })}>
+                      Sim, apagar tudo
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </Modal>
+        )}
         <div className="flex justify-end"><Button type="button" onClick={onClose}>Fechar</Button></div>
       </div>
     </Modal>

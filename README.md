@@ -147,6 +147,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T5.22 (Fase 2) — "Quem recebe hoje": escolher, por semana, quais clientes recebem](docs/etapa-43-organizacao/T5.22-FASE-2-QUEM-RECEBE-HOJE.md) ✅ 09/11
   - [T5.22 (Fase 3) — Resumo da semana e reenvio (só quem não recebeu / todos)](docs/etapa-43-organizacao/T5.22-FASE-3-RESUMO-E-REENVIO.md) ✅ 09/11
   - [T5.24 — Correções da análise de código (fila mais segura e limpezas)](docs/etapa-43-organizacao/T5.24-CORRECOES-DA-ANALISE.md) ✅ 10/11
+  - [T5.23 — Período do histórico e limpeza dos dados de conversa do cliente](docs/etapa-34-tracking/T5.23-PERIODO-DO-HISTORICO-E-LIMPEZA.md) ⚠️ falta aplicar 3 funções no banco
   - [45.1 — avisos no WhatsApp (motor: fila, agrupamento, silêncio; sem tela ainda)](docs/etapa-43-organizacao/45.1-AVISOS-NO-WHATSAPP.md) ✅ 07/11 (testado só no banco; sem envio real)
   - [45.2 — aviso "cliente sem gastar" no WhatsApp (motor, sem tela; precisão ~1 h)](docs/etapa-43-organizacao/45.2-AVISO-CLIENTE-SEM-GASTAR.md) ✅ 07/11
   - [45.3 — tela dos avisos no WhatsApp (grupo, tipos, silêncio, sem gasto por cliente)](docs/etapa-43-organizacao/45.3-TELA-DOS-AVISOS-NO-WHATSAPP.md) ✅ 07/11
