@@ -31,6 +31,7 @@ import {
   useDestinations,
   useWaSuggestions,
   useWaSemSiteContainer,
+  useWhatsAppContactClicks,
   useWhatsAppClicks,
   useWhatsAppConnections,
   useWhatsAppConversations,
@@ -113,6 +114,7 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
   const waClicks = useWhatsAppClicks(hasContainers);
   const waConnections = useWhatsAppConnections(hasContainers);
   const waConversations = useWhatsAppConversations(hasContainers);
+  const contactClicks = useWhatsAppContactClicks(hasContainers);
   const waConvSales = useWaConversationSales(hasContainers);
   const suggestions = useWaSuggestions(hasContainers);
   const waConnOf = (containerId: string) => (waConnections.data ?? []).find((w) => w.container_id === containerId);
@@ -235,31 +237,44 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
           {tab === "sites" && (
             <div className="space-y-8">
               {canManage && (
-                <ConfigSection id="cfg-clientes" title="Por cliente: site e/ou WhatsApp" description="Escolha, cliente por cliente, se ele tem site, WhatsApp ou os dois.">
+                <ConfigSection id="cfg-clientes" title="Clientes: site e/ou WhatsApp" description="Escolha, cliente por cliente, se ele tem site, WhatsApp ou os dois. Um não depende do outro.">
                   <ClienteSiteWhatsApp clients={clients.filter((c) => !clientId || c.id === clientId)} containers={containers} connectionOf={waConnOf}
                     onAddSite={(id) => { setNewSiteClient(id); setEditing("new"); }} onWhatsApp={setWaServerFor} />
                 </ConfigSection>
               )}
-              <ConfigSection id="cfg-sites" title="Sites" description="Cada site do cliente: código de instalação, Meta (API de Conversões) e regras de eventos.">
-                <ul className="grid gap-3 lg:grid-cols-2">
-                  {visibleSites.map((c) => (
-                    <ContainerCard
-                      key={c.id}
-                      container={c}
-                      stats={stats.get(c.id)}
-                      canManage={canManage}
-                      onEdit={() => setEditing(c)}
-                      onInstall={() => setInstalling(c)}
-                      destination={destOf(c.id)}
-                      capi={capiOf(destOf(c.id))}
-                      onMeta={() => setMetaFor(c)}
-                      onRules={() => setRulesFor(c)}
-                    />
-                  ))}
-                </ul>
-              </ConfigSection>
-              <ConfigSection id="cfg-whatsapp" title="WhatsApp" description="Ligar o número do cliente (servidor próprio ou API oficial), guardar as conversas e o aviso de privacidade.">
-                <WhatsAppConnectionsCard sites={visible} connectionOf={waConnOf} canManage={canManage} onServer={setWaServerFor} onApi={setWaApiFor} />
+              <ConfigSection id="cfg-detalhes" title="Detalhes de cada cliente" description="Código de instalação, Meta (API de Conversões), regras de eventos e as conexões de WhatsApp, agrupados por cliente.">
+                <span id="cfg-sites" /><span id="cfg-whatsapp" />
+                <div className="space-y-5">
+                  {visible.length === 0 && <p className="text-sm text-slate-500">Nenhum site nem WhatsApp ligado ainda. Use "Clientes: site e/ou WhatsApp", acima.</p>}
+                  {[...new Set(visible.map((c) => c.client_id))].map((cid) => {
+                    const mine = visible.filter((c) => c.client_id === cid);
+                    const mineSites = mine.filter((c) => c.kind !== "whatsapp");
+                    return (
+                      <div key={cid} className="space-y-2" data-testid="cliente-detalhe">
+                        <h3 className="text-sm font-semibold text-slate-900">{mine[0]?.clients?.name ?? "Cliente"}</h3>
+                        {mineSites.length > 0 && (
+                          <ul className="grid gap-3 lg:grid-cols-2">
+                            {mineSites.map((c) => (
+                              <ContainerCard
+                                key={c.id}
+                                container={c}
+                                stats={stats.get(c.id)}
+                                canManage={canManage}
+                                onEdit={() => setEditing(c)}
+                                onInstall={() => setInstalling(c)}
+                                destination={destOf(c.id)}
+                                capi={capiOf(destOf(c.id))}
+                                onMeta={() => setMetaFor(c)}
+                                onRules={() => setRulesFor(c)}
+                              />
+                            ))}
+                          </ul>
+                        )}
+                        <WhatsAppConnectionsCard sites={mine} connectionOf={waConnOf} canManage={canManage} onServer={setWaServerFor} onApi={setWaApiFor} />
+                      </div>
+                    );
+                  })}
+                </div>
               </ConfigSection>
               <ConfigSection id="cfg-link" title="Ferramentas" description="Conferir como um link de anúncio seria entendido pelo tracking. Nada é gravado.">
                 <LinkTester />
@@ -346,6 +361,28 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
           <Alert tone="info">
             <span data-testid="wa-mark-moved">Para <strong>marcar venda</strong>, use a aba <strong>Conversas</strong> deste painel. Lá você lê a conversa antes de marcar.</span>
           </Alert>
+          <Card className="space-y-2 p-4" data-testid="wa-click-channels">
+            <p className="text-sm font-semibold text-slate-900">Cliques no WhatsApp <span className="font-normal text-slate-500">(últimos 30 dias)</span></p>
+            {(() => {
+              const mine = (contactClicks.data ?? []).filter((c) => visibleIds.has(c.container_id));
+              const numero = mine.filter((c) => c.canal === "whatsapp").length;
+              const grupo = mine.filter((c) => c.canal === "whatsapp_grupo").length;
+              return (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg bg-slate-50 p-3" data-testid="wa-clicks-numero">
+                    <p className="text-xs text-slate-500">Botão que abre conversa com o número</p>
+                    <p className="text-2xl font-semibold tabular-nums text-slate-900">{numero}</p>
+                    <p className="text-xs text-slate-500">A conversa fica ligada ao clique (código "ref."), e dá para marcar lead e venda com a origem.</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-3" data-testid="wa-clicks-grupo">
+                    <p className="text-xs text-slate-500">Botão que leva ao grupo do WhatsApp</p>
+                    <p className="text-2xl font-semibold tabular-nums text-slate-900">{grupo}</p>
+                    <p className="text-xs text-slate-500">Só o clique e a origem do anúncio. Quem entra no grupo não é identificado e as mensagens do grupo não são guardadas.</p>
+                  </div>
+                </div>
+              );
+            })()}
+          </Card>
           <WhatsAppSection
             clicks={(waClicks.data ?? []).filter((c) => visibleIds.has(c.container_id))}
             conversations={(waConversations.data ?? []).filter((c) => visibleIds.has(c.container_id))}

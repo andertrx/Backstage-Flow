@@ -122,6 +122,34 @@ export function useRecentTouchpoints(enabled: boolean) {
 }
 
 /** Últimos eventos recebidos (os mais recentes primeiro). */
+export interface ContactClick { container_id: string; occurred_at: string; canal: "whatsapp" | "whatsapp_grupo" | "outro" }
+
+/** T5.26: cliques no WhatsApp dos últimos 30 dias, separados em "número" e "grupo" (evento Contact do script do site). */
+export function useWhatsAppContactClicks(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "contact-clicks"],
+    enabled,
+    refetchInterval: 120_000,
+    queryFn: async () => {
+      const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+      const { data, error } = await supabase
+        .from("tracking_events")
+        .select("container_id, event_name, occurred_at, custom_data, test")
+        .eq("event_name", "Contact")
+        .gte("occurred_at", since)
+        .order("occurred_at", { ascending: false })
+        .limit(2000);
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os cliques no WhatsApp."));
+      return ((data as { container_id: string; event_name: string; occurred_at: string; custom_data: Record<string, unknown> | null; test: boolean }[] | null) ?? [])
+        .filter((e) => e.event_name === "Contact" && !e.test && e.occurred_at >= since)
+        .map((e): ContactClick => ({
+          container_id: e.container_id, occurred_at: e.occurred_at,
+          canal: e.custom_data?.canal === "whatsapp_grupo" ? "whatsapp_grupo" : e.custom_data?.canal === "whatsapp" ? "whatsapp" : "outro",
+        }));
+    },
+  });
+}
+
 export function useRecentEvents(enabled: boolean) {
   return useQuery({
     queryKey: [...KEY, "events"],

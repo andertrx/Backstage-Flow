@@ -162,4 +162,31 @@ function seed(db, official = false) {
   check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
   await browser.close();
 }
+{
+  // T5.26: configuração por cliente (um lugar só) e cliques no número x no grupo, separados
+  const { browser, page, errors } = await launch();
+  const db = await mockSupabase(page, { role: "admin" });
+  db.clients.push(client(CLI, "Loja Os Dois"));
+  db.trackingContainers.push({ id: "t-cont", client_id: CLI, name: "loja.com.br", public_key: "bf_0123456789abcdef01234567", allowed_domains: ["loja.com.br"],
+    status: "ativo", test_mode: false, consent_mode: "nao_exigir", retention_days: 180, created_at: "2026-10-01T00:00:00Z", rules_version: null, kind: "site" });
+  const at = new Date().toISOString();
+  db.trackingEvents.push(
+    { event_id: "c1", container_id: "t-cont", client_id: CLI, event_name: "Contact", occurred_at: at, page_path: "/", test: false, touchpoint_id: null, custom_data: { canal: "whatsapp" } },
+    { event_id: "c2", container_id: "t-cont", client_id: CLI, event_name: "Contact", occurred_at: at, page_path: "/", test: false, touchpoint_id: null, custom_data: { canal: "whatsapp" } },
+    { event_id: "c3", container_id: "t-cont", client_id: CLI, event_name: "Contact", occurred_at: at, page_path: "/vip", test: false, touchpoint_id: null, custom_data: { canal: "whatsapp_grupo" } },
+  );
+  await login(page, "/tracking?secao=config");
+  await page.getByTestId("cliente-detalhe").first().waitFor();
+  const det = await page.getByTestId("cliente-detalhe").first().innerText();
+  check(det.includes("Loja Os Dois") && det.includes("loja.com.br") && await page.getByTestId("wa-connections").count() === 1, "configuração por cliente: site e WhatsApp do cliente no mesmo bloco");
+  check(await page.locator("#cfg-sites").count() === 1 && await page.locator("#cfg-whatsapp").count() === 1 && await page.getByTestId("section-index").count() === 1, "âncoras antigas e índice continuam");
+  await page.goto(page.url().split("/").slice(0, 3).join("/") + "/tracking?aba=whatsapp");
+  const ch = page.getByTestId("wa-click-channels");
+  await ch.waitFor();
+  await page.waitForFunction(() => document.querySelector('[data-testid="wa-clicks-numero"]')?.textContent.includes("2"));
+  check((await ch.getByTestId("wa-clicks-numero").innerText()).includes("2") && (await ch.getByTestId("wa-clicks-grupo").innerText()).includes("1"), "cliques separados: 2 no número e 1 no grupo");
+  check((await ch.innerText()).includes("não é identificado"), "avisa que quem entra no grupo não é identificado");
+  check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
+  await browser.close();
+}
 console.log("\nWhatsApp pelo servidor (T5.3): tudo certo.");

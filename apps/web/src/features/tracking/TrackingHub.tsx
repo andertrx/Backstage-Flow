@@ -106,8 +106,8 @@ export function TrackingHub() {
       {section === "config" ? (
         <div className="space-y-8" data-testid="tracking-config">
           <SectionIndex items={[
-            { id: "cfg-sites", label: "Sites" },
-            { id: "cfg-whatsapp", label: "WhatsApp" },
+            { id: "cfg-clientes", label: "Site e/ou WhatsApp" },
+            { id: "cfg-detalhes", label: "Detalhes por cliente" },
             { id: "cfg-link", label: "Ferramentas" },
             ...(profile?.role === "admin" ? [{ id: "cfg-ia", label: "IA de vendas" }] : []),
           ]} />

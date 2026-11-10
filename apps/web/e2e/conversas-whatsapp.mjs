@@ -39,6 +39,7 @@ function seed(db) {
   await page.getByTestId("tracking-panel-tab-conversas").click();
   check(page.url().includes("aba=conversas") && page.url().includes(`cliente=${CLI}`), "a aba e o cliente ficam no endereço");
   await page.getByTestId("wa-conversations").waitFor();
+  await page.getByTestId("wa-conversation").nth(1).waitFor();
   check(await page.getByTestId("wa-conversation").count() === 2, "lista as 2 conversas");
   const first = await page.getByTestId("wa-conversation").first().innerText();
   check(first.includes("João Silva") && first.includes("Fechado, vou pagar agora") && first.includes("Anúncio") && first.includes("IA sugere venda"),
