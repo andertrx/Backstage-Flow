@@ -1,0 +1,37 @@
+# Publica uma Edge Function do Supabase pelo GitHub (botão "Run workflow").
+# Precisa do segredo SUPABASE_ACCESS_TOKEN (Settings > Secrets and variables > Actions).
+name: Publicar função do Supabase
+
+on:
+  workflow_dispatch:
+    inputs:
+      funcao:
+        description: "Nome da função (pasta em supabase/functions)"
+        required: true
+        default: mcp
+      conferir_login:
+        description: "A função exige login do Supabase (verify_jwt)? Para o mcp, deixe false."
+        required: true
+        default: "false"
+
+permissions:
+  contents: read
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: dkatllzkmlzpginuzvis
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Conferir que a função existe
+        run: test -f "supabase/functions/${{ inputs.funcao }}/index.ts"
+      - name: Publicar
+        run: |
+          FLAG=""
+          if [ "${{ inputs.conferir_login }}" != "true" ]; then FLAG="--no-verify-jwt"; fi
+          supabase functions deploy "${{ inputs.funcao }}" --project-ref "$PROJECT_REF" --use-api $FLAG
