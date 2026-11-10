@@ -8,6 +8,7 @@ import {
   eventLabel,
 } from "@backstage/shared";
 import { Code2, ListChecks, MessageCircle, MousePointerClick, Pencil, Plus, Radar } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -29,6 +30,7 @@ import {
   useConversionsSummary,
   useDestinations,
   useWaSuggestions,
+  useWaSemSiteContainer,
   useWhatsAppClicks,
   useWhatsAppConnections,
   useWhatsAppConversations,
@@ -125,12 +127,14 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
   const [rulesFor, setRulesFor] = useState<TrackingContainer | null>(null);
 
   const visible = containers.filter((c) => !clientId || c.client_id === clientId);
+  /** Só os sites de verdade: o container técnico do WhatsApp sem site não aparece como site. */
+  const visibleSites = visible.filter((c) => c.kind !== "whatsapp");
   const visibleIds = new Set(visible.map((c) => c.id));
   const byId = new Map(containers.map((c) => [c.id, c]));
   const stats = new Map((overview.data ?? []).map((r) => [r.container_id, r]));
-  const total = sumOverview(visible.map((c) => stats.get(c.id)).filter((r): r is OverviewRow => !!r));
+  const total = sumOverview(visibleSites.map((c) => stats.get(c.id)).filter((r): r is OverviewRow => !!r));
   const conv = summarizeConversions(conversions.data ?? [], visibleIds);
-  const readiness: SiteReadiness[] = visible.map((c) => {
+  const readiness: SiteReadiness[] = visibleSites.map((c) => {
     const dest = destOf(c.id);
     const r = siteReadiness({
       container: c,
@@ -168,6 +172,8 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
               ? "Em Configurações, crie o site do cliente, informe o domínio e cole o código de instalação no site."
               : "Peça a um administrador ou gestor para configurar o site do cliente."}
           </p>
+          {canManage && <p className="max-w-md text-sm text-slate-500">Cliente que só usa WhatsApp, sem site? Ligue direto, sem cadastrar site:</p>}
+          {canManage && <div className="w-full max-w-xl text-left"><WhatsAppSemSite clients={clients.filter((cl) => !clientId || cl.id === clientId)} onOpen={setWaServerFor} /></div>}
         </Card>
       ) : (
         <>
@@ -224,7 +230,7 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
             <div className="space-y-8">
               <ConfigSection id="cfg-sites" title="Sites" description="Cada site do cliente: código de instalação, Meta (API de Conversões) e regras de eventos.">
                 <ul className="grid gap-3 lg:grid-cols-2">
-                  {visible.map((c) => (
+                  {visibleSites.map((c) => (
                     <ContainerCard
                       key={c.id}
                       container={c}
@@ -241,7 +247,8 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
                 </ul>
               </ConfigSection>
               <ConfigSection id="cfg-whatsapp" title="WhatsApp" description="Ligar o número do cliente (servidor próprio ou API oficial), guardar as conversas e o aviso de privacidade.">
-                <WhatsAppConnectionsCard sites={visible} connectionOf={waConnOf} canManage={canManage} onServer={setWaServerFor} onApi={setWaApiFor} />
+                <WhatsAppConnectionsCard sites={visible} connectionOf={waConnOf} canManage={canManage} onServer={setWaServerFor} onApi={setWaApiFor}
+                  clientsSemSite={clients.filter((cl) => !containers.some((c) => c.client_id === cl.id) && (!clientId || cl.id === clientId))} onSemSite={setWaServerFor} />
               </ConfigSection>
               <ConfigSection id="cfg-link" title="Ferramentas" description="Conferir como um link de anúncio seria entendido pelo tracking. Nada é gravado.">
                 <LinkTester />
@@ -398,26 +405,63 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
   );
 }
 
+/** T5.26: cliente que só usa WhatsApp (sem site): escolhe o cliente e liga o WhatsApp, sem cadastrar site nem domínio. */
+function WhatsAppSemSite({ clients, onOpen }: { clients: { id: string; name: string }[]; onOpen: (c: TrackingContainer) => void }) {
+  const semSite = useWaSemSiteContainer();
+  const queryClient = useQueryClient();
+  const [novo, setNovo] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  async function ligarSemSite() {
+    setErro(null);
+    try {
+      const id = await semSite.mutateAsync(novo);
+      await queryClient.refetchQueries({ queryKey: ["tracking", "containers"] });
+      const lista = queryClient.getQueryData<TrackingContainer[]>(["tracking", "containers"]) ?? [];
+      const c = lista.find((x) => x.id === id);
+      if (c) { onOpen(c); setNovo(""); }
+    } catch (e) { setErro(errorMessage(e)); }
+  }
+  if (clients.length === 0) return null;
+  return (
+    <Card className="mt-3 space-y-2 p-4" data-testid="wa-sem-site">
+      <p className="text-sm font-medium text-slate-900">Cliente sem site: ligar só o WhatsApp</p>
+      <p className="text-xs text-slate-500">Para clientes que só usam WhatsApp: não precisa cadastrar site nem domínio. Você escolhe o cliente e informa o número.</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select aria-label="Cliente sem site" className="w-64" value={novo} onChange={(e) => setNovo(e.target.value)}>
+          <option value="">Escolha o cliente…</option>
+          {clients.map((cl) => <option key={cl.id} value={cl.id}>{cl.name}</option>)}
+        </Select>
+        <Button variant="secondary" disabled={!novo} loading={semSite.isPending} onClick={() => void ligarSemSite()}>
+          <MessageCircle className="size-4" aria-hidden /> Ligar só o WhatsApp
+        </Button>
+      </div>
+      {erro && <Alert tone="error">{erro}</Alert>}
+    </Card>
+  );
+}
+
 /** Conexões de WhatsApp dos sites (servidor próprio ou API oficial): o único lugar para ligar, conferir e configurar. */
-function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onApi }: {
+function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onApi, clientsSemSite, onSemSite }: {
   sites: TrackingContainer[];
   connectionOf: (containerId: string) => WhatsAppConnection | undefined;
   canManage: boolean;
   onServer: (c: TrackingContainer) => void;
   onApi: (c: TrackingContainer) => void;
+  clientsSemSite: { id: string; name: string }[];
+  onSemSite: (c: TrackingContainer) => void;
 }) {
   return (
     <section aria-label="Conexões de WhatsApp dos sites" data-testid="wa-connections">
       <Card className="divide-y divide-slate-100">
         {sites.length === 0 ? (
-          <p className="p-4 text-sm text-slate-500">Cadastre o site do cliente (seção Sites, acima) para ligar o WhatsApp dele.</p>
+          <p className="p-4 text-sm text-slate-500">Nenhum WhatsApp ligado ainda. Cadastre o site do cliente (seção Sites, acima) ou ligue só o WhatsApp de um cliente sem site, logo abaixo.</p>
         ) : sites.map((c) => {
           const conn = connectionOf(c.id);
           const status = waConnectionStatus(conn);
           return (
             <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 p-4" data-testid="wa-connection-row">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-900">{c.clients?.name ? <><span className="font-semibold">{c.clients.name}</span><span className="text-slate-400"> · </span></> : null}{c.name}</p>
+                <p className="truncate text-sm font-medium text-slate-900">{c.clients?.name ? <><span className="font-semibold">{c.clients.name}</span><span className="text-slate-400"> · </span></> : null}{c.kind === "whatsapp" ? "Só WhatsApp (sem site)" : c.name}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <Badge tone={status.tone}>{status.label}</Badge>
                   {conn?.mode === "nao_oficial" && (
@@ -447,6 +491,7 @@ function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onA
           );
         })}
       </Card>
+      {canManage && <WhatsAppSemSite clients={clientsSemSite} onOpen={onSemSite} />}
     </section>
   );
 }

@@ -124,4 +124,31 @@ function seed(db, official = false) {
     await browser.close();
   }
 }
+{
+  // T5.26: cliente SEM site liga só o WhatsApp (sem cadastrar site nem domínio)
+  const { browser, page, errors } = await launch();
+  const db = await mockSupabase(page, { role: "admin" });
+  db.clients.push(client(CLI, "Loja Só WhatsApp"));
+  await login(page, "/tracking?secao=config");
+  const blk = page.getByTestId("wa-sem-site");
+  await blk.waitFor();
+  await blk.getByLabel("Cliente sem site").selectOption({ label: "Loja Só WhatsApp" });
+  await blk.getByRole("button", { name: "Ligar só o WhatsApp" }).click();
+  const modal = page.getByTestId("wa-server");
+  await modal.waitFor();
+  check(db.trackingContainers.length === 1 && db.trackingContainers[0].kind === "whatsapp" && db.trackingContainers[0].allowed_domains.length === 0, "cria o recipiente técnico do WhatsApp, sem domínio");
+  await modal.getByLabel("Número com DDD (só números)").fill("(45) 99999-1234");
+  await modal.getByRole("button", { name: "Criar conexão" }).click();
+  await page.getByTestId("wa-server-key").waitFor();
+  check(db.whatsappConnections.length === 1 && db.whatsappConnections[0].mode === "nao_oficial" && db.whatsappConnections[0].client_id === CLI, "o WhatsApp do cliente é ligado normalmente, sem site");
+  await page.getByRole("button", { name: "Fechar", exact: true }).last().click();
+  await page.reload();
+  const row = page.getByTestId("wa-connection-row").first();
+  await row.waitFor();
+  check((await row.innerText()).includes("Só WhatsApp (sem site)"), "aparece na lista do WhatsApp como 'Só WhatsApp (sem site)'");
+  check(await page.getByText("WhatsApp (sem site)", { exact: true }).count() === 0, "o recipiente técnico nunca aparece como um site");
+  check(await page.getByTestId("wa-sem-site").count() === 0, "o cliente que já tem WhatsApp some da lista de 'sem site'");
+  check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
+  await browser.close();
+}
 console.log("\nWhatsApp pelo servidor (T5.3): tudo certo.");

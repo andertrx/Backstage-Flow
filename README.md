@@ -148,6 +148,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T5.22 (Fase 3) — Resumo da semana e reenvio (só quem não recebeu / todos)](docs/etapa-43-organizacao/T5.22-FASE-3-RESUMO-E-REENVIO.md) ✅ 09/11
   - [T5.25 — Botão "Reenviar" no cartão do envio (aprova e envia sem trocar o horário)](docs/etapa-43-organizacao/T5.25-BOTAO-REENVIAR.md) ✅ 10/11
   - [T5.24 — Correções da análise de código (fila mais segura e limpezas)](docs/etapa-43-organizacao/T5.24-CORRECOES-DA-ANALISE.md) ✅ 10/11
+  - [T5.26 — WhatsApp do cliente sem site (liga só o WhatsApp, sem cadastrar site)](docs/etapa-34-tracking/T5.26-WHATSAPP-SEM-SITE.md) ✅ 10/11
   - [T5.23 — Período do histórico e limpeza dos dados de conversa do cliente](docs/etapa-34-tracking/T5.23-PERIODO-DO-HISTORICO-E-LIMPEZA.md) ✅ 10/11
   - [45.1 — avisos no WhatsApp (motor: fila, agrupamento, silêncio; sem tela ainda)](docs/etapa-43-organizacao/45.1-AVISOS-NO-WHATSAPP.md) ✅ 07/11 (testado só no banco; sem envio real)
   - [45.2 — aviso "cliente sem gastar" no WhatsApp (motor, sem tela; precisão ~1 h)](docs/etapa-43-organizacao/45.2-AVISO-CLIENTE-SEM-GASTAR.md) ✅ 07/11

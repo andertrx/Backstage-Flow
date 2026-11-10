@@ -17,6 +17,8 @@ export interface TrackingContainer {
   created_at: string;
   /** Versão das regras publicada para o script do site (Tracking T2). */
   rules_version: number | null;
+  /** T5.26: 'whatsapp' = container técnico só para ligar o WhatsApp de um cliente sem site (nunca é mostrado como site). */
+  kind?: "site" | "whatsapp";
   clients: { name: string } | null;
 }
 
@@ -66,11 +68,24 @@ export function useTrackingContainers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_containers")
-        .select("id, client_id, name, public_key, allowed_domains, status, test_mode, consent_mode, retention_days, created_at, rules_version, clients(name)")
+        .select("id, client_id, name, public_key, allowed_domains, status, test_mode, consent_mode, retention_days, created_at, rules_version, kind, clients(name)")
         .order("created_at", { ascending: true });
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os containers de tracking."));
       return data as unknown as TrackingContainer[];
     },
+  });
+}
+
+/** T5.26: liga o WhatsApp de um cliente que não tem site (cria, uma vez, o container técnico escondido e devolve o id). */
+export function useWaSemSiteContainer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (clientId: string) => {
+      const { data, error } = await supabase.rpc("wa_sem_site_container", { p_client: clientId });
+      if (error) throw new FriendlyError(readableDbError(error, "Não conseguimos preparar o WhatsApp deste cliente."));
+      return data as string;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });
 }
 

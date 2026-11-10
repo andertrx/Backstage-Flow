@@ -1880,6 +1880,17 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       return res(200, [...db.whatsappClicks].sort((a, b) => b.clicked_at.localeCompare(a.clicked_at)).map((c) => ({ ...c, touch: c.touch ?? null })));
     }
     // WhatsApp pelo servidor não oficial (Tracking T5.3): conexão sem conta oficial, chave só uma vez, liga/desliga.
+    if (url.includes("/rest/v1/rpc/wa_sem_site_container")) {
+      const p = parse();
+      if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor ligam o WhatsApp de um cliente." });
+      let k = db.trackingContainers.find((t) => t.client_id === p.p_client && t.kind === "whatsapp");
+      if (!k) {
+        k = { id: crypto.randomUUID(), client_id: p.p_client, name: "WhatsApp (sem site)", public_key: "bf_" + "0".repeat(24), allowed_domains: [], status: "ativo", test_mode: false,
+          consent_mode: "nao_exigir", retention_days: 180, created_at: new Date().toISOString(), rules_version: null, kind: "whatsapp" };
+        db.trackingContainers.push(k);
+      }
+      return res(200, k.id);
+    }
     if (url.includes("/rest/v1/rpc/wa_unofficial_save")) {
       const p = parse();
       const k = db.trackingContainers.find((t) => t.id === p.p_container);
