@@ -83,6 +83,11 @@
 - [ ] Compartilhar cada planilha de cliente com o e-mail que o CRM mostra, como **Leitor**.
 - [ ] Em **Inteligência de Resultados**, escolher o cliente, conectar a planilha dele e clicar em **Atualizar agora**. Essa primeira leitura real é o teste final da Etapa 39 (depois disso, conferir a aba **Qualidade dos dados**).
 
+## Tracking: prova com site real (análise de 10/11/2026 — testar quando o Ander avisar, em sessão com Sonnet)
+- [ ] **Ander instala o `t.js` num site real** (Tracking → Sites → copiar o código; direto no HTML ou numa tag "All Pages" do GTM), navega, clica no WhatsApp e envia um formulário de teste. Se der, clica em 1 anúncio ativo do Meta e do Google do cliente.
+- [ ] **Claude confere no banco** (sessão com Sonnet, quando o Ander avisar "instalei no site X"): visitas chegando (PageView/sessões com pageviews > 0), origem classificada (fbclid/gclid preenchidos), Contact do WhatsApp, Lead do formulário, fila do Meta enviando sem erro. Devolver laudo e corrigir o que travar.
+- Contexto do diagnóstico: banco quase vazio (20 eventos, 14 sessões, 0 pageviews, 0 gclid/fbclid); a máquina funciona (CAPI 17 envios, 0 erros), falta tráfego real. Lista de melhorias no relatório da análise (1º site real, 2º overlay "ver meus eventos", 3º endereço próprio anti-bloqueador, 4º conversões de volta ao Google Ads).
+
 ## Limpeza dos dados de conversa (T5.23, 10/11/2026)
 - [ ] **Aplicar a função que apaga** (`wa_unofficial_limpar`): o Supabase pede confirmação por ter `delete`, e a pergunta expirou 5 vezes no chat. Rodar no painel → SQL Editor o trecho final de `supabase/migrations/20261109150000_wa_historico_periodo_e_limpeza.sql` (do `create function private.wa_unofficial_limpar_impl` até o último `grant`). Só cria a função; não apaga nada. Até lá, o botão "Sim, apagar tudo" mostra erro. Depois, pedir ao Claude para conferir e testar.
 - [ ] **Publicar a função `mcp`** (texto do guia atualizado na T5.22): numa sessão nova, pedir "publique a função mcp".
