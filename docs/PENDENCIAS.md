@@ -89,7 +89,7 @@
 - Contexto do diagnóstico: banco quase vazio (20 eventos, 14 sessões, 0 pageviews, 0 gclid/fbclid); a máquina funciona (CAPI 17 envios, 0 erros), falta tráfego real. Lista de melhorias no relatório da análise (1º site real, 2º overlay "ver meus eventos", 3º endereço próprio anti-bloqueador, 4º conversões de volta ao Google Ads).
 
 ## Limpeza dos dados de conversa (T5.23, 10/11/2026)
-- [ ] **Aplicar a função que apaga** (`wa_unofficial_limpar`): o Supabase pede confirmação por ter `delete`, e a pergunta expirou 5 vezes no chat. Rodar no painel → SQL Editor o trecho final de `supabase/migrations/20261109150000_wa_historico_periodo_e_limpeza.sql` (do `create function private.wa_unofficial_limpar_impl` até o último `grant`). Só cria a função; não apaga nada. Até lá, o botão "Sim, apagar tudo" mostra erro. Depois, pedir ao Claude para conferir e testar.
+- [x] Função que apaga (`wa_unofficial_limpar`) aplicada e testada em 10/11/2026. Ver `docs/etapa-34-tracking/T5.23-PERIODO-DO-HISTORICO-E-LIMPEZA.md`.
 - [ ] **Publicar a função `mcp`** (texto do guia atualizado na T5.22): numa sessão nova, pedir "publique a função mcp".
 
 ## Marcar pessoas (@) nos envios (T5.20, 09/11/2026)
