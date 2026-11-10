@@ -83,6 +83,10 @@
 - [ ] Compartilhar cada planilha de cliente com o e-mail que o CRM mostra, como **Leitor**.
 - [ ] Em **Inteligência de Resultados**, escolher o cliente, conectar a planilha dele e clicar em **Atualizar agora**. Essa primeira leitura real é o teste final da Etapa 39 (depois disso, conferir a aba **Qualidade dos dados**).
 
+## Limpeza dos dados de conversa (T5.23, 10/11/2026)
+- [ ] **Aplicar a função que apaga** (`wa_unofficial_limpar`): o Supabase pede confirmação por ter `delete`, e a pergunta expirou 5 vezes no chat. Rodar no painel → SQL Editor o trecho final de `supabase/migrations/20261109150000_wa_historico_periodo_e_limpeza.sql` (do `create function private.wa_unofficial_limpar_impl` até o último `grant`). Só cria a função; não apaga nada. Até lá, o botão "Sim, apagar tudo" mostra erro. Depois, pedir ao Claude para conferir e testar.
+- [ ] **Publicar a função `mcp`** (texto do guia atualizado na T5.22): numa sessão nova, pedir "publique a função mcp".
+
 ## Marcar pessoas (@) nos envios (T5.20, 09/11/2026)
 - [ ] **Teste real da marcação:** num grupo de teste, ligar o grupo a um cliente e adicionar o seu número em "Pessoas a marcar" (Envios → aba Clientes, ou Ficha do cliente → Grupo do WhatsApp). Aprovar um envio de teste só com esse cliente e conferir se o WhatsApp mostra a marcação azul no fim da mensagem. Se não mostrar, me avise (ajusto o formato). (O botão "Enviar agora" não existe mais.)
 - [ ] Adicionar as pessoas (número + apelido) de cada cliente (Envios → aba Clientes → "Pessoas a marcar").
