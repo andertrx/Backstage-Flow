@@ -21,9 +21,10 @@ import {
 } from "./enviosApi.ts";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { RequireOps } from "./OpsLayout.tsx";
-import { EnvioApprovalModal } from "./EnvioApproval.tsx";
+import { EnvioApprovalModal, ReenvioModal } from "./EnvioApproval.tsx";
 import { originLabel } from "./origin.ts";
 import { ClientesStatus, WaEnvioPanel } from "./WaDisparos.tsx";
+import { useWaAutomaticos } from "./waDisparosApi.ts";
 import { GrupoDoClienteAcoes, LigarGrupoModal } from "./WaGrupoLigar.tsx";
 import { WaGruposCard } from "./WaGruposCard.tsx";
 import { WhatsAppPreview } from "./WhatsAppPreview.tsx";
@@ -164,6 +165,8 @@ function EnvioFormModal({ envio, onClose }: { envio: OpsEnvio | null; onClose: (
 function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
   const archive = useArchiveEnvio();
   const [reviewing, setReviewing] = useState(false);
+  const [reenviando, setReenviando] = useState(false);
+  const automatico = useWaAutomaticos().data?.has(envio.id) ?? false;
   const tardia = Boolean(envio.aprovacao_tardia);
   const sit = tardia ? SITUACAO_TARDIA : SITUACAO[envio.situacao_hoje];
   const podeDecidir = tardia || ["aguardando_aprovacao", "aprovado", "recusado"].includes(envio.situacao_hoje);
@@ -192,6 +195,11 @@ function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
             <Button className="px-3 py-1.5 text-xs" variant={tardia || envio.situacao_hoje === "aguardando_aprovacao" ? "primary" : "secondary"} onClick={() => setReviewing(true)}
               aria-label={`Revisar e aprovar ${envio.nome}`}>{tardia ? "Aprovar e enviar agora" : "Revisar e aprovar"}</Button>
           )}
+          {!arquivado && envio.ativo && automatico && (
+            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setReenviando(true)} aria-label={`Reenviar ${envio.nome}`} data-testid="envio-reenviar-botao">
+              <Send className="size-3.5" aria-hidden /> Reenviar
+            </Button>
+          )}
           {!arquivado && <Button variant="ghost" className="px-2 py-1 text-xs" onClick={onEdit} aria-label={`Editar ${envio.nome}`}><Pencil className="size-3.5" aria-hidden /> Editar</Button>}
           <Button variant="ghost" className="px-2 py-1 text-xs" onClick={toggleArchive} loading={archive.isPending} aria-label={`${arquivado ? "Desarquivar" : "Arquivar"} ${envio.nome}`}>
             {arquivado ? <ArchiveRestore className="size-3.5" aria-hidden /> : <Archive className="size-3.5" aria-hidden />}{arquivado ? "Desarquivar" : "Arquivar"}
@@ -203,6 +211,7 @@ function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
       {!arquivado && <WaEnvioPanel envio={envio} />}
       {error && <Alert tone="error">{error}</Alert>}
       {reviewing && <EnvioApprovalModal envio={envio} onClose={() => setReviewing(false)} />}
+      {reenviando && <ReenvioModal envio={envio} onClose={() => setReenviando(false)} />}
     </Card>
   );
 }

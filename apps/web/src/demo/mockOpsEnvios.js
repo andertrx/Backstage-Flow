@@ -136,6 +136,28 @@ export function handleOpsEnvios({ db, url, parse, userId, opsPerms, res }) {
     if (ex) Object.assign(ex, row); else db.opsEnvioAprovacoes.push({ id: db.opsEnvioAprovacoes.length + 1, ...row });
     return res(200, situacao(e));
   }
+  if (rpc("ops_envio_reenviar_agora")) {
+    const e = db.opsEnvios.find((x) => x.id === p.p_id);
+    if (!e || !e.ativo || e.arquivado_em) return bad("Envio não encontrado, pausado ou arquivado.");
+    if (e.versao !== p.p_versao) return res(409, { code: "40001", message: "O envio foi alterado depois que você abriu. Confira de novo antes de aprovar." });
+    if (!(db.waAuto ?? []).includes(e.id)) return bad("Este envio não é automático.");
+    const alvo = p.p_clientes ?? [];
+    if (!alvo.length) return bad("Escolha pelo menos um cliente.");
+    const row = { envio_id: e.id, semana: now.semana, decisao: "aprovado", versao_envio: e.versao, decidido_por: userId, decidido_em: new Date().toISOString(), origem: "manual" };
+    const ex = aprovacaoDe(e);
+    if (ex) Object.assign(ex, row); else db.opsEnvioAprovacoes.push({ id: db.opsEnvioAprovacoes.length + 1, ...row });
+    db.opsEnvioSemana ??= [];
+    db.waDisparos ??= [];
+    let n = 0;
+    for (const c of db.opsEnvioClientes.filter((x) => x.envio_id === e.id && x.ativo && !x.removido_em)) {
+      db.opsEnvioSemana = db.opsEnvioSemana.filter((x) => !(x.envio_id === e.id && x.cliente_id === c.cliente_id && x.semana === now.semana));
+      if (alvo.includes(c.cliente_id)) {
+        db.waDisparos.push({ id: db.waDisparos.length + 200, envio_id: e.id, cliente_id: c.cliente_id, semana: now.semana, origem: "manual", status: "pendente", tentativas: 0, detalhe: null, enviado_em: null, atualizado_em: new Date().toISOString() });
+        n++;
+      } else db.opsEnvioSemana.push({ envio_id: e.id, cliente_id: c.cliente_id, semana: now.semana, receber: false });
+    }
+    return res(200, { na_fila: n, sem_grupo: 0 });
+  }
   if (rpc("ops_envio_semana_set")) {
     const e = db.opsEnvios.find((x) => x.id === p.p_envio);
     if (!e) return bad("Envio não encontrado.");

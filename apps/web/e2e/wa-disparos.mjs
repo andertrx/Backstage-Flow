@@ -109,4 +109,36 @@ function seed(db, conectado = true) {
   await browser.close();
 }
 
+// ---------------------------------------------------------------- T5.25: botão "Reenviar" no cartão (sem trocar o horário)
+{
+  const { browser, page, errors } = await launch();
+  const db = await mockSupabase(page, { role: "admin" });
+  seed(db);
+  db.waAuto.push(ENVIO);
+  const d = (id, cliente_id, status, detalhe = null) => ({ id, envio_id: ENVIO, cliente_id, semana: "2026-11-02", origem: "automatico", status, tentativas: 1, detalhe, enviado_em: status === "enviado" ? t : null, atualizado_em: t });
+  db.waDisparos.push(d(1, A, "enviado"), d(2, B, "falhou", "Sem conexão"));
+  db.opsEnvioExecucoes.push({ id: 1, envio_id: ENVIO, cliente_id: A, executado_em: new Date().toISOString(), status: "enviado", detalhe: "ok", registrado_por: USER_ID, origem: "whatsapp" });
+  await login(page, "/operacoes/envios");
+  await page.getByTestId("envio-aprovacao").getByRole("button", { name: "Decidir depois" }).click().catch(() => {});
+  const card = page.getByTestId("envio-card").first();
+  await card.getByTestId("envio-reenviar-botao").click();
+  const m = page.getByTestId("envio-reenvio");
+  await m.waitFor();
+  check(await m.getByLabel("Reenviar para Loja Aurora").isChecked() === false && await m.getByLabel("Reenviar para Loja Brisa").isChecked() === true && await m.getByLabel("Reenviar para Loja Cais").isChecked() === true,
+    "já vêm marcados só os clientes que não receberam (Aurora, que já recebeu, fica desmarcada)");
+  check(await m.getByRole("button", { name: "Aprovar e enviar agora" }).isDisabled(), "só envia depois de marcar \"Analisei\"");
+  await m.getByLabel("Reenviar para Loja Aurora").check();
+  check((await m.innerText()).includes("vão receber a mensagem de novo"), "marcar quem já recebeu avisa que vai duplicar");
+  await m.getByLabel("Reenviar para Loja Aurora").uncheck();
+  await m.getByLabel("Reenviar para Loja Cais").uncheck();
+  await page.screenshot({ path: `${SHOTS}/envios-reenviar-botao.png` });
+  await m.getByLabel(/Analisei a mensagem/).check();
+  await m.getByRole("button", { name: "Aprovar e enviar agora" }).click();
+  await m.getByText("1 cliente(s) entraram na fila").waitFor();
+  check(db.rpcCalls.some((c) => c.fn === "ops_envio_reenviar_agora" && c.p_clientes.length === 1 && c.p_clientes[0] === B), "reenvia só para a Brisa, sem trocar o horário do envio");
+  check(db.opsEnvioAprovacoes.some((a) => a.envio_id === ENVIO && a.decisao === "aprovado") && db.opsEnvios[0].horario === "10:00", "aprova a semana e o horário do envio continua o mesmo");
+  check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);
+  await browser.close();
+}
+
 console.log("OK: wa-disparos");

@@ -194,6 +194,15 @@ export function useDecidirEnvio() {
   });
 }
 
+/** T5.25: botão "Reenviar": aprova a semana e já enfileira os clientes escolhidos (sem trocar o horário do envio). */
+export function useReenviarAgora() {
+  return useEnviosMutation(async (v: { id: string; versao: number; clientes: string[] }) => {
+    const { data, error } = await supabase.rpc("ops_envio_reenviar_agora", { p_id: v.id, p_versao: v.versao, p_clientes: v.clientes });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos reenviar."));
+    return data as { na_fila: number; sem_grupo: number };
+  });
+}
+
 /** T5.22: quem recebe o envio nesta semana. Vale só para a semana atual; semana nova volta ao padrão (todos). */
 export function useQuemRecebe() {
   return useEnviosMutation(async (v: { id: string; clientes: { cliente_id: string; receber: boolean }[] }) => {
