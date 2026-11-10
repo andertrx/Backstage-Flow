@@ -34,4 +34,4 @@ jobs:
         run: |
           FLAG=""
           if [ "${{ inputs.conferir_login }}" != "true" ]; then FLAG="--no-verify-jwt"; fi
-          supabase functions deploy "${{ inputs.funcao }}" --project-ref "$PROJECT_REF" --use-api $FLAG
+          supabase functions deploy "${{ inputs.funcao }}" --project-ref "$PROJECT_REF" --use-api --yes $FLAG
