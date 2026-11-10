@@ -131,3 +131,6 @@ create function public.wa_unofficial_limpar(p_id uuid, p_confirmar text)
 returns jsonb language sql set search_path = '' as $$ select private.wa_unofficial_limpar_impl(p_id, p_confirmar) $$;
 revoke all on function public.wa_unofficial_set_history(uuid, integer), public.wa_unofficial_limpar_contagem(uuid), public.wa_unofficial_limpar(uuid, text) from public, anon;
 grant execute on function public.wa_unofficial_set_history(uuid, integer), public.wa_unofficial_limpar_contagem(uuid), public.wa_unofficial_limpar(uuid, text) to authenticated;
+
+-- A coluna nova precisa de leitura para a tela (a tabela usa permissão por coluna).
+grant select (history_days) on public.tracking_whatsapp_connections to authenticated;
