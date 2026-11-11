@@ -55,7 +55,7 @@ import { MetaCapiModal } from "./MetaCapiModal.tsx";
 import { SuggestionsSection } from "./SuggestionsSection.tsx";
 import { RulesModal } from "./RulesModal.tsx";
 import { WhatsAppApiModal } from "./WhatsAppApiModal.tsx";
-import { WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
+import { LimparDadosCliente, WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
 import { WhatsAppSection } from "./WhatsAppSection.tsx";
 
 const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
@@ -459,6 +459,7 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
   onWhatsAppApi: (c: TrackingContainer) => void;
 }) {
   const semSite = useWaSemSiteContainer();
+  const isAdmin = useAuth().profile?.role === "admin";
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -506,6 +507,7 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
                 <Button variant="secondary" className="px-2 py-1 text-xs" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id)} aria-label={`${conn ? "Configurar WhatsApp" : "Ligar WhatsApp"} de ${cl.name}`}>
                   <MessageCircle className="size-3.5" aria-hidden /> {conn ? "Configurar" : "Ligar WhatsApp"}
                 </Button>
+                {conn && conn.mode === "nao_oficial" && isAdmin && <LimparDadosCliente connectionId={conn.id} compact />}
                 {!conn && (
                   <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => void ligarWhatsApp(cl.id, true)} aria-label={`Ligar pela API oficial de ${cl.name}`}>
                     API oficial

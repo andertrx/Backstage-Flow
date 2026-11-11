@@ -1,4 +1,4 @@
-import { Copy, KeyRound } from "lucide-react";
+import { Copy, KeyRound, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -61,12 +61,8 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
   const store = useWaStoreMessages();
   const ai = useWaAiSuggest();
   const history = useWaHistoryDays();
-  const contagem = useWaLimparContagem();
-  const limpar = useWaLimpar();
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
-  const [limpeza, setLimpeza] = useState<{ passo: 1 | 2; n: { mensagens: number; pessoas: number; sugestoes: number; conversas_mantidas: number } } | null>(null);
-  const [limpou, setLimpou] = useState<string | null>(null);
   const official = connection && connection.mode !== "nao_oficial";
   const [phone, setPhone] = useState(connection?.mode === "nao_oficial" ? connection.display_phone ?? "" : "");
   const [revealed, setRevealed] = useState<{ id: string; key: string } | null>(null);
@@ -234,42 +230,10 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
               Apaga o <strong>texto das mensagens, os telefones, os nomes e as sugestões</strong> deste cliente (de <strong>todos os WhatsApps dele</strong>).
               Mantém as conversas (só com o código cifrado do telefone), as vendas marcadas e as contagens. Não dá para desfazer.
             </p>
-            <Button type="button" variant="secondary" loading={contagem.isPending}
-              onClick={() => { setLimpou(null); setError(null); contagem.mutate(mine.id, { onSuccess: (n) => setLimpeza({ passo: 1, n }), onError: (e) => setError(errorMessage(e)) }); }}>
-              Limpar dados deste cliente
-            </Button>
-            {limpou && <Alert tone="success">{limpou}</Alert>}
+            <LimparDadosCliente connectionId={mine.id} />
           </section>
         )}
         {!canManage && <p className="text-slate-500">Só administrador e gestor configuram o WhatsApp do site.</p>}
-        {limpeza && mine && (
-          <Modal open title={limpeza.passo === 1 ? "Limpar os dados de conversa?" : "Tem certeza mesmo?"} onClose={() => setLimpeza(null)}>
-            <div className="space-y-3 text-sm" data-testid="wa-limpar-modal">
-              {limpeza.passo === 1 ? (
-                <>
-                  <p>Vão ser apagados: <strong>{limpeza.n.mensagens}</strong> mensagem(ns), <strong>{limpeza.n.pessoas}</strong> pessoa(s) com telefone e nome e <strong>{limpeza.n.sugestoes}</strong> sugestão(ões).</p>
-                  <p className="text-slate-600">Ficam: {limpeza.n.conversas_mantidas} conversa(s) (sem texto nem telefone), as vendas marcadas e as contagens.</p>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="ghost" onClick={() => setLimpeza(null)}>Cancelar</Button>
-                    <Button onClick={() => setLimpeza({ ...limpeza, passo: 2 })}>Continuar</Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Alert tone="warning">Isto não pode ser desfeito. Você quer mesmo apagar esses dados do servidor?</Alert>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="ghost" onClick={() => setLimpeza(null)}>Não, voltar</Button>
-                    <Button loading={limpar.isPending} onClick={() => limpar.mutate(mine.id, {
-                      onSuccess: (r) => { setLimpeza(null); setLimpou(`Apagado: ${r.mensagens} mensagem(ns), ${r.pessoas} pessoa(s) e ${r.sugestoes} sugestão(ões).`); },
-                      onError: (e) => { setLimpeza(null); setError(errorMessage(e)); } })}>
-                      Sim, apagar tudo
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-          </Modal>
-        )}
         <div className="flex justify-end"><Button type="button" onClick={onClose}>Fechar</Button></div>
       </div>
     </Modal>
@@ -319,5 +283,56 @@ function HistoryDays({ value, busy, onChange }: { value: number | null | undefin
       )}
       <p className="text-xs text-slate-500">Vale para o histórico que chegar daqui para frente; não apaga o que já foi guardado.</p>
     </div>
+  );
+}
+
+/**
+ * Botão "Limpar dados deste cliente" com a confirmação em dois passos (só administrador). Usado na linha do cliente
+ * (Tracking → Configurações) e dentro da configuração do WhatsApp. Apaga texto, telefones, nomes e sugestões do cliente;
+ * mantém as conversas (sem texto), as vendas marcadas e as contagens.
+ */
+export function LimparDadosCliente({ connectionId, compact = false }: { connectionId: string; compact?: boolean }) {
+  const contagem = useWaLimparContagem();
+  const limpar = useWaLimpar();
+  const [limpeza, setLimpeza] = useState<{ passo: 1 | 2; n: { mensagens: number; pessoas: number; sugestoes: number; conversas_mantidas: number } } | null>(null);
+  const [limpou, setLimpou] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <Button type="button" variant={compact ? "ghost" : "secondary"} className={compact ? "px-2 py-1 text-xs" : undefined} loading={contagem.isPending}
+        onClick={() => { setLimpou(null); setError(null); contagem.mutate(connectionId, { onSuccess: (n) => setLimpeza({ passo: 1, n }), onError: (e) => setError(errorMessage(e)) }); }}>
+        <Trash2 className="size-3.5" aria-hidden /> Limpar dados deste cliente
+      </Button>
+      {limpou && <Alert tone="success">{limpou}</Alert>}
+      {error && <Alert tone="error">{error}</Alert>}
+      {limpeza && (
+        <Modal open title={limpeza.passo === 1 ? "Limpar os dados de conversa?" : "Tem certeza mesmo?"} onClose={() => setLimpeza(null)}>
+          <div className="space-y-3 text-sm" data-testid="wa-limpar-modal">
+            {limpeza.passo === 1 ? (
+              <>
+                <p>Vão ser apagados: <strong>{limpeza.n.mensagens}</strong> mensagem(ns), <strong>{limpeza.n.pessoas}</strong> pessoa(s) com telefone e nome e <strong>{limpeza.n.sugestoes}</strong> sugestão(ões).</p>
+                <p className="text-slate-600">Ficam: {limpeza.n.conversas_mantidas} conversa(s) (sem texto nem telefone), as vendas marcadas e as contagens.</p>
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setLimpeza(null)}>Cancelar</Button>
+                  <Button onClick={() => setLimpeza({ ...limpeza, passo: 2 })}>Continuar</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Alert tone="warning">Isto não pode ser desfeito. Você quer mesmo apagar esses dados do servidor?</Alert>
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setLimpeza(null)}>Não, voltar</Button>
+                  <Button loading={limpar.isPending} onClick={() => limpar.mutate(connectionId, {
+                    onSuccess: (r) => { setLimpeza(null); setLimpou(`Apagado: ${r.mensagens} mensagem(ns), ${r.pessoas} pessoa(s) e ${r.sugestoes} sugestão(ões).`); },
+                    onError: (e) => { setLimpeza(null); setError(errorMessage(e)); } })}>
+                    Sim, apagar tudo
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
