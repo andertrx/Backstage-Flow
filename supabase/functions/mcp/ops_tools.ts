@@ -26,6 +26,9 @@ interface TaskFull {
   tags: string[];
   comments?: { author: string; body: string; created_at: string }[];
   depends_on?: { number: number; title: string; status_name: string; done: boolean }[];
+  parent?: { id: string; number: number; title: string | null } | null;
+  subtasks?: { id: string; number: number; title: string | null; status_name: string; done: boolean; people?: { name: string; role: string }[] }[];
+  subtask_progress?: { total: number; done: number };
 }
 
 async function loadTask(ctx: ToolContext, id: string): Promise<TaskFull> {
@@ -53,6 +56,12 @@ function taskOut(t: TaskFull) {
     atualizada_em: k.updated_at, concluida_em: k.completed_at ?? null, arquivada_em: k.archived_at ?? null, link: taskLink(k.id),
     pessoas: peopleOut(t.people ?? []),
     etiquetas: t.tags ?? [],
+    subtarefa_de: t.parent ? { id: t.parent.id, numero: t.parent.number, titulo: t.parent.title } : null,
+    subtarefas: (t.subtasks ?? []).map((x) => ({
+      id: x.id, numero: x.number, titulo: x.title, status: x.status_name, concluida: x.done,
+      responsavel: (x.people ?? []).find((p) => p.role === "principal")?.name ?? null,
+    })),
+    progresso_subtarefas: t.subtask_progress ?? { total: 0, done: 0 },
     depende_de: (t.depends_on ?? []).map((d) => ({ numero: d.number, titulo: d.title, status: d.status_name, concluida: d.done })),
     comentarios: (t.comments ?? []).slice(-20).map((c) => ({ autor: c.author, texto: c.body, em: c.created_at })),
   };
@@ -102,6 +111,8 @@ export const OPS_TOOLS: ToolSpec[] = [
       minhas: z.boolean().optional().describe("Só as tarefas em que você participa."),
       prazo: z.enum(["atrasadas", "hoje", "semana", "sem_prazo"]).optional(),
       arquivadas: z.boolean().optional().describe("true = só as arquivadas."),
+      so_principais: z.boolean().optional().describe("true = esconde as subtarefas (só tarefas principais)."),
+      subtarefas_de: uuid.optional().describe("Só as subtarefas desta tarefa principal."),
       limite: z.number().int().min(1).max(100).default(30),
       pagina: z.number().int().min(1).max(100).default(1),
     },
@@ -113,6 +124,7 @@ export const OPS_TOOLS: ToolSpec[] = [
         q: a.busca ?? null, client_id: a.cliente_id ?? null, sector_id: a.setor_id ?? null, status_ids: a.status_ids ?? [],
         categories: a.grupos ?? [], priorities: a.prioridades ?? [], person_id: a.pessoa_id ?? null, mine: a.minhas ?? false,
         due: a.prazo ?? null, archived: a.arquivadas ?? false,
+        ...(a.so_principais ? { top_only: true } : {}), ...(a.subtarefas_de ? { parent_id: a.subtarefas_de } : {}),
       };
       const rows = ((await ctx.data.opsRpc("ops_task_list", { f, p_limit: limit + 1, p_offset: (page - 1) * limit })) ?? []) as Record<string, unknown>[];
       return {
@@ -121,7 +133,9 @@ export const OPS_TOOLS: ToolSpec[] = [
         tarefas: rows.slice(0, limit).map((t) => ({
           id: t.id, numero: t.number, titulo: t.title, cliente: t.client_name ?? null, setor_id: t.sector_id, status_id: t.status_id,
           status: t.status_name, grupo: t.category, prioridade: t.priority, inicio: t.start_date ?? null, prazo: t.due_date ?? null,
-          atrasada: t.overdue === true, versao: t.version, etiquetas: t.tags ?? [], comentarios: t.comments ?? 0,
+          atrasada: t.overdue === true, versao: t.version,
+          subtarefa_de: t.parent_id ? { id: t.parent_id, numero: t.parent_number ?? null } : null,
+          subtarefas: Number(t.subtasks_total ?? 0) > 0 ? { total: t.subtasks_total, concluidas: t.subtasks_done ?? 0 } : null, etiquetas: t.tags ?? [], comentarios: t.comments ?? 0,
           pessoas: ((t.people ?? []) as TaskFull["people"]).map((p) => ({ nome: p.name, papel: p.role, user_id: p.user_id })),
         })),
       };
@@ -155,6 +169,7 @@ export const OPS_TOOLS: ToolSpec[] = [
       status_id: statusId.optional().describe("Padrão: o primeiro status em aberto."),
       responsavel_id: uuid.describe("Responsável principal (user_id). Obrigatório: toda tarefa precisa de pelo menos um responsável."),
       adicionais_ids: z.array(uuid).max(10).optional(),
+      tarefa_principal_id: uuid.optional().describe("Cria como SUBTAREFA desta tarefa (só um nível; herda cliente e etapa da principal)."),
     },
     allowed: ops("ops.tasks.create"),
     write: true,
@@ -164,6 +179,7 @@ export const OPS_TOOLS: ToolSpec[] = [
         start_date: a.inicio ?? null, due_date: a.prazo ?? null, effort_hours: a.horas_estimadas ?? null, visibility: a.visibilidade ?? "setor",
         tags: a.etiquetas ?? [], status_id: a.status_id ?? null,
         people: { principal: a.responsavel_id, adicionais: a.adicionais_ids ?? [], aprovadores: [], observadores: [] },
+        ...(a.tarefa_principal_id ? { parent_id: a.tarefa_principal_id } : {}),
       };
       const id = (await ctx.data.opsRpc("ops_task_save", { p_id: null, p_version: null, p })) as string;
       const t = await loadTask(ctx, id);

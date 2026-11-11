@@ -1591,6 +1591,15 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
         db.opsTasks.push(t);
         db.opsActivity.push({ id: db.opsActivity.length + 1, task_id: t.id, client_id: t.client_id, action: "tarefa.criada", actor_id: null, origin: "sistema",
           before: null, after: { titulo: t.title, repeticao: src.number }, created_at: new Date().toISOString() });
+        // T5.32: copia as subtarefas abertas (só se o modelo é tarefa principal)
+        if (!src.parent_id) {
+          for (const c of db.opsTasks.filter((x) => x.parent_id === src.id && !x.archived_at && !x.deleted_at).sort((x, y) => (x.sub_position ?? 0) - (y.sub_position ?? 0))) {
+            const cOff = c.due_date ? (Date.parse(c.due_date) - Date.parse(src.start_date ?? src.due_date ?? c.due_date)) / 86_400_000 : null;
+            db.opsTasks.push({ ...c, id: crypto.randomUUID(), number: ++db.opsTaskSeq, status_id: "nao_iniciado", parent_id: t.id, client_id: t.client_id,
+              start_date: null, due_date: cOff == null ? null : addDays(d, cOff), people: c.people.filter((x) => memberOk(x.user_id)).map((x) => ({ ...x })), version: 1,
+              created_by: r.created_by, created_at: new Date().toISOString(), completed_at: null, archived_at: null, recurrence_id: null, occurrence_date: null });
+          }
+        }
       }
     }
     if (to >= r.start_date) r.last_date = to;
@@ -1601,6 +1610,8 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     can_stop: r.active && (r.created_by === userId || role === "admin" || (r.kind === "tarefa" ? can("ops.tasks.edit")
       : meetingCanEdit(db.opsMeetings.find((x) => x.id === r.meeting_id)))) });
   if (rpc("ops_recurrence_for")) {
+    // simula o agendador da madrugada: tarefas repetidas cujo dia chegou
+    for (const r of db.opsRecurrences ?? []) if (r.active && r.kind === "tarefa" && r.start_date <= today()) recGenerate(r);
     const isTask = p.p_kind === "tarefa";
     const item = isTask ? find(p.p_id) : findMeeting(p.p_id);
     if (!item) return res(200, null);

@@ -107,3 +107,8 @@
 - [ ] **Google Agenda (43.7):** responder 3 perguntas para eu fazer a sincronização automática das reuniões: agenda da empresa ou de cada pessoa; convidar os participantes pelo Google; só CRM → Google ou nos dois sentidos (recomendo só CRM → Google). Detalhes em `docs/etapa-43-organizacao/43.7-REUNIOES-ONBOARDING-E-GOOGLE-AGENDA.md`.
 - [ ] **Google Agenda (46.0):** ler `docs/etapa-43-organizacao/46.0-PLANO-GOOGLE-AGENDA.md` e responder 2 perguntas (Workspace ou Gmail comum; convidar clientes e Meet automático). Antes da construção: ativar a Calendar API e o acesso `calendar.events` no Google Cloud.
 - [ ] **Google Agenda (46.1):** no Google Cloud, adicionar aos URIs de redirecionamento do cliente OAuth: `https://www.backstageflow.com.br/google-agenda/retorno` e `https://backstageflow.com.br/google-agenda/retorno`; conferir se a tela de consentimento pode ser "Interna" (dispensa o vídeo). Depois conectar em Reuniões → Google Agenda.
+
+## Subtarefas e responsável obrigatório (T5.32/T5.33, 11/11/2026)
+- [ ] **Publicar a função `mcp`** (agora também com subtarefas e `responsavel_id` obrigatório): Actions → "Publicar função do Supabase" (precisa do segredo `SUPABASE_ACCESS_TOKEN` no GitHub).
+- [ ] Conferir com dados reais, quando houver: repetição de tarefa com subtarefas (roda de madrugada) e reunião → tarefa com responsável.
+- [ ] Tarefas antigas sem responsável aparecem em vermelho ("Sem responsável"): definir um responsável nelas (filtro "Sem responsável" na Central de Tarefas).

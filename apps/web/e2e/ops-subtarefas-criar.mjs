@@ -46,5 +46,20 @@ check(db.opsTasks.filter((t) => t.parent_id === main.id).length === 3, "principa
 await page.goto(`${BASE}/operacoes/tarefas?tarefa=${main.id}`);
 await detail.getByLabel("Título da nova subtarefa").waitFor();
 check(await detail.getByRole("button", { name: "Transformar em subtarefa…" }).count() === 0, "tarefa com subtarefas não oferece 'transformar'");
+
+// repetição copia as subtarefas abertas
+await detail.getByRole("button", { name: "Repetir…" }).click();
+const rt = page.getByRole("dialog", { name: "Repetir esta tarefa" });
+await rt.getByLabel("Frequência").selectOption("diaria");
+await rt.getByRole("button", { name: "Repetir", exact: true }).click();
+await rt.waitFor({ state: "detached" });
+// o agendador roda de madrugada: aqui adiantamos o início para hoje e recarregamos a lista
+db.opsRecurrences.find((r) => r.task_id === main.id).start_date = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+await page.goto(`${BASE}/operacoes/tarefas?tarefa=${main.id}`);
+for (let i = 0; i < 30 && !db.opsTasks.some((t) => t.recurrence_id); i++) await page.waitForTimeout(100);
+const occ = db.opsTasks.find((t) => t.recurrence_id);
+check(Boolean(occ), "a repetição gerou a tarefa de hoje");
+check(db.opsTasks.filter((t) => t.parent_id === occ.id).map((k) => k.title).sort().join() === "Layout final,Publicar,Wireframe", "a tarefa repetida veio com as 3 subtarefas");
+check(db.opsTasks.filter((t) => t.parent_id === occ.id).every((k) => k.status_id === "nao_iniciado"), "subtarefas copiadas começam no status inicial");
 check(errors.length === 0, `sem erros ${errors.join(" | ")}`);
 await browser.close();

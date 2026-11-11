@@ -475,6 +475,18 @@ Deno.test("Central: status, pessoas (mantém aprovadores), comentário e arquiva
   await client.close();
 });
 
+Deno.test("Central: subtarefas (criar como subtarefa, filtros da lista e leitura na tarefa)", async () => {
+  const central = newCentral();
+  const { client } = await connect("tok-gestor", {}, central);
+  await client.callTool({ name: "backstage_create_task", arguments: { titulo: "Passo do briefing", setor_id: SECTOR, responsavel_id: PERSON, tarefa_principal_id: CLI_B } });
+  const save = central.calls.find((c) => c.name === "ops_task_save")!;
+  assertEquals((save.args.p as Record<string, unknown>).parent_id, CLI_B);
+  await client.callTool({ name: "backstage_list_tasks", arguments: { so_principais: true, subtarefas_de: CLI_B } });
+  const f = central.calls.filter((x) => x.name === "ops_task_list").at(-1)!.args.f as Record<string, unknown>;
+  assertEquals([f.top_only, f.parent_id], [true, CLI_B]);
+  await client.close();
+});
+
 Deno.test("Central: configurações (admin) e erros do banco viram mensagens claras", async () => {
   const central = newCentral();
   const { client } = await connect("tok-admin", {}, central);
