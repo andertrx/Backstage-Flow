@@ -56,9 +56,25 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   await dialog.waitFor({ state: "detached" });
   await page.getByTestId("ops-sectors").getByText("Customer Success").waitFor();
   check(db.opsSectors.some((s) => s.name === "Customer Success" && s.color === "#10B981"), "setor novo criado com a cor escolhida");
-  await page.getByRole("button", { name: "Subir Customer Success" }).click();
-  await page.waitForFunction(() => [...document.querySelectorAll("[data-testid=ops-sector-row] p.font-medium")].at(-2)?.textContent === "Customer Success");
-  check(true, "reordenar funciona");
+  check(await page.getByRole("button", { name: /^Subir |^Descer / }).count() === 0, "ordem dos setores sem setas");
+  {
+    // arrasta "Customer Success" para cima do penúltimo setor (por arrastar, como no celular e no computador)
+    const rows = page.getByTestId("ops-sector-list").locator("[data-sortable-item]");
+    const n = await rows.count();
+    await page.getByLabel("Arrastar Customer Success", { exact: true }).scrollIntoViewIfNeeded();
+    const handle = await page.getByLabel("Arrastar Customer Success", { exact: true }).boundingBox();
+    const target = await rows.nth(n - 2).boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y - 6, { steps: 4 });
+    await page.mouse.move(handle.x + handle.width / 2, target.y + target.height / 2, { steps: 10 });
+    await page.mouse.up();
+  }
+  await page.waitForFunction(() => {
+    const names = [...document.querySelectorAll("[data-testid=ops-sector-row] p.font-medium")].map((e) => e.textContent);
+    return names.indexOf("Customer Success") < names.length - 1 && names.indexOf("Customer Success") >= 0 && names.indexOf("Customer Success") <= names.length - 2;
+  });
+  check(true, "reordenar setores arrastando funciona");
   await page.getByRole("button", { name: "Editar Copy" }).click();
   dialog = page.getByRole("dialog", { name: "Editar setor" });
   await dialog.getByLabel("Nome").fill("Copywriting");

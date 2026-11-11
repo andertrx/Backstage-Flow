@@ -1,13 +1,15 @@
 import { OPS_COLORS, OPS_STATUS_CATEGORIES, OPS_STATUS_CATEGORY_LABELS, type OpsStatusCategory } from "@backstage/shared";
-import { ArrowDown, ArrowUp, Pencil, Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
+import { SortableList } from "@/components/ui/sortable-list.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { cn } from "@/lib/cn.ts";
+import { ConfigExcluir } from "./ConfigExcluir.tsx";
+import { splitActive } from "./configOptionsApi.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { type OpsStatus, useOpsStatuses, useReorderStatuses, useSaveStatus, useSetStatusActive } from "./tasksApi.ts";
 
@@ -95,12 +97,12 @@ export function StatusSettings() {
   const [error, setError] = useState<string | null>(null);
   const all = statuses.data ?? [];
 
-  async function move(i: number, d: -1 | 1) {
-    const ids = all.map((s) => s.id);
-    [ids[i], ids[i + d]] = [ids[i + d], ids[i]];
+  const { active, inactive } = splitActive(all, (s) => s.active);
+  async function reorderTo(nextActive: string[]) {
     setError(null);
-    try { await reorder.mutateAsync(ids); } catch (err) { setError(errorMessage(err)); }
+    try { await reorder.mutateAsync([...nextActive, ...inactive.map((s) => s.id)]); } catch (err) { setError(errorMessage(err)); }
   }
+  const byId = new Map(all.map((s) => [s.id, s]));
 
   return (
     <div className="space-y-3" data-testid="ops-statuses">
@@ -112,10 +114,12 @@ export function StatusSettings() {
         <Button onClick={() => setEditing(null)}><Plus className="size-4" aria-hidden /> Novo status</Button>
       </div>
       {(error || statuses.error) && <Alert tone="error">{error ?? errorMessage(statuses.error)}</Alert>}
-      <Card>
-        <ul className="divide-y divide-slate-100">
-          {all.map((s, i) => (
-            <li key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="ops-status-row">
+      <SortableList items={active.map((s) => s.id)} fixed={inactive.map((s) => s.id)} onReorder={(ids) => void reorderTo(ids)}
+        label={(id) => byId.get(id)?.name ?? id} testId="ops-status-list">
+        {(id) => {
+          const s = byId.get(id)!;
+          return (
+            <div className="flex flex-1 flex-wrap items-center gap-3 py-1.5" data-testid="ops-status-row">
               <span className="h-8 w-1.5 rounded-full" style={{ background: s.color }} aria-hidden />
               <div className="min-w-40 flex-1">
                 <p className={cn("font-medium", s.active ? "text-slate-900" : "text-slate-400")}>{s.name}</p>
@@ -123,21 +127,18 @@ export function StatusSettings() {
               </div>
               <Badge tone={s.active ? "success" : "neutral"}>{s.active ? "Ativo" : "Desativado"}</Badge>
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" disabled={i === 0 || reorder.isPending}
-                  onClick={() => move(i, -1)} aria-label={`Subir ${s.name}`}><ArrowUp className="size-4" aria-hidden /></button>
-                <button type="button" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" disabled={i === all.length - 1 || reorder.isPending}
-                  onClick={() => move(i, 1)} aria-label={`Descer ${s.name}`}><ArrowDown className="size-4" aria-hidden /></button>
                 <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setEditing(s)} aria-label={`Editar ${s.name}`}>
                   <Pencil className="size-3.5" aria-hidden /> Editar
                 </Button>
                 <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setToggling(s)} aria-label={`${s.active ? "Desativar" : "Reativar"} ${s.name}`}>
                   {s.active ? "Desativar" : "Reativar"}
                 </Button>
+                <ConfigExcluir kind="status" id={s.id} name={s.name} />
               </div>
-            </li>
-          ))}
-        </ul>
-      </Card>
+            </div>
+          );
+        }}
+      </SortableList>
       {editing !== undefined && <StatusModal key={editing?.id ?? "new"} status={editing} onClose={() => setEditing(undefined)} />}
       {toggling && <ActiveModal status={toggling} statuses={all} onClose={() => setToggling(null)} />}
     </div>

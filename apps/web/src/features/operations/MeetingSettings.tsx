@@ -4,10 +4,12 @@ import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Card } from "@/components/ui/card.tsx";
 import { Field, Input } from "@/components/ui/field.tsx";
+import { SortableList } from "@/components/ui/sortable-list.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { cn } from "@/lib/cn.ts";
+import { ConfigExcluir } from "./ConfigExcluir.tsx";
+import { splitActive, useConfigReordenar } from "./configOptionsApi.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { type OpsMeetingCategory, useMeetingCategories, useSaveMeetingCategory } from "./meetingsApi.ts";
 
@@ -52,9 +54,17 @@ export function MeetingCategoriesSettings() {
   const save = useSaveMeetingCategory();
   const [editing, setEditing] = useState<OpsMeetingCategory | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const reorder = useConfigReordenar("meeting_category");
   async function toggle(c: OpsMeetingCategory) {
     setError(null);
     try { await save.mutateAsync({ id: c.id, name: c.name, color: c.color, active: !c.active }); } catch (err) { setError(errorMessage(err)); }
+  }
+  const all = categories.data ?? [];
+  const { active, inactive } = splitActive(all, (c) => c.active);
+  const byId = new Map(all.map((c) => [c.id, c]));
+  async function reorderTo(next: string[]) {
+    setError(null);
+    try { await reorder.mutateAsync([...next, ...inactive.map((c) => c.id)]); } catch (err) { setError(errorMessage(err)); }
   }
   return (
     <div className="space-y-3" data-testid="ops-meeting-categories">
@@ -66,19 +76,22 @@ export function MeetingCategoriesSettings() {
         <Button onClick={() => setEditing(null)}><Plus className="size-4" aria-hidden /> Novo tipo</Button>
       </div>
       {(error || categories.error) && <Alert tone="error">{error ?? errorMessage(categories.error)}</Alert>}
-      <Card>
-        <ul className="divide-y divide-slate-100">
-          {(categories.data ?? []).map((c) => (
-            <li key={c.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="ops-meeting-category-row">
+      <SortableList items={active.map((c) => c.id)} fixed={inactive.map((c) => c.id)} onReorder={(ids) => void reorderTo(ids)}
+        label={(id) => byId.get(id)?.name ?? id} testId="ops-meeting-category-list">
+        {(id) => {
+          const c = byId.get(id)!;
+          return (
+            <div className="flex flex-1 flex-wrap items-center gap-3 py-1.5" data-testid="ops-meeting-category-row">
               <span className="h-8 w-1.5 rounded-full" style={{ background: c.color }} aria-hidden />
               <p className={cn("min-w-40 flex-1 font-medium", c.active ? "text-slate-900" : "text-slate-400")}>{c.name}</p>
               <Badge tone={c.active ? "success" : "neutral"}>{c.active ? "Ativo" : "Desativado"}</Badge>
               <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setEditing(c)} aria-label={`Editar tipo ${c.name}`}><Pencil className="size-3.5" aria-hidden /> Editar</Button>
               <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => toggle(c)} aria-label={`${c.active ? "Desativar" : "Reativar"} tipo ${c.name}`}>{c.active ? "Desativar" : "Reativar"}</Button>
-            </li>
-          ))}
-        </ul>
-      </Card>
+              <ConfigExcluir kind="meeting_category" id={c.id} name={c.name} />
+            </div>
+          );
+        }}
+      </SortableList>
       {editing !== undefined && <CategoryModal key={editing?.id ?? "new"} category={editing} onClose={() => setEditing(undefined)} />}
     </div>
   );

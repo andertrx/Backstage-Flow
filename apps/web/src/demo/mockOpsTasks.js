@@ -342,7 +342,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   }
   const prefixes = ["ops_task", "ops_comment", "ops_attachment", "ops_directory", "ops_team_counts", "ops_status", "ops_client", "ops_demand",
     "ops_queue", "ops_activity_type", "ops_lead", "ops_loss_reason", "ops_meeting", "ops_notification", "ops_recurrence",
-    "ops_saved_view", "ops_my_summary", "ops_dashboard", "ops_search", "ops_onboarding_template", "ops_archive_list"];
+    "ops_saved_view", "ops_my_summary", "ops_dashboard", "ops_search", "ops_onboarding_template", "ops_archive_list", "ops_config"];
   if (!prefixes.some((x) => url.includes(`/rest/v1/rpc/${x}`))) return null;
   const p = parse();
   db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
@@ -1703,6 +1703,42 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       }
     }
     st.active = p.p_active;
+    return res(204);
+  }
+  if (rpc("ops_config_reordenar")) {
+    if (role !== "admin") return deny("Só o administrador pode mudar a configuração da Central de Operações.");
+    const table = { activity_type: db.opsActivityTypes, loss_reason: db.opsLossReasons, meeting_category: db.opsMeetingCategories }[p.p_tipo];
+    if (!table) return bad("Tipo de opção inválido.");
+    p.p_ids.forEach((id, i) => { const x = table.find((y) => y.id === id); if (x) x.position = i + 1; });
+    return res(204);
+  }
+  if (rpc("ops_config_excluir")) {
+    if (role !== "admin") return deny("Só o administrador pode mudar a configuração da Central de Operações.");
+    const PROT = { status: ["nao_iniciado", "aguardando_cliente", "aguardando_interno", "em_andamento", "finalizado", "cancelado", "bloqueado"],
+      client_stage: ["onboarding_pendente", "coleta_acessos", "briefing", "configuracao_inicial", "concluido", "contrato_pago"],
+      lead_stage: ["perdido", "contrato_pago", "reuniao_agendada", "reuniao_realizada"], loss_reason: ["outros"], meeting_category: ["daily"] };
+    const MAP = {
+      status: [db.opsStatuses, (id) => db.opsTasks.filter((t) => t.status_id === id).length + db.opsQueueColumns.filter((c) => c.status_id === id).length],
+      client_stage: [db.opsClientStages, (id) => db.opsTasks.filter((t) => t.client_stage_id === id).length + Object.values(db.opsClientOps ?? {}).filter((c) => c.stage_id === id).length],
+      queue_column: [db.opsQueueColumns, (id) => db.opsTasks.filter((t) => t.queue_column_id === id).length],
+      lead_stage: [db.opsLeadStages, (id) => (db.opsLeads ?? []).filter((l) => l.stage_id === id).length],
+      loss_reason: [db.opsLossReasons, (id) => (db.opsLeads ?? []).filter((l) => l.loss_reason_id === id).length],
+      meeting_category: [db.opsMeetingCategories, (id) => (db.opsMeetings ?? []).filter((m) => m.category_id === id).length],
+      activity_type: [db.opsActivityTypes, (id) => (db.opsClientNotes ?? []).filter((n) => n.type_id === id).length],
+      onboarding_template: [db.opsOnboardingTemplates, () => 0],
+      sector: [db.opsSectors, (id) => db.opsTasks.filter((t) => t.sector_id === id).length + db.opsQueueColumns.filter((c) => c.sector_id === id).length
+        + db.opsOnboardingTemplates.filter((t) => t.sector_id === id).length],
+    };
+    const entry = MAP[p.p_tipo];
+    if (!entry) return bad("Tipo de opção inválido.");
+    const [table, uses] = entry;
+    const item = table.find((x) => x.id === p.p_id);
+    if (!item) return res(404, { code: "P0002", message: "Opção não encontrada." });
+    if ((PROT[p.p_tipo] ?? []).includes(p.p_id)) return bad("Esta opção é usada pelas regras do sistema e não pode ser excluída. Desative para esconder.");
+    const n = uses(p.p_id);
+    if (n > 0) return bad(`Não dá para excluir: "${item.name ?? item.title}" está em uso em ${n} registro(s). Desative para esconder das escolhas novas.`);
+    table.splice(table.indexOf(item), 1);
+    (db.opsConfigExcluidos ??= []).push({ tipo: p.p_tipo, id: p.p_id });
     return res(204);
   }
   if (rpc("ops_loss_reason_save")) {

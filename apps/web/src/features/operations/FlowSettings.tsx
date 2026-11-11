@@ -1,13 +1,15 @@
 import { OPS_COLORS } from "@backstage/shared";
-import { ArrowDown, ArrowUp, Pencil, Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
+import { SortableList } from "@/components/ui/sortable-list.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { cn } from "@/lib/cn.ts";
+import { ConfigExcluir } from "./ConfigExcluir.tsx";
+import { splitActive, useConfigReordenar } from "./configOptionsApi.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import {
   type OpsActivityType, type OpsClientStage, type OpsQueueColumn, useOpsActivityTypes, useOpsClientStages, useOpsQueueColumns, useReorderClientStages,
@@ -33,7 +35,7 @@ function ColorPicker({ value, onChange, label }: { value: string; onChange: (c: 
 
 function Row({ color, title, subtitle, active, children, testid }: { color: string; title: string; subtitle: ReactNode; active: boolean; children: ReactNode; testid: string }) {
   return (
-    <li className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid={testid}>
+    <div className="flex flex-1 flex-wrap items-center gap-3 py-1.5" data-testid={testid}>
       <span className="h-8 w-1.5 rounded-full" style={{ background: color }} aria-hidden />
       <div className="min-w-40 flex-1">
         <p className={cn("font-medium", active ? "text-slate-900" : "text-slate-400")}>{title}</p>
@@ -41,20 +43,7 @@ function Row({ color, title, subtitle, active, children, testid }: { color: stri
       </div>
       <Badge tone={active ? "success" : "neutral"}>{active ? "Ativo" : "Desativado"}</Badge>
       <div className="flex items-center gap-1">{children}</div>
-    </li>
-  );
-}
-
-function MoveButtons({ name, first, last, busy, onMove }: { name: string; first: boolean; last: boolean; busy: boolean; onMove: (d: -1 | 1) => void }) {
-  return (
-    <>
-      <button type="button" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" disabled={first || busy} onClick={() => onMove(-1)} aria-label={`Subir ${name}`}>
-        <ArrowUp className="size-4" aria-hidden />
-      </button>
-      <button type="button" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" disabled={last || busy} onClick={() => onMove(1)} aria-label={`Descer ${name}`}>
-        <ArrowDown className="size-4" aria-hidden />
-      </button>
-    </>
+    </div>
   );
 }
 
@@ -138,11 +127,11 @@ export function ClientStagesSettings() {
   const [toggling, setToggling] = useState<OpsClientStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const all = stages.data ?? [];
-  async function move(i: number, d: -1 | 1) {
-    const ids = all.map((s) => s.id);
-    [ids[i], ids[i + d]] = [ids[i + d], ids[i]];
+  const { active, inactive } = splitActive(all, (s) => s.active);
+  const byId = new Map(all.map((s) => [s.id, s]));
+  async function reorderTo(next: string[]) {
     setError(null);
-    try { await reorder.mutateAsync(ids); } catch (err) { setError(errorMessage(err)); }
+    try { await reorder.mutateAsync([...next, ...inactive.map((s) => s.id)]); } catch (err) { setError(errorMessage(err)); }
   }
   return (
     <div className="space-y-3" data-testid="ops-client-stages">
@@ -154,20 +143,22 @@ export function ClientStagesSettings() {
         <Button onClick={() => setEditing(null)}><Plus className="size-4" aria-hidden /> Nova etapa</Button>
       </div>
       {(error || stages.error) && <Alert tone="error">{error ?? errorMessage(stages.error)}</Alert>}
-      <Card>
-        <ul className="divide-y divide-slate-100">
-          {all.map((s, i) => (
-            <Row key={s.id} testid="ops-client-stage-row" color={s.color} title={s.name} active={s.active}
+      <SortableList items={active.map((s) => s.id)} fixed={inactive.map((s) => s.id)} onReorder={(ids) => void reorderTo(ids)}
+        label={(id) => byId.get(id)?.name ?? id} testId="ops-client-stage-list">
+        {(id) => {
+          const s = byId.get(id)!;
+          return (
+            <Row testid="ops-client-stage-row" color={s.color} title={s.name} active={s.active}
               subtitle={[s.require_mandatory ? "Exige obrigatórias concluídas" : "Não exige obrigatórias", s.auto_advance ? "avança sozinho" : "avanço manual"].join(" · ")}>
-              <MoveButtons name={s.name} first={i === 0} last={i === all.length - 1} busy={reorder.isPending} onMove={(d) => move(i, d)} />
               <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setEditing(s)} aria-label={`Editar etapa ${s.name}`}><Pencil className="size-3.5" aria-hidden /> Editar</Button>
               <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setToggling(s)} aria-label={`${s.active ? "Desativar" : "Reativar"} etapa ${s.name}`}>
                 {s.active ? "Desativar" : "Reativar"}
               </Button>
+              <ConfigExcluir kind="client_stage" id={s.id} name={s.name} />
             </Row>
-          ))}
-        </ul>
-      </Card>
+          );
+        }}
+      </SortableList>
       {editing !== undefined && <StageModal key={editing?.id ?? "new"} stage={editing} onClose={() => setEditing(undefined)} />}
       {toggling && <StageActiveModal stage={toggling} stages={all} onClose={() => setToggling(null)} />}
     </div>
@@ -225,11 +216,11 @@ export function QueueSettings() {
   const current = sectorId || active[0]?.id || "";
   const cols = (columns.data ?? []).filter((c) => c.sector_id === current).sort((a, b) => a.position - b.position);
   const statusById = new Map((statuses.data ?? []).map((s) => [s.id, s]));
-  async function move(i: number, d: -1 | 1) {
-    const ids = cols.map((c) => c.id);
-    [ids[i], ids[i + d]] = [ids[i + d], ids[i]];
+  const { active: actCols, inactive: inaCols } = splitActive(cols, (c) => c.active);
+  const colById = new Map(cols.map((c) => [c.id, c]));
+  async function reorderCols(next: string[]) {
     setError(null);
-    try { await reorder.mutateAsync({ sectorId: current, ids }); } catch (err) { setError(errorMessage(err)); }
+    try { await reorder.mutateAsync({ sectorId: current, ids: [...next, ...inaCols.map((c) => c.id)] }); } catch (err) { setError(errorMessage(err)); }
   }
   async function toggle(c: OpsQueueColumn) {
     setError(null);
@@ -250,25 +241,25 @@ export function QueueSettings() {
         </div>
       </div>
       {(error || columns.error) && <Alert tone="error">{error ?? errorMessage(columns.error)}</Alert>}
-      <Card>
-        {cols.length === 0 ? <p className="px-4 py-6 text-sm text-slate-500">Este setor ainda não tem fila própria: a tela Filas mostra as colunas de status.</p> : (
-          <ul className="divide-y divide-slate-100">
-            {cols.map((c, i) => {
-              const st = statusById.get(c.status_id);
-              return (
-                <Row key={c.id} testid="ops-queue-row" color={c.color} title={c.name} active={c.active}
-                  subtitle={<>Status: {st?.name ?? c.status_id}{st && !st.active && <span className="text-amber-700"> (status desativado)</span>}</>}>
-                  <MoveButtons name={c.name} first={i === 0} last={i === cols.length - 1} busy={reorder.isPending} onMove={(d) => move(i, d)} />
-                  <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setEditing(c)} aria-label={`Editar coluna ${c.name}`}><Pencil className="size-3.5" aria-hidden /> Editar</Button>
-                  <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => toggle(c)} aria-label={`${c.active ? "Desativar" : "Reativar"} coluna ${c.name}`}>
-                    {c.active ? "Desativar" : "Reativar"}
-                  </Button>
-                </Row>
-              );
-            })}
-          </ul>
-        )}
-      </Card>
+      {cols.length === 0 ? <p className="rounded-lg px-4 py-6 text-sm text-slate-500 ring-1 ring-slate-200">Este setor ainda não tem fila própria: a tela Filas mostra as colunas de status.</p> : (
+        <SortableList items={actCols.map((c) => c.id)} fixed={inaCols.map((c) => c.id)} onReorder={(ids) => void reorderCols(ids)}
+          label={(id) => colById.get(id)?.name ?? id} testId="ops-queue-list">
+          {(id) => {
+            const c = colById.get(id)!;
+            const st = statusById.get(c.status_id);
+            return (
+              <Row testid="ops-queue-row" color={c.color} title={c.name} active={c.active}
+                subtitle={<>Status: {st?.name ?? c.status_id}{st && !st.active && <span className="text-amber-700"> (status desativado)</span>}</>}>
+                <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setEditing(c)} aria-label={`Editar coluna ${c.name}`}><Pencil className="size-3.5" aria-hidden /> Editar</Button>
+                <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => toggle(c)} aria-label={`${c.active ? "Desativar" : "Reativar"} coluna ${c.name}`}>
+                  {c.active ? "Desativar" : "Reativar"}
+                </Button>
+                <ConfigExcluir kind="queue_column" id={c.id} name={c.name} />
+              </Row>
+            );
+          }}
+        </SortableList>
+      )}
       {editing !== undefined && current && <QueueColumnModal key={editing?.id ?? "new"} column={editing} sectorId={current} onClose={() => setEditing(undefined)} />}
     </div>
   );
@@ -304,9 +295,17 @@ export function ActivityTypesSettings() {
   const save = useSaveActivityType();
   const [editing, setEditing] = useState<OpsActivityType | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const reorder = useConfigReordenar("activity_type");
   async function toggle(t: OpsActivityType) {
     setError(null);
     try { await save.mutateAsync({ id: t.id, name: t.name, active: !t.active }); } catch (err) { setError(errorMessage(err)); }
+  }
+  const allTypes = types.data ?? [];
+  const { active: actTypes, inactive: inaTypes } = splitActive(allTypes, (t) => t.active);
+  const typeById = new Map(allTypes.map((t) => [t.id, t]));
+  async function reorderTypes(next: string[]) {
+    setError(null);
+    try { await reorder.mutateAsync([...next, ...inaTypes.map((t) => t.id)]); } catch (err) { setError(errorMessage(err)); }
   }
   return (
     <div className="space-y-3" data-testid="ops-activity-types">
@@ -318,18 +317,21 @@ export function ActivityTypesSettings() {
         <Button onClick={() => setEditing(null)}><Plus className="size-4" aria-hidden /> Novo tipo</Button>
       </div>
       {(error || types.error) && <Alert tone="error">{error ?? errorMessage(types.error)}</Alert>}
-      <Card>
-        <ul className="divide-y divide-slate-100">
-          {(types.data ?? []).map((t) => (
-            <Row key={t.id} testid="ops-activity-type-row" color="#3B82F6" title={t.name} active={t.active} subtitle="Registro manual">
+      <SortableList items={actTypes.map((t) => t.id)} fixed={inaTypes.map((t) => t.id)} onReorder={(ids) => void reorderTypes(ids)}
+        label={(id) => typeById.get(id)?.name ?? id} testId="ops-activity-type-list">
+        {(id) => {
+          const t = typeById.get(id)!;
+          return (
+            <Row testid="ops-activity-type-row" color="#3B82F6" title={t.name} active={t.active} subtitle="Registro manual">
               <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setEditing(t)} aria-label={`Editar tipo ${t.name}`}><Pencil className="size-3.5" aria-hidden /> Editar</Button>
               <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => toggle(t)} aria-label={`${t.active ? "Desativar" : "Reativar"} tipo ${t.name}`}>
                 {t.active ? "Desativar" : "Reativar"}
               </Button>
+              <ConfigExcluir kind="activity_type" id={t.id} name={t.name} />
             </Row>
-          ))}
-        </ul>
-      </Card>
+          );
+        }}
+      </SortableList>
       {editing !== undefined && <ActivityTypeModal key={editing?.id ?? "new"} type={editing} onClose={() => setEditing(undefined)} />}
     </div>
   );

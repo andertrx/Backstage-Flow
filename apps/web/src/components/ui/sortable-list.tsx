@@ -18,8 +18,10 @@ export function moveItem<T>(list: T[], from: number, to: number): T[] {
  * Lista para pôr em ordem arrastando (mouse, dedo ou teclado: Espaço para pegar,
  * setas para mover, Espaço para soltar). Cada linha tem a alça ⠿ à esquerda.
  */
-export function SortableList<T extends string>({ items, onReorder, children, label, testId }: {
+export function SortableList<T extends string>({ items, onReorder, children, label, testId, fixed = [] }: {
   items: T[];
+  /** Itens que ficam por último e não se arrastam (ex.: opções desativadas). */
+  fixed?: T[];
   onReorder: (next: T[]) => void;
   children: (item: T) => ReactNode;
   /** Nome de cada item para leitores de tela ("Arrastar <nome>"). */
@@ -39,6 +41,12 @@ export function SortableList<T extends string>({ items, onReorder, children, lab
       <ul className="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200" data-testid={testId}>
         {items.map((item) => (
           <Row key={item} id={item} label={label(item)}>{children(item)}</Row>
+        ))}
+        {fixed.map((item) => (
+          <li key={item} data-sortable-fixed={item} className="flex items-center gap-2 bg-white px-2 py-1.5 text-sm">
+            <span className="size-6 shrink-0" aria-hidden />
+            {children(item)}
+          </li>
         ))}
       </ul>
     </DndContext>

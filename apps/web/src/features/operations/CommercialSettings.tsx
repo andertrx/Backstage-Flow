@@ -1,13 +1,15 @@
 import { OPS_COLORS, OPS_LEAD_CATEGORIES, OPS_LEAD_CATEGORY_LABELS, type OpsLeadCategory } from "@backstage/shared";
-import { ArrowDown, ArrowUp, Pencil, Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
+import { SortableList } from "@/components/ui/sortable-list.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { cn } from "@/lib/cn.ts";
+import { ConfigExcluir } from "./ConfigExcluir.tsx";
+import { splitActive, useConfigReordenar } from "./configOptionsApi.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import {
   type OpsLeadStage, type OpsLossReason, useLeadStages, useLossReasons, useReorderLeadStages, useSaveLeadStage, useSaveLossReason, useSetLeadStageActive,
@@ -109,12 +111,12 @@ export function LeadStagesSettings() {
   const [toggling, setToggling] = useState<OpsLeadStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const all = stages.data ?? [];
-  async function move(i: number, d: -1 | 1) {
-    const ids = all.map((s) => s.id);
-    [ids[i], ids[i + d]] = [ids[i + d], ids[i]];
+  const { active, inactive } = splitActive(all, (s) => s.active);
+  async function reorderTo(nextActive: string[]) {
     setError(null);
-    try { await reorder.mutateAsync(ids); } catch (err) { setError(errorMessage(err)); }
+    try { await reorder.mutateAsync([...nextActive, ...inactive.map((s) => s.id)]); } catch (err) { setError(errorMessage(err)); }
   }
+  const byId = new Map(all.map((s) => [s.id, s]));
   return (
     <div className="space-y-3" data-testid="ops-lead-stages">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -125,10 +127,12 @@ export function LeadStagesSettings() {
         <Button onClick={() => setEditing(null)}><Plus className="size-4" aria-hidden /> Nova coluna</Button>
       </div>
       {(error || stages.error) && <Alert tone="error">{error ?? errorMessage(stages.error)}</Alert>}
-      <Card>
-        <ul className="divide-y divide-slate-100">
-          {all.map((s, i) => (
-            <li key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="ops-lead-stage-row">
+      <SortableList items={active.map((s) => s.id)} fixed={inactive.map((s) => s.id)} onReorder={(ids) => void reorderTo(ids)}
+        label={(id) => byId.get(id)?.name ?? id} testId="ops-lead-stage-list">
+        {(id) => {
+          const s = byId.get(id)!;
+          return (
+            <div className="flex flex-1 flex-wrap items-center gap-3 py-1.5" data-testid="ops-lead-stage-row">
               <span className="h-8 w-1.5 rounded-full" style={{ background: s.color }} aria-hidden />
               <div className="min-w-40 flex-1">
                 <p className={cn("font-medium", s.active ? "text-slate-900" : "text-slate-400")}>{s.name}</p>
@@ -136,19 +140,16 @@ export function LeadStagesSettings() {
               </div>
               <Badge tone={s.active ? "success" : "neutral"}>{s.active ? "Ativa" : "Desativada"}</Badge>
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" disabled={i === 0 || reorder.isPending}
-                  onClick={() => move(i, -1)} aria-label={`Subir ${s.name}`}><ArrowUp className="size-4" aria-hidden /></button>
-                <button type="button" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" disabled={i === all.length - 1 || reorder.isPending}
-                  onClick={() => move(i, 1)} aria-label={`Descer ${s.name}`}><ArrowDown className="size-4" aria-hidden /></button>
                 <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setEditing(s)} aria-label={`Editar coluna comercial ${s.name}`}><Pencil className="size-3.5" aria-hidden /> Editar</Button>
                 <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setToggling(s)} aria-label={`${s.active ? "Desativar" : "Reativar"} coluna comercial ${s.name}`}>
                   {s.active ? "Desativar" : "Reativar"}
                 </Button>
+                <ConfigExcluir kind="lead_stage" id={s.id} name={s.name} />
               </div>
-            </li>
-          ))}
-        </ul>
-      </Card>
+            </div>
+          );
+        }}
+      </SortableList>
       {editing !== undefined && <StageModal key={editing?.id ?? "new"} stage={editing} onClose={() => setEditing(undefined)} />}
       {toggling && <ActiveModal stage={toggling} stages={all} onClose={() => setToggling(null)} />}
     </div>
@@ -184,9 +185,17 @@ export function LossReasonsSettings() {
   const save = useSaveLossReason();
   const [editing, setEditing] = useState<OpsLossReason | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const reorder = useConfigReordenar("loss_reason");
   async function toggle(r: OpsLossReason) {
     setError(null);
     try { await save.mutateAsync({ id: r.id, name: r.name, active: !r.active }); } catch (err) { setError(errorMessage(err)); }
+  }
+  const allReasons = reasons.data ?? [];
+  const { active: actReasons, inactive: inaReasons } = splitActive(allReasons, (r) => r.active);
+  const reasonById = new Map(allReasons.map((r) => [r.id, r]));
+  async function reorderReasons(next: string[]) {
+    setError(null);
+    try { await reorder.mutateAsync([...next, ...inaReasons.map((r) => r.id)]); } catch (err) { setError(errorMessage(err)); }
   }
   return (
     <div className="space-y-3" data-testid="ops-loss-reasons">
@@ -198,18 +207,21 @@ export function LossReasonsSettings() {
         <Button onClick={() => setEditing(null)}><Plus className="size-4" aria-hidden /> Novo motivo</Button>
       </div>
       {(error || reasons.error) && <Alert tone="error">{error ?? errorMessage(reasons.error)}</Alert>}
-      <Card>
-        <ul className="divide-y divide-slate-100">
-          {(reasons.data ?? []).map((r) => (
-            <li key={r.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="ops-loss-reason-row">
+      <SortableList items={actReasons.map((r) => r.id)} fixed={inaReasons.map((r) => r.id)} onReorder={(ids) => void reorderReasons(ids)}
+        label={(id) => reasonById.get(id)?.name ?? id} testId="ops-loss-reason-list">
+        {(id) => {
+          const r = reasonById.get(id)!;
+          return (
+            <div className="flex flex-1 flex-wrap items-center gap-3 py-1.5" data-testid="ops-loss-reason-row">
               <p className={cn("min-w-40 flex-1 font-medium", r.active ? "text-slate-900" : "text-slate-400")}>{r.name}</p>
               <Badge tone={r.active ? "success" : "neutral"}>{r.active ? "Ativo" : "Desativado"}</Badge>
               <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setEditing(r)} aria-label={`Editar motivo ${r.name}`}><Pencil className="size-3.5" aria-hidden /> Editar</Button>
               <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => toggle(r)} aria-label={`${r.active ? "Desativar" : "Reativar"} motivo ${r.name}`}>{r.active ? "Desativar" : "Reativar"}</Button>
-            </li>
-          ))}
-        </ul>
-      </Card>
+              <ConfigExcluir kind="loss_reason" id={r.id} name={r.name} />
+            </div>
+          );
+        }}
+      </SortableList>
       {editing !== undefined && <ReasonModal key={editing?.id ?? "new"} reason={editing} onClose={() => setEditing(undefined)} />}
     </div>
   );

@@ -1,13 +1,15 @@
 import { OPS_COLORS, OPS_SECTOR_STATUS_LABELS, type OpsSectorStatus } from "@backstage/shared";
-import { ArrowDown, ArrowUp, Pencil, Plus, Settings } from "lucide-react";
+import { Pencil, Plus, Settings } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
+import { SortableList } from "@/components/ui/sortable-list.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { cn } from "@/lib/cn.ts";
+import { ConfigExcluir } from "./ConfigExcluir.tsx";
+import { splitActive } from "./configOptionsApi.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { type OpsSector, useOpsSectors, useOpsTeam, useReorderSectors, useSaveSector, useSetSectorStatus } from "./api.ts";
@@ -123,11 +125,11 @@ export function SectorsSettingsPage() {
   const all = sectors.data ?? [];
   const visible = all.filter((s) => showArchived || s.status !== "arquivado");
 
-  async function move(i: number, d: -1 | 1) {
-    const ids = visible.map((s) => s.id);
-    [ids[i], ids[i + d]] = [ids[i + d], ids[i]];
+  const { active, inactive } = splitActive(visible, (s) => s.status === "ativo");
+  const byId = new Map(all.map((s) => [s.id, s]));
+  async function reorderTo(next: string[]) {
     setError(null);
-    try { await reorder.mutateAsync(ids); } catch (err) { setError(errorMessage(err)); }
+    try { await reorder.mutateAsync([...next, ...inactive.map((s) => s.id)]); } catch (err) { setError(errorMessage(err)); }
   }
 
   return (
@@ -136,7 +138,7 @@ export function SectorsSettingsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">Setores</h2>
-          <p className="text-sm text-slate-500">Nome, cor e ordem dos setores. Desativar pede para onde as pessoas vão; nada é apagado.</p>
+          <p className="text-sm text-slate-500">Nome, cor e ordem dos setores (arraste para mudar a ordem). Desativar pede para onde as pessoas vão. Só dá para excluir setor que ninguém usa.</p>
         </div>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-slate-600">
@@ -146,10 +148,12 @@ export function SectorsSettingsPage() {
         </div>
       </div>
       {(error || sectors.error) && <Alert tone="error">{error ?? errorMessage(sectors.error)}</Alert>}
-      <Card>
-        <ul className="divide-y divide-slate-100">
-          {visible.map((s, i) => (
-            <li key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="ops-sector-row">
+      <SortableList items={active.map((s) => s.id)} fixed={inactive.map((s) => s.id)} onReorder={(ids) => void reorderTo(ids)}
+        label={(id) => byId.get(id)?.name ?? id} testId="ops-sector-list">
+        {(id) => {
+          const s = byId.get(id)!;
+          return (
+            <div className="flex flex-1 flex-wrap items-center gap-3 py-1.5" data-testid="ops-sector-row">
               <span className="h-8 w-1.5 rounded-full" style={{ background: s.color }} aria-hidden />
               <div className="min-w-40 flex-1">
                 <p className={cn("font-medium", s.status === "ativo" ? "text-slate-900" : "text-slate-400")}>{s.name}</p>
@@ -157,21 +161,18 @@ export function SectorsSettingsPage() {
               </div>
               <Badge tone={s.status === "ativo" ? "success" : s.status === "inativo" ? "warning" : "neutral"}>{OPS_SECTOR_STATUS_LABELS[s.status]}</Badge>
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" disabled={i === 0 || reorder.isPending}
-                  onClick={() => move(i, -1)} aria-label={`Subir ${s.name}`}><ArrowUp className="size-4" aria-hidden /></button>
-                <button type="button" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" disabled={i === visible.length - 1 || reorder.isPending}
-                  onClick={() => move(i, 1)} aria-label={`Descer ${s.name}`}><ArrowDown className="size-4" aria-hidden /></button>
                 <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setEditing(s)} aria-label={`Editar ${s.name}`}>
                   <Pencil className="size-3.5" aria-hidden /> Editar
                 </Button>
                 <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setStatusOf(s)} aria-label={`Situação de ${s.name}`}>
                   {s.status === "ativo" ? "Desativar" : "Situação"}
                 </Button>
+                <ConfigExcluir kind="sector" id={s.id} name={s.name} />
               </div>
-            </li>
-          ))}
-        </ul>
-      </Card>
+            </div>
+          );
+        }}
+      </SortableList>
       {editing !== undefined && <SectorModal key={editing?.id ?? "new"} sector={editing} onClose={() => setEditing(undefined)} />}
       {statusOf && <StatusModal sector={statusOf} sectors={all} people={people.get(statusOf.id) ?? 0} onClose={() => setStatusOf(null)} />}
     </div>

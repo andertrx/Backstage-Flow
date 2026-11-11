@@ -1,12 +1,14 @@
 import { OPS_PRIORITIES, OPS_PRIORITY_LABELS, type OpsPriority } from "@backstage/shared";
-import { ArrowDown, ArrowUp, ListChecks, Pencil, Plus } from "lucide-react";
+import { ListChecks, Pencil, Plus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
+import { SortableList } from "@/components/ui/sortable-list.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
+import { ConfigExcluir } from "./ConfigExcluir.tsx";
+import { splitActive } from "./configOptionsApi.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { type OpsOnboardingTemplate, useOnboardingTemplates, useReorderOnboardingTemplates, useSaveOnboardingTemplate, useSetOnboardingTemplateActive } from "./onboardingTemplatesApi.ts";
 import { useOpsSectors } from "./api.ts";
@@ -84,11 +86,11 @@ export function OnboardingTemplatesSettings() {
     setError(null);
     try { await setActive.mutateAsync({ id: t.id, active: !t.active }); } catch (err) { setError(errorMessage(err)); }
   }
-  async function move(i: number, d: -1 | 1) {
+  const { active, inactive } = splitActive(list, (t) => t.active);
+  const byId = new Map(list.map((t) => [t.id, t]));
+  async function reorderTo(next: string[]) {
     setError(null);
-    const ids = list.map((t) => t.id);
-    [ids[i], ids[i + d]] = [ids[i + d], ids[i]];
-    try { await reorder.mutateAsync(ids); } catch (err) { setError(errorMessage(err)); }
+    try { await reorder.mutateAsync([...next, ...inactive.map((t) => t.id)]); } catch (err) { setError(errorMessage(err)); }
   }
   return (
     <div className="space-y-3" data-testid="ops-onboarding-templates">
@@ -100,26 +102,27 @@ export function OnboardingTemplatesSettings() {
         <Button onClick={() => setEditing(null)}><Plus className="size-4" aria-hidden /> Nova tarefa padrão</Button>
       </div>
       {(error || templates.error) && <Alert tone="error">{error ?? errorMessage(templates.error)}</Alert>}
-      <Card>
-        <ul className="divide-y divide-slate-100">
-          {list.map((t, i) => (
-            <li key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="ops-template-row">
+      <SortableList items={active.map((t) => t.id)} fixed={inactive.map((t) => t.id)} onReorder={(ids) => void reorderTo(ids)}
+        label={(id) => byId.get(id)?.title ?? id} testId="ops-template-list">
+        {(id) => {
+          const t = byId.get(id)!;
+          return (
+            <div className="flex flex-1 flex-wrap items-center gap-3 py-1.5" data-testid="ops-template-row">
               <div className="min-w-48 flex-1">
                 <p className={t.active ? "font-medium text-slate-900" : "font-medium text-slate-400"}>{t.title}</p>
                 <p className="text-xs text-slate-500">{sectorName(t.sector_id)} · {OPS_PRIORITY_LABELS[t.priority]}{t.due_days != null ? ` · prazo ${t.due_days} dia(s)` : ""}</p>
               </div>
               <Badge tone={t.active ? "success" : "neutral"}>{t.active ? "Ativa" : "Desativada"}</Badge>
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" disabled={i === 0 || reorder.isPending} onClick={() => move(i, -1)} aria-label={`Subir ${t.title}`}><ArrowUp className="size-4" aria-hidden /></button>
-                <button type="button" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" disabled={i === list.length - 1 || reorder.isPending} onClick={() => move(i, 1)} aria-label={`Descer ${t.title}`}><ArrowDown className="size-4" aria-hidden /></button>
                 <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setEditing(t)} aria-label={`Editar tarefa padrão ${t.title}`}><Pencil className="size-3.5" aria-hidden /> Editar</Button>
                 <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => toggle(t)} aria-label={`${t.active ? "Desativar" : "Reativar"} tarefa padrão ${t.title}`}>{t.active ? "Desativar" : "Reativar"}</Button>
+                <ConfigExcluir kind="onboarding_template" id={t.id} name={t.title} />
               </div>
-            </li>
-          ))}
-          {templates.isSuccess && list.length === 0 && <li className="px-4 py-6 text-center text-sm text-slate-500">Nenhuma tarefa padrão ainda.</li>}
-        </ul>
-      </Card>
+            </div>
+          );
+        }}
+      </SortableList>
+      {templates.isSuccess && list.length === 0 && <p className="rounded-lg px-4 py-6 text-center text-sm text-slate-500 ring-1 ring-slate-200">Nenhuma tarefa padrão ainda.</p>}
       {editing !== undefined && <TemplateModal key={editing?.id ?? "new"} template={editing} onClose={() => setEditing(undefined)} />}
     </div>
   );
