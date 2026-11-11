@@ -1,5 +1,5 @@
 import { OPS_PRIORITY_LABELS, type OpsPriority, opsIsClosed } from "@backstage/shared";
-import { CalendarClock, Link2, MessageSquare, Paperclip } from "lucide-react";
+import { CalendarClock, CornerDownRight, Link2, ListTree, MessageSquare, Paperclip } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn.ts";
 import { formatDate } from "@/lib/format.ts";
@@ -74,6 +74,28 @@ function Counter({ icon, n, label }: { icon: ReactNode; n: number; label: string
   return <span className="inline-flex items-center gap-0.5 text-xs text-slate-500" aria-label={`${n} ${label}`}>{icon}{n}</span>;
 }
 
+/** T5.32: selo "▸ 2/5" (subtarefas concluídas / total) e, na subtarefa, "↳ de #N". */
+export function SubtaskBadge({ task }: { task: OpsTaskRow }) {
+  if (!task.subtasks_total) return null;
+  const all = task.subtasks_done === task.subtasks_total;
+  return (
+    <span data-testid="ops-subtask-badge" title={`${task.subtasks_done} de ${task.subtasks_total} subtarefas concluídas`}
+      className={cn("inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-semibold", all ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600")}>
+      <ListTree className="size-3" aria-hidden />{task.subtasks_done}/{task.subtasks_total}
+    </span>
+  );
+}
+
+export function ParentTag({ task }: { task: OpsTaskRow }) {
+  if (!task.parent_id) return null;
+  return (
+    <span data-testid="ops-parent-tag" className="inline-flex max-w-full items-center gap-1 text-[11px] font-medium text-blue-700" title={task.parent_title ?? undefined}>
+      <CornerDownRight className="size-3 shrink-0" aria-hidden />
+      <span className="truncate">de #{task.parent_number}{task.parent_title ? ` ${task.parent_title}` : ""}</span>
+    </span>
+  );
+}
+
 /** Cartão da tarefa (Kanban e Minhas tarefas). */
 export function TaskCard({ task, today, sectorName, sectorColor, onOpen, showStatus }: {
   task: OpsTaskRow;
@@ -87,9 +109,10 @@ export function TaskCard({ task, today, sectorName, sectorColor, onOpen, showSta
     <button type="button" onClick={onOpen} data-testid="ops-task-card"
       className="block w-full space-y-2 rounded-xl bg-white p-3.5 text-left shadow-card ring-1 ring-slate-200/80 transition duration-150 hover:-translate-y-0.5 hover:shadow-elevated hover:ring-brand-300 focus-visible:outline-2 focus-visible:outline-brand-600">
       <div className="flex items-start justify-between gap-2">
-        <span className="text-[11px] font-semibold text-slate-400">#{task.number}</span>
+        <span className="flex items-center gap-1.5"><span className="text-[11px] font-semibold text-slate-400">#{task.number}</span><SubtaskBadge task={task} /></span>
         <PriorityBadge priority={task.priority} />
       </div>
+      <ParentTag task={task} />
       {task.client_name && <p className="break-words text-base font-bold leading-tight text-blue-900" data-testid="ops-task-card-client">{task.client_name}</p>}
       <p className="line-clamp-2 text-sm font-medium text-slate-700">{task.title}</p>
       <div className="flex flex-wrap items-center gap-1.5">

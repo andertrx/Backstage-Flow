@@ -155,6 +155,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T5.31 — Avisos no WhatsApp: alertas das contas, tarefas, reuniões e outros, à escolha](docs/etapa-43-organizacao/T5.31-AVISOS-WHATSAPP-TAREFAS-E-OUTROS.md) ✅ 11/11
   - [T5.32 — Subtarefas, etapa 1 de 6 (banco e regras: tarefa principal + subtarefas)](docs/etapa-52-subtarefas/T5.32-ETAPA-1-BANCO.md) ✅ 11/11
   - [T5.32 — Subtarefas, etapa 2 de 6 (tela da tarefa)](docs/etapa-52-subtarefas/T5.32-ETAPA-2-TELA-DA-TAREFA.md) ✅ 11/11
+  - [T5.32 — Subtarefas, etapa 3 de 6 (Kanban, lista, Minhas tarefas, filas)](docs/etapa-52-subtarefas/T5.32-ETAPA-3-KANBAN-E-LISTAS.md) ✅ 11/11
   - [T5.33 — Responsável obrigatório em toda tarefa (e subtarefa)](docs/etapa-52-subtarefas/T5.33-RESPONSAVEL-OBRIGATORIO.md) ✅ 11/11
   - [T5.23 — Período do histórico e limpeza dos dados de conversa do cliente](docs/etapa-34-tracking/T5.23-PERIODO-DO-HISTORICO-E-LIMPEZA.md) ✅ 10/11
   - [45.1 — avisos no WhatsApp (motor: fila, agrupamento, silêncio; sem tela ainda)](docs/etapa-43-organizacao/45.1-AVISOS-NO-WHATSAPP.md) ✅ 07/11 (testado só no banco; sem envio real)

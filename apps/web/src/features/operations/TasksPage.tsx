@@ -12,7 +12,7 @@ import { useDebouncedValue } from "@/lib/useDebouncedValue.ts";
 import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { KanbanBoard } from "./KanbanBoard.tsx";
 import { SavedViews } from "./SavedViews.tsx";
-import { DueLabel, PeopleStack, PriorityBadge, StatusPill } from "./TaskBits.tsx";
+import { DueLabel, ParentTag, PeopleStack, PriorityBadge, StatusPill, SubtaskBadge } from "./TaskBits.tsx";
 import { TaskFormModal } from "./TaskFormModal.tsx";
 import { type OpsTaskFilters, type OpsTaskRow, useOpsTasks } from "./tasksApi.ts";
 import { TaskDetailHost, type TasksContext, useOpenTask, useTasksContext } from "./tasksContext.tsx";
@@ -52,7 +52,8 @@ export function TaskTable({ tasks, ctx, today, onOpen }: { tasks: OpsTaskRow[]; 
               <td className="px-4 py-3">
                 <button type="button" className="text-left" onClick={(e) => { e.stopPropagation(); onOpen(t.id); }}>
                   <span className="text-xs font-semibold text-slate-400">#{t.number} </span>
-                  <span className="font-semibold text-slate-900">{t.title}</span>
+                  <span className="font-semibold text-slate-900">{t.title}</span>{" "}<SubtaskBadge task={t} />
+                  <ParentTag task={t} />
                   <span className="block text-xs text-slate-500">{t.client_name ?? "Tarefa interna"}{t.blockers > 0 ? " · depende de outra tarefa" : ""}</span>
                 </button>
               </td>
@@ -70,7 +71,7 @@ export function TaskTable({ tasks, ctx, today, onOpen }: { tasks: OpsTaskRow[]; 
 }
 
 /** Filtros da Central de Tarefas que podem vir de um atalho ou de uma visão salva. */
-export const TASK_VIEW_KEYS = ["client_id", "sector_id", "status_ids", "priorities", "person_id", "due", "abertas", "archived"] as const;
+export const TASK_VIEW_KEYS = ["client_id", "sector_id", "status_ids", "priorities", "person_id", "due", "abertas", "archived", "top_only"] as const;
 const OPEN_CATEGORIES = OPS_STATUS_CATEGORIES.filter((c) => c !== "concluido" && c !== "cancelado");
 const DUE_VALUES = ["atrasadas", "hoje", "semana", "sem_prazo"];
 
@@ -84,6 +85,7 @@ function tasksFiltersFrom(src: Record<string, unknown>): Omit<OpsTaskFilters, "q
   }
   if (typeof clean.due === "string" && DUE_VALUES.includes(clean.due)) out.due = clean.due as OpsTaskFilters["due"];
   if (clean.abertas === true || clean.abertas === "1") out.categories = [...OPEN_CATEGORIES];
+  if (clean.top_only === true || clean.top_only === "true" || clean.top_only === "1") out.top_only = true;
   if (clean.archived === true || clean.archived === "true") out.archived = true;
   return out;
 }
@@ -158,6 +160,9 @@ export function TasksPage() {
             if (e.target.checked) next.categories = [...OPEN_CATEGORIES]; else delete next.categories;
             return next;
           })} /> Só em aberto
+        </label>
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={Boolean(filters.top_only)} onChange={(e) => set("top_only", e.target.checked)} /> Só principais
         </label>
         {view === "lista" && (
           <label className="flex items-center gap-2 text-sm text-slate-600">

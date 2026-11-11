@@ -95,6 +95,29 @@ check(parent.status_id === "finalizado", "principal finaliza com todas concluíd
 await detail.getByText("Criou uma subtarefa").first().waitFor();
 check(true, "histórico registra a criação de subtarefa");
 
+
+// etapa 3: selo no cartão, "de #N" na subtarefa, filtro "só principais", Minhas tarefas e lista
+await page.keyboard.press("Escape");
+await page.goto(`${BASE}/operacoes/tarefas`);
+await page.getByTestId("ops-kanban").waitFor();
+check(await page.getByTestId("ops-subtask-badge").count() === 1, "Kanban: selo de subtarefas só na principal");
+check((await page.getByTestId("ops-subtask-badge").textContent()).includes("3/3"), "Kanban: selo 3/3");
+check(await page.getByTestId("ops-parent-tag").count() === 3, "Kanban: cada subtarefa mostra '↳ de #N'");
+check((await page.getByTestId("ops-parent-tag").first().textContent()).includes(`de #${parent.number}`), "Kanban: aponta para a principal");
+await page.getByLabel("Só principais").check();
+await page.waitForFunction(() => document.querySelectorAll('[data-testid="ops-task-card"]').length === 1);
+check(await page.getByTestId("ops-parent-tag").count() === 0, "Só principais esconde as subtarefas");
+await page.getByRole("button", { name: "Lista" }).click();
+await page.getByTestId("ops-task-table").waitFor();
+check(await page.getByTestId("ops-task-row").count() === 1, "Lista: só principais");
+await page.getByLabel("Só principais").uncheck();
+await page.waitForFunction(() => document.querySelectorAll('[data-testid="ops-task-row"]').length === 4);
+check(await page.getByTestId("ops-subtask-badge").count() === 1, "Lista: selo na principal");
+await page.goto(`${BASE}/operacoes/minhas-tarefas`);
+await page.getByTestId("ops-task-card").first().waitFor();
+check(await page.getByTestId("ops-parent-tag").count() >= 1, "Minhas tarefas: subtarefa mostra '↳ de #N'");
+await page.goto(`${BASE}/operacoes/tarefas?tarefa=${parent.id}`);
+await detail.getByLabel("Título da nova subtarefa").waitFor();
 await detail.screenshot({ path: `${SHOTS}/subtarefas-tela-da-tarefa.png` });
 // arquivar a principal leva as subtarefas
 await detail.getByRole("button", { name: "Arquivar" }).click();
