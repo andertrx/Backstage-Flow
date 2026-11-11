@@ -187,21 +187,8 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
               Áudio, imagem e arquivos aparecem só como marcador (“[áudio]”): o arquivo em si não é guardado.
             </p>
             {mine.store_messages && (
-              <label className="flex flex-wrap items-center gap-2 text-sm" data-testid="wa-history-days">
-                <span className="font-medium">Histórico antigo do aparelho:</span>
-                <select className="rounded-md border border-slate-300 bg-white px-2 py-1" aria-label="Período do histórico a guardar" disabled={history.isPending}
-                  value={mine.history_days === null || mine.history_days === undefined ? "todo" : String(mine.history_days)}
-                  onChange={(e) => void run(() => history.mutateAsync({ id: mine.id, days: e.target.value === "todo" ? null : Number(e.target.value) }))}>
-                  <option value="0">não puxar (só mensagens novas)</option>
-                  <option value="30">últimos 30 dias</option>
-                  <option value="60">últimos 60 dias</option>
-                  <option value="90">últimos 90 dias</option>
-                  <option value="180">últimos 180 dias</option>
-                  <option value="365">último ano</option>
-                  <option value="todo">tudo o que o aparelho enviar</option>
-                </select>
-                <span className="text-xs text-slate-500">Vale para o histórico que chegar daqui para frente; não apaga o que já foi guardado.</span>
-              </label>
+              <HistoryDays value={mine.history_days} busy={history.isPending}
+                onChange={(days) => void run(() => history.mutateAsync({ id: mine.id, days }))} />
             )}
             {ack && (
               <Alert tone="warning">
@@ -286,5 +273,51 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
         <div className="flex justify-end"><Button type="button" onClick={onClose}>Fechar</Button></div>
       </div>
     </Modal>
+  );
+}
+
+const HISTORY_PRESETS = [0, 30, 90, 180, 365] as const;
+
+/** Período do histórico antigo: atalhos (6 meses é o padrão) ou qualquer quantidade de dias (até 10 anos). */
+function HistoryDays({ value, busy, onChange }: { value: number | null | undefined; busy: boolean; onChange: (days: number | null) => void }) {
+  const preset = value == null ? "todo" : (HISTORY_PRESETS as readonly number[]).includes(value) ? String(value) : "outro";
+  const [custom, setCustom] = useState(value != null && preset === "outro" ? String(value) : "");
+  const [open, setOpen] = useState(preset === "outro");
+  const n = Number(custom);
+  const valid = custom !== "" && Number.isInteger(n) && n >= 1 && n <= 3650;
+  return (
+    <div className="space-y-2 text-sm" data-testid="wa-history-days">
+      <label className="flex flex-wrap items-center gap-2">
+        <span className="font-medium">Histórico antigo do aparelho:</span>
+        <select className="rounded-md border border-slate-300 bg-white px-2 py-1" aria-label="Período do histórico a guardar" disabled={busy}
+          value={open ? "outro" : preset}
+          onChange={(e) => {
+            if (e.target.value === "outro") { setOpen(true); return; }
+            setOpen(false);
+            onChange(e.target.value === "todo" ? null : Number(e.target.value));
+          }}>
+          <option value="0">não puxar (só mensagens novas)</option>
+          <option value="30">últimos 30 dias</option>
+          <option value="90">últimos 90 dias</option>
+          <option value="180">últimos 6 meses (padrão)</option>
+          <option value="365">último ano</option>
+          <option value="outro">outra quantidade de dias…</option>
+          <option value="todo">tudo o que o aparelho enviar</option>
+        </select>
+      </label>
+      {open && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="wa-history-custom">
+          <label className="flex items-center gap-2">
+            <span>Puxar os últimos</span>
+            <input type="number" min={1} max={3650} inputMode="numeric" aria-label="Quantidade de dias do histórico" value={custom}
+              onChange={(e) => setCustom(e.target.value)} className="w-24 rounded-md border border-slate-300 bg-white px-2 py-1" />
+            <span>dias</span>
+          </label>
+          <Button type="button" variant="secondary" disabled={!valid || busy} onClick={() => onChange(n)}>Aplicar</Button>
+          {custom !== "" && !valid && <span className="text-xs text-red-600">Use de 1 a 3650 dias.</span>}
+        </div>
+      )}
+      <p className="text-xs text-slate-500">Vale para o histórico que chegar daqui para frente; não apaga o que já foi guardado.</p>
+    </div>
   );
 }

@@ -74,9 +74,18 @@ function seed(db, official = false) {
   // T5.23: período do histórico e limpeza dos dados de conversa (só administrador, com dupla confirmação)
   const per = modal.getByLabel("Período do histórico a guardar");
   check(await per.inputValue() === "todo", "conexão antiga: histórico sem limite (como era)");
-  await per.selectOption("60");
-  await page.waitForFunction(() => document.querySelector('[data-testid="wa-history-days"] select')?.value === "60");
-  check(w.history_days === 60, "escolher o período grava os dias do histórico");
+  await per.selectOption("180");
+  await page.waitForFunction(() => document.querySelector('[data-testid="wa-history-days"] select')?.value === "180");
+  check(w.history_days === 180, "6 meses (180 dias) grava os dias do histórico");
+  // T5.27: qualquer quantidade de dias
+  await per.selectOption("outro");
+  const aplicar = modal.getByRole("button", { name: "Aplicar" });
+  await modal.getByLabel("Quantidade de dias do histórico").fill("0");
+  check(await aplicar.isDisabled(), "quantidade inválida não aplica");
+  await modal.getByLabel("Quantidade de dias do histórico").fill("500");
+  await aplicar.click();
+  await page.waitForFunction(() => document.querySelector('[data-testid="wa-history-custom"] input')?.value === "500");
+  check(w.history_days === 500, "outra quantidade de dias (500) grava no histórico");
   db.waMessages.push({ id: 1 }, { id: 2 }, { id: 3 });
   db.waPeople.push({ id: 1 });
   await modal.getByRole("button", { name: "Limpar dados deste cliente" }).click();

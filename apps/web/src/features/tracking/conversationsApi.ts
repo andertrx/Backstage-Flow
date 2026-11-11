@@ -39,11 +39,14 @@ export const MESSAGES_PAGE = 60;
 const ruleError = (error: { code?: string; message: string }, fallback: string) =>
   new FriendlyError(["22023", "P0002", "23505", "42501"].includes(error.code ?? "") ? error.message : friendlyDbError(error, fallback));
 
-export function useWaConversations(clientId: string | undefined, search: string) {
+/** Período do filtro: "de" e "até" em ISO (já com início e fim do dia). Vazio = sem limite. */
+export interface ConversationRange { from: string | null; to: string | null }
+
+export function useWaConversations(clientId: string | undefined, search: string, range: ConversationRange = { from: null, to: null }) {
   return useInfiniteQuery({
-    queryKey: [...KEY, "list", clientId, search],
+    queryKey: [...KEY, "list", clientId, search, range.from, range.to],
     enabled: Boolean(clientId),
-    initialPageParam: null as string | null,
+    initialPageParam: range.to,
     queryFn: async ({ pageParam }) => {
       const { data, error } = await supabase.rpc("wa_conversations_list", {
         p_client: clientId, p_search: search.trim() || null, p_limit: CONVERSATIONS_PAGE, p_before: pageParam,
@@ -51,7 +54,12 @@ export function useWaConversations(clientId: string | undefined, search: string)
       if (error) throw ruleError(error, "Não conseguimos carregar as conversas.");
       return (data ?? []) as WaConversation[];
     },
-    getNextPageParam: (last) => (last.length === CONVERSATIONS_PAGE ? last[last.length - 1].last_at : undefined),
+    // A lista vem da mais nova para a mais antiga: ao passar do "de", não há mais o que buscar.
+    getNextPageParam: (last) => {
+      if (last.length !== CONVERSATIONS_PAGE) return undefined;
+      const at = last[last.length - 1].last_at;
+      return range.from && at < range.from ? undefined : at;
+    },
   });
 }
 

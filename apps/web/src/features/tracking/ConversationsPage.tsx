@@ -14,6 +14,7 @@ import { formatDateTime, formatRelative } from "@/lib/format.ts";
 import {
   formatWaPhone,
   useWaConversationDelete,
+  type ConversationRange,
   useWaConversations,
   useWaMarkSale,
   useWaMessages,
@@ -192,8 +193,12 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
   const { profile } = useAuth();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
-  const list = useWaConversations(id, search);
-  const people = (list.data?.pages ?? []).flat();
+  const [preset, setPreset] = useState<PeriodPreset>("tudo");
+  const [dayFrom, setDayFrom] = useState("");
+  const [dayTo, setDayTo] = useState("");
+  const range = useMemo(() => conversationRange(preset, dayFrom, dayTo, new Date()), [preset, dayFrom, dayTo]);
+  const list = useWaConversations(id, search, range);
+  const people = (list.data?.pages ?? []).flat().filter((p) => (!range.from || p.last_at >= range.from) && (!range.to || p.last_at <= range.to));
   const current = people.find((p) => p.person_id === selected) ?? null;
 
   return (
@@ -212,11 +217,26 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
             <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden />
             <Input aria-label="Buscar por nome ou telefone" placeholder="Buscar por nome ou telefone" className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
+          <div className="space-y-2" data-testid="wa-conversations-period">
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <span className="shrink-0 font-medium">Período:</span>
+              <select className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm" aria-label="Período das conversas" value={preset}
+                onChange={(e) => setPreset(e.target.value as PeriodPreset)}>
+                {(Object.keys(CONVERSATION_PERIODS) as PeriodPreset[]).map((k) => <option key={k} value={k}>{CONVERSATION_PERIODS[k]}</option>)}
+              </select>
+            </label>
+            {preset === "datas" && (
+              <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                <label>De<Input type="date" aria-label="Conversas a partir de" value={dayFrom} max={dayTo || undefined} onChange={(e) => setDayFrom(e.target.value)} /></label>
+                <label>Até<Input type="date" aria-label="Conversas até" value={dayTo} min={dayFrom || undefined} onChange={(e) => setDayTo(e.target.value)} /></label>
+              </div>
+            )}
+          </div>
           {list.error ? <Alert tone="error">{errorMessage(list.error)}</Alert>
             : list.isPending ? <p className="p-3 text-sm text-slate-500">Carregando…</p>
             : people.length === 0 ? (
               <p className="p-3 text-sm text-slate-500" data-testid="wa-conversations-empty">
-                {search ? "Nenhuma conversa encontrada." : "Ainda não há conversas guardadas. Ligue “Guardar as conversas” na aba WhatsApp deste cliente; as mensagens aparecem aqui daí para a frente."}
+                {search || preset !== "tudo" ? "Nenhuma conversa encontrada neste filtro." : "Ainda não há conversas guardadas. Ligue “Guardar as conversas” na aba WhatsApp deste cliente; as mensagens aparecem aqui daí para a frente."}
               </p>
             ) : (
               <ul className="max-h-[36rem] divide-y divide-slate-100 overflow-y-auto">
@@ -260,4 +280,24 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
 /** Conversas de um cliente para quem não tem o Tracking (Account Manager): o banco só devolve se a pessoa for do cliente. */
 export function ConversationsStandalone({ clientId }: { clientId: string }) {
   return <ConversationsPanel clientId={clientId} />;
+}
+
+type PeriodPreset = "tudo" | "hoje" | "7" | "30" | "90" | "180" | "datas";
+const CONVERSATION_PERIODS: Record<PeriodPreset, string> = {
+  tudo: "Todas", hoje: "Hoje", "7": "Últimos 7 dias", "30": "Últimos 30 dias", "90": "Últimos 90 dias", "180": "Últimos 6 meses", datas: "Escolher datas…",
+};
+
+/** Converte o período escolhido em limites (início e fim do dia, no fuso do navegador). */
+function conversationRange(preset: PeriodPreset, dayFrom: string, dayTo: string, now: Date): ConversationRange {
+  const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  if (preset === "tudo") return { from: null, to: null };
+  if (preset === "hoje") return { from: startOf(now).toISOString(), to: null };
+  if (preset === "datas") {
+    const from = dayFrom ? new Date(`${dayFrom}T00:00:00`) : null;
+    const to = dayTo ? new Date(`${dayTo}T23:59:59.999`) : null;
+    return { from: from && !Number.isNaN(from.getTime()) ? from.toISOString() : null, to: to && !Number.isNaN(to.getTime()) ? to.toISOString() : null };
+  }
+  const start = startOf(now);
+  start.setDate(start.getDate() - Number(preset));
+  return { from: start.toISOString(), to: null };
 }

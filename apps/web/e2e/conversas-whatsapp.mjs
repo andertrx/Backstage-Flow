@@ -41,6 +41,19 @@ function seed(db) {
   await page.getByTestId("wa-conversations").waitFor();
   await page.getByTestId("wa-conversation").nth(1).waitFor();
   check(await page.getByTestId("wa-conversation").count() === 2, "lista as 2 conversas");
+  // T5.27: filtro de período das conversas
+  const periodo = page.getByLabel("Período das conversas");
+  await periodo.selectOption("7");
+  await page.getByTestId("wa-conversation").nth(1).waitFor();
+  check(await page.getByTestId("wa-conversation").count() === 2, "filtro: últimos 7 dias mantém as conversas recentes");
+  await periodo.selectOption("datas");
+  const amanha = new Date(Date.now() + 36 * 3600 * 1000).toISOString().slice(0, 10);
+  await page.getByLabel("Conversas a partir de").fill(amanha);
+  await page.getByTestId("wa-conversations-empty").waitFor();
+  check(await page.getByTestId("wa-conversation").count() === 0, "filtro: datas no futuro não trazem conversas");
+  await page.getByLabel("Conversas a partir de").fill("");
+  await periodo.selectOption("tudo");
+  await page.getByTestId("wa-conversation").nth(1).waitFor();
   const first = await page.getByTestId("wa-conversation").first().innerText();
   check(first.includes("João Silva") && first.includes("Fechado, vou pagar agora") && first.includes("Anúncio") && first.includes("IA sugere venda"),
     "a mais recente vem primeiro, com origem e aviso da IA");
