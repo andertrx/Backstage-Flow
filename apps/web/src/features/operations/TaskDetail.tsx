@@ -1,22 +1,25 @@
 import { originLabel } from "./origin.ts";
 import { OPS_PERSON_ROLE_LABELS, OPS_VISIBILITY_LABELS, opsIsClosed, opsToday } from "@backstage/shared";
-import { Archive, ArchiveRestore, AtSign, FileText, Link2, Paperclip, Pencil, Trash2, Upload, X } from "lucide-react";
+import { Archive, ArchiveRestore, AtSign, CornerDownRight, FileText, Link2, ListChecks, Paperclip, Pencil, Trash2, Upload, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { SortableList } from "@/components/ui/sortable-list.tsx";
 import { Select, Textarea } from "@/components/ui/field.tsx";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDate, formatDateTime } from "@/lib/format.ts";
 import type { OpsSector } from "./api.ts";
 import { ACTION_LABELS, activityText } from "./activity.ts";
+import { useOpenTask } from "./tasksContext.tsx";
 import { RecurrencePanel } from "./Recurrence.tsx";
 import { Avatar, DueLabel, PriorityBadge, StatusPill } from "./TaskBits.tsx";
 import { DeleteCardButton } from "./DeleteCardButton.tsx";
 import { PeopleFields, peopleInputFrom, TaskFormModal } from "./TaskFormModal.tsx";
 import {
   OPS_FILE_ACCEPT, type OpsDirectory, type OpsPeopleInput, type OpsStatus, type OpsTaskDetail, openAttachment, useAddAttachment, useAddComment,
-  useArchiveTask, useDeleteTask, useOpsTask, useOpsTasks, useRemoveAttachment, useRemoveComment, useSetTaskPeople, useSetTaskStatus, useTaskDependency,
+  useArchiveTask, useDeleteTask, useOpsTask, useOpsTasks, useRemoveAttachment, useRemoveComment, useReorderSubtasks, useSaveTask, useSetTaskPeople, useSetTaskStatus,
+  useTaskDependency,
 } from "./tasksApi.ts";
 
 function formatSize(bytes: number) {
@@ -212,6 +215,109 @@ function Dependencies({ detail }: { detail: OpsTaskDetail }) {
   );
 }
 
+
+/** T5.32: subtarefas (um nível). Digitar o título + Enter cria já com você de responsável; arrastar muda a ordem. */
+function Subtasks({ detail, statuses, directory, me }: { detail: OpsTaskDetail; statuses: OpsStatus[]; directory: OpsDirectory; me: string }) {
+  const { open } = useOpenTask();
+  const [title, setTitle] = useState("");
+  const [owner, setOwner] = useState(me);
+  const [error, setError] = useState<string | null>(null);
+  const save = useSaveTask();
+  const setStatus = useSetTaskStatus();
+  const reorder = useReorderSubtasks();
+  const subs = detail.subtasks ?? [];
+  const progress = detail.subtask_progress ?? { total: subs.length, done: subs.filter((x) => x.done).length };
+  const t = detail.task;
+  const locked = Boolean(t.archived_at) || !detail.can.edit;
+  const byId = new Map(subs.map((x) => [x.id, x]));
+  const doneStatus = statuses.find((s) => s.active && s.category === "concluido");
+  const openStatus = statuses.find((s) => s.active && s.category === "aberto") ?? statuses.find((s) => s.active && !opsIsClosed(s.category));
+  const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
+
+  async function add(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const name = title.trim();
+    if (name.length < 3) return setError("Escreva o título da subtarefa (pelo menos 3 letras).");
+    if (!owner) return setError("Toda subtarefa precisa de um responsável.");
+    try {
+      await save.mutateAsync({
+        id: null, version: null,
+        input: {
+          title: name, description: "", client_id: t.client_id ?? "", sector_id: t.sector_id, priority: t.priority, start_date: "", due_date: "",
+          effort_hours: "", visibility: t.visibility, tags: [], client_stage_id: "", mandatory: false, parent_id: t.id,
+          people: { principal: owner, adicionais: [], aprovadores: [], observadores: [] },
+        },
+      });
+      setTitle((cur) => (cur.trim() === name ? "" : cur));
+    } catch (err) { setError(errorMessage(err)); }
+  }
+  async function toggle(id: string) {
+    const x = byId.get(id);
+    if (!x) return;
+    setError(null);
+    const target = x.done ? openStatus : doneStatus;
+    if (!target) return setError("Não há status de conclusão ativo para usar.");
+    try { await setStatus.mutateAsync({ id: x.id, version: x.version, statusId: target.id }); } catch (err) { setError(errorMessage(err)); }
+  }
+  async function move(ids: string[]) {
+    setError(null);
+    try { await reorder.mutateAsync({ parent: t.id, ids }); } catch (err) { setError(errorMessage(err)); }
+  }
+  const row = (id: string) => {
+    const x = byId.get(id);
+    if (!x) return null;
+    return (
+      <div className="flex min-w-0 flex-1 items-center gap-2" data-testid="ops-subtask">
+        <input type="checkbox" checked={x.done} disabled={locked || !x.visible || setStatus.isPending} onChange={() => toggle(x.id)}
+          aria-label={`${x.done ? "Reabrir" : "Concluir"} subtarefa #${x.number}`} className="size-4 shrink-0 accent-blue-600" />
+        <button type="button" onClick={() => x.visible && open(x.id)} disabled={!x.visible}
+          className={cn("min-w-0 flex-1 truncate text-left text-sm font-medium", x.done ? "text-slate-400 line-through" : "text-slate-800", x.visible && "hover:text-blue-700")}>
+          #{x.number} {x.visible ? x.title : "(subtarefa de outro setor)"}
+        </button>
+        <span className="hidden shrink-0 text-xs text-slate-500 sm:inline">{x.people.find((p) => p.role === "principal")?.name ?? "Sem responsável"}</span>
+        <StatusPill name={x.status_name} color={x.status_color} />
+      </div>
+    );
+  };
+  return (
+    <Section title={`Subtarefas${progress.total ? ` (${progress.done}/${progress.total})` : ""}`}>
+      {progress.total > 0 && (
+        <div className="flex items-center gap-2" data-testid="ops-subtask-progress">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${pct}%` }} /></div>
+          <span className="text-xs font-medium text-slate-600">{progress.done} de {progress.total}</span>
+        </div>
+      )}
+      {subs.length > 0 && !locked && (
+        <SortableList items={subs.map((x) => x.id)} onReorder={move} label={(id) => `subtarefa #${byId.get(id)?.number ?? ""}`} testId="ops-subtask-list">
+          {row}
+        </SortableList>
+      )}
+      {subs.length > 0 && locked && (
+        <ul className="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200" data-testid="ops-subtask-list">
+          {subs.map((x) => <li key={x.id} className="px-3 py-1.5">{row(x.id)}</li>)}
+        </ul>
+      )}
+      {subs.length === 0 && <p className="text-sm text-slate-400">Nenhuma subtarefa. Quebre esta tarefa em passos menores.</p>}
+      {!locked && (
+        <form onSubmit={add} className="flex flex-wrap items-center gap-2">
+          <input aria-label="Título da nova subtarefa" value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} placeholder="Nova subtarefa… (Enter para criar)"
+            className="min-w-0 flex-1 rounded-lg border-0 bg-white px-3 py-1.5 text-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-blue-600" />
+          <Select aria-label="Responsável da nova subtarefa" className="w-auto py-1.5" value={owner} onChange={(e) => setOwner(e.target.value)}>
+            <option value="">Responsável…</option>
+            {directory.people.map((p) => <option key={p.user_id} value={p.user_id}>{p.name}{p.user_id === me ? " (eu)" : ""}</option>)}
+          </Select>
+          <Button type="submit" className="px-3 py-1.5 text-xs" loading={save.isPending}><ListChecks className="size-3.5" aria-hidden /> Adicionar</Button>
+        </form>
+      )}
+      {t.archived_at == null && progress.total > progress.done && (
+        <p className="text-xs text-slate-500">A tarefa principal só pode ser finalizada quando todas as subtarefas estiverem concluídas.</p>
+      )}
+      {error && <Alert tone="error">{error}</Alert>}
+    </Section>
+  );
+}
+
 function People({ detail, directory, me }: { detail: OpsTaskDetail; directory: OpsDirectory; me: string }) {
   const [editing, setEditing] = useState<OpsPeopleInput | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -265,6 +371,7 @@ export function TaskDetail({ id, sectors, statuses, directory, me, onClose }: {
   onClose: () => void;
 }) {
   const q = useOpsTask(id);
+  const { open: openTask } = useOpenTask();
   const setStatus = useSetTaskStatus();
   const archive = useArchiveTask();
   const del = useDeleteTask();
@@ -303,7 +410,14 @@ export function TaskDetail({ id, sectors, statuses, directory, me, onClose }: {
         className="flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
         <header className="flex items-start gap-3 border-b border-slate-200 px-5 py-4">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-slate-400">{t ? `#${t.number}` : " "}{t?.archived_at ? " · arquivada" : ""}</p>
+            {d?.parent && (
+              <button type="button" data-testid="ops-task-parent" disabled={!d.parent.visible} onClick={() => d.parent && openTask(d.parent.id)}
+                className="mb-0.5 inline-flex max-w-full items-center gap-1 text-xs font-medium text-blue-700 hover:underline">
+                <CornerDownRight className="size-3.5 shrink-0" aria-hidden />
+                <span className="truncate">parte de #{d.parent.number} {d.parent.visible ? d.parent.title : "(tarefa de outro setor)"}</span>
+              </button>
+            )}
+            <p className="text-xs font-semibold text-slate-400">{t ? `#${t.number}` : " "}{t?.archived_at ? " · arquivada" : ""}{d?.parent ? " · subtarefa" : ""}</p>
             <h2 className="break-words text-lg font-bold text-slate-900">{t?.title ?? "Carregando…"}</h2>
           </div>
           {t && d.can.edit && !t.archived_at && (
@@ -371,6 +485,7 @@ export function TaskDetail({ id, sectors, statuses, directory, me, onClose }: {
                   </ul>
                 </Section>
               )}
+              {!d.parent && <Subtasks detail={d} statuses={statuses} directory={directory} me={me} />}
               <People detail={d} directory={directory} me={me} />
               <Dependencies detail={d} />
               <Comments detail={d} directory={directory} me={me} />

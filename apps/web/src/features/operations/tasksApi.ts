@@ -55,9 +55,35 @@ export interface OpsTaskRow {
   client_stage_id: string | null;
   mandatory: boolean;
   queue_column_id: string | null;
+  /** T5.32: subtarefas (um nível). parent_id preenchido = esta linha é subtarefa. */
+  parent_id?: string | null;
+  sub_position?: number | null;
+  parent_number?: number | null;
+  parent_title?: string | null;
+  subtasks_total?: number;
+  subtasks_done?: number;
+}
+
+export interface OpsSubtask {
+  id: string;
+  number: number;
+  title: string | null;
+  visible: boolean;
+  status_id: string;
+  status_name: string;
+  status_color: string;
+  done: boolean;
+  sector_id: string;
+  due_date: string | null;
+  priority: OpsPriority;
+  version: number;
+  people: OpsTaskPerson[];
 }
 
 export interface OpsTaskFilters {
+  /** T5.32: só tarefas principais / só as subtarefas de uma tarefa. */
+  top_only?: boolean;
+  parent_id?: string;
   q?: string;
   client_id?: string;
   sector_id?: string;
@@ -78,6 +104,9 @@ export interface OpsTaskDetail {
   demand: { id: string; number: number; title: string;
     tasks: { id: string; number: number; sector_id: string; title: string | null; status_name: string; status_color: string; done: boolean; visible: boolean }[] } | null;
   stage_name: string | null;
+  parent?: { id: string; number: number; title: string | null; visible: boolean; status_name: string; status_color: string } | null;
+  subtasks?: OpsSubtask[];
+  subtask_progress?: { total: number; done: number };
   tags: string[];
   depends_on: { id: string; number: number; title: string; status_name: string; status_color: string; done: boolean; visible: boolean }[];
   dependents: { id: string; number: number; title: string }[];
@@ -127,6 +156,8 @@ export interface OpsTaskInput {
   /** Só ao criar. */
   status_id?: string;
   people?: OpsPeopleInput;
+  /** T5.32: cria como subtarefa dessa tarefa (ou, ao editar, move para ela; null/"" promove). */
+  parent_id?: string | null;
 }
 
 /** Tamanho máximo do anexo (igual ao limite do armazenamento). */
@@ -219,6 +250,7 @@ function taskPayload(v: OpsTaskInput) {
     mandatory: Boolean(v.client_id && v.client_stage_id && v.mandatory),
     ...(v.status_id ? { status_id: v.status_id } : {}),
     ...(v.people ? { people: v.people } : {}),
+    ...(v.parent_id !== undefined ? { parent_id: v.parent_id } : {}),
   };
 }
 
@@ -263,6 +295,14 @@ export function useSetTaskPeople() {
   return useOpsMutation(async (v: { id: string; version: number; people: OpsPeopleInput }) => {
     const { error } = await supabase.rpc("ops_task_set_people", { p_id: v.id, p_version: v.version, p_people: v.people });
     if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos mudar as pessoas da tarefa."));
+  });
+}
+
+/** T5.32: nova ordem das subtarefas de uma tarefa. */
+export function useReorderSubtasks() {
+  return useOpsMutation(async (v: { parent: string; ids: string[] }) => {
+    const { error } = await supabase.rpc("ops_subtask_reorder", { p_parent: v.parent, p_ids: v.ids });
+    if (error) throw new FriendlyError(ownDbError(error, "Não conseguimos mudar a ordem das subtarefas."));
   });
 }
 

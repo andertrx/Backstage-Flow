@@ -35,6 +35,9 @@ export const ACTION_LABELS: Record<string, string> = {
   "reuniao.item": "Registrou na reunião",
   "reuniao.item_retirado": "Retirou um item da reunião",
   "reuniao.tarefa_criada": "Transformou em tarefa",
+  "tarefa.subtarefa_criada": "Criou uma subtarefa",
+  "tarefa.subtarefa_incluida": "Incluiu uma subtarefa",
+  "tarefa.subtarefa_removida": "Retirou uma subtarefa",
   "tarefa.repeticao": "Passou a repetir a tarefa",
   "tarefa.repeticao_parada": "Parou a repetição",
   "reuniao.repeticao": "Passou a repetir a reunião",
@@ -76,6 +79,8 @@ export function activityText(a: { action: string; before: Record<string, unknown
     case "tarefa.editada": return `Mudou: ${Object.keys(after).map((k) => FIELD_LABELS[k] ?? k).join(", ")}`;
     case "tarefa.dependencia_incluida": return `Depende de #${String(after.depende_de)}`;
     case "tarefa.dependencia_retirada": return `Não depende mais de #${String(before.depende_de)}`;
+    case "tarefa.subtarefa_criada": case "tarefa.subtarefa_incluida": return `#${String(after.numero ?? "")} ${String(after.titulo ?? "")}`.trim();
+    case "tarefa.subtarefa_removida": return `#${String(after.numero ?? "")} ${String(after.titulo ?? "")}`.trim();
     case "tarefa.anexo_incluido": return String(after.arquivo ?? "");
     case "tarefa.anexo_retirado": return String(before.arquivo ?? "");
     case "cliente.fluxo_iniciado": return `Etapa: ${stage(String(after.etapa))}`;

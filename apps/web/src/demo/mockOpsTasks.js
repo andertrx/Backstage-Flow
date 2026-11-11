@@ -254,6 +254,10 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     if (s.category === "concluido" && n > 0) {
       return bad(`Esta tarefa depende de ${n} tarefa(s) ainda aberta(s). Conclua ou retire a dependência antes de finalizar.`);
     }
+    if (s.category === "concluido") {
+      const open = subsOf(t).filter((x) => !closed(x)).length;
+      if (open > 0) return bad(`Esta tarefa tem ${open} subtarefa(s) ainda aberta(s). Conclua as subtarefas antes de finalizar a principal.`);
+    }
     if (t.status_id === s.id) return null;
     log(t, "tarefa.status", { status: t.status_id }, { status: s.id });
     const wasDone = t.completed_at;
@@ -301,8 +305,14 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     return { ...t, client_name: db.clients.find((c) => c.id === t.client_id)?.name ?? null, status_name: s.name, status_color: s.color, category: s.category,
       people: peopleJson(t), blockers: blockers(t), comments: db.opsComments.filter((c) => c.task_id === t.id && !c.removed_at).length,
       attachments: db.opsAttachments.filter((a) => a.task_id === t.id && !a.removed_at).length,
-      overdue: Boolean(t.due_date && t.due_date < today() && !closed(t)) };
+      overdue: Boolean(t.due_date && t.due_date < today() && !closed(t)),
+      parent_id: t.parent_id ?? null, sub_position: t.sub_position ?? null,
+      parent_number: t.parent_id ? db.opsTasks.find((x) => x.id === t.parent_id)?.number ?? null : null,
+      parent_title: t.parent_id ? db.opsTasks.find((x) => x.id === t.parent_id)?.title ?? null : null,
+      subtasks_total: subsOf(t).length, subtasks_done: subsOf(t).filter(closed).length };
   };
+  /** T5.32: subtarefas ativas de uma tarefa (todas, sem filtrar por quem vê: só o total). */
+  const subsOf = (t) => db.opsTasks.filter((x) => x.parent_id === t.id && !x.archived_at && !x.deleted_at);
   const find = (id) => { const t = db.opsTasks.find((x) => x.id === id); return t && visible(t) ? t : null; };
   // --- 51.3: arquivar/excluir (mesmas regras de private.ops_can_archive_task / ops_can_delete_task / *_lead)
   const canArchiveTask = (t) => Boolean(t && visible(t)) && (role === "admin" || can("ops.tasks.archive") || t.created_by === userId
@@ -343,7 +353,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
   }
   const prefixes = ["ops_task", "ops_comment", "ops_attachment", "ops_directory", "ops_team_counts", "ops_status", "ops_client", "ops_demand",
     "ops_queue", "ops_activity_type", "ops_lead", "ops_loss_reason", "ops_meeting", "ops_notification", "ops_recurrence",
-    "ops_saved_view", "ops_my_summary", "ops_dashboard", "ops_search", "ops_onboarding_template", "ops_archive_list", "ops_config"];
+    "ops_saved_view", "ops_my_summary", "ops_dashboard", "ops_search", "ops_onboarding_template", "ops_archive_list", "ops_config", "ops_subtask"];
   if (!prefixes.some((x) => url.includes(`/rest/v1/rpc/${x}`))) return null;
   const p = parse();
   db.rpcCalls.push({ fn: url.split("/rpc/")[1].split("?")[0], ...p });
@@ -354,6 +364,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     const t0 = today();
     const out = db.opsTasks.filter(visible).map(row).filter((t) =>
       (f.archived ? t.archived_at : !t.archived_at)
+      && (!f.top_only || !t.parent_id) && (!f.parent_id || t.parent_id === f.parent_id)
       && (!q || t.title.toLowerCase().includes(q) || (t.description ?? "").toLowerCase().includes(q) || String(t.number) === q.replace("#", "")
           || (t.client_name ?? "").toLowerCase().includes(q))
       && (!f.client_id || t.client_id === f.client_id) && (!f.sector_id || t.sector_id === f.sector_id) && (!f.demand_id || t.demand_id === f.demand_id)
@@ -380,6 +391,18 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
             status_color: statusOf(o.status_id).color, done: closed(o), visible: visible(o) })) } : null;
       })(),
       stage_name: stageOf(t.client_stage_id)?.name ?? null,
+      parent: (() => {
+        const pt = t.parent_id && db.opsTasks.find((x) => x.id === t.parent_id);
+        if (!pt) return null;
+        const ps = statusOf(pt.status_id);
+        return { id: pt.id, number: pt.number, title: visible(pt) ? pt.title : null, visible: visible(pt), status_name: ps.name, status_color: ps.color };
+      })(),
+      subtasks: subsOf(t).sort((a, b) => (a.sub_position ?? 0) - (b.sub_position ?? 0) || a.number - b.number).map((o) => {
+        const os = statusOf(o.status_id);
+        return { id: o.id, number: o.number, title: visible(o) ? o.title : null, visible: visible(o), status_id: o.status_id, status_name: os.name, status_color: os.color,
+          done: closed(o), sector_id: o.sector_id, due_date: o.due_date, priority: o.priority, version: o.version, people: visible(o) ? peopleJson(o) : [] };
+      }),
+      subtask_progress: { total: subsOf(t).length, done: subsOf(t).filter(closed).length },
       tags: t.tags,
       depends_on: db.opsDeps.filter((d) => d.task_id === t.id).map((d) => {
         const o = db.opsTasks.find((x) => x.id === d.depends_on_id);
@@ -444,6 +467,19 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       if (t.version !== p.p_version) return conflict();
       if (input.sector_id !== t.sector_id && !can("ops.tasks.sector")) return deny("Você não tem permissão para mudar o setor da tarefa.");
     }
+    // T5.32: subtarefa (um nível só). parent_id ausente = não mexe; "" ou null = promove; id = anexa.
+    const hasParent = Object.prototype.hasOwnProperty.call(input, "parent_id");
+    let parent = t?.parent_id ? db.opsTasks.find((x) => x.id === t.parent_id) : null;
+    if (hasParent) {
+      parent = input.parent_id ? find(input.parent_id) : null;
+      if (input.parent_id && !parent) return bad("Tarefa principal não encontrada.");
+      if (parent) {
+        if (parent.parent_id) return bad("Subtarefa não pode ter subtarefas: só existe um nível.");
+        if (parent.archived_at) return bad("Tarefa principal arquivada: desarquive antes de criar subtarefas.");
+        if (t && t.id === parent.id) return bad("Uma tarefa não pode ser subtarefa dela mesma.");
+        if (t && subsOf(t).length) return bad("Esta tarefa já tem subtarefas: ela não pode virar subtarefa.");
+      }
+    }
     if (!db.opsSectors.some((s) => s.id === input.sector_id && (s.status === "ativo" || s.id === t?.sector_id))) return bad("Escolha um setor ativo.");
     if ((input.title ?? "").trim().length < 3) return bad("Escreva o título (mínimo 3 letras).");
     if (input.client_stage_id) {
@@ -456,18 +492,28 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       effort_hours: input.effort_hours ? Number(input.effort_hours) : null, visibility: input.visibility || "setor", tags: tags(input.tags),
       client_stage_id: input.client_id ? input.client_stage_id || null : null,
       mandatory: Boolean(input.client_id && input.client_stage_id && input.mandatory) };
+    if (parent) Object.assign(fields, { client_id: parent.client_id, client_stage_id: parent.client_stage_id, mandatory: false,
+      ...(!t && !input.visibility ? { visibility: parent.visibility } : {}) });
     const now = new Date().toISOString();
     if (!t) {
       const status = statusOf(input.status_id || "nao_iniciado");
       if (!status?.active) return bad("Escolha um status ativo.");
       t = { id: crypto.randomUUID(), number: ++db.opsTaskSeq, ...fields, status_id: status.id, people: writePeople(input.people), version: 1, created_by: userId,
-        created_at: now, updated_at: now, completed_at: status.category === "concluido" ? now : null, archived_at: null, demand_id: null, queue_column_id: null };
+        created_at: now, updated_at: now, completed_at: status.category === "concluido" ? now : null, archived_at: null, demand_id: null, queue_column_id: null,
+        parent_id: parent?.id ?? null, sub_position: parent ? Math.max(0, ...subsOf(parent).map((x) => x.sub_position ?? 0)) + 1 : null };
       db.opsTasks.push(t);
       log(t, "tarefa.criada", null, { titulo: t.title });
+      if (parent) log(parent, "tarefa.subtarefa_criada", null, { numero: t.number, titulo: t.title });
       notifyPeople(t);
     } else {
       const changed = Object.keys(fields).filter((k) => JSON.stringify(fields[k]) !== JSON.stringify(t[k]));
+      const oldParent = t.parent_id ? db.opsTasks.find((x) => x.id === t.parent_id) : null;
       Object.assign(t, fields, { version: t.version + 1, updated_at: now });
+      if (hasParent && (oldParent?.id ?? null) !== (parent?.id ?? null)) {
+        if (oldParent) log(oldParent, "tarefa.subtarefa_removida", null, { numero: t.number, titulo: t.title });
+        if (parent) log(parent, "tarefa.subtarefa_incluida", null, { numero: t.number, titulo: t.title });
+        Object.assign(t, { parent_id: parent?.id ?? null, sub_position: parent ? Math.max(0, ...subsOf(parent).filter((x) => x.id !== t.id).map((x) => x.sub_position ?? 0)) + 1 : null });
+      }
       const map = { title: "titulo", description: "descricao", client_id: "cliente", sector_id: "setor", priority: "prioridade", start_date: "inicio",
         due_date: "prazo", effort_hours: "esforco", visibility: "visibilidade", tags: "etiquetas", client_stage_id: "etapa", mandatory: "obrigatoria" };
       if (changed.length) log(t, "tarefa.editada", {}, Object.fromEntries(changed.map((k) => [map[k], fields[k]])));
@@ -512,14 +558,29 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     notifyPeople(t);
     return res(200, t.version);
   }
+  if (rpc("ops_subtask_reorder")) {
+    const parent = find(p.p_parent);
+    if (!parent) return bad("Tarefa não encontrada.");
+    if (!can("ops.tasks.edit")) return deny();
+    const kids = subsOf(parent);
+    const ids = p.p_ids ?? [];
+    if (ids.length !== kids.length || kids.some((k) => !ids.includes(k.id))) return bad("A lista de subtarefas mudou. Recarregue e tente de novo.");
+    ids.forEach((id, i) => { db.opsTasks.find((x) => x.id === id).sub_position = i + 1; });
+    return res(204);
+  }
   if (rpc("ops_task_archive")) {
     const t = find(p.p_id);
     if (!t) return bad("Tarefa não encontrada.");
     if (!canArchiveTask(t)) return deny("Você só pode arquivar tarefas que criou ou que estão com você.");
     if (Boolean(t.archived_at) === Boolean(p.p_archived)) return res(204);
+    const prev = t.archived_at;
     t.archived_at = p.p_archived ? new Date().toISOString() : null;
     t.archived_by = p.p_archived ? userId : null;
     t.version++;
+    // subtarefas acompanham a principal (ao desarquivar, só as arquivadas junto com ela)
+    for (const c of db.opsTasks.filter((x) => x.parent_id === t.id && !x.deleted_at && (p.p_archived ? !x.archived_at : x.archived_at === prev))) {
+      Object.assign(c, { archived_at: t.archived_at, archived_by: t.archived_by, version: c.version + 1 });
+    }
     log(t, p.p_archived ? "tarefa.arquivada" : "tarefa.desarquivada", null, null);
     autoAdvance(t);
     return res(204);
@@ -531,6 +592,9 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     const now = new Date().toISOString();
     Object.assign(t, { deleted_at: now, deleted_by: userId, archived_at: t.archived_at ?? now, archived_by: t.archived_by ?? userId, version: t.version + 1 });
     log(t, "tarefa.excluida", null, null);
+    for (const c of db.opsTasks.filter((x) => x.parent_id === t.id && !x.deleted_at)) {
+      Object.assign(c, { deleted_at: now, deleted_by: userId, archived_at: c.archived_at ?? now, archived_by: c.archived_by ?? userId, version: c.version + 1 });
+    }
     return res(204);
   }
   if (rpc("ops_task_restore")) {
