@@ -55,7 +55,7 @@ import { MetaCapiModal } from "./MetaCapiModal.tsx";
 import { SuggestionsSection } from "./SuggestionsSection.tsx";
 import { RulesModal } from "./RulesModal.tsx";
 import { WhatsAppApiModal } from "./WhatsAppApiModal.tsx";
-import { LimparDadosCliente, WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
+import { LimparDadosCliente, LimparDadosDoClienteCard, WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
 import { WhatsAppSection } from "./WhatsAppSection.tsx";
 
 const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
@@ -351,6 +351,7 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
           {tab === "whatsapp" && (
           <>
           <WhatsAppStatusStrip sites={visible} connectionOf={waConnOf} clientId={clientId} />
+          <LimparDadosDoClienteCard clientId={clientId} />
           <Alert tone="info">
             <span data-testid="wa-mark-moved">Para <strong>marcar venda</strong>, use a aba <strong>Conversas</strong> deste painel. Lá você lê a conversa antes de marcar.</span>
           </Alert>

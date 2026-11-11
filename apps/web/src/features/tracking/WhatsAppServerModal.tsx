@@ -16,6 +16,8 @@ import {
   useWaHistoryDays,
   useWaLimpar,
   useWaLimparContagem,
+  useTrackingContainers,
+  useWhatsAppConnections,
   useWaStoreMessages,
   useWaUnofficialSave,
   waInboundUrl,
@@ -334,5 +336,25 @@ export function LimparDadosCliente({ connectionId, compact = false }: { connecti
         </Modal>
       )}
     </>
+  );
+}
+
+/** Atalho por cliente: acha a conexão pelo servidor do cliente e mostra o botão de limpar (só administrador). */
+export function LimparDadosDoClienteCard({ clientId }: { clientId: string | null }) {
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
+  const connections = useWhatsAppConnections(isAdmin && Boolean(clientId));
+  const containers = useTrackingContainers();
+  const meus = new Set((containers.data ?? []).filter((c) => c.client_id === clientId).map((c) => c.id));
+  const conn = (connections.data ?? []).find((c) => c.mode === "nao_oficial" && meus.has(c.container_id));
+  if (!isAdmin || !clientId || !conn) return null;
+  return (
+    <div className="space-y-2 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200" data-testid="limpar-dados-card">
+      <p className="text-sm font-semibold text-slate-900">Dados das conversas deste cliente</p>
+      <p className="text-xs text-slate-500">
+        Apaga o texto das mensagens, os telefones, os nomes e as sugestões da IA deste cliente. Mantém as conversas (sem texto), as vendas marcadas e as contagens. Pede confirmação duas vezes. Só administrador.
+      </p>
+      <LimparDadosCliente connectionId={conn.id} />
+    </div>
   );
 }

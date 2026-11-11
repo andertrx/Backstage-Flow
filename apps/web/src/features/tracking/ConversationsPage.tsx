@@ -23,6 +23,7 @@ import {
   WA_ORIGIN_LABEL,
   type WaConversation,
 } from "./conversationsApi.ts";
+import { LimparDadosDoClienteCard } from "./WhatsAppServerModal.tsx";
 
 const CONFIDENCE: Record<string, string> = { alta: "alta", media: "média", baixa: "baixa" };
 
@@ -210,6 +211,8 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
           O telefone e as mensagens são dados pessoais: não compartilhe fora do CRM.
         </p>
       </div>
+
+      <LimparDadosDoClienteCard clientId={id} />
 
       <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
         <Card className="space-y-3 p-3" data-testid="wa-conversations">

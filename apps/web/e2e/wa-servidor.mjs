@@ -162,6 +162,12 @@ function seed(db, official = false) {
   await page.getByTestId("wa-limpar-modal").waitFor();
   await page.getByTestId("wa-limpar-modal").getByRole("button", { name: "Cancelar" }).click();
   check(true, "limpar dados pela linha do cliente abre a confirmação");
+  // e também no Painel (aba WhatsApp e aba Conversas) do cliente escolhido
+  await page.goto(`${process.env.E2E_BASE_URL}/tracking?aba=whatsapp&cliente=${SO_WA}`);
+  await page.getByTestId("limpar-dados-card").waitFor();
+  check(true, "aba WhatsApp do cliente também tem o botão de limpar dados");
+  await page.goto(`${process.env.E2E_BASE_URL}/tracking?secao=config`);
+  await page.getByTestId("cli-site-whatsapp").waitFor();
 
   // 2) só site: sem WhatsApp
   await linha("Loja Só Site").getByRole("button", { name: /Adicionar site/ }).click();
