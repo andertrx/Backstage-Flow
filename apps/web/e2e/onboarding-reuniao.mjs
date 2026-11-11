@@ -181,6 +181,11 @@ check(await dialog.getByTestId("ops-onb-extra").getByLabel(/^Descrição:/).coun
 await dialog.getByTestId("ops-onb-extra").getByLabel(/^Descrição:/).fill("Alinhar escopo e próximos passos.");
 await dialog.getByLabel("Título da outra tarefa").fill("Reunião de alinhamento com o cliente");
 await dialog.getByLabel("Setor da outra tarefa").selectOption({ label: "Design" });
+// o setor Design não tem ninguém na Central: sem responsável, o sistema recusa (toda tarefa precisa de um)
+await dialog.getByTestId("ops-onb-tasks-submit").click();
+await dialog.getByText(/não tem ninguém na Central: escolha uma pessoa/).waitFor();
+check(true, "T5.33: setor sem ninguém na Central: o sistema pede um responsável");
+await dialog.getByLabel("Setor da outra tarefa").selectOption({ label: "Gestão de Tráfego" });
 await page.screenshot({ path: `${SHOTS}/50.1-tarefas-do-onboarding.png`, fullPage: true });
 await dialog.getByTestId("ops-onb-tasks-submit").click();
 await dialog.waitFor({ state: "detached" });
@@ -189,7 +194,7 @@ const gt = db.opsTasks.find((t) => t.title === "Pegar acessos (Meta, Google)");
 check(gt.sector_id === SECTOR("Gestão de Tráfego") && gt.people.length === 2 && gt.people.some((x) => x.user_id === TIAGO) && gt.people.some((x) => x.user_id === RITA), "50.1: Todo o setor = todos do setor marcados na mesma tarefa");
 const cp = db.opsTasks.find((t) => t.title === "Copy de vendas");
 check(cp.people.length === 1 && cp.people[0].user_id === CAIO && cp.sector_id === SECTOR("Copy"), "50.1: uma pessoa específica do setor");
-check(db.opsTasks.some((t) => t.title === "Reunião de alinhamento com o cliente" && t.sector_id === SECTOR("Design") && t.description === "Alinhar escopo e próximos passos."), "50.1: outra tarefa criada do zero, com descrição");
+check(db.opsTasks.some((t) => t.title === "Reunião de alinhamento com o cliente" && t.sector_id === SECTOR("Gestão de Tráfego") && t.people.length > 0 && t.description === "Alinhar escopo e próximos passos."), "50.1: outra tarefa criada do zero, com descrição");
 check(cp.description === "Copy da página de vendas, foco em oferta e prova social.", "50.2: descrição editada numa tarefa padrão vai para a tarefa");
 await page.goto(`${new URL(page.url()).origin}/onboarding`);
 const aurora5 = col("coleta_acessos").locator("[data-testid=ops-kanban-card]").filter({ hasText: "Loja Aurora" });

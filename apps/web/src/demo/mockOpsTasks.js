@@ -247,6 +247,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     if (!(can("ops.cards.move") || can("ops.tasks.edit"))) return deny("Você não tem permissão para mudar o status desta tarefa.");
     if (t.archived_at) return bad("Tarefa arquivada: desarquive para mudar o status.");
     if (t.version !== version) return conflict();
+    if (!(t.people ?? []).some((x) => x.role === "principal")) return bad("Esta tarefa está sem responsável. Defina o responsável antes de mudar o status.");
     const s = statusOf(statusId);
     if (!s?.active) return bad("Status inválido ou desativado.");
     const n = blockers(t);
@@ -431,6 +432,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     if (!p.p_id) {
       if (!can("ops.tasks.create")) return deny();
       const people = writePeople(input.people);
+      if (!people.some((x) => x.role === "principal")) return bad("Toda tarefa precisa de um responsável. Escolha o responsável principal.");
       if (people.some((x) => x.user_id !== userId) && !can("ops.tasks.assign")) return deny("Você não tem permissão para atribuir outras pessoas.");
       if (people.some((x) => !memberOk(x.user_id))) return bad("Só pessoas ativas na Central podem entrar na tarefa.");
     } else {
@@ -438,6 +440,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       if (!t) return bad("Tarefa não encontrada.");
       if (!can("ops.tasks.edit")) return deny();
       if (t.archived_at) return bad("Tarefa arquivada: desarquive para editar.");
+      if (!(t.people ?? []).some((x) => x.role === "principal")) return bad("Esta tarefa está sem responsável. Defina o responsável (em Pessoas) antes de editar.");
       if (t.version !== p.p_version) return conflict();
       if (input.sector_id !== t.sector_id && !can("ops.tasks.sector")) return deny("Você não tem permissão para mudar o setor da tarefa.");
     }
@@ -502,6 +505,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     if (t.archived_at) return bad("Tarefa arquivada: desarquive para mudar as pessoas.");
     if (t.version !== p.p_version) return conflict();
     const people = writePeople(p.p_people);
+    if (!people.some((x) => x.role === "principal")) return bad("Toda tarefa precisa de um responsável. Escolha o responsável principal.");
     if (people.some((x) => !memberOk(x.user_id))) return bad("Só pessoas ativas na Central podem entrar na tarefa.");
     log(t, "tarefa.pessoas", { pessoas: t.people }, { pessoas: people });
     Object.assign(t, { people, version: t.version + 1 });
@@ -892,6 +896,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       return bad("Uma linha só pode depender de uma linha anterior.");
     }
     if (items.some((i) => !db.opsSectors.some((s) => s.id === i.sector_id && s.status === "ativo"))) return bad("Escolha um setor ativo.");
+    if (items.some((i) => !i.principal)) return bad("Toda tarefa precisa de um responsável. Escolha o responsável principal.");
     const now = new Date().toISOString();
     const demand = { id: crypto.randomUUID(), number: ++db.opsDemandSeq, client_id: d.client_id, title: d.title.trim(), briefing: d.briefing || null, created_by: userId, created_at: now };
     db.opsDemands.push(demand);

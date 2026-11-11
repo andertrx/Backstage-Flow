@@ -77,6 +77,7 @@ const waitFor = async (page, fn, what) => {
   await dialog.getByLabel("Prioridade da linha 1").selectOption("alta");
   await dialog.getByRole("button", { name: "Outro setor" }).click();
   await dialog.getByLabel("Setor da linha 2").selectOption({ label: "Copy" });
+  await dialog.getByLabel("Responsável da linha 2").selectOption({ index: 1 });
   await dialog.getByLabel("Dependência da linha 2").selectOption({ label: "Depende da linha 1 (Design)" });
   await dialog.getByLabel("Anexos").setInputFiles({ name: "briefing.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 briefing") });
   await dialog.getByRole("button", { name: "Liberar para 2 setor(es)" }).click();

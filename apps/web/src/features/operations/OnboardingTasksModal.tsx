@@ -92,7 +92,7 @@ export function OnboardingTasksModal({ c, ctx, onClose, onDone, onFullForm }: {
                 {people.map((p) => <option key={p.user_id} value={p.user_id}>{p.name}</option>)}
               </Select>
             )}
-            {r.mode === "setor" && r.sectorId && people.length === 0 && <p className="text-xs text-amber-700">Este setor ainda não tem pessoas: a tarefa fica no setor, sem responsável.</p>}
+            {r.mode === "setor" && r.sectorId && people.length === 0 && <p className="text-xs text-amber-700">Este setor ainda não tem pessoas na Central: cadastre alguém nele antes de liberar a tarefa. Toda tarefa precisa de um responsável.</p>}
           </>
         ) : <p className="text-xs text-slate-500">A tarefa fica no setor. Quem tem a permissão de atribuir escolhe as pessoas.</p>}
       </div>
@@ -107,6 +107,7 @@ export function OnboardingTasksModal({ c, ctx, onClose, onDone, onFullForm }: {
       if (r.title.trim().length < 3) return setError("Toda tarefa precisa de um título (mínimo 3 letras).");
       if (!r.sectorId) return setError(`Escolha o setor de "${r.title}".`);
       if (canAssign && r.mode === "pessoa" && !r.person) return setError(`Escolha a pessoa de "${r.title}" ou libere para o setor inteiro.`);
+      if (canAssign && r.mode === "setor" && peopleOf(r.sectorId).length === 0) return setError(`O setor de "${r.title}" não tem ninguém na Central: escolha uma pessoa de outro setor ou cadastre alguém no setor. Toda tarefa precisa de um responsável.`);
     }
     setBusy(true);
     let made = 0;

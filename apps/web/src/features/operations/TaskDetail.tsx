@@ -219,6 +219,7 @@ function People({ detail, directory, me }: { detail: OpsTaskDetail; directory: O
   async function save() {
     if (!editing) return;
     setError(null);
+    if (!editing.principal) return setError("Toda tarefa precisa de um responsável. Escolha o responsável principal.");
     try { await set.mutateAsync({ id: detail.task.id, version: detail.task.version, people: editing }); setEditing(null); } catch (err) { setError(errorMessage(err)); }
   }
   return (
@@ -245,7 +246,9 @@ function People({ detail, directory, me }: { detail: OpsTaskDetail; directory: O
               <span className="text-xs text-slate-500">{OPS_PERSON_ROLE_LABELS[p.role]}</span>
             </li>
           ))}
-          {detail.people.length === 0 && <li className="text-sm text-slate-400">Ninguém na tarefa ainda.</li>}
+          {!detail.people.some((p) => p.role === "principal") && (
+            <li className="text-sm font-medium text-red-600" data-testid="ops-task-no-principal">Sem responsável: defina um em "Mudar" para poder editar e mexer no status.</li>
+          )}
         </ul>
       )}
     </Section>

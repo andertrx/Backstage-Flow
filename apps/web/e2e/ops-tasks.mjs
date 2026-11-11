@@ -58,6 +58,12 @@ async function dragTo(page, card, column) {
   await dialog.getByLabel("Título").fill("Criar criativos Black Friday");
   await dialog.getByLabel("Cliente").selectOption({ label: "Loja Aurora" });
   await dialog.getByLabel("Setor").selectOption({ label: "Design" });
+  // T5.33: toda tarefa precisa de um responsável
+  await dialog.getByLabel("Responsável principal").selectOption({ label: "Escolha o responsável…" });
+  await dialog.getByRole("button", { name: "Criar tarefa" }).click();
+  await dialog.getByText(/Toda tarefa precisa de um responsável/).waitFor();
+  check(true, "T5.33: sem responsável, a tarefa não é criada");
+  check(db.opsTasks.length === 0, "T5.33: nada foi gravado sem responsável");
   await dialog.getByLabel("Prioridade").selectOption("alta");
   await dialog.getByLabel("Prazo").fill(day(-1));
   await dialog.getByLabel("Etiquetas").fill("Campanha, campanha, Black Friday");
@@ -73,6 +79,15 @@ async function dragTo(page, card, column) {
   await page.getByTestId("ops-task-detail").waitFor();
   check(page.url().includes(`tarefa=${t1.id}`), "detalhe abre sozinho e fica no endereço (link compartilhável)");
   await page.getByTestId("ops-task-history").getByText("Criou a tarefa").waitFor();
+  // T5.33: tarefa antiga sem responsável aparece destacada e não deixa mudar o status até definir um
+  const antiga = seedTask(db, { title: "Tarefa antiga sem dono", sector_id: sectorId(db, "Design"), people: [] });
+  await page.reload();
+  await page.getByTestId("ops-kanban").waitFor();
+  await page.getByTestId("ops-task-no-principal").waitFor().catch(() => {});
+  check(await page.getByTestId("no-principal").count() >= 1, "T5.33: tarefa sem responsável fica destacada em vermelho");
+  db.opsTasks.splice(db.opsTasks.indexOf(antiga), 1);
+  await page.reload();
+  await page.getByTestId("ops-kanban").waitFor();
   const detailText = await page.getByTestId("ops-task-detail").innerText();
   check(detailText.includes("Loja Aurora") && detailText.includes("Atrasada") && detailText.includes("Criou a tarefa"), "detalhe mostra cliente, atraso e histórico");
 

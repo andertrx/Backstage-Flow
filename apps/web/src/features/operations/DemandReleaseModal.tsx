@@ -51,6 +51,7 @@ export function DemandReleaseModal({ ctx, presetClient, onClose, onDone }: {
     if (!clientId) return setError("Escolha o cliente.");
     if (title.trim().length < 3) return setError("Escreva o título da demanda.");
     if (items.some((i) => !i.sector_id)) return setError("Escolha o setor de cada linha.");
+    if (items.some((i) => !i.principal)) return setError("Toda tarefa precisa de um responsável: escolha a pessoa de cada linha.");
     try {
       const r = await release.mutateAsync({ client_id: clientId, title, briefing, client_stage_id: stageId, mandatory, items, files });
       if (r.failedFiles.length) {
@@ -110,7 +111,7 @@ export function DemandReleaseModal({ ctx, presetClient, onClose, onDone }: {
                 placeholder={title ? `${title} — ${it.sector_id ? sectorName(it.sector_id) : "setor"}` : "Título (opcional)"}
                 onChange={(e) => setItem(i, { title: e.target.value })} />
               <Select aria-label={`Responsável da linha ${i + 1}`} className="sm:col-span-2" value={it.principal} onChange={(e) => setItem(i, { principal: e.target.value })}>
-                <option value="">Sem responsável</option>
+                <option value="">Escolha o responsável…</option>
                 {people.map((p) => <option key={p.user_id} value={p.user_id}>{p.name}</option>)}
               </Select>
               <Input aria-label={`Prazo da linha ${i + 1}`} type="date" className="sm:col-span-2" value={it.due_date} onChange={(e) => setItem(i, { due_date: e.target.value })} />

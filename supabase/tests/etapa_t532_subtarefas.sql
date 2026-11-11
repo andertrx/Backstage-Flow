@@ -11,18 +11,18 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', adm, 'role', 'authenticated')::text, true);
   set local role authenticated;
 
-  pai := public.ops_task_save(null, null, jsonb_build_object('title', 'Lançamento T532', 'sector_id', sec, 'client_id', cli, 'people', '{}'::jsonb));
-  s1 := public.ops_task_save(null, null, jsonb_build_object('title', 'Subtarefa 1', 'sector_id', sec, 'parent_id', pai, 'people', '{}'::jsonb));
-  s2 := public.ops_task_save(null, null, jsonb_build_object('title', 'Subtarefa 2', 'sector_id', sec, 'parent_id', pai, 'client_id', null, 'people', '{}'::jsonb));
+  pai := public.ops_task_save(null, null, jsonb_build_object('title', 'Lançamento T532', 'sector_id', sec, 'client_id', cli, 'people', jsonb_build_object('principal', adm)));
+  s1 := public.ops_task_save(null, null, jsonb_build_object('title', 'Subtarefa 1', 'sector_id', sec, 'parent_id', pai, 'people', jsonb_build_object('principal', adm)));
+  s2 := public.ops_task_save(null, null, jsonb_build_object('title', 'Subtarefa 2', 'sector_id', sec, 'parent_id', pai, 'client_id', null, 'people', jsonb_build_object('principal', adm)));
   -- 1) subtarefa criada e herda o cliente da principal
   if (select parent_id from public.ops_tasks where id = s1) = pai and (select client_id from public.ops_tasks where id = s2) = cli then n := n + 1; end if;
   -- 2) só um nível
-  begin perform public.ops_task_save(null, null, jsonb_build_object('title', 'Neta', 'sector_id', sec, 'parent_id', s1, 'people', '{}'::jsonb)); exception when others then msg := sqlerrm; end;
+  begin perform public.ops_task_save(null, null, jsonb_build_object('title', 'Neta', 'sector_id', sec, 'parent_id', s1, 'people', jsonb_build_object('principal', adm))); exception when others then msg := sqlerrm; end;
   if msg like '%só um nível%' then n := n + 1; end if; msg := null;
   -- 3) tarefa com subtarefas não vira subtarefa
-  outro := public.ops_task_save(null, null, jsonb_build_object('title', 'Outra principal', 'sector_id', sec, 'people', '{}'::jsonb));
+  outro := public.ops_task_save(null, null, jsonb_build_object('title', 'Outra principal', 'sector_id', sec, 'people', jsonb_build_object('principal', adm)));
   select version into vv from public.ops_tasks where id = pai;
-  begin perform public.ops_task_save(pai, vv, jsonb_build_object('title', 'Lançamento T532', 'sector_id', sec, 'client_id', cli, 'parent_id', outro, 'people', '{}'::jsonb)); exception when others then msg := sqlerrm; end;
+  begin perform public.ops_task_save(pai, vv, jsonb_build_object('title', 'Lançamento T532', 'sector_id', sec, 'client_id', cli, 'parent_id', outro, 'people', jsonb_build_object('principal', adm))); exception when others then msg := sqlerrm; end;
   if msg like '%já tem subtarefas%' then n := n + 1; end if; msg := null;
   -- 4) não finaliza a principal com subtarefas abertas
   select version into vv from public.ops_tasks where id = pai;
@@ -66,10 +66,10 @@ begin
   perform public.ops_task_archive(pai, false);
   -- 12) promover subtarefa a tarefa (tira da principal) e transformar tarefa em subtarefa
   select version into vv from public.ops_tasks where id = s1;
-  perform public.ops_task_save(s1, vv, jsonb_build_object('title', 'Subtarefa 1', 'sector_id', sec, 'parent_id', null, 'people', '{}'::jsonb));
+  perform public.ops_task_save(s1, vv, jsonb_build_object('title', 'Subtarefa 1', 'sector_id', sec, 'parent_id', null, 'people', jsonb_build_object('principal', adm)));
   if (select parent_id from public.ops_tasks where id = s1) is null then n := n + 1; end if;
   select version into vv from public.ops_tasks where id = outro;
-  perform public.ops_task_save(outro, vv, jsonb_build_object('title', 'Outra principal', 'sector_id', sec, 'parent_id', pai, 'people', '{}'::jsonb));
+  perform public.ops_task_save(outro, vv, jsonb_build_object('title', 'Outra principal', 'sector_id', sec, 'parent_id', pai, 'people', jsonb_build_object('principal', adm)));
   if (select parent_id from public.ops_tasks where id = outro) = pai then n := n + 1; end if;
   -- 13) histórico da principal registra a criação das subtarefas
   select count(*) into k from public.ops_activity where task_id = pai and action = 'tarefa.subtarefa_criada';
@@ -77,7 +77,7 @@ begin
   -- 14) quem não pode editar não cria subtarefa
   if nadm is not null then
     perform set_config('request.jwt.claims', json_build_object('sub', nadm, 'role', 'authenticated')::text, true);
-    begin perform public.ops_task_save(null, null, jsonb_build_object('title', 'Intrusa', 'sector_id', sec, 'parent_id', pai, 'people', '{}'::jsonb)); exception when others then msg := sqlerrm; end;
+    begin perform public.ops_task_save(null, null, jsonb_build_object('title', 'Intrusa', 'sector_id', sec, 'parent_id', pai, 'people', jsonb_build_object('principal', adm))); exception when others then msg := sqlerrm; end;
     if msg is not null then n := n + 1; end if;
   else n := n + 1; end if;
   raise exception 'T5.32: % verificações OK de 19 (desfeito)', n;

@@ -67,10 +67,10 @@ export function PeopleFields({ value, onChange, people, me, canAssign }: {
       .every((k) => (k === "principal" ? value.principal !== p.user_id : !value[k].includes(p.user_id))));
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <Field label={OPS_PERSON_ROLE_LABELS.principal}>
+      <Field label={`${OPS_PERSON_ROLE_LABELS.principal} *`} hint="Obrigatório: toda tarefa tem pelo menos um responsável.">
         {(id) => (
           <Select id={id} value={value.principal ?? ""} onChange={(e) => onChange({ ...value, principal: e.target.value || null })}>
-            <option value="">Sem responsável</option>
+            <option value="">Escolha o responsável…</option>
             {others("principal").map((p) => <option key={p.user_id} value={p.user_id}>{p.name}</option>)}
             {value.principal && !options.some((p) => p.user_id === value.principal) && <option value={value.principal}>Pessoa atual</option>}
           </Select>
@@ -141,6 +141,7 @@ export function TaskFormModal({ detail, sectors, statuses, directory, me, mySect
     setError(null);
     if (input.title.trim().length < 3) return setError("Escreva o título (mínimo 3 letras).");
     if (!input.sector_id) return setError("Escolha o setor da tarefa.");
+    if (!t && !input.people?.principal) return setError("Toda tarefa precisa de um responsável. Escolha o responsável principal.");
     if (input.start_date && input.due_date && input.due_date < input.start_date) return setError("O prazo não pode ser antes do início.");
     if (input.effort_hours.trim() && !/^\d{1,5}([.,]\d{1,2})?$/.test(input.effort_hours.trim())) return setError("Esforço: use horas, por exemplo 2 ou 1,5.");
     try {

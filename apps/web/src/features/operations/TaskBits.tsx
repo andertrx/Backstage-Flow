@@ -48,7 +48,7 @@ export function Avatar({ name, className }: { name: string; className?: string }
 /** Responsáveis (principal primeiro). Aprovadores e observadores ficam no detalhe. */
 export function PeopleStack({ people }: { people: OpsTaskPerson[] }) {
   const doers = people.filter((p) => p.role === "principal" || p.role === "adicional");
-  if (!doers.length) return <span className="text-xs text-slate-400">Sem responsável</span>;
+  if (!doers.length) return <span className="text-xs font-medium text-red-600" data-testid="no-principal">Sem responsável</span>;
   return (
     <span className="flex -space-x-1.5" aria-label={`Responsáveis: ${doers.map((p) => p.name).join(", ")}`}>
       {doers.slice(0, 3).map((p) => <Avatar key={p.user_id} name={p.name} />)}

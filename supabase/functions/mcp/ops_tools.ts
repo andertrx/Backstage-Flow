@@ -153,7 +153,7 @@ export const OPS_TOOLS: ToolSpec[] = [
       visibilidade: z.enum(["setor", "participantes", "equipe"]).default("setor").describe("setor = o setor vê; participantes = só as pessoas da tarefa; equipe = toda a equipe."),
       etiquetas: tags.optional(),
       status_id: statusId.optional().describe("Padrão: o primeiro status em aberto."),
-      responsavel_id: uuid.optional().describe("Responsável principal (user_id)."),
+      responsavel_id: uuid.describe("Responsável principal (user_id). Obrigatório: toda tarefa precisa de pelo menos um responsável."),
       adicionais_ids: z.array(uuid).max(10).optional(),
     },
     allowed: ops("ops.tasks.create"),
@@ -163,7 +163,7 @@ export const OPS_TOOLS: ToolSpec[] = [
         title: a.titulo, sector_id: a.setor_id, client_id: a.cliente_id ?? null, description: a.descricao ?? null, priority: a.prioridade ?? "media",
         start_date: a.inicio ?? null, due_date: a.prazo ?? null, effort_hours: a.horas_estimadas ?? null, visibility: a.visibilidade ?? "setor",
         tags: a.etiquetas ?? [], status_id: a.status_id ?? null,
-        people: { principal: a.responsavel_id ?? null, adicionais: a.adicionais_ids ?? [], aprovadores: [], observadores: [] },
+        people: { principal: a.responsavel_id, adicionais: a.adicionais_ids ?? [], aprovadores: [], observadores: [] },
       };
       const id = (await ctx.data.opsRpc("ops_task_save", { p_id: null, p_version: null, p })) as string;
       const t = await loadTask(ctx, id);
@@ -227,7 +227,7 @@ export const OPS_TOOLS: ToolSpec[] = [
     description: "Define o responsável principal e os adicionais de uma tarefa (aprovadores e observadores continuam como estão). Use os user_id de backstage_central_reference.",
     input: {
       tarefa_id: uuid,
-      responsavel_id: uuid.nullable().describe("null = sem responsável."),
+      responsavel_id: uuid.describe("Obrigatório: toda tarefa precisa de um responsável principal."),
       adicionais_ids: z.array(uuid).max(10).default([]),
       versao: z.number().int().min(1).optional(),
     },
@@ -236,7 +236,7 @@ export const OPS_TOOLS: ToolSpec[] = [
     async run(ctx, a) {
       const t = await loadTask(ctx, a.tarefa_id as string);
       const keep = (role: string) => (t.people ?? []).filter((p) => p.role === role).map((p) => p.user_id);
-      const people = { principal: a.responsavel_id ?? null, adicionais: a.adicionais_ids ?? [], aprovadores: keep("aprovador"), observadores: keep("observador") };
+      const people = { principal: a.responsavel_id, adicionais: a.adicionais_ids ?? [], aprovadores: keep("aprovador"), observadores: keep("observador") };
       await ctx.data.opsRpc("ops_task_set_people", { p_id: t.task.id, p_version: versionFor(t, a.versao), p_people: people });
       return { pessoas_definidas: true, tarefa: taskOut(await loadTask(ctx, t.task.id)) };
     },

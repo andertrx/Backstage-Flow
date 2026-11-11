@@ -460,9 +460,9 @@ Deno.test("Central: status, pessoas (mantém aprovadores), comentário e arquiva
   const st = json(await client.callTool({ name: "backstage_set_task_status", arguments: { tarefa_id: TASK, status_id: "finalizado" } }));
   assert(st.status_alterado);
   assertEquals(central.calls.find((c) => c.name === "ops_task_set_status")!.args, { p_id: TASK, p_version: 3, p_status: "finalizado" });
-  await client.callTool({ name: "backstage_set_task_people", arguments: { tarefa_id: TASK, responsavel_id: null, adicionais_ids: [PERSON] } });
+  await client.callTool({ name: "backstage_set_task_people", arguments: { tarefa_id: TASK, responsavel_id: PERSON, adicionais_ids: [] } });
   const people = central.calls.find((c) => c.name === "ops_task_set_people")!.args.p_people as Record<string, unknown>;
-  assertEquals(people, { principal: null, adicionais: [PERSON], aprovadores: ["00000000-0000-4000-8000-000000000009"], observadores: [] });
+  assertEquals(people, { principal: PERSON, adicionais: [], aprovadores: ["00000000-0000-4000-8000-000000000009"], observadores: [] });
   const c = json(await client.callTool({ name: "backstage_comment_task", arguments: { tarefa_id: TASK, texto: "Feito pelo Claude" } }));
   assertEquals(c.comentario_id, 55);
   const ar = json(await client.callTool({ name: "backstage_archive_task", arguments: { tarefa_id: TASK } }));
