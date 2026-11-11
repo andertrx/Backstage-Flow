@@ -469,6 +469,7 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
   const [busy, setBusy] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+  const [avisos, setAvisos] = useState<Record<string, { tone: "success" | "error"; text: string } | null>>({});
   const q = busca.trim().toLowerCase();
   const rows = clients.filter((c) => !q || c.name.toLowerCase().includes(q));
   async function ligarWhatsApp(clientId: string, oficial = false) {
@@ -497,36 +498,32 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
           const conn = mine.map((c) => connectionOf(c.id)).find(Boolean);
           const st = waConnectionStatus(conn);
           return (
-            <li key={cl.id} className="space-y-2 px-3 py-3" data-testid="cli-site-whatsapp-row">
-              <p className="text-sm font-semibold text-slate-900">{cl.name}</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-slate-500">Site</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {sites.length ? sites.map((s) => <Badge key={s.id} tone="success"><span className="block max-w-[14rem] truncate">{s.allowed_domains[0] ?? s.name}</span></Badge>) : <Badge>sem site</Badge>}
-                    <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => onAddSite(cl.id)} aria-label={`${sites.length ? "Adicionar outro site" : "Adicionar site"} de ${cl.name}`}>
-                      <Plus className="size-3.5" aria-hidden /> {sites.length ? "Outro site" : "Adicionar site"}
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-slate-500">WhatsApp</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {conn ? <Badge tone={st.tone}>{st.label}</Badge> : <Badge>não ligado</Badge>}
-                    <Button variant="secondary" className="px-2 py-1 text-xs" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id)} aria-label={`${conn ? "Configurar WhatsApp" : "Ligar WhatsApp"} de ${cl.name}`}>
-                      <MessageCircle className="size-3.5" aria-hidden /> {conn ? "Configurar" : "Ligar WhatsApp"}
-                    </Button>
-                    {!conn && (
-                      <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => void ligarWhatsApp(cl.id, true)} aria-label={`Ligar pela API oficial de ${cl.name}`}>
-                        API oficial
-                      </Button>
-                    )}
-                  </div>
-                  {conn && conn.mode === "nao_oficial" && isAdmin && (
-                    <div className="space-y-2"><LimparDadosCliente connectionId={conn.id} compact /></div>
-                  )}
-                </div>
-              </div>
+            <li key={cl.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 lg:grid lg:grid-cols-[minmax(9rem,1fr)_auto_auto]" data-testid="cli-site-whatsapp-row">
+              <span className="min-w-40 flex-1 text-sm font-medium text-slate-900">{cl.name}</span>
+              <span className="flex flex-wrap items-center gap-2 text-xs text-slate-600 lg:justify-end">
+                Site:{" "}
+                {sites.length ? <Badge tone="success"><span className="block max-w-[14rem] truncate">{sites.map((s) => s.allowed_domains[0] ?? s.name).join(", ")}</span></Badge> : <Badge>sem site</Badge>}
+                <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => onAddSite(cl.id)} aria-label={`${sites.length ? "Adicionar outro site" : "Adicionar site"} de ${cl.name}`}>
+                  <Plus className="size-3.5" aria-hidden /> {sites.length ? "Outro site" : "Adicionar site"}
+                </Button>
+              </span>
+              <span className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                WhatsApp: {conn ? <Badge tone={st.tone}>{st.label}</Badge> : <Badge>não ligado</Badge>}
+                <Button variant="secondary" className="px-2 py-1 text-xs" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id)} aria-label={`${conn ? "Configurar WhatsApp" : "Ligar WhatsApp"} de ${cl.name}`}>
+                  <MessageCircle className="size-3.5" aria-hidden /> {conn ? "Configurar" : "Ligar WhatsApp"}
+                </Button>
+                {!conn && (
+                  <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => void ligarWhatsApp(cl.id, true)} aria-label={`Ligar pela API oficial de ${cl.name}`}>
+                    API oficial
+                  </Button>
+                )}
+                {conn && conn.mode === "nao_oficial" && isAdmin && (
+                  <LimparDadosCliente connectionId={conn.id} compact onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
+                )}
+              </span>
+              {avisos[cl.id] && (
+                <div className="basis-full lg:col-span-3"><Alert tone={avisos[cl.id]!.tone}>{avisos[cl.id]!.text}</Alert></div>
+              )}
             </li>
           );
         })}

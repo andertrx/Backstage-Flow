@@ -293,20 +293,24 @@ function HistoryDays({ value, busy, onChange }: { value: number | null | undefin
  * (Tracking → Configurações) e dentro da configuração do WhatsApp. Apaga texto, telefones, nomes e sugestões do cliente;
  * mantém as conversas (sem texto), as vendas marcadas e as contagens.
  */
-export function LimparDadosCliente({ connectionId, compact = false }: { connectionId: string; compact?: boolean }) {
+export function LimparDadosCliente({ connectionId, compact = false, onMessage }: { connectionId: string; compact?: boolean; onMessage?: (m: { tone: "success" | "error"; text: string } | null) => void }) {
   const contagem = useWaLimparContagem();
   const limpar = useWaLimpar();
   const [limpeza, setLimpeza] = useState<{ passo: 1 | 2; n: { mensagens: number; pessoas: number; sugestoes: number; conversas_mantidas: number } } | null>(null);
   const [limpou, setLimpou] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+  // Com onMessage, o aviso sai da linha do botão e quem chamou mostra em largura total.
+  const setError = (e: string | null) => { if (onMessage) onMessage(e ? { tone: "error", text: e } : null); else setLocalError(e); };
+  const error = localError;
   return (
-    <div className="space-y-2">
-      <Button type="button" variant={compact ? "ghost" : "secondary"} className={compact ? "px-2 py-1 text-xs" : undefined} loading={contagem.isPending}
-        onClick={() => { setLimpou(null); setError(null); contagem.mutate(connectionId, { onSuccess: (n) => setLimpeza({ passo: 1, n }), onError: (e) => setError(errorMessage(e)) }); }}>
-        <Trash2 className="size-3.5" aria-hidden /> Limpar dados deste cliente
+    <div className={compact ? "contents" : "space-y-2"}>
+      <Button type="button" variant={compact ? "ghost" : "secondary"} className={compact ? "px-2 py-1 text-xs text-slate-500 hover:text-red-600" : undefined} loading={contagem.isPending}
+        title="Limpar dados deste cliente" aria-label="Limpar dados deste cliente"
+        onClick={() => { setLimpou(null); setError(null); onMessage?.(null); contagem.mutate(connectionId, { onSuccess: (n) => setLimpeza({ passo: 1, n }), onError: (e) => setError(errorMessage(e)) }); }}>
+        <Trash2 className="size-3.5" aria-hidden />{!compact && " Limpar dados deste cliente"}
       </Button>
-      {limpou && <Alert tone="success">{limpou}</Alert>}
-      {error && <Alert tone="error">{error}</Alert>}
+      {!onMessage && limpou && <Alert tone="success">{limpou}</Alert>}
+      {!onMessage && error && <Alert tone="error">{error}</Alert>}
       {limpeza && (
         <Modal open title={limpeza.passo === 1 ? "Limpar os dados de conversa?" : "Tem certeza mesmo?"} onClose={() => setLimpeza(null)}>
           <div className="space-y-3 text-sm" data-testid="wa-limpar-modal">
@@ -325,7 +329,7 @@ export function LimparDadosCliente({ connectionId, compact = false }: { connecti
                 <div className="flex justify-end gap-2">
                   <Button variant="ghost" onClick={() => setLimpeza(null)}>Não, voltar</Button>
                   <Button loading={limpar.isPending} onClick={() => limpar.mutate(connectionId, {
-                    onSuccess: (r) => { setLimpeza(null); setLimpou(`Apagado: ${r.mensagens} mensagem(ns), ${r.pessoas} pessoa(s) e ${r.sugestoes} sugestão(ões).`); },
+                    onSuccess: (r) => { setLimpeza(null); const t = `Apagado: ${r.mensagens} mensagem(ns), ${r.pessoas} pessoa(s) e ${r.sugestoes} sugestão(ões).`; if (onMessage) onMessage({ tone: "success", text: t }); else setLimpou(t); },
                     onError: (e) => { setLimpeza(null); setError(errorMessage(e)); } })}>
                     Sim, apagar tudo
                   </Button>
