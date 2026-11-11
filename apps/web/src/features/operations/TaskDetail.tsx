@@ -1,6 +1,6 @@
 import { originLabel } from "./origin.ts";
 import { OPS_PERSON_ROLE_LABELS, OPS_VISIBILITY_LABELS, opsIsClosed, opsToday } from "@backstage/shared";
-import { Archive, ArchiveRestore, AtSign, CornerDownRight, FileText, Link2, ListChecks, Paperclip, Pencil, Trash2, Upload, X } from "lucide-react";
+import { Archive, ArchiveRestore, AtSign, CornerDownRight, CornerUpLeft, FileText, Link2, ListChecks, Paperclip, Pencil, Trash2, Upload, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -318,6 +318,50 @@ function Subtasks({ detail, statuses, directory, me }: { detail: OpsTaskDetail; 
   );
 }
 
+/** T5.32: transformar esta tarefa em subtarefa de outra, ou promover a subtarefa a tarefa. */
+function ParentControl({ detail }: { detail: OpsTaskDetail }) {
+  const t = detail.task;
+  const [picking, setPicking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = useSaveTask();
+  const options = useOpsTasks({ top_only: true }, picking);
+  const hasSubs = (detail.subtasks ?? []).length > 0;
+  if (t.archived_at || !detail.can.edit || (!detail.parent && hasSubs)) return null;
+  async function move(parentId: string) {
+    setError(null);
+    try {
+      await save.mutateAsync({ id: t.id, version: t.version, input: {
+        title: t.title, description: t.description ?? "", client_id: t.client_id ?? "", sector_id: t.sector_id, priority: t.priority, start_date: t.start_date ?? "",
+        due_date: t.due_date ?? "", effort_hours: t.effort_hours != null ? String(t.effort_hours) : "", visibility: t.visibility, tags: detail.tags,
+        client_stage_id: t.client_stage_id ?? "", mandatory: t.mandatory, parent_id: parentId,
+      } });
+      setPicking(false);
+    } catch (err) { setError(errorMessage(err)); }
+  }
+  return (
+    <div className="space-y-2">
+      {detail.parent ? (
+        <Button type="button" variant="ghost" className="px-2 py-1 text-xs" loading={save.isPending} onClick={() => move("")}>
+          <CornerUpLeft className="size-3.5" aria-hidden /> Promover a tarefa
+        </Button>
+      ) : !picking ? (
+        <Button type="button" variant="ghost" className="px-2 py-1 text-xs" onClick={() => setPicking(true)}>
+          <CornerDownRight className="size-3.5" aria-hidden /> Transformar em subtarefa…
+        </Button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Select aria-label="Tarefa principal da qual esta vai ser subtarefa" value="" disabled={save.isPending} onChange={(e) => e.target.value && move(e.target.value)}>
+            <option value="">{options.isLoading ? "Carregando…" : "Escolha a tarefa principal…"}</option>
+            {(options.data ?? []).filter((x) => x.id !== t.id && !x.archived_at).map((x) => <option key={x.id} value={x.id}>#{x.number} {x.title}</option>)}
+          </Select>
+          <Button type="button" variant="ghost" className="px-2 py-1 text-xs" onClick={() => setPicking(false)}>Cancelar</Button>
+        </div>
+      )}
+      {error && <Alert tone="error">{error}</Alert>}
+    </div>
+  );
+}
+
 function People({ detail, directory, me }: { detail: OpsTaskDetail; directory: OpsDirectory; me: string }) {
   const [editing, setEditing] = useState<OpsPeopleInput | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -485,6 +529,7 @@ export function TaskDetail({ id, sectors, statuses, directory, me, onClose }: {
                   </ul>
                 </Section>
               )}
+              <ParentControl detail={d} />
               {!d.parent && <Subtasks detail={d} statuses={statuses} directory={directory} me={me} />}
               <People detail={d} directory={directory} me={me} />
               <Dependencies detail={d} />

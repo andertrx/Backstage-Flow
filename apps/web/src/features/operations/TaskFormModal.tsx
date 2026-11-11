@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
+import { toast } from "@/lib/toastStore.ts";
 import type { OpsSector } from "./api.ts";
 import { useOpsClientStages } from "./clientsApi.ts";
 import {
@@ -129,6 +130,9 @@ export function TaskFormModal({ detail, sectors, statuses, directory, me, mySect
   });
   const [tagsText, setTagsText] = useState((detail?.tags ?? []).join(", "));
   const [error, setError] = useState<string | null>(null);
+  // T5.32: subtarefas opcionais ao criar (um título por linha).
+  const [subsOpen, setSubsOpen] = useState(false);
+  const [subsText, setSubsText] = useState("");
   const save = useSaveTask();
   const stages = useOpsClientStages();
   const set = <K extends keyof OpsTaskInput>(k: K, v: OpsTaskInput[K]) => setInput((p) => ({ ...p, [k]: v }));
@@ -144,8 +148,20 @@ export function TaskFormModal({ detail, sectors, statuses, directory, me, mySect
     if (!t && !input.people?.principal) return setError("Toda tarefa precisa de um responsável. Escolha o responsável principal.");
     if (input.start_date && input.due_date && input.due_date < input.start_date) return setError("O prazo não pode ser antes do início.");
     if (input.effort_hours.trim() && !/^\d{1,5}([.,]\d{1,2})?$/.test(input.effort_hours.trim())) return setError("Esforço: use horas, por exemplo 2 ou 1,5.");
+    const subTitles = t ? [] : subsText.split("\n").map((x) => x.trim()).filter(Boolean);
+    if (subTitles.some((x) => x.length < 3)) return setError("Cada subtarefa precisa de pelo menos 3 letras (uma por linha).");
     try {
       const id = await save.mutateAsync({ id: t?.id ?? null, version: t?.version ?? null, input: { ...input, tags: parseTags(tagsText) } });
+      let failed = 0;
+      for (const title of subTitles) {
+        try {
+          await save.mutateAsync({ id: null, version: null, input: {
+            ...input, title, description: "", tags: [], start_date: "", due_date: "", effort_hours: "", client_stage_id: "", mandatory: false,
+            status_id: undefined, parent_id: id, people: { principal: input.people?.principal ?? me, adicionais: [], aprovadores: [], observadores: [] },
+          } });
+        } catch { failed += 1; }
+      }
+      if (failed) toast.error(`A tarefa foi criada, mas ${failed} subtarefa(s) não puderam ser criadas. Adicione-as pela tela da tarefa.`);
       onSaved?.(id);
       onClose();
     } catch (err) {
@@ -232,6 +248,15 @@ export function TaskFormModal({ detail, sectors, statuses, directory, me, mySect
             {!canAssign && <p className="text-xs text-slate-500">Você pode colocar só você mesmo. Para atribuir outras pessoas, peça a permissão "Atribuir responsáveis".</p>}
             <PeopleFields value={input.people} onChange={(v) => set("people", v)} people={directory.people} me={me} canAssign={canAssign} />
           </fieldset>
+        )}
+        {!t && (
+          subsOpen ? (
+            <Field label="Subtarefas" hint="Opcional. Uma por linha. Cada uma nasce com o mesmo setor e o responsável principal desta tarefa.">
+              {(id) => <Textarea id={id} value={subsText} className="min-h-24" onChange={(e) => setSubsText(e.target.value)} placeholder={"Briefing\nArte\nRevisão"} />}
+            </Field>
+          ) : (
+            <button type="button" className="text-sm font-semibold text-blue-700 hover:underline" onClick={() => setSubsOpen(true)}>+ Adicionar subtarefas</button>
+          )
         )}
         {error && <Alert tone="error">{error}</Alert>}
         <div className="flex justify-end gap-2">
