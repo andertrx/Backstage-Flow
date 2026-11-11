@@ -300,7 +300,7 @@ export function LimparDadosCliente({ connectionId, compact = false }: { connecti
   const [limpou, setLimpou] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   return (
-    <>
+    <div className="space-y-2">
       <Button type="button" variant={compact ? "ghost" : "secondary"} className={compact ? "px-2 py-1 text-xs" : undefined} loading={contagem.isPending}
         onClick={() => { setLimpou(null); setError(null); contagem.mutate(connectionId, { onSuccess: (n) => setLimpeza({ passo: 1, n }), onError: (e) => setError(errorMessage(e)) }); }}>
         <Trash2 className="size-3.5" aria-hidden /> Limpar dados deste cliente
@@ -335,7 +335,7 @@ export function LimparDadosCliente({ connectionId, compact = false }: { connecti
           </div>
         </Modal>
       )}
-    </>
+    </div>
   );
 }
 

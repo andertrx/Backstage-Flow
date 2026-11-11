@@ -238,13 +238,17 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
                 <span id="cfg-sites" /><span id="cfg-whatsapp" />
                 <div className="space-y-5">
                   {!visible.some((c) => c.kind !== "whatsapp" || waConnOf(c.id)) && <p className="text-sm text-slate-500">Nenhum site nem WhatsApp ligado ainda. Use a lista acima ("Adicionar site" ou "Ligar WhatsApp").</p>}
-                  {[...new Set(visible.map((c) => c.client_id))].map((cid) => {
+                  {(() => { const ids = [...new Set(visible.map((c) => c.client_id))]; return ids.map((cid) => {
                     const mine = visible.filter((c) => c.client_id === cid);
                     const mineSites = mine.filter((c) => c.kind !== "whatsapp");
                     if (mineSites.length === 0 && !mine.some((c) => waConnOf(c.id))) return null;
                     return (
-                      <div key={cid} className="space-y-2" data-testid="cliente-detalhe">
-                        <h3 className="text-sm font-semibold text-slate-900">{mine[0]?.clients?.name ?? "Cliente"}</h3>
+                      <details key={cid} open={ids.length === 1 || Boolean(clientId) || undefined} className="group space-y-2 rounded-xl ring-1 ring-slate-200 p-3" data-testid="cliente-detalhe">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-slate-900">
+                          <span>{mine[0]?.clients?.name ?? "Cliente"}</span>
+                          <span className="text-xs font-normal text-slate-500 group-open:hidden">Ver detalhes</span>
+                          <span className="hidden text-xs font-normal text-slate-500 group-open:inline">Recolher</span>
+                        </summary>
                         {mineSites.length > 0 && (
                           <ul className="grid gap-3 lg:grid-cols-2">
                             {mineSites.map((c) => (
@@ -264,9 +268,9 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
                           </ul>
                         )}
                         <WhatsAppConnectionsCard sites={mine} connectionOf={waConnOf} canManage={canManage} onServer={setWaServerFor} onApi={setWaApiFor} />
-                      </div>
+                      </details>
                     );
-                  })}
+                  }); })()}
                 </div>
               </ConfigSection>
               <ConfigSection id="cfg-link" title="Ferramentas" description="Conferir como um link de anúncio seria entendido pelo tracking. Nada é gravado.">
@@ -483,38 +487,46 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
     } catch (e) { setErro(errorMessage(e)); } finally { setBusy(null); }
   }
   return (
-    <Card className="space-y-3 p-4" data-testid="cli-site-whatsapp">
-      <p className="text-sm text-slate-600">Cada cliente pode ter <strong>só o site</strong>, <strong>só o WhatsApp</strong> ou <strong>os dois</strong>. Escolha o que cada um precisa: um não depende do outro.</p>
+    <Card className="space-y-3 p-3 sm:p-4" data-testid="cli-site-whatsapp">
       {clients.length > 8 && <Input aria-label="Buscar cliente" placeholder="Buscar cliente" value={busca} onChange={(e) => setBusca(e.target.value)} />}
       {erro && <Alert tone="error">{erro}</Alert>}
-      <ul className="max-h-[28rem] divide-y divide-slate-100 overflow-y-auto rounded-lg ring-1 ring-slate-200">
+      <ul className="max-h-[32rem] divide-y divide-slate-100 overflow-y-auto rounded-lg ring-1 ring-slate-200">
         {rows.map((cl) => {
           const mine = containers.filter((c) => c.client_id === cl.id);
           const sites = mine.filter((c) => c.kind !== "whatsapp");
           const conn = mine.map((c) => connectionOf(c.id)).find(Boolean);
           const st = waConnectionStatus(conn);
           return (
-            <li key={cl.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2" data-testid="cli-site-whatsapp-row">
-              <span className="min-w-40 flex-1 text-sm font-medium text-slate-900">{cl.name}</span>
-              <span className="flex items-center gap-2 text-xs text-slate-600">
-                Site:{" "}
-                {sites.length ? <Badge tone="success">{sites.map((s) => s.allowed_domains[0] ?? s.name).join(", ")}</Badge> : <Badge>sem site</Badge>}
-                <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => onAddSite(cl.id)} aria-label={`${sites.length ? "Adicionar outro site" : "Adicionar site"} de ${cl.name}`}>
-                  <Plus className="size-3.5" aria-hidden /> {sites.length ? "Outro site" : "Adicionar site"}
-                </Button>
-              </span>
-              <span className="flex items-center gap-2 text-xs text-slate-600">
-                WhatsApp: {conn ? <Badge tone={st.tone}>{st.label}</Badge> : <Badge>não ligado</Badge>}
-                <Button variant="secondary" className="px-2 py-1 text-xs" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id)} aria-label={`${conn ? "Configurar WhatsApp" : "Ligar WhatsApp"} de ${cl.name}`}>
-                  <MessageCircle className="size-3.5" aria-hidden /> {conn ? "Configurar" : "Ligar WhatsApp"}
-                </Button>
-                {conn && conn.mode === "nao_oficial" && isAdmin && <LimparDadosCliente connectionId={conn.id} compact />}
-                {!conn && (
-                  <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => void ligarWhatsApp(cl.id, true)} aria-label={`Ligar pela API oficial de ${cl.name}`}>
-                    API oficial
-                  </Button>
-                )}
-              </span>
+            <li key={cl.id} className="space-y-2 px-3 py-3" data-testid="cli-site-whatsapp-row">
+              <p className="text-sm font-semibold text-slate-900">{cl.name}</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-slate-500">Site</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {sites.length ? sites.map((s) => <Badge key={s.id} tone="success"><span className="block max-w-[14rem] truncate">{s.allowed_domains[0] ?? s.name}</span></Badge>) : <Badge>sem site</Badge>}
+                    <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => onAddSite(cl.id)} aria-label={`${sites.length ? "Adicionar outro site" : "Adicionar site"} de ${cl.name}`}>
+                      <Plus className="size-3.5" aria-hidden /> {sites.length ? "Outro site" : "Adicionar site"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-slate-500">WhatsApp</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {conn ? <Badge tone={st.tone}>{st.label}</Badge> : <Badge>não ligado</Badge>}
+                    <Button variant="secondary" className="px-2 py-1 text-xs" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id)} aria-label={`${conn ? "Configurar WhatsApp" : "Ligar WhatsApp"} de ${cl.name}`}>
+                      <MessageCircle className="size-3.5" aria-hidden /> {conn ? "Configurar" : "Ligar WhatsApp"}
+                    </Button>
+                    {!conn && (
+                      <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => void ligarWhatsApp(cl.id, true)} aria-label={`Ligar pela API oficial de ${cl.name}`}>
+                        API oficial
+                      </Button>
+                    )}
+                  </div>
+                  {conn && conn.mode === "nao_oficial" && isAdmin && (
+                    <div className="space-y-2"><LimparDadosCliente connectionId={conn.id} compact /></div>
+                  )}
+                </div>
+              </div>
             </li>
           );
         })}

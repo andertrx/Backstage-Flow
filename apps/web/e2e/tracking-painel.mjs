@@ -140,6 +140,8 @@ function seed(db) {
   const t = (await page.getByTestId("tracking-tabs").getByRole("button").allInnerTexts()).map((x) => x.trim());
   check(!t.includes("Conversas") && t.includes("Site e origem"), `visualizador não vê Conversas (${t.join(", ")})`);
   await page.getByTestId("tracking-section-config").click();
+  // com vários clientes, os detalhes de cada um ficam recolhidos: abre o primeiro
+  await page.getByTestId("cliente-detalhe").first().locator("summary").click();
   await page.getByTestId("container-card").first().waitFor();
   check(await page.getByRole("button", { name: "Novo site" }).count() === 0 && await page.getByTestId("wa-ai-card").count() === 0, "visualizador não cria site nem vê a chave da IA");
   await browser.close();
