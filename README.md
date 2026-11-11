@@ -152,6 +152,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T5.27 — Filtro de período nas conversas e histórico do WhatsApp de qualquer tamanho (padrão 6 meses)](docs/etapa-34-tracking/T5.27-PERIODO-DAS-CONVERSAS-E-HISTORICO.md) ✅ 11/11
   - [T5.29 — Configurações da Central: arrastar para ordenar, excluir o que ninguém usa e desativadas por último](docs/etapa-43-organizacao/T5.29-CONFIGURACOES-ARRASTAR-E-EXCLUIR.md) ✅ 11/11
   - [T5.30 — Celular: número do Saldo cortado corrigido e varredura de todas as telas (auditoria de celular)](docs/etapa-43-organizacao/T5.30-CELULAR-NADA-CORTADO.md) ✅ 11/11
+  - [T5.31 — Avisos no WhatsApp: alertas das contas, tarefas, reuniões e outros, à escolha](docs/etapa-43-organizacao/T5.31-AVISOS-WHATSAPP-TAREFAS-E-OUTROS.md) ✅ 11/11
   - [T5.23 — Período do histórico e limpeza dos dados de conversa do cliente](docs/etapa-34-tracking/T5.23-PERIODO-DO-HISTORICO-E-LIMPEZA.md) ✅ 10/11
   - [45.1 — avisos no WhatsApp (motor: fila, agrupamento, silêncio; sem tela ainda)](docs/etapa-43-organizacao/45.1-AVISOS-NO-WHATSAPP.md) ✅ 07/11 (testado só no banco; sem envio real)
   - [45.2 — aviso "cliente sem gastar" no WhatsApp (motor, sem tela; precisão ~1 h)](docs/etapa-43-organizacao/45.2-AVISO-CLIENTE-SEM-GASTAR.md) ✅ 07/11

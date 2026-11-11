@@ -1,3 +1,4 @@
+import { ALERT_TYPE_LABELS } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
@@ -27,16 +28,58 @@ export interface WaAviso {
 }
 
 /** Tipos de aviso que o administrador pode ligar, na ordem da tela. */
-export const WA_AVISO_TIPOS: { id: string; label: string; hint?: string }[] = [
-  { id: "sem_saldo", label: "Conta sem saldo" },
-  { id: "saldo_baixo", label: "Saldo acabando", hint: "no ritmo atual de gasto, conforme a regra de saldo do CRM" },
-  { id: "pagamento_pendente", label: "Pagamento pendente" },
-  { id: "conta_restrita", label: "Conta restrita" },
-  { id: "conta_desativada", label: "Conta desativada" },
-  { id: "erro_api", label: "Erro de conexão com a plataforma" },
-  { id: "sem_gasto", label: "Cliente sem gastar", hint: "precisão de cerca de 1 hora; só em horário comercial" },
-  { id: "envio_aprovar", label: "Última chamada para aprovar o envio semanal" },
+export interface WaAvisoGrupo { id: string; titulo: string; nota?: string; tipos: { id: string; label: string; hint?: string }[] }
+/** Opções de aviso, em grupos. Os tipos "n:..." são as notificações do sino da Central (as de quem salva aqui). */
+export const WA_AVISO_GRUPOS: WaAvisoGrupo[] = [
+  {
+    id: "contas", titulo: "Alertas das contas de anúncio",
+    nota: "Os mesmos alertas do Monitoramento: um aviso por alerta aberto, com lembrete se continuar aberto.",
+    tipos: [
+      { id: "sem_saldo", label: ALERT_TYPE_LABELS.sem_saldo },
+      { id: "saldo_baixo", label: "Saldo acabando", hint: "no ritmo atual de gasto, conforme a regra de saldo do CRM" },
+      { id: "pagamento_pendente", label: ALERT_TYPE_LABELS.pagamento_pendente },
+      { id: "cobranca_problema", label: ALERT_TYPE_LABELS.cobranca_problema },
+      { id: "sem_forma_pagamento", label: ALERT_TYPE_LABELS.sem_forma_pagamento },
+      { id: "conta_restrita", label: ALERT_TYPE_LABELS.conta_restrita },
+      { id: "conta_desativada", label: ALERT_TYPE_LABELS.conta_desativada },
+      { id: "erro_api", label: "Erro de conexão com a plataforma" },
+      { id: "sincronizacao_atrasada", label: ALERT_TYPE_LABELS.sincronizacao_atrasada },
+      { id: "campanha_sem_entrega", label: ALERT_TYPE_LABELS.campanha_sem_entrega },
+      { id: "queda_resultados", label: ALERT_TYPE_LABELS.queda_resultados },
+      { id: "sem_gasto", label: "Cliente sem gastar", hint: "precisão de cerca de 1 hora; só em horário comercial" },
+    ],
+  },
+  {
+    id: "tarefas", titulo: "Tarefas",
+    nota: "As suas notificações de tarefas do sino da Central (as de quem salva esta tela).",
+    tipos: [
+      { id: "n:tarefa.atribuida", label: "Entrei numa tarefa" },
+      { id: "n:tarefa.mencao", label: "Fui mencionado num comentário" },
+      { id: "n:tarefa.comentario", label: "Comentário numa tarefa minha" },
+      { id: "n:tarefa.concluida", label: "Tarefa que criei foi concluída" },
+      { id: "n:tarefa.prazo", label: "Prazo amanhã" },
+      { id: "n:tarefa.atrasada", label: "Tarefa atrasada" },
+    ],
+  },
+  {
+    id: "reunioes", titulo: "Reuniões",
+    tipos: [
+      { id: "n:reuniao.convite", label: "Fui chamado para uma reunião" },
+      { id: "n:reuniao.hoje", label: "Reunião hoje" },
+      { id: "n:reuniao.item", label: "Pendência para mim numa reunião" },
+      { id: "n:cliente.reuniao", label: "Reunião de onboarding de um cliente" },
+    ],
+  },
+  {
+    id: "outros", titulo: "Clientes, leads e envios",
+    tipos: [
+      { id: "n:cliente.am", label: "Virei Account Manager de um cliente" },
+      { id: "n:lead.responsavel", label: "Um lead ficou comigo" },
+      { id: "envio_aprovar", label: "Última chamada para aprovar o envio semanal" },
+    ],
+  },
 ];
+export const WA_AVISO_TIPOS = WA_AVISO_GRUPOS.flatMap((g) => g.tipos);
 
 const KEY = ["wa-avisos"] as const;
 const dbError = (e: { code?: string; message: string }, fb: string) => (e.code === "22023" || e.code === "42501" ? e.message : friendlyDbError(e, fb));

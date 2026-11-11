@@ -11,7 +11,7 @@ import { useBuscarGruposWa } from "@/features/operations/waGruposApi.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { useWaGateway } from "./waGatewayApi.ts";
-import { useSalvarWaAvisos, useWaAvisosConfig, useWaAvisosRecentes, useWaSemGastoSilenciados, WA_AVISO_TIPOS, type WaAvisosConfig } from "./waAvisosApi.ts";
+import { useSalvarWaAvisos, useWaAvisosConfig, useWaAvisosRecentes, useWaSemGastoSilenciados, WA_AVISO_GRUPOS, type WaAvisosConfig } from "./waAvisosApi.ts";
 
 const HORAS = Array.from({ length: 24 }, (_, h) => h);
 const STATUS_TONE = { pendente: "brand", enviando: "brand", enviado: "success", falhou: "danger", pulado: "neutral" } as const;
@@ -81,15 +81,29 @@ export function WaAvisosCard() {
         <Switch checked={draft.ativo} onChange={(v) => set("ativo", v)} label="Ligar avisos no WhatsApp" />
       </div>
 
-      <fieldset className="space-y-1">
-        <legend className="text-sm font-medium text-slate-800">Quais avisos</legend>
-        {WA_AVISO_TIPOS.map((t) => (
-          <label key={t.id} className="flex items-start gap-2 text-sm">
-            <input type="checkbox" className="mt-0.5" checked={draft.tipos.includes(t.id)} onChange={() => toggleTipo(t.id)} />
-            <span>{t.label}{t.hint && <span className="text-slate-500"> · {t.hint}</span>}</span>
-          </label>
-        ))}
-      </fieldset>
+      <div className="space-y-4" data-testid="wa-avisos-tipos">
+        <p className="text-sm font-medium text-slate-800">Quais avisos</p>
+        {WA_AVISO_GRUPOS.map((g) => {
+          const ids = g.tipos.map((t) => t.id);
+          const todos = ids.every((i) => draft.tipos.includes(i));
+          return (
+            <fieldset key={g.id} className="space-y-1 rounded-lg p-3 ring-1 ring-slate-200" data-testid={`wa-avisos-grupo-${g.id}`}>
+              <legend className="px-1 text-sm font-semibold text-slate-900">{g.titulo}</legend>
+              {g.nota && <p className="text-xs text-slate-500">{g.nota}</p>}
+              <button type="button" className="text-xs font-medium text-brand-700 hover:underline" aria-label={`${todos ? "Desmarcar" : "Marcar"} todos: ${g.titulo}`}
+                onClick={() => set("tipos", todos ? draft.tipos.filter((t) => !ids.includes(t)) : [...new Set([...draft.tipos, ...ids])])}>
+                {todos ? "Desmarcar todos" : "Marcar todos"}
+              </button>
+              {g.tipos.map((t) => (
+                <label key={t.id} className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" className="mt-0.5" checked={draft.tipos.includes(t.id)} onChange={() => toggleTipo(t.id)} />
+                  <span>{t.label}{t.hint && <span className="text-slate-500"> · {t.hint}</span>}</span>
+                </label>
+              ))}
+            </fieldset>
+          );
+        })}
+      </div>
 
       <div className="flex flex-wrap gap-4">
         <Field label="Silêncio: de">{(id) => (

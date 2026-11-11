@@ -28,6 +28,15 @@ function seed(db) {
   check((await card.innerText()).includes("Desligado"), "começa desligado");
   check((await card.getByTestId("wa-avisos-recentes").innerText()).includes("Loja Aurora"), "mostra os últimos avisos");
   check(await card.getByTestId("wa-sem-gasto").count() === 0, "janela do sem gasto só aparece com o tipo marcado");
+  // T5.31: opções em grupos (alertas das contas, tarefas, reuniões, clientes/leads/envios)
+  const grupos = await card.locator("[data-testid^=wa-avisos-grupo-]").evaluateAll((els) => els.map((e) => e.getAttribute("data-testid")));
+  check(grupos.join(",") === "wa-avisos-grupo-contas,wa-avisos-grupo-tarefas,wa-avisos-grupo-reunioes,wa-avisos-grupo-outros", `quatro grupos de avisos (${grupos.join(", ")})`);
+  const contas = await card.getByTestId("wa-avisos-grupo-contas").locator("input[type=checkbox]").count();
+  check(contas === 12, `alertas das contas: todas as 11 situações + cliente sem gastar (${contas})`);
+  check(await card.getByTestId("wa-avisos-grupo-tarefas").getByLabel("Tarefa atrasada").count() === 1 && await card.getByTestId("wa-avisos-grupo-tarefas").getByLabel("Fui mencionado num comentário").count() === 1, "avisos de tarefas disponíveis");
+  await card.getByRole("button", { name: "Marcar todos: Tarefas" }).click();
+  check((await card.getByRole("button", { name: "Desmarcar todos: Tarefas" }).count()) === 1, "marcar todos as tarefas");
+  await card.getByTestId("wa-avisos-grupo-reunioes").getByLabel("Reunião hoje").check();
 
   // ligar sem grupo é recusado
   await card.getByRole("switch", { name: "Ligar avisos no WhatsApp" }).click();
@@ -47,6 +56,7 @@ function seed(db) {
   await card.getByText("Avisos salvos.").waitFor();
   const c = db.waAvisosCfg;
   check(c.ativo && c.grupo_id === G && c.tipos.includes("sem_gasto") && c.silencio_inicio === 23, "salva grupo, tipos e silêncio");
+  check(["n:tarefa.atribuida", "n:tarefa.mencao", "n:tarefa.comentario", "n:tarefa.concluida", "n:tarefa.prazo", "n:tarefa.atrasada", "n:reuniao.hoje"].every((i) => c.tipos.includes(i)), "salva também os avisos de tarefas e de reunião escolhidos");
   check(db.waSemGasto.length === 1 && db.waSemGasto[0] === B, "Loja Brisa fica silenciada no sem gasto");
   check(db.rpcCalls.some((x) => x.fn === "wa_sem_gasto_config_save" && x.p_ini === 8 && x.p_fim === 22 && x.p_minutos === 60), "salva a janela 8h–22h e 60 min");
   check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);
