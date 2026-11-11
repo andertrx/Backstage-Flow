@@ -8,7 +8,7 @@ const menu = page.getByRole("navigation", { name: "Menu principal" }).first();
 await menu.getByRole("link", { name: "Envios semanais" }).waitFor();
 const labels = (await menu.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
 const i = labels.indexOf("Painel");
-check(labels[i + 1] === "Comercial" && labels[i + 2] === "Onboarding" && labels[i + 3] === "Central de Operações" && labels[i + 4] === "Notificações" && labels[i + 5] === "Reuniões" && labels[i + 6] === "Configurações da Central" && labels[i + 7] === "Envios semanais", `no menu: Painel, Comercial, Onboarding, Central de Operações, Notificações, Reuniões, Configurações da Central e Envios semanais, nessa ordem (${labels.slice(i, i + 8).join(", ")})`);
+check(labels[i + 1] === "Comercial" && labels[i + 2] === "Onboarding" && labels[i + 3] === "Envios semanais" && labels[i + 4] === "Notificações" && labels[i + 5] === "Reuniões" && labels[i + 6] === "Configurações da Central" && labels[i + 7] === "Central de Operações", `no menu: Painel, Comercial, Onboarding, Envios semanais, Notificações, Reuniões, Configurações da Central e Central de Operações, nessa ordem (${labels.slice(i, i + 8).join(", ")})`);
 await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link", { name: "Tarefas", exact: true }).waitFor();
 const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
 check(!tabs.includes("Comercial") && !tabs.includes("Envios semanais") && !tabs.includes("Reuniões") && !tabs.includes("Onboarding"), `a Central não tem mais as abas Comercial, Envios, Reuniões e Onboarding (${tabs.join(", ")})`);

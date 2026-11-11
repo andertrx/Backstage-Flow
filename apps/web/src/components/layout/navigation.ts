@@ -47,17 +47,17 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Clientes", path: "/clientes", icon: Building2, group: "Visão geral", permission: "clients.view" },
   { label: "Contas", path: "/contas", icon: Wallet, group: "Visão geral", permission: "internal.view" },
   // 43.6/43.7/43.8: Comercial, Onboarding, Reuniões e Envios semanais saíram de dentro da Central e têm menu próprio
-  // (as telas e as permissões são as mesmas). Ordem pedida pelo Ander: Painel → Comercial → Onboarding → Central de Operações → Notificações → Reuniões → Configurações da Central → Envios semanais.
+  // (as telas e as permissões são as mesmas). Ordem pedida pelo Ander: Painel → Comercial → Onboarding → Envios semanais → Notificações → Reuniões → Configurações da Central → Central de Operações (11/11: Central e Envios trocaram de lugar).
   { label: "Painel", path: "/painel", icon: Gauge, group: "Operações", opsPermission: "ops.dashboard.view" },
   { label: "Comercial", path: "/comercial", icon: Handshake, group: "Operações", opsPermission: "ops.commercial" },
   { label: "Onboarding", path: "/onboarding", icon: UserRoundCheck, group: "Operações", opsPermission: "ops.access" },
-  { label: "Central de Operações", path: "/operacoes", icon: KanbanSquare, group: "Operações", ops: true },
+  { label: "Envios semanais", path: "/envios", icon: Send, group: "Operações", opsPermission: "ops.envios" },
   { label: "Notificações", path: "/notificacoes", icon: Bell, group: "Operações", opsPermission: "ops.access" },
   { label: "Reuniões", path: "/reunioes", icon: CalendarDays, group: "Operações", opsPermission: "ops.access" },
   // T5.6: só para quem não tem o Tracking (papel Equipe): as vendas sugeridas dos clientes em que é Account Manager. Os demais veem na aba do Tracking.
   { label: "Vendas sugeridas", path: "/vendas-sugeridas", icon: Handshake, group: "Operações", permission: "tracking.suggestions", hiddenFor: ["admin", "gestor", "operador", "visualizador"] },
   { label: "Configurações da Central", path: "/config-central", icon: Settings, group: "Operações", opsPermission: "ops.admin" },
-  { label: "Envios semanais", path: "/envios", icon: Send, group: "Operações", opsPermission: "ops.envios" },
+  { label: "Central de Operações", path: "/operacoes", icon: KanbanSquare, group: "Operações", ops: true },
   // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...), na ordem do catálogo.
   ...PLATFORMS.map((p): NavItem => ({ label: p.name, path: p.path, icon: platformLook(p.id).icon, group: "Anúncios", permission: "internal.view" })),
   { label: "Campanhas", path: "/campanhas", icon: Target, group: "Anúncios", permission: "internal.view" },

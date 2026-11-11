@@ -29,7 +29,7 @@ describe("menu lateral", () => {
 
   it("papel Equipe vê só Onboarding, Central de Operações, Notificações, Reuniões e (T5.6) Vendas sugeridas", () => {
     expect(labels("equipe")).toEqual(["Vendas sugeridas"]);
-    expect(navItemsFor("equipe", ["ops.access"]).map((i) => i.label)).toEqual(["Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas"]);
+    expect(navItemsFor("equipe", ["ops.access"]).map((i) => i.label)).toEqual(["Onboarding", "Notificações", "Reuniões", "Vendas sugeridas", "Central de Operações"]);
     for (const r of ["admin", "gestor", "operador", "visualizador"] as const) expect(labels(r)).not.toContain("Vendas sugeridas"); // esses veem na aba do Tracking
   });
 
@@ -52,7 +52,7 @@ describe("menu lateral", () => {
 describe("grupos do menu", () => {
   it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36; Monitoramento antes de Alertas na Etapa 37; Inteligência de Resultados depois de Monitoramento na Etapa 39; Criador de Anúncios depois de Campanhas na Etapa 42; Reuniões, Comercial e Envios semanais depois da Central na 43.6/43.7)", () => {
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Painel", "Comercial", "Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas", "Configurações da Central", "Envios semanais", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
+      "Dashboard", "Clientes", "Contas", "Painel", "Comercial", "Onboarding", "Envios semanais", "Notificações", "Reuniões", "Vendas sugeridas", "Configurações da Central", "Central de Operações", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
       "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking", "Sincronização", "Logs", "Configurações",
     ]);
   });

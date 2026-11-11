@@ -17,7 +17,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   const nav = page.getByRole("navigation", { name: "Menu principal" }).first();
   const labels = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
   // 43.8: grupo Operações em ordem: Comercial, Onboarding, Central de Operações, Reuniões, Envios semanais
-  check(labels.indexOf("Painel") === labels.indexOf("Contas") + 1 && labels.indexOf("Comercial") === labels.indexOf("Painel") + 1 && labels.indexOf("Onboarding") === labels.indexOf("Comercial") + 1 && labels.indexOf("Central de Operações") === labels.indexOf("Onboarding") + 1 && labels.indexOf("Notificações") === labels.indexOf("Central de Operações") + 1, "menu: Painel, Comercial, Onboarding, Central de Operações e Notificações logo depois de Visão geral");
+  check(labels.indexOf("Painel") === labels.indexOf("Contas") + 1 && labels.indexOf("Comercial") === labels.indexOf("Painel") + 1 && labels.indexOf("Onboarding") === labels.indexOf("Comercial") + 1 && labels.indexOf("Envios semanais") === labels.indexOf("Onboarding") + 1 && labels.indexOf("Notificações") === labels.indexOf("Envios semanais") + 1 && labels.indexOf("Central de Operações") === labels.indexOf("Configurações da Central") + 1, "menu: Painel, Comercial, Onboarding, Envios semanais e Notificações logo depois de Visão geral; Central de Operações depois de Configurações da Central");
   check((await nav.innerText()).includes("OPERAÇÕES") || (await nav.innerText()).includes("Operações"), "grupo Operações no menu");
 
   await nav.getByRole("link", { name: "Central de Operações" }).click();
@@ -158,7 +158,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   check(true, "papel Equipe entra direto na Central");
   const nav = page.getByRole("navigation", { name: "Menu principal" }).first();
   const labels = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
-  check(JSON.stringify(labels) === JSON.stringify(["Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas"]), `menu só com Onboarding, Central, Notificações, Reuniões e Vendas sugeridas (${labels.join(", ")})`);
+  check(JSON.stringify(labels) === JSON.stringify(["Onboarding", "Notificações", "Reuniões", "Vendas sugeridas", "Central de Operações"]), `menu só com Onboarding, Notificações, Reuniões, Vendas sugeridas e Central (${labels.join(", ")})`);
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
   check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Arquivados e excluídos"]), `sem a aba Equipe nem Configurações (só admin): ${tabs.join(", ")}`);
   for (const path of ["/clientes", "/contas", "/meta-ads", "/campanhas", "/relatorios"]) {

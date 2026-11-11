@@ -58,9 +58,9 @@ describe("arquitetura preparada para novas plataformas", () => {
     }
   });
 
-  it("a ordem do menu só mudou com aprovação do Ander (43.6: Comercial e Envios semanais depois da Central)", () => {
+  it("a ordem do menu só mudou com aprovação do Ander (43.6; 11/11: Central de Operações e Envios semanais trocaram de lugar)", () => {
     expect(NAV_ITEMS.map((n) => n.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Painel", "Comercial", "Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas", "Configurações da Central", "Envios semanais", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
+      "Dashboard", "Clientes", "Contas", "Painel", "Comercial", "Onboarding", "Envios semanais", "Notificações", "Reuniões", "Vendas sugeridas", "Configurações da Central", "Central de Operações", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
       "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking", "Sincronização", "Logs", "Configurações",
     ]);
   });
