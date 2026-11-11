@@ -106,6 +106,18 @@ await page.waitForFunction(() => document.querySelector("[data-testid=filters-to
 const toggleText = (await toggle.innerText()).replace(/\s+/g, " ");
 check(toggleText.includes("1 ativo"), `celular: botão mostra quantos filtros estão ativos (${toggleText})`);
 
+// 3b) Celular (360 px): número grande (R$ 1.234.567,89) cabe dentro do cartão, sem ser cortado pelo vizinho
+await page.setViewportSize({ width: 360, height: 800 });
+await open("/");
+await page.evaluate(() => { for (const e of document.querySelectorAll("[data-testid=kpi-value]")) e.textContent = "R$ 1.234.567,89"; });
+const kpiFit = await page.evaluate(() => [...document.querySelectorAll("[data-testid=kpi-value]")].every((e) => {
+  const card = e.closest("[role=group]"); const r = document.createRange(); r.selectNodeContents(e);
+  return r.getBoundingClientRect().right <= card.getBoundingClientRect().right - 8 && r.getBoundingClientRect().left >= card.getBoundingClientRect().left;
+}));
+check(kpiFit, "celular 360 px: número grande cabe no cartão (nada cortado pelo vizinho)");
+await page.setViewportSize({ width: 390, height: 844 });
+await open("/");
+
 // 4) Celular: cards empilhados (no máximo 2 por linha; a cadeia executiva 1 por linha)
 const perRow = (selector) => page.evaluate((sel) => {
   const tops = [...document.querySelectorAll(sel)].map((e) => Math.round(e.getBoundingClientRect().top));

@@ -42,7 +42,7 @@ function Shell({ label, hero, index, className, children }: { label: string; her
       aria-label={label}
       style={hero ? { ...HERO_STYLE, ...(index != null ? ({ "--i": index } as CSSProperties) : {}) } : index != null ? ({ "--i": index } as CSSProperties) : undefined}
       className={cn(
-        "flex flex-col gap-2.5 p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-elevated",
+        "@container min-w-0 flex flex-col gap-2.5 p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-elevated",
         index != null && "rise",
         hero && "text-white ring-brand-700/30 shadow-brand",
         className,
@@ -58,18 +58,19 @@ function Head({ label, icon: Icon, hero, tip }: { label: string; icon?: LucideIc
     <div className="flex items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-2.5">
         {Icon && (
-          <span className={cn("grid size-8 shrink-0 place-items-center rounded-full", hero ? "bg-white/20 text-white" : "bg-brand-50 text-brand-600")}>
+          <span className={cn("hidden size-8 shrink-0 place-items-center rounded-full @[10rem]:grid", hero ? "bg-white/20 text-white" : "bg-brand-50 text-brand-600")}>
             <Icon className="size-4" aria-hidden />
           </span>
         )}
-        <h3 className={cn("truncate text-sm font-medium", hero ? "text-blue-100" : "text-slate-500")}>{label}</h3>
+        <h3 className={cn("min-w-0 text-sm font-medium leading-tight", hero ? "text-blue-100" : "text-slate-500")}>{label}</h3>
       </div>
       <InfoTooltip label={`O que é ${label}?`} align="right">{tip}</InfoTooltip>
     </div>
   );
 }
 
-const valueClass = (hero?: boolean) => cn("num text-[1.75rem] font-semibold leading-tight tracking-tight", hero ? "text-white" : "text-slate-900");
+/** O número se ajusta à largura do cartão (nunca passa da borda, nem com valores grandes no celular). */
+const valueClass = (hero?: boolean) => cn("num whitespace-nowrap font-semibold leading-tight tracking-tight [font-size:clamp(0.8rem,13.5cqw,1.75rem)]", hero ? "text-white" : "text-slate-900");
 
 export function KpiCard({ definition, value, previous, currency, missing, loading, icon, hero, index, className }: KpiCardProps) {
   const variation = kpiVariation(value, previous, definition.direction);

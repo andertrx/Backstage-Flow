@@ -214,6 +214,8 @@ body {
    blocos sem quebra no meio. */
 /* Largura útil de uma folha A4 com margem de 12 mm (ver printPdf). */
 html.pdf-mode .pdf-width { width: 186mm; max-width: 186mm; }
+/* Na tela (celular), enquanto a página é redesenhada na largura da folha, não deixa a página rolar para o lado. */
+@media screen { html.pdf-mode, html.pdf-mode body { overflow-x: clip; } }
 @media print {
   @page { size: A4; margin: 12mm; }
   html, body { background: white !important; }

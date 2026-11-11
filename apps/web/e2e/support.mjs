@@ -31,6 +31,13 @@ export async function launch() {
   page.on("console", (m) => {
     if (/Content Security Policy|Refused to (load|connect|execute|apply)/i.test(m.text())) errors.push(`CSP: ${m.text()}`);
   });
+  if (process.env.AUDIT_W) {
+    const w = Number(process.env.AUDIT_W);
+    await page.setViewportSize({ width: w, height: 800 });
+    page.setViewportSize = async () => {}; // o teste não troca o tamanho: a auditoria é sempre no celular
+    const { installAudit } = await import("./audit-overflow.mjs");
+    installAudit(page, browser, w);
+  }
   return { browser, page, errors };
 }
 
