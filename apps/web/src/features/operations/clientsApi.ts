@@ -48,6 +48,9 @@ export interface OpsClientSummary {
   proxima_entrega: string | null;
   obrigatorias: number;
   obrigatorias_concluidas: number;
+  /** T5.32: subtarefas do cliente (concluídas / total). */
+  subtarefas?: number;
+  subtarefas_concluidas?: number;
   setores: string[];
   ultima_atividade: string | null;
 }

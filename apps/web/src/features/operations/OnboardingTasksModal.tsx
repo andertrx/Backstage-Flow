@@ -24,6 +24,8 @@ interface Row {
   person: string;
   description: string;
   showDesc: boolean;
+  /** T5.32: subtarefas do modelo que serão criadas junto (marcadas por padrão). */
+  subsOff: string[];
 }
 
 const isCommercial = (name: string | undefined) => (name ?? "").trim().toLowerCase() === "comercial";
@@ -52,12 +54,12 @@ export function OnboardingTasksModal({ c, ctx, onClose, onDone, onFullForm }: {
   const peopleOf = (sectorId: string) => ctx.directory.people.filter((p) => p.sectors.includes(sectorId) || p.sector_id === sectorId);
 
   const rowFor = (t: OpsOnboardingTemplate): Row =>
-    state[t.id] ?? { key: t.id, template: t, checked: false, title: t.title, sectorId: t.sector_id, mode: "setor", person: "", description: t.description ?? "", showDesc: false };
+    state[t.id] ?? { key: t.id, template: t, checked: false, title: t.title, sectorId: t.sector_id, mode: "setor", person: "", description: t.description ?? "", showDesc: false, subsOff: [] };
   const patch = (r: Row, p: Partial<Row>) => {
     if (r.template) setState((s) => ({ ...s, [r.key]: { ...r, ...p } }));
     else setExtras((l) => l.map((x) => (x.key === r.key ? { ...x, ...p } : x)));
   };
-  const addExtra = () => setExtras((l) => [...l, { key: crypto.randomUUID(), template: null, checked: true, title: "", sectorId: "", mode: "setor", person: "", description: "", showDesc: true }]);
+  const addExtra = () => setExtras((l) => [...l, { key: crypto.randomUUID(), template: null, checked: true, title: "", sectorId: "", mode: "setor", person: "", description: "", showDesc: true, subsOff: [] }]);
 
   const selected = [...activeTemplates.map(rowFor).filter((r) => r.checked), ...extras];
 
@@ -73,6 +75,18 @@ export function OnboardingTasksModal({ c, ctx, onClose, onDone, onFullForm }: {
         {(r.showDesc || !r.template) && (
           <Textarea aria-label={`Descrição: ${r.title || "nova tarefa"}`} className={r.template ? "min-h-20" : "min-h-28"} value={r.description} maxLength={5000}
             placeholder="Descreva o que precisa ser feito, o que o setor deve pedir ou entregar…" onChange={(e) => patch(r, { description: e.target.value })} />
+        )}
+        {r.template && r.template.subtasks?.length > 0 && (
+          <fieldset className="space-y-1" data-testid="ops-onb-subtasks">
+            <legend className="text-xs font-semibold text-slate-600">Subtarefas que serão criadas junto</legend>
+            {r.template.subtasks.map((st) => (
+              <label key={st} className="flex items-center gap-1.5 text-sm text-slate-700">
+                <input type="checkbox" checked={!r.subsOff.includes(st)}
+                  onChange={(e) => patch(r, { subsOff: e.target.checked ? r.subsOff.filter((x) => x !== st) : [...r.subsOff, st] })} />
+                {st}
+              </label>
+            ))}
+          </fieldset>
         )}
         {canAssign ? (
           <>
@@ -124,8 +138,11 @@ export function OnboardingTasksModal({ c, ctx, onClose, onDone, onFullForm }: {
           start_date: "", due_date: t?.due_days != null ? opsAddDays(opsToday(), t.due_days) : "", effort_hours: "", visibility: "setor", tags: [],
           client_stage_id: "", mandatory: false, status_id: statusId, people,
         };
-        await save.mutateAsync({ id: null, version: null, input });
+        const parentId = await save.mutateAsync({ id: null, version: null, input });
         made += 1;
+        for (const title of (t?.subtasks ?? []).filter((x) => !r.subsOff.includes(x))) {
+          await save.mutateAsync({ id: null, version: null, input: { ...input, title, description: "", status_id: statusId, parent_id: parentId, people: { ...people, adicionais: [] } } });
+        }
       }
       onDone(made);
       onClose();

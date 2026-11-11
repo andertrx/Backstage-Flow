@@ -21,6 +21,7 @@ function TemplateModal({ template, onClose }: { template: OpsOnboardingTemplate 
   const [sector, setSector] = useState(template?.sector_id ?? "");
   const [priority, setPriority] = useState<OpsPriority>(template?.priority ?? "media");
   const [days, setDays] = useState(template?.due_days != null ? String(template.due_days) : "");
+  const [subs, setSubs] = useState((template?.subtasks ?? []).join("\n"));
   const [error, setError] = useState<string | null>(null);
   const options = (sectors.data ?? []).filter((s) => (s.status === "ativo" && s.name.trim().toLowerCase() !== "comercial") || s.id === template?.sector_id);
 
@@ -29,8 +30,9 @@ function TemplateModal({ template, onClose }: { template: OpsOnboardingTemplate 
     setError(null);
     if (title.trim().length < 3) return setError("Dê um título à tarefa padrão (mínimo 3 letras).");
     if (!sector) return setError("Escolha o setor.");
+    if (subs.split("\n").map((x) => x.trim()).filter(Boolean).some((x) => x.length < 3)) return setError("Cada subtarefa precisa de pelo menos 3 letras (uma por linha).");
     try {
-      await save.mutateAsync({ id: template?.id ?? null, input: { title, description, sector_id: sector, priority, due_days: days } });
+      await save.mutateAsync({ id: template?.id ?? null, input: { title, description, sector_id: sector, priority, due_days: days, subtasks: subs } });
       onClose();
     } catch (err) {
       setError(errorMessage(err));
@@ -61,6 +63,9 @@ function TemplateModal({ template, onClose }: { template: OpsOnboardingTemplate 
             {(id) => <Input id={id} inputMode="numeric" value={days} maxLength={2} onChange={(e) => setDays(e.target.value.replace(/\D/g, ""))} placeholder="Ex.: 3" />}
           </Field>
         </div>
+        <Field label="Subtarefas padrão (opcional)" hint="Uma por linha. No cartão do cliente você escolhe quais criar junto com a tarefa.">
+          {(id) => <Textarea id={id} value={subs} className="min-h-24" onChange={(e) => setSubs(e.target.value)} placeholder={"Pedir logo\nPedir cores e fontes"} />}
+        </Field>
         {error && <Alert tone="error">{error}</Alert>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
@@ -110,7 +115,7 @@ export function OnboardingTemplatesSettings() {
             <div className="flex flex-1 flex-wrap items-center gap-3 py-1.5" data-testid="ops-template-row">
               <div className="min-w-48 flex-1">
                 <p className={t.active ? "font-medium text-slate-900" : "font-medium text-slate-400"}>{t.title}</p>
-                <p className="text-xs text-slate-500">{sectorName(t.sector_id)} · {OPS_PRIORITY_LABELS[t.priority]}{t.due_days != null ? ` · prazo ${t.due_days} dia(s)` : ""}</p>
+                <p className="text-xs text-slate-500">{sectorName(t.sector_id)} · {OPS_PRIORITY_LABELS[t.priority]}{t.due_days != null ? ` · prazo ${t.due_days} dia(s)` : ""}{t.subtasks?.length ? ` · ${t.subtasks.length} subtarefa(s)` : ""}</p>
               </div>
               <Badge tone={t.active ? "success" : "neutral"}>{t.active ? "Ativa" : "Desativada"}</Badge>
               <div className="flex items-center gap-1">

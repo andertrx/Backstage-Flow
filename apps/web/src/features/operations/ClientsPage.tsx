@@ -74,6 +74,7 @@ function ClientCard({ c, ctx, onOpen, targets, onMoveTo }: {
         ) : isOnboardingStage(c.stage_id) && <p className="text-[11px] text-slate-400">Nenhum contato registrado</p>}
         <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{s.abertas} abertas</span>
+          {(s.subtarefas ?? 0) > 0 && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600" data-testid="ops-client-subtasks">▸ {s.subtarefas_concluidas ?? 0}/{s.subtarefas} subtarefas</span>}
           {s.atrasadas > 0 && <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">{s.atrasadas} atrasadas</span>}
           {s.bloqueadas > 0 && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800">{s.bloqueadas} bloqueadas</span>}
           {s.aguardando_cliente > 0 && <span className="rounded bg-yellow-50 px-1.5 py-0.5 text-yellow-800">{s.aguardando_cliente} aguardando cliente</span>}

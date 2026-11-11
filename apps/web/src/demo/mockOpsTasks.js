@@ -281,6 +281,7 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
       bloqueadas: open.filter((t) => cat(t) === "bloqueado" || blockers(t) > 0).length,
       aguardando_cliente: ts.filter((t) => cat(t) === "aguardando_cliente").length,
       proxima_entrega: open.map((t) => t.due_date).filter((d) => d && d >= t0).sort()[0] ?? null,
+      subtarefas: ts.filter((t) => t.parent_id).length, subtarefas_concluidas: ts.filter((t) => t.parent_id && closed(t)).length,
       obrigatorias: ts.filter((t) => t.mandatory).length, obrigatorias_concluidas: ts.filter((t) => t.mandatory && closed(t)).length,
       setores: [...new Set(open.map((t) => t.sector_id))], ultima_atividade: acts.at(-1) ?? null,
     };
@@ -870,7 +871,9 @@ export function handleOpsTasks({ db, url, method, parse, rawBody, role, userId, 
     if ((v.title ?? "").trim().length < 3) return bad("Dê um título à tarefa padrão (mínimo 3 letras).");
     if (!db.opsSectors.some((s) => s.id === v.sector_id && s.status === "ativo")) return bad("Escolha um setor ativo.");
     const fields = { title: v.title.trim(), description: (v.description ?? "").trim() || null, sector_id: v.sector_id, priority: v.priority || "media",
-      due_days: v.due_days === "" || v.due_days == null ? null : Number(v.due_days) };
+      due_days: v.due_days === "" || v.due_days == null ? null : Number(v.due_days),
+      subtasks: (v.subtasks ?? []).map((x) => String(x).trim()).filter(Boolean) };
+    if (fields.subtasks.some((x) => x.length < 3 || x.length > 200)) return bad("Cada subtarefa padrão precisa de 3 a 200 letras.");
     if (db.opsOnboardingTemplates.some((t) => t.active && t.id !== p.p_id && t.sector_id === v.sector_id && t.title.toLowerCase() === fields.title.toLowerCase())) {
       return bad("Já existe uma tarefa padrão com esse título neste setor.");
     }
