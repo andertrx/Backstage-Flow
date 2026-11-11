@@ -44,7 +44,7 @@ function seedClients(db) {
   check(true, "sem containers: mensagem explicando o que fazer");
 
   await aba(page, "sites");
-  await page.getByRole("button", { name: "Novo site" }).click();
+  await page.getByRole("button", { name: /Adicionar site de Excalibur/ }).first().click();
   const dialog = page.getByRole("dialog", { name: "Novo container de tracking" });
   await dialog.getByLabel("Cliente *").selectOption(EXC);
   await dialog.getByLabel("Nome do site *").fill("Loja Excalibur");

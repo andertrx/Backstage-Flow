@@ -121,7 +121,7 @@ function seed(db) {
   const cfg = await page.getByTestId("tracking-config").innerText();
   check(cfg.includes("atacado.com.br") && !cfg.includes("varejo.com.br"), "Configurações: sites do cliente escolhido");
   check(await page.getByRole("button", { name: "Código de instalação: atacado.com.br" }).count() + await page.getByRole("button", { name: /Código de instalação/ }).count() >= 1, "Configurações: código de instalação");
-  check(await page.getByRole("button", { name: "Novo site" }).count() === 1 && await page.getByTestId("wa-ai-card").count() === 1, "Configurações: Novo site e chave da IA (administrador)");
+  check(await page.getByRole("button", { name: /Adicionar (outro )?site de/ }).count() >= 1 && await page.getByRole("button", { name: "Novo site" }).count() === 0 && await page.getByTestId("wa-ai-card").count() === 1, "Configurações: adicionar site por cliente (sem botão duplicado) e chave da IA (administrador)");
   await page.screenshot({ path: `${SHOTS}/tracking-configuracoes.png`, fullPage: true });
 
   // O botão Inteligência de Resultados não fica mais dentro do Tracking (a tela tem o seu item no menu)

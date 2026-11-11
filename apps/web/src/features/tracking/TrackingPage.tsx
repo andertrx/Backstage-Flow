@@ -154,14 +154,6 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
 
   return (
     <div className="space-y-6">
-      {tabs.includes("sites") && canManage && (
-        <div className="flex justify-end">
-          <Button onClick={() => { setNewSiteClient(null); setEditing("new"); }}>
-            <Plus className="size-4" aria-hidden /> Novo site
-          </Button>
-        </div>
-      )}
-
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
 
       {isLoading ? (
@@ -179,7 +171,7 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
           {canManage && (
             <div className="w-full max-w-3xl text-left">
               <ClienteSiteWhatsApp clients={clients.filter((cl) => !clientId || cl.id === clientId)} containers={containers} connectionOf={waConnOf}
-                onAddSite={(id) => { setNewSiteClient(id); setEditing("new"); }} onWhatsApp={setWaServerFor} />
+                onAddSite={(id) => { setNewSiteClient(id); setEditing("new"); }} onWhatsApp={setWaServerFor} onWhatsAppApi={setWaApiFor} />
             </div>
           )}
         </Card>
@@ -239,16 +231,17 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
               {canManage && (
                 <ConfigSection id="cfg-clientes" title="Clientes: site e/ou WhatsApp" description="Escolha, cliente por cliente, se ele tem site, WhatsApp ou os dois. Um não depende do outro.">
                   <ClienteSiteWhatsApp clients={clients.filter((c) => !clientId || c.id === clientId)} containers={containers} connectionOf={waConnOf}
-                    onAddSite={(id) => { setNewSiteClient(id); setEditing("new"); }} onWhatsApp={setWaServerFor} />
+                    onAddSite={(id) => { setNewSiteClient(id); setEditing("new"); }} onWhatsApp={setWaServerFor} onWhatsAppApi={setWaApiFor} />
                 </ConfigSection>
               )}
               <ConfigSection id="cfg-detalhes" title="Detalhes de cada cliente" description="Código de instalação, Meta (API de Conversões), regras de eventos e as conexões de WhatsApp, agrupados por cliente.">
                 <span id="cfg-sites" /><span id="cfg-whatsapp" />
                 <div className="space-y-5">
-                  {visible.length === 0 && <p className="text-sm text-slate-500">Nenhum site nem WhatsApp ligado ainda. Use "Clientes: site e/ou WhatsApp", acima.</p>}
+                  {!visible.some((c) => c.kind !== "whatsapp" || waConnOf(c.id)) && <p className="text-sm text-slate-500">Nenhum site nem WhatsApp ligado ainda. Use a lista acima ("Adicionar site" ou "Ligar WhatsApp").</p>}
                   {[...new Set(visible.map((c) => c.client_id))].map((cid) => {
                     const mine = visible.filter((c) => c.client_id === cid);
                     const mineSites = mine.filter((c) => c.kind !== "whatsapp");
+                    if (mineSites.length === 0 && !mine.some((c) => waConnOf(c.id))) return null;
                     return (
                       <div key={cid} className="space-y-2" data-testid="cliente-detalhe">
                         <h3 className="text-sm font-semibold text-slate-900">{mine[0]?.clients?.name ?? "Cliente"}</h3>
@@ -457,12 +450,13 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
  * T5.26 — "Por cliente": cada cliente pode ter só o site, só o WhatsApp ou os dois. Num lugar só: adicionar o site
  * (opcional) e ligar o WhatsApp (opcional, sem precisar de site). O WhatsApp sem site usa um container técnico escondido.
  */
-function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onWhatsApp }: {
+function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onWhatsApp, onWhatsAppApi }: {
   clients: { id: string; name: string }[];
   containers: TrackingContainer[];
   connectionOf: (containerId: string) => WhatsAppConnection | undefined;
   onAddSite: (clientId: string) => void;
   onWhatsApp: (c: TrackingContainer) => void;
+  onWhatsAppApi: (c: TrackingContainer) => void;
 }) {
   const semSite = useWaSemSiteContainer();
   const queryClient = useQueryClient();
@@ -471,18 +465,19 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
   const [busca, setBusca] = useState("");
   const q = busca.trim().toLowerCase();
   const rows = clients.filter((c) => !q || c.name.toLowerCase().includes(q));
-  async function ligarWhatsApp(clientId: string) {
+  async function ligarWhatsApp(clientId: string, oficial = false) {
+    const abrir = oficial ? onWhatsAppApi : onWhatsApp;
     setErro(null);
     const mine = containers.filter((c) => c.client_id === clientId);
     const comConexao = mine.find((c) => connectionOf(c.id));
     const alvo = comConexao ?? mine.find((c) => c.kind !== "whatsapp") ?? mine[0];
-    if (alvo) { onWhatsApp(alvo); return; }
+    if (alvo) { abrir(alvo); return; }
     setBusy(clientId);
     try {
       const id = await semSite.mutateAsync(clientId);
       await queryClient.refetchQueries({ queryKey: ["tracking", "containers"] });
       const c = (queryClient.getQueryData<TrackingContainer[]>(["tracking", "containers"]) ?? []).find((x) => x.id === id);
-      if (c) onWhatsApp(c);
+      if (c) abrir(c);
     } catch (e) { setErro(errorMessage(e)); } finally { setBusy(null); }
   }
   return (
@@ -511,6 +506,11 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
                 <Button variant="secondary" className="px-2 py-1 text-xs" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id)} aria-label={`${conn ? "Configurar WhatsApp" : "Ligar WhatsApp"} de ${cl.name}`}>
                   <MessageCircle className="size-3.5" aria-hidden /> {conn ? "Configurar" : "Ligar WhatsApp"}
                 </Button>
+                {!conn && (
+                  <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => void ligarWhatsApp(cl.id, true)} aria-label={`Ligar pela API oficial de ${cl.name}`}>
+                    API oficial
+                  </Button>
+                )}
               </span>
             </li>
           );
