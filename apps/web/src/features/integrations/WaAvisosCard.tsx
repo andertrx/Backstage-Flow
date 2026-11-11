@@ -4,7 +4,7 @@ import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
-import { Field, Select } from "@/components/ui/field.tsx";
+import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { Switch } from "@/components/ui/switch.tsx";
 import { useActiveClients } from "@/features/clients/api.ts";
 import { useBuscarGruposWa } from "@/features/operations/waGruposApi.ts";
@@ -32,6 +32,7 @@ export function WaAvisosCard() {
   const salvar = useSalvarWaAvisos();
   const [draft, setDraft] = useState<WaAvisosConfig | null>(null);
   const [mute, setMute] = useState<Set<string> | null>(null);
+  const [busca, setBusca] = useState("");
   const [grupos, setGrupos] = useState<{ id: string; name: string }[] | null>(null);
   const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [loaded, setLoaded] = useState<unknown>(null);
@@ -137,8 +138,14 @@ export function WaAvisosCard() {
           )}</Field>
           </div>
           <p className="text-xs text-slate-500">O CRM lê as contas de hora em hora: a precisão é de cerca de 1 hora. Pode haver aviso falso (campanha programada para outro horário, orçamento do dia esgotado). Desmarque os clientes que não devem avisar:</p>
-          <ul className="grid max-h-48 gap-1 overflow-y-auto sm:grid-cols-2">
-            {lista.map((c) => (
+          <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="wa-sem-gasto-clientes-barra">
+            <span className="font-medium text-slate-700">{lista.length - lista.filter((c) => mute.has(c.id)).length} de {lista.length} clientes avisam</span>
+            <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setMute(new Set())}>Avisar todos</button>
+            <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setMute(new Set(lista.map((c) => c.id)))}>Não avisar nenhum</button>
+          </div>
+          {lista.length > 8 && <Input aria-label="Buscar cliente (sem gasto)" placeholder="Buscar cliente" value={busca} onChange={(e) => setBusca(e.target.value)} />}
+          <ul className="grid gap-1 sm:grid-cols-2" data-testid="wa-sem-gasto-lista">
+            {lista.filter((c) => !busca.trim() || c.name.toLowerCase().includes(busca.trim().toLowerCase())).map((c) => (
               <li key={c.id}>
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={!mute.has(c.id)} aria-label={`Avisar sem gasto: ${c.name}`}
