@@ -14,8 +14,9 @@ export function seedWaGateway() {
     waAuto: [],
     waDisparos: [],
     waAvisosCfg: { ativo: false, grupo_id: null, grupo_nome: null, tipos: ["sem_saldo", "saldo_baixo", "conta_restrita", "pagamento_pendente", "erro_api", "envio_aprovar"],
-      silencio_inicio: 22, silencio_fim: 7, repetir_horas: 12, sem_gasto_inicio: 8, sem_gasto_fim: 22, sem_gasto_minutos: 60 },
+      silencio_inicio: 22, silencio_fim: 7, repetir_horas: 12, sem_gasto_inicio: 8, sem_gasto_fim: 22, sem_gasto_minutos: 360 },
     waSemGasto: [],
+    waSemGastoMinutos: [],
     waAvisos: [],
     gcal: { configured: true, conexao: null, estados: [], falhar: null },
   };
@@ -93,6 +94,7 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
   // Etapa 45.3 — avisos no WhatsApp (só administrador)
   if (url.includes("/rest/v1/wa_avisos_config")) return res(200, role === "admin" ? db.waAvisosCfg : null);
   if (url.includes("/rest/v1/wa_sem_gasto_silenciados")) return res(200, role === "admin" ? db.waSemGasto.map((cliente_id) => ({ cliente_id })) : []);
+  if (url.includes("/rest/v1/wa_sem_gasto_minutos_clientes")) return res(200, role === "admin" ? db.waSemGastoMinutos : []);
   if (url.includes("/rest/v1/wa_avisos")) return res(200, role === "admin" ? [...db.waAvisos].sort((a, b) => b.id - a.id).slice(0, 8) : []);
   if (url.includes("/rest/v1/rpc/wa_avisos_config_save") || url.includes("/rest/v1/rpc/wa_sem_gasto_")) {
     const p = parse();
@@ -107,8 +109,14 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
       return res(204);
     }
     if (url.includes("/rpc/wa_sem_gasto_config_save")) {
-      if (p.p_fim <= p.p_ini || p.p_minutos < 30) return bad("Janela ou tempo inválidos (início antes do fim; tempo de 30 minutos a 12 horas).");
+      if (p.p_fim <= p.p_ini || p.p_minutos < 360 || p.p_minutos > 720) return bad("Janela ou tempo inválidos (início antes do fim; tempo de 6 a 12 horas).");
       Object.assign(c, { sem_gasto_inicio: p.p_ini, sem_gasto_fim: p.p_fim, sem_gasto_minutos: p.p_minutos });
+      return res(204);
+    }
+    if (url.includes("/rpc/wa_sem_gasto_minutos_save")) {
+      if (p.p_minutos != null && (p.p_minutos < 360 || p.p_minutos > 720)) return bad("O período do aviso sem gastar é de 6 a 12 horas.");
+      db.waSemGastoMinutos = db.waSemGastoMinutos.filter((x) => x.cliente_id !== p.p_cliente);
+      if (p.p_minutos != null) db.waSemGastoMinutos.push({ cliente_id: p.p_cliente, minutos: p.p_minutos });
       return res(204);
     }
     db.waSemGasto = db.waSemGasto.filter((id) => id !== p.p_cliente);

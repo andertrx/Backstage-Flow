@@ -17,6 +17,14 @@ export interface WaAvisosConfig {
   sem_gasto_fim: number;
   sem_gasto_minutos: number;
 }
+/** T5.34 — período do aviso "sem gastar" por cliente (minutos). Cliente sem linha usa o geral. */
+export interface WaSemGastoMinuto {
+  cliente_id: string;
+  minutos: number;
+}
+/** Períodos possíveis do aviso "sem gastar": de 6 a 12 horas (o pedido do Ander). */
+export const WA_SEM_GASTO_PERIODOS = [360, 480, 600, 720];
+export const waSemGastoPeriodoLabel = (m: number) => `${m / 60} h`;
 export interface WaAviso {
   id: number;
   tipo: string;
@@ -107,6 +115,18 @@ export function useWaSemGastoSilenciados() {
   });
 }
 
+/** T5.34 — o período escolhido por cliente (quem não tem escolha usa o geral). */
+export function useWaSemGastoMinutos() {
+  return useQuery({
+    queryKey: [...KEY, "minutos"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("wa_sem_gasto_minutos_clientes").select("cliente_id,minutos");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o período de cada cliente."));
+      return new Map(((data as WaSemGastoMinuto[] | null) ?? []).map((r) => [r.cliente_id, r.minutos]));
+    },
+  });
+}
+
 export function useWaAvisosRecentes() {
   return useQuery({
     queryKey: [...KEY, "recentes"],
@@ -121,7 +141,11 @@ export function useWaAvisosRecentes() {
 export function useSalvarWaAvisos() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (v: { config: WaAvisosConfig; silenciar: { cliente_id: string; silenciar: boolean }[] }) => {
+    mutationFn: async (v: {
+      config: WaAvisosConfig;
+      silenciar: { cliente_id: string; silenciar: boolean }[];
+      minutos: { cliente_id: string; minutos: number | null }[];
+    }) => {
       const c = v.config;
       const a = await supabase.rpc("wa_avisos_config_save", {
         p_ativo: c.ativo, p_grupo_id: c.grupo_id, p_grupo_nome: c.grupo_nome, p_tipos: c.tipos,
@@ -133,6 +157,10 @@ export function useSalvarWaAvisos() {
       for (const s of v.silenciar) {
         const r = await supabase.rpc("wa_sem_gasto_silenciar", { p_cliente: s.cliente_id, p_silenciar: s.silenciar });
         if (r.error) throw new FriendlyError(dbError(r.error, "Não conseguimos salvar os clientes silenciados."));
+      }
+      for (const m of v.minutos) {
+        const r = await supabase.rpc("wa_sem_gasto_minutos_save", { p_cliente: m.cliente_id, p_minutos: m.minutos });
+        if (r.error) throw new FriendlyError(dbError(r.error, "Não conseguimos salvar o período do cliente."));
       }
     },
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),

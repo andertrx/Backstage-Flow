@@ -11,7 +11,7 @@ import { useBuscarGruposWa } from "@/features/operations/waGruposApi.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { useWaGateway } from "./waGatewayApi.ts";
-import { useSalvarWaAvisos, useWaAvisosConfig, useWaAvisosRecentes, useWaSemGastoSilenciados, WA_AVISO_GRUPOS, type WaAvisosConfig } from "./waAvisosApi.ts";
+import { useSalvarWaAvisos, useWaAvisosConfig, useWaAvisosRecentes, useWaSemGastoMinutos, useWaSemGastoSilenciados, WA_AVISO_GRUPOS, WA_SEM_GASTO_PERIODOS, waSemGastoPeriodoLabel, type WaAvisosConfig } from "./waAvisosApi.ts";
 
 const HORAS = Array.from({ length: 24 }, (_, h) => h);
 const STATUS_TONE = { pendente: "brand", enviando: "brand", enviado: "success", falhou: "danger", pulado: "neutral" } as const;
@@ -26,21 +26,28 @@ export function WaAvisosCard() {
   const cfg = useWaAvisosConfig();
   const gw = useWaGateway(true);
   const silenciados = useWaSemGastoSilenciados();
+  const minutos = useWaSemGastoMinutos();
   const clients = useActiveClients();
   const recentes = useWaAvisosRecentes();
   const buscar = useBuscarGruposWa();
   const salvar = useSalvarWaAvisos();
   const [draft, setDraft] = useState<WaAvisosConfig | null>(null);
   const [mute, setMute] = useState<Set<string> | null>(null);
+  const [periodos, setPeriodos] = useState<Map<string, number> | null>(null);
   const [busca, setBusca] = useState("");
   const [grupos, setGrupos] = useState<{ id: string; name: string }[] | null>(null);
   const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [loaded, setLoaded] = useState<unknown>(null);
-  if (cfg.data && cfg.data !== loaded && silenciados.data) { setLoaded(cfg.data); setDraft(cfg.data); setMute(new Set(silenciados.data)); }
+  if (cfg.data && cfg.data !== loaded && silenciados.data && minutos.data) {
+    setLoaded(cfg.data);
+    setDraft({ ...cfg.data, sem_gasto_minutos: WA_SEM_GASTO_PERIODOS.includes(cfg.data.sem_gasto_minutos) ? cfg.data.sem_gasto_minutos : 360 });
+    setMute(new Set(silenciados.data));
+    setPeriodos(new Map(minutos.data));
+  }
 
   const conectado = gw.data?.connection_state === "conectado" && gw.data?.enabled;
   const lista = useMemo(() => [...(clients.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")), [clients.data]);
-  if (!draft || !mute) return cfg.error ? <Alert tone="error">{errorMessage(cfg.error)}</Alert> : <div className="h-24 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />;
+  if (!draft || !mute || !periodos) return cfg.error ? <Alert tone="error">{errorMessage(cfg.error)}</Alert> : <div className="h-24 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />;
   const set = <K extends keyof WaAvisosConfig>(k: K, v: WaAvisosConfig[K]) => setDraft({ ...draft, [k]: v });
   const toggleTipo = (id: string) => set("tipos", draft.tipos.includes(id) ? draft.tipos.filter((t) => t !== id) : [...draft.tipos, id]);
   const opcoesGrupo = grupos ?? (draft.grupo_id ? [{ id: draft.grupo_id, name: draft.grupo_nome ?? "Grupo escolhido" }] : []);
@@ -50,12 +57,16 @@ export function WaAvisosCard() {
     try { setGrupos(await buscar.mutateAsync()); } catch (e) { setMsg({ tone: "error", text: errorMessage(e) }); }
   }
   async function gravar() {
-    if (!draft || !mute) return;
+    if (!draft || !mute || !periodos) return;
     setMsg(null);
     const antes = silenciados.data ?? new Set<string>();
     const mudancas = lista.filter((c) => mute.has(c.id) !== antes.has(c.id)).map((c) => ({ cliente_id: c.id, silenciar: mute.has(c.id) }));
+    const antesMin = minutos.data ?? new Map<string, number>();
+    const mudancasMin = lista
+      .filter((c) => (periodos.get(c.id) ?? null) !== (antesMin.get(c.id) ?? null))
+      .map((c) => ({ cliente_id: c.id, minutos: periodos.get(c.id) ?? null }));
     try {
-      await salvar.mutateAsync({ config: draft, silenciar: mudancas });
+      await salvar.mutateAsync({ config: draft, silenciar: mudancas, minutos: mudancasMin });
       setMsg({ tone: "success", text: "Avisos salvos." });
     } catch (e) { setMsg({ tone: "error", text: errorMessage(e) }); }
   }
@@ -133,11 +144,11 @@ export function WaAvisosCard() {
           )}</Field>
             <Field label="Sem gasto por pelo menos">{(id) => (
 <Select id={id} aria-label="Minutos sem gasto" value={draft.sem_gasto_minutos} onChange={(e) => set("sem_gasto_minutos", Number(e.target.value))}>
-                {[30, 60, 90, 120, 180].map((m) => <option key={m} value={m}>{m} min</option>)}
+                {WA_SEM_GASTO_PERIODOS.map((m) => <option key={m} value={m}>{waSemGastoPeriodoLabel(m)}</option>)}
               </Select>
           )}</Field>
           </div>
-          <p className="text-xs text-slate-500">O CRM lê as contas de hora em hora: a precisão é de cerca de 1 hora. Pode haver aviso falso (campanha programada para outro horário, orçamento do dia esgotado). Desmarque os clientes que não devem avisar:</p>
+          <p className="text-xs text-slate-500">Só avisa conta que <strong>não gasta há esse tempo</strong> (mínimo de 6 h). O CRM lê as contas de hora em hora: a precisão é de cerca de 1 hora. Pode haver aviso falso (campanha programada para outro horário, orçamento do dia esgotado). Cada conta pode ter um tempo diferente, no campo ao lado do nome. Desmarque os clientes que não devem avisar:</p>
           <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="wa-sem-gasto-clientes-barra">
             <span className="font-medium text-slate-700">{lista.length - lista.filter((c) => mute.has(c.id)).length} de {lista.length} clientes avisam</span>
             <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setMute(new Set())}>Avisar todos</button>
@@ -146,12 +157,23 @@ export function WaAvisosCard() {
           {lista.length > 8 && <Input aria-label="Buscar cliente (sem gasto)" placeholder="Buscar cliente" value={busca} onChange={(e) => setBusca(e.target.value)} />}
           <ul className="grid gap-1 sm:grid-cols-2" data-testid="wa-sem-gasto-lista">
             {lista.filter((c) => !busca.trim() || c.name.toLowerCase().includes(busca.trim().toLowerCase())).map((c) => (
-              <li key={c.id}>
+              <li key={c.id} className="flex items-center justify-between gap-2">
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={!mute.has(c.id)} aria-label={`Avisar sem gasto: ${c.name}`}
                     onChange={() => { const n = new Set(mute); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); setMute(n); }} />
                   {c.name}
                 </label>
+                <Select aria-label={`Período sem gasto: ${c.name}`} className="h-8 w-20 py-0 text-xs"
+                  value={periodos.get(c.id) ?? ""}
+                  onChange={(e) => {
+                    const n = new Map(periodos);
+                    const v = e.target.value ? Number(e.target.value) : null;
+                    if (v === null) n.delete(c.id); else n.set(c.id, v);
+                    setPeriodos(n);
+                  }}>
+                  <option value="">Padrão</option>
+                  {WA_SEM_GASTO_PERIODOS.map((m) => <option key={m} value={m}>{waSemGastoPeriodoLabel(m)}</option>)}
+                </Select>
               </li>
             ))}
           </ul>

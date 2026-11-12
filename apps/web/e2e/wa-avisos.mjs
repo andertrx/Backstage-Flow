@@ -50,6 +50,9 @@ function seed(db) {
   const sg = card.getByTestId("wa-sem-gasto");
   await sg.waitFor();
   await sg.getByLabel("Avisar sem gasto: Loja Brisa").uncheck();
+  // T5.34: o período pode ser escolhido por conta (a tela global é de 6 a 12 h)
+  await sg.getByLabel("Período sem gasto: Loja Aurora").selectOption("480");
+  check((await sg.getByLabel("Minutos sem gasto").inputValue()) === "360", "o período geral começa em 6 h");
   await card.getByRole("combobox", { name: "Silêncio de" }).selectOption("23");
   await page.screenshot({ path: `${SHOTS}/wa-avisos.png`, fullPage: false });
   await card.getByRole("button", { name: "Salvar avisos" }).click();
@@ -58,7 +61,10 @@ function seed(db) {
   check(c.ativo && c.grupo_id === G && c.tipos.includes("sem_gasto") && c.silencio_inicio === 23, "salva grupo, tipos e silêncio");
   check(["n:tarefa.atribuida", "n:tarefa.mencao", "n:tarefa.comentario", "n:tarefa.concluida", "n:tarefa.prazo", "n:tarefa.atrasada", "n:reuniao.hoje"].every((i) => c.tipos.includes(i)), "salva também os avisos de tarefas e de reunião escolhidos");
   check(db.waSemGasto.length === 1 && db.waSemGasto[0] === B, "Loja Brisa fica silenciada no sem gasto");
-  check(db.rpcCalls.some((x) => x.fn === "wa_sem_gasto_config_save" && x.p_ini === 8 && x.p_fim === 22 && x.p_minutos === 60), "salva a janela 8h–22h e 60 min");
+  check(db.rpcCalls.some((x) => x.fn === "wa_sem_gasto_config_save" && x.p_ini === 8 && x.p_fim === 22 && x.p_minutos === 360), "salva a janela 8h–22h e 6 h");
+  check(db.waSemGastoMinutos.length === 1 && db.waSemGastoMinutos[0].cliente_id === A && db.waSemGastoMinutos[0].minutos === 480, "salva o período de 8 h da Loja Aurora");
+  const opcoes = await sg.getByLabel("Período sem gasto: Loja Aurora").locator("option").allTextContents();
+  check(opcoes.join(",") === "Padrão,6 h,8 h,10 h,12 h", `períodos de 6 a 12 h mais o padrão (${opcoes.join(", ")})`);
   check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);
   await browser.close();
 }

@@ -3,11 +3,12 @@
  * e utilidades comuns. O "banco" é uma memória que vive só durante o teste.
  */
 import { mkdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { createMockBackend, createMockDb, USER_ID } from "../src/demo/mockBackend.js";
 
 export const BASE = process.env.E2E_BASE_URL ?? "http://localhost:5173";
-export const SHOTS = new URL("../test-results", import.meta.url).pathname;
+export const SHOTS = fileURLToPath(new URL("../test-results", import.meta.url));
 mkdirSync(SHOTS, { recursive: true });
 
 export const PASSWORD = "Senha-certa-1";
