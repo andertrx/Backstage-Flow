@@ -269,7 +269,7 @@ Deno.test("status: sem segredos; banco fora do ar aparece como indisponível", a
   const s = json(await client.callTool({ name: "backstage_status", arguments: {} }));
   assertEquals(s.sistema, "Backstage Flow");
   assertEquals(s.banco.estado, "funcionando");
-  assertEquals(s.servidor_mcp.versao, "1.5.0");
+  assertEquals(s.servidor_mcp.versao, "1.6.0");
   assert(!/key|secret|token|senha|password/i.test(JSON.stringify(s)), "sem segredos");
   assertEquals(logs.at(-1)?.tool, "backstage_status");
   assertEquals(logs.at(-1)?.ok, true);

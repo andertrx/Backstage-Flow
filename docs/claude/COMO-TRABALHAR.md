@@ -78,16 +78,20 @@ CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome node e2e/balanc
 ## 5. Edge Functions (servidor)
 - O código fica em `supabase/functions/<nome>/index.ts`, com partes comuns em `_shared/`.
 - **Testes:** `npm run test:functions`. **Tipos:** `npm run check:functions`.
-- **Publicar** (não há CLI com token na sessão; use `mcp__Supabase__deploy_edge_function`):
-  1. Empacote num arquivo só:
-     `npx -y deno@latest bundle --config supabase/functions/deno.json --external 'npm:*' --external 'jsr:*' -o $S/<nome>.bundle.js supabase/functions/<nome>/index.ts`
-  2. Opcional, para caber melhor: `npx -y esbuild@0.25.5 $S/<nome>.bundle.js --minify --line-limit=400 --format=esm --outfile=$S/<nome>.min.js`
-  3. Publique com os arquivos `index.ts` (o pacote) e `deno.json` = `{"nodeModulesDir":"none","compilerOptions":{"strict":true}}`, com `import_map_path: deno.json`.
-     - Mantenha o `verify_jwt` que a função já tem (`list_edge_functions` mostra).
+- **Publicar** (12/11/2026 — agora há CLI com token na sessão; é o caminho principal):
+  1. `supabase.cmd functions deploy <nome> --remote=dkatllzkmlzpginuzvis --use-api --yes`
+     - `--use-api` empacota no servidor (não precisa de Docker) e leva junto o `packages/shared`.
+     - A CLI já está autenticada na máquina do Ander (`supabase.cmd login` feito em 12/11/2026).
+  2. **Mantenha o `verify_jwt` que a função já tem** (`supabase.cmd functions list --output json` mostra o valor atual).
+     - Só `mcp` precisa de `--no-verify-jwt` (o login é conferido dentro da função, porque o OAuth do Supabase passa por ela).
      - `sync`, `track`, `capi-sender`, `whatsapp-webhook`, `client-report-*` usam `false`, porque conferem o acesso por conta própria.
-  4. **Confira:** `get_edge_function` e compare com o arquivo local.
-- **Atenção:** `sync` e `ad-accounts` estão **mais novas no GitHub** do que as publicadas (correção do saldo, 28/09/2026). O banco já aplica a regra, então nada quebra, mas publique as duas na próxima mudança de servidor.
-  - 22/10/2026: também a mensagem "Google Ads API desligada" (código `API_DISABLED`, antes aparecia como "não tem acesso a esta conta"). Só muda a mensagem; publicar junto.
+  3. **Confira:** `supabase.cmd functions list` (versão e data) e `supabase.cmd functions download <nome> --remote=dkatllzkmlzpginuzvis --workdir <pasta>` para comparar com o local.
+  4. Se a publicação for grande demais para a API, o caminho antigo continua valendo (empacotar e colar):
+     - Empacote num arquivo só:
+       `npx -y deno@latest bundle --config supabase/functions/deno.json --external 'npm:*' --external 'jsr:*' -o $S/<nome>.bundle.js supabase/functions/<nome>/index.ts`
+     - Opcional, para caber melhor: `npx -y esbuild@0.25.5 $S/<nome>.bundle.js --minify --line-limit=400 --format=esm --outfile=$S/<nome>.min.js`
+     - Publique com os arquivos `index.ts` (o pacote) e `deno.json` = `{"nodeModulesDir":"none","compilerOptions":{"strict":true}}`, com `import_map_path: deno.json`.
+- **Atenção:** em 12/11/2026 a auditoria mostrou `sync` **em dia** (publicada em 08/11, última mudança local em 26/09) e `ad-accounts` **um commit atrás** (falta a ação `refresh_assets` do Criador de Anúncios, 42.1). `mcp` estava **atrás** (publicada em 11/11 00:11, antes do responsável obrigatório e das subtarefas).
 
 ## 6. Documentação e relatório (a cada fase)
 1. **Documento da fase** em `docs/etapa-XX-.../`, seguindo o formato das anteriores:
