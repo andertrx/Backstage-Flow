@@ -7,7 +7,7 @@ import {
   EVIDENCE_LABELS,
   eventLabel,
 } from "@backstage/shared";
-import { Code2, ListChecks, MessageCircle, MousePointerClick, Pencil, Plus, Radar } from "lucide-react";
+import { Code2, ListChecks, MessageCircle, MousePointerClick, Pencil, Plus, Radar, Trash2, Undo2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useMemo, useState } from "react";
 import { Link } from "react-router";
@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
+import { Modal } from "@/components/ui/modal.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useActiveClients } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
@@ -44,6 +45,8 @@ import {
   useRecentTouchpoints,
   useTrackingContainers,
   useTrackingOverview,
+  useExcludeContainer,
+  useRestoreContainer,
 } from "./api.ts";
 import { AttributionSection } from "./AttributionSection.tsx";
 import { ConfigSection } from "@/components/ui/section.tsx";
@@ -125,14 +128,20 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
   const quality = useTrackingQuality(range.from, range.to, hasContainers);
 
   const [editing, setEditing] = useState<TrackingContainer | "new" | null>(null);
+  const [excluding, setExcluding] = useState<TrackingContainer | null>(null);
   const [newSiteClient, setNewSiteClient] = useState<string | null>(null);
   const [installing, setInstalling] = useState<TrackingContainer | null>(null);
   const [rulesFor, setRulesFor] = useState<TrackingContainer | null>(null);
 
   const visible = containers.filter((c) => !clientId || c.client_id === clientId);
+  /** T5.35: site excluído sai das listas e dos totais (o histórico fica guardado). O WhatsApp do cliente continua valendo. */
+  const ativos = visible.filter((c) => !c.excluded_at);
+  const excluidos = visible.filter((c) => c.excluded_at);
   /** Só os sites de verdade: o container técnico do WhatsApp sem site não aparece como site. */
-  const visibleSites = visible.filter((c) => c.kind !== "whatsapp");
-  const visibleIds = new Set(visible.map((c) => c.id));
+  const visibleSites = ativos.filter((c) => c.kind !== "whatsapp");
+  const visibleIds = new Set(ativos.map((c) => c.id));
+  /** O WhatsApp é do cliente, não do site: o site excluído não esconde a conversa. */
+  const waIds = new Set(visible.map((c) => c.id));
   const byId = new Map(containers.map((c) => [c.id, c]));
   const stats = new Map((overview.data ?? []).map((r) => [r.container_id, r]));
   const total = sumOverview(visibleSites.map((c) => stats.get(c.id)).filter((r): r is OverviewRow => !!r));
@@ -240,7 +249,7 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
                   {!visible.some((c) => c.kind !== "whatsapp" || waConnOf(c.id)) && <p className="text-sm text-slate-500">Nenhum site nem WhatsApp ligado ainda. Use a lista acima ("Adicionar site" ou "Ligar WhatsApp").</p>}
                   {(() => { const ids = [...new Set(visible.map((c) => c.client_id))]; return ids.map((cid) => {
                     const mine = visible.filter((c) => c.client_id === cid);
-                    const mineSites = mine.filter((c) => c.kind !== "whatsapp");
+                    const mineSites = mine.filter((c) => c.kind !== "whatsapp" && !c.excluded_at);
                     if (mineSites.length === 0 && !mine.some((c) => waConnOf(c.id))) return null;
                     return (
                       <details key={cid} open={ids.length === 1 || Boolean(clientId) || undefined} className="group space-y-2 rounded-xl ring-1 ring-slate-200 p-3" data-testid="cliente-detalhe">
@@ -263,6 +272,7 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
                                 capi={capiOf(destOf(c.id))}
                                 onMeta={() => setMetaFor(c)}
                                 onRules={() => setRulesFor(c)}
+                                onExclude={() => setExcluding(c)}
                               />
                             ))}
                           </ul>
@@ -276,6 +286,12 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
               <ConfigSection id="cfg-link" title="Ferramentas" description="Conferir como um link de anúncio seria entendido pelo tracking. Nada é gravado.">
                 <LinkTester />
               </ConfigSection>
+              {canManage && (
+                <ExcludedSitesCard
+                  sites={excluidos.filter((c) => c.kind !== "whatsapp")}
+                  clientName={(id) => clients.find((c) => c.id === id)?.name ?? "—"}
+                />
+              )}
             </div>
           )}
 
@@ -362,7 +378,7 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
           <Card className="space-y-2 p-4" data-testid="wa-click-channels">
             <p className="text-sm font-semibold text-slate-900">Cliques no WhatsApp <span className="font-normal text-slate-500">(últimos 30 dias)</span></p>
             {(() => {
-              const mine = (contactClicks.data ?? []).filter((c) => visibleIds.has(c.container_id));
+              const mine = (contactClicks.data ?? []).filter((c) => waIds.has(c.container_id));
               const numero = mine.filter((c) => c.canal === "whatsapp").length;
               const grupo = mine.filter((c) => c.canal === "whatsapp_grupo").length;
               return (
@@ -382,9 +398,9 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
             })()}
           </Card>
           <WhatsAppSection
-            clicks={(waClicks.data ?? []).filter((c) => visibleIds.has(c.container_id))}
-            conversations={(waConversations.data ?? []).filter((c) => visibleIds.has(c.container_id))}
-            hasApi={(waConnections.data ?? []).some((w) => visibleIds.has(w.container_id)) || (waConversations.data ?? []).length > 0}
+            clicks={(waClicks.data ?? []).filter((c) => waIds.has(c.container_id))}
+            conversations={(waConversations.data ?? []).filter((c) => waIds.has(c.container_id))}
+            hasApi={(waConnections.data ?? []).some((w) => waIds.has(w.container_id)) || (waConversations.data ?? []).length > 0}
             siteName={(id) => byId.get(id)?.name ?? "—"}
             sales={waConvSales.data ?? []}
           />
@@ -428,6 +444,7 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
           }}
         />
       )}
+      {excluding && <ExcludeSiteModal container={excluding} onClose={() => setExcluding(null)} />}
       {installing && (
         <InstallModalLoader id={installing.id} containers={containers} destinations={destinations.data ?? []} onClose={() => setInstalling(null)} />
       )}
@@ -454,6 +471,10 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
 /**
  * T5.26 — "Por cliente": cada cliente pode ter só o site, só o WhatsApp ou os dois. Num lugar só: adicionar o site
  * (opcional) e ligar o WhatsApp (opcional, sem precisar de site). O WhatsApp sem site usa um container técnico escondido.
+ *
+ * T5.35: as duas coisas ficam em colunas separadas (site de um lado, WhatsApp do outro) e o WhatsApp se divide por tipo:
+ * "servidor próprio" (API não oficial) e "API oficial" são coisas diferentes — chip, chave e problema diferentes — e o
+ * mesmo cliente pode ter as duas.
  */
 function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onWhatsApp, onWhatsAppApi }: {
   clients: { id: string; name: string }[];
@@ -472,13 +493,39 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
   const [avisos, setAvisos] = useState<Record<string, { tone: "success" | "error"; text: string } | null>>({});
   const q = busca.trim().toLowerCase();
   const rows = clients.filter((c) => !q || c.name.toLowerCase().includes(q));
-  async function ligarWhatsApp(clientId: string, oficial = false) {
-    const abrir = oficial ? onWhatsAppApi : onWhatsApp;
-    setErro(null);
+
+  /** As conexões do cliente, separadas por tipo: servidor próprio (não oficial) e API oficial. */
+  function conexoesDe(clientId: string) {
     const mine = containers.filter((c) => c.client_id === clientId);
-    const comConexao = mine.find((c) => connectionOf(c.id));
-    const alvo = comConexao ?? mine.find((c) => c.kind !== "whatsapp") ?? mine[0];
+    const porModo = (servidor: boolean) => {
+      const container = mine.find((c) => {
+        const cn = connectionOf(c.id);
+        return cn ? (servidor ? cn.mode === "nao_oficial" : cn.mode !== "nao_oficial") : false;
+      });
+      return { container, connection: container ? connectionOf(container.id) : undefined };
+    };
+    return { mine, sites: mine.filter((c) => c.kind !== "whatsapp" && !c.excluded_at), servidor: porModo(true), oficial: porModo(false) };
+  }
+
+  /**
+   * Onde cada tipo de WhatsApp entra:
+   *  - servidor próprio: no container técnico do cliente (kind 'whatsapp'), para não ocupar o site;
+   *  - API oficial: no site (é lá que o clique do botão do WhatsApp do site acontece).
+   * Se já existe conexão desse tipo, ela manda: o que já está ligado não se move.
+   */
+  async function ligarWhatsApp(clientId: string, tipo: "servidor" | "oficial") {
+    const abrir = tipo === "servidor" ? onWhatsApp : onWhatsAppApi;
+    setErro(null);
+    const { mine, sites } = conexoesDe(clientId);
+    const doTipo = mine.find((c) => {
+      const cn = connectionOf(c.id);
+      return cn ? (tipo === "servidor" ? cn.mode === "nao_oficial" : cn.mode !== "nao_oficial") : false;
+    });
+    if (doTipo) { abrir(doTipo); return; }
+    const alvo = tipo === "servidor" ? mine.find((c) => c.kind === "whatsapp") : sites[0];
     if (alvo) { abrir(alvo); return; }
+    const livre = mine.find((c) => !connectionOf(c.id));
+    if (livre && tipo === "oficial") { abrir(livre); return; }
     setBusy(clientId);
     try {
       const id = await semSite.mutateAsync(clientId);
@@ -487,42 +534,64 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
       if (c) abrir(c);
     } catch (e) { setErro(errorMessage(e)); } finally { setBusy(null); }
   }
+
+  const semPrefixo = (label: string) => label.replace(/^Servidor:\s*/, "");
+
   return (
     <Card className="space-y-3 p-3 sm:p-4" data-testid="cli-site-whatsapp">
       {clients.length > 8 && <Input aria-label="Buscar cliente" placeholder="Buscar cliente" value={busca} onChange={(e) => setBusca(e.target.value)} />}
       {erro && <Alert tone="error">{erro}</Alert>}
       <ul className="max-h-[32rem] divide-y divide-slate-100 overflow-y-auto rounded-lg ring-1 ring-slate-200">
         {rows.map((cl) => {
-          const mine = containers.filter((c) => c.client_id === cl.id);
-          const sites = mine.filter((c) => c.kind !== "whatsapp");
-          const conn = mine.map((c) => connectionOf(c.id)).find(Boolean);
-          const st = waConnectionStatus(conn);
+          const { sites, servidor, oficial } = conexoesDe(cl.id);
+          const stServidor = waConnectionStatus(servidor.connection);
+          const stOficial = waConnectionStatus(oficial.connection);
           return (
-            <li key={cl.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 lg:grid lg:grid-cols-[minmax(9rem,1fr)_auto_auto]" data-testid="cli-site-whatsapp-row">
-              <span className="min-w-40 flex-1 text-sm font-medium text-slate-900">{cl.name}</span>
-              <span className="flex flex-wrap items-center gap-2 text-xs text-slate-600 lg:justify-end">
-                Site:{" "}
-                {sites.length ? <Badge tone="success"><span className="block max-w-[14rem] truncate">{sites.map((s) => s.allowed_domains[0] ?? s.name).join(", ")}</span></Badge> : <Badge>sem site</Badge>}
+            <li key={cl.id} className="grid gap-3 px-3 py-3 lg:grid-cols-[minmax(8rem,0.9fr)_minmax(11rem,1.1fr)_minmax(15rem,1.5fr)]" data-testid="cli-site-whatsapp-row">
+              <p className="text-sm font-medium text-slate-900">{cl.name}</p>
+
+              {/* Site: um site por linha, com o domínio e a situação */}
+              <div className="space-y-1.5" data-testid="cli-site-coluna">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Site</p>
+                {sites.length === 0 && <p className="text-xs text-slate-500">sem site</p>}
+                {sites.map((s) => (
+                  <div key={s.id} className="flex flex-wrap items-center gap-2">
+                    <Badge tone={s.status === "ativo" ? "success" : "neutral"}>
+                      <span className="block max-w-[11rem] truncate">{s.allowed_domains[0] ?? s.name}</span>
+                    </Badge>
+                    {s.allowed_domains.length > 1 && <span className="text-xs text-slate-500">+{s.allowed_domains.length - 1} domínio(s)</span>}
+                    {s.status !== "ativo" && <Badge>pausado</Badge>}
+                  </div>
+                ))}
                 <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => onAddSite(cl.id)} aria-label={`${sites.length ? "Adicionar outro site" : "Adicionar site"} de ${cl.name}`}>
                   <Plus className="size-3.5" aria-hidden /> {sites.length ? "Outro site" : "Adicionar site"}
                 </Button>
-              </span>
-              <span className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                WhatsApp: {conn ? <Badge tone={st.tone}>{st.label}</Badge> : <Badge>não ligado</Badge>}
-                <Button variant="secondary" className="px-2 py-1 text-xs" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id)} aria-label={`${conn ? "Configurar WhatsApp" : "Ligar WhatsApp"} de ${cl.name}`}>
-                  <MessageCircle className="size-3.5" aria-hidden /> {conn ? "Configurar" : "Ligar WhatsApp"}
-                </Button>
-                {!conn && (
-                  <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => void ligarWhatsApp(cl.id, true)} aria-label={`Ligar pela API oficial de ${cl.name}`}>
-                    API oficial
+              </div>
+
+              {/* WhatsApp: servidor próprio e API oficial, separados (um cliente pode ter os dois) */}
+              <div className="space-y-2" data-testid="cli-whatsapp-coluna">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">WhatsApp</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="w-24 shrink-0 text-xs font-medium text-slate-600">Servidor próprio</span>
+                  {servidor.connection ? <Badge tone={stServidor.tone}>{semPrefixo(stServidor.label)}</Badge> : <Badge>não ligado</Badge>}
+                  <Button variant="secondary" className="px-2 py-1 text-xs" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id, "servidor")} aria-label={`${servidor.connection ? "Configurar WhatsApp" : "Ligar WhatsApp"} de ${cl.name}`}>
+                    <MessageCircle className="size-3.5" aria-hidden /> {servidor.connection ? "Configurar" : "Ligar"}
                   </Button>
-                )}
-                {conn && conn.mode === "nao_oficial" && isAdmin && (
-                  <LimparDadosCliente connectionId={conn.id} compact onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
-                )}
-              </span>
+                  {servidor.connection?.mode === "nao_oficial" && isAdmin && (
+                    <LimparDadosCliente connectionId={servidor.connection.id} compact onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="w-24 shrink-0 text-xs font-medium text-slate-600">API oficial</span>
+                  {oficial.connection ? <Badge tone={stOficial.tone}>{stOficial.label}</Badge> : <Badge>não ligado</Badge>}
+                  <Button variant="secondary" className="px-2 py-1 text-xs" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id, "oficial")} aria-label={`${oficial.connection ? "Configurar API oficial" : "Ligar pela API oficial"} de ${cl.name}`}>
+                    <MessageCircle className="size-3.5" aria-hidden /> {oficial.connection ? "Configurar" : "Ligar"}
+                  </Button>
+                </div>
+              </div>
+
               {avisos[cl.id] && (
-                <div className="basis-full lg:col-span-3"><Alert tone={avisos[cl.id]!.tone}>{avisos[cl.id]!.text}</Alert></div>
+                <div className="basis-full"><Alert tone={avisos[cl.id]!.tone}>{avisos[cl.id]!.text}</Alert></div>
               )}
             </li>
           );
@@ -533,7 +602,12 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
   );
 }
 
-/** Conexões de WhatsApp dos sites (servidor próprio ou API oficial): o único lugar para ligar, conferir e configurar. */
+/**
+ * Conexões de WhatsApp dos sites (servidor próprio ou API oficial): o único lugar para ligar, conferir e configurar.
+ *
+ * T5.35: os dois tipos ficam em blocos separados. São coisas diferentes — chip, chave e problema diferentes — e um mesmo
+ * cliente pode ter as duas ao mesmo tempo (o servidor fica no container técnico, a API oficial fica no site).
+ */
 function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onApi }: {
   sites: TrackingContainer[];
   connectionOf: (containerId: string) => WhatsAppConnection | undefined;
@@ -541,67 +615,138 @@ function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onA
   onServer: (c: TrackingContainer) => void;
   onApi: (c: TrackingContainer) => void;
 }) {
+  const comServidor = sites.filter((c) => connectionOf(c.id)?.mode === "nao_oficial");
+  const comOficial = sites.filter((c) => { const cn = connectionOf(c.id); return cn && cn.mode !== "nao_oficial"; });
+  const semConexao = sites.filter((c) => !connectionOf(c.id));
+
+  const linha = (c: TrackingContainer, conn: WhatsAppConnection | undefined, tipo: "servidor" | "oficial" | "nenhum") => {
+    const status = waConnectionStatus(conn);
+    return (
+      <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 p-3" data-testid="wa-connection-row">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-slate-900">
+            {c.clients?.name ? <><span className="font-semibold">{c.clients.name}</span><span className="text-slate-400"> · </span></> : null}
+            {c.kind === "whatsapp" ? "Só WhatsApp (sem site)" : c.name}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <Badge tone={status.tone}>{tipo === "servidor" ? status.label.replace(/^Servidor:\s*/, "") : status.label}</Badge>
+            {conn?.mode === "nao_oficial" && (
+              <Badge tone={conn.store_messages && conn.store_ack_at ? "success" : "neutral"}>
+                {conn.store_messages && conn.store_ack_at ? "Guardando as conversas" : "Conversas não guardadas"}
+              </Badge>
+            )}
+            {conn?.mode === "nao_oficial" && conn.store_messages && conn.store_ack_at && (
+              <Badge tone={conn.ai_suggest ? "brand" : "neutral"}>{conn.ai_suggest ? "IA sugerindo vendas" : "IA desligada"}</Badge>
+            )}
+            {tipo !== "nenhum" && <span className="text-xs text-slate-500">{status.detail}</span>}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {tipo === "servidor" && (canManage || conn?.mode === "nao_oficial") && (
+            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onServer(c)} aria-label={`WhatsApp pelo servidor: ${c.name}`}>
+              <MessageCircle className="size-3.5" aria-hidden /> WhatsApp pelo servidor
+            </Button>
+          )}
+          {tipo === "oficial" && (canManage || conn) && (
+            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onApi(c)} aria-label={`WhatsApp API oficial: ${c.name}`}>
+              WhatsApp API oficial
+            </Button>
+          )}
+          {tipo === "nenhum" && canManage && (
+            <>
+              <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onServer(c)} aria-label={`WhatsApp pelo servidor: ${c.name}`}>
+                <MessageCircle className="size-3.5" aria-hidden /> WhatsApp pelo servidor
+              </Button>
+              <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onApi(c)} aria-label={`WhatsApp API oficial: ${c.name}`}>
+                WhatsApp API oficial
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <section aria-label="Conexões de WhatsApp dos sites" data-testid="wa-connections">
       <Card className="divide-y divide-slate-100">
         {sites.length === 0 ? (
           <p className="p-4 text-sm text-slate-500">Nenhum WhatsApp ligado ainda. Use "Por cliente", logo acima: dá para ligar só o WhatsApp, sem cadastrar site.</p>
-        ) : sites.map((c) => {
-          const conn = connectionOf(c.id);
-          const status = waConnectionStatus(conn);
-          return (
-            <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 p-4" data-testid="wa-connection-row">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-900">{c.clients?.name ? <><span className="font-semibold">{c.clients.name}</span><span className="text-slate-400"> · </span></> : null}{c.kind === "whatsapp" ? "Só WhatsApp (sem site)" : c.name}</p>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <Badge tone={status.tone}>{status.label}</Badge>
-                  {conn?.mode === "nao_oficial" && (
-                    <Badge tone={conn.store_messages && conn.store_ack_at ? "success" : "neutral"}>
-                      {conn.store_messages && conn.store_ack_at ? "Guardando as conversas" : "Conversas não guardadas"}
-                    </Badge>
-                  )}
-                  {conn?.mode === "nao_oficial" && conn.store_messages && conn.store_ack_at && (
-                    <Badge tone={conn.ai_suggest ? "brand" : "neutral"}>{conn.ai_suggest ? "IA sugerindo vendas" : "IA desligada"}</Badge>
-                  )}
-                  <span className="text-xs text-slate-500">{status.detail}</span>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {(canManage || conn?.mode === "nao_oficial") && (!conn || conn.mode === "nao_oficial") && (
-                  <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onServer(c)} aria-label={`WhatsApp pelo servidor: ${c.name}`}>
-                    <MessageCircle className="size-3.5" aria-hidden /> WhatsApp pelo servidor
-                  </Button>
-                )}
-                {(canManage || conn) && conn?.mode !== "nao_oficial" && (
-                  <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onApi(c)} aria-label={`WhatsApp API oficial: ${c.name}`}>
-                    WhatsApp API oficial
-                  </Button>
-                )}
+        ) : (
+          <>
+            <div className="p-4" data-testid="wa-bloco-servidor">
+              <p className="text-sm font-semibold text-slate-900">WhatsApp pelo servidor próprio <span className="font-normal text-slate-500">(API não oficial)</span></p>
+              <p className="mt-0.5 text-xs text-slate-500">Chip ligado ao CRM por um servidor próprio: as conversas chegam e dá para responder.</p>
+              <div className="mt-2 space-y-2">
+                {comServidor.map((c) => linha(c, connectionOf(c.id), "servidor"))}
+                {comServidor.length === 0 && <p className="text-sm text-slate-500">Nenhum servidor ligado.</p>}
               </div>
             </div>
-          );
-        })}
+            <div className="p-4" data-testid="wa-bloco-oficial">
+              <p className="text-sm font-semibold text-slate-900">WhatsApp pela API oficial <span className="font-normal text-slate-500">(Meta / Cloud API)</span></p>
+              <p className="mt-0.5 text-xs text-slate-500">Conta oficial do Meta: é o que manda as conversões ao Meta (API de Conversões) e liga o clique do botão do site.</p>
+              <div className="mt-2 space-y-2">
+                {comOficial.map((c) => linha(c, connectionOf(c.id), "oficial"))}
+                {comOficial.length === 0 && <p className="text-sm text-slate-500">Nenhuma conta oficial ligada.</p>}
+              </div>
+            </div>
+            {semConexao.length > 0 && (
+              <div className="p-4" data-testid="wa-bloco-sem-configurar">
+                <p className="text-sm font-semibold text-slate-900">Sem configurar</p>
+                <p className="mt-0.5 text-xs text-slate-500">Estes ainda não têm WhatsApp. Escolha por onde ligar: servidor próprio ou conta oficial.</p>
+                <div className="mt-2 space-y-2">
+                  {semConexao.map((c) => linha(c, undefined, "nenhum"))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </Card>
     </section>
   );
 }
 
-/** No Painel: só a situação de cada conexão (ligar e configurar fica em Configurações → WhatsApp). */
+/** No Painel: só a situação de cada conexão, separada por tipo (ligar e configurar fica em Configurações → WhatsApp). */
 function WhatsAppStatusStrip({ sites, connectionOf, clientId }: { sites: TrackingContainer[]; connectionOf: (containerId: string) => WhatsAppConnection | undefined; clientId: string | null }) {
+  const comServidor = sites.filter((c) => connectionOf(c.id)?.mode === "nao_oficial");
+  const comOficial = sites.filter((c) => { const cn = connectionOf(c.id); return cn && cn.mode !== "nao_oficial"; });
+  const semConexao = sites.filter((c) => !connectionOf(c.id));
+  const lista = (cs: TrackingContainer[], tipo: "servidor" | "oficial" | "nenhum") => (
+    <ul className="flex flex-wrap items-center gap-x-6 gap-y-2">
+      {cs.map((c) => {
+        const st = waConnectionStatus(connectionOf(c.id));
+        return (
+          <li key={c.id} className="flex flex-wrap items-center gap-2 text-sm" data-testid="wa-status-row">
+            <span className="font-medium text-slate-900">{c.clients?.name ? `${c.clients.name} · ` : ""}{c.kind === "whatsapp" ? "Só WhatsApp" : c.name}</span>
+            <Badge tone={st.tone}>{tipo === "servidor" ? st.label.replace(/^Servidor:\s*/, "") : st.label}</Badge>
+          </li>
+        );
+      })}
+    </ul>
+  );
   return (
     <Card className="flex flex-wrap items-center justify-between gap-3 p-4" data-testid="wa-status-strip">
-      <ul className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        {sites.length === 0 && <li className="text-sm text-slate-500">Nenhum site cadastrado.</li>}
-        {sites.map((c) => {
-          const st = waConnectionStatus(connectionOf(c.id));
-          return (
-            <li key={c.id} className="flex flex-wrap items-center gap-2 text-sm" data-testid="wa-status-row">
-              <span className="font-medium text-slate-900">{c.clients?.name ? `${c.clients.name} · ` : ""}{c.name}</span>
-              <Badge tone={st.tone}>{st.label}</Badge>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="space-y-2">
+        {sites.length === 0 && <p className="text-sm text-slate-500">Nenhum site cadastrado.</p>}
+        {comServidor.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Servidor próprio (API não oficial)</p>
+            {lista(comServidor, "servidor")}
+          </div>
+        )}
+        {comOficial.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">API oficial (Meta)</p>
+            {lista(comOficial, "oficial")}
+          </div>
+        )}
+        {semConexao.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Sem WhatsApp ligado</p>
+            {lista(semConexao, "nenhum")}
+          </div>
+        )}
+      </div>
       <Link to={`/tracking?secao=config${clientId ? `&cliente=${clientId}` : ""}#cfg-whatsapp`} className="text-sm font-medium text-brand-700 hover:underline" data-testid="wa-go-config">
         Ligar ou configurar o WhatsApp →
       </Link>
@@ -629,7 +774,7 @@ function Stat({ label, value, hint }: { label: string; value: number; hint?: str
   );
 }
 
-function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, destination, capi, onMeta, onRules }: {
+function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, destination, capi, onMeta, onRules, onExclude }: {
   container: TrackingContainer;
   stats?: OverviewRow;
   canManage: boolean;
@@ -639,6 +784,7 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
   capi: CapiOverview | undefined;
   onMeta: () => void;
   onRules: () => void;
+  onExclude: () => void;
 }) {
   const meta = capiStatus(destination, capi);
   return (
@@ -677,9 +823,81 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
               <Pencil className="size-3.5" aria-hidden /> Editar
             </Button>
           )}
+          {canManage && (
+            <Button variant="ghost" className="px-3 py-1.5 text-xs text-rose-700 hover:text-rose-800" onClick={onExclude} aria-label={`Excluir site: ${c.name}`}>
+              <Trash2 className="size-3.5" aria-hidden /> Excluir site
+            </Button>
+          )}
         </div>
       </Card>
     </li>
+  );
+}
+
+/**
+ * T5.35: confirmação de "Excluir site" — digitar o nome do site.
+ * Nada é apagado: o site sai da lista, o script passa a ser recusado e o histórico fica guardado (dá para restaurar).
+ */
+function ExcludeSiteModal({ container, onClose }: { container: TrackingContainer; onClose: () => void }) {
+  const exclude = useExcludeContainer();
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const matches = typed.trim().toLowerCase() === container.name.trim().toLowerCase();
+  return (
+    <Modal title="Excluir site" open onClose={onClose}>
+      <form className="space-y-4" onSubmit={(e) => {
+        e.preventDefault();
+        if (!matches) return;
+        setError(null);
+        exclude.mutate({ id: container.id, name: typed.trim() }, { onSuccess: onClose, onError: (err) => setError(errorMessage(err)) });
+      }}>
+        <p className="text-sm text-slate-600">
+          O site <strong>{container.name}</strong> sai da lista e dos totais, e o código dele deixa de enviar eventos.
+          O WhatsApp do cliente continua funcionando. <strong>Nada é apagado</strong> — o histórico fica guardado e dá para restaurar depois.
+        </p>
+        {error && <Alert tone="error">{error}</Alert>}
+        <Field label={`Para confirmar, digite o nome do site: ${container.name}`}>
+          {(fid) => <Input id={fid} autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} data-testid="container-exclude-name" />}
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" variant="danger" disabled={!matches} loading={exclude.isPending} data-testid="container-exclude-confirm">
+            <Trash2 className="size-4" aria-hidden /> Excluir site
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** T5.35: sites excluídos (ficam guardados, fora das listas). Só administrador e gestor veem e restauram. */
+function ExcludedSitesCard({ sites, clientName }: {
+  sites: TrackingContainer[];
+  clientName: (id: string) => string;
+}) {
+  const restore = useRestoreContainer();
+  const [error, setError] = useState<string | null>(null);
+  if (sites.length === 0) return null;
+  return (
+    <ConfigSection id="cfg-excluidos" title="Sites excluídos" description="Sites tirados da operação. O histórico continua guardado e dá para trazer de volta.">
+      {error && <Alert tone="error">{error}</Alert>}
+      <ul className="space-y-2" data-testid="excluded-sites">
+        {sites.map((c) => (
+          <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3" data-testid="excluded-site-row">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-900">{c.name}</p>
+              <p className="text-xs text-slate-500">{clientName(c.client_id)} · {c.allowed_domains.join(", ") || "sem domínio"}</p>
+            </div>
+            <Button variant="secondary" className="px-3 py-1.5 text-xs" loading={restore.isPending} onClick={() => {
+              setError(null);
+              restore.mutate(c.id, { onError: (err) => setError(errorMessage(err)) });
+            }} aria-label={`Restaurar site: ${c.name}`}>
+              <Undo2 className="size-3.5" aria-hidden /> Restaurar
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </ConfigSection>
   );
 }
 

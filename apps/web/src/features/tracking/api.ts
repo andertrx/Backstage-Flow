@@ -19,6 +19,8 @@ export interface TrackingContainer {
   rules_version: number | null;
   /** T5.26: 'whatsapp' = container técnico só para ligar o WhatsApp de um cliente sem site (nunca é mostrado como site). */
   kind?: "site" | "whatsapp";
+  /** T5.35: site excluído (some das listas; o histórico fica guardado e dá para restaurar). */
+  excluded_at?: string | null;
   clients: { name: string } | null;
 }
 
@@ -68,7 +70,7 @@ export function useTrackingContainers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_containers")
-        .select("id, client_id, name, public_key, allowed_domains, status, test_mode, consent_mode, retention_days, created_at, rules_version, kind, clients(name)")
+        .select("id, client_id, name, public_key, allowed_domains, status, test_mode, consent_mode, retention_days, created_at, rules_version, kind, excluded_at, clients(name)")
         .order("created_at", { ascending: true });
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os containers de tracking."));
       return data as unknown as TrackingContainer[];
@@ -166,6 +168,30 @@ export function useRecentEvents(enabled: boolean) {
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os eventos."));
       return data as EventRow[];
     },
+  });
+}
+
+/** T5.35: exclui um site (some da lista, o script para, o histórico fica). O banco exige digitar o nome do site. */
+export function useExcludeContainer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase.rpc("tracking_container_exclude", { p_container: id, p_confirmar: name });
+      if (error) throw new FriendlyError(error.code === "22023" ? error.message : friendlyDbError(error, "Não conseguimos excluir o site."));
+    },
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: KEY }); },
+  });
+}
+
+/** T5.35: devolve um site excluído para a lista (e reativa o script). */
+export function useRestoreContainer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("tracking_container_restore", { p_container: id });
+      if (error) throw new FriendlyError(error.code === "22023" ? error.message : friendlyDbError(error, "Não conseguimos restaurar o site."));
+    },
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: KEY }); },
   });
 }
 

@@ -88,7 +88,7 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
   }
 
   return (
-    <Modal title={`WhatsApp pelo servidor — ${container.name}`} open size="lg" onClose={onClose}>
+    <Modal title={`WhatsApp pelo servidor — ${container.kind === "whatsapp" ? "WhatsApp do cliente" : container.name}`} open size="lg" onClose={onClose}>
       <div className="space-y-5 text-sm text-slate-700" data-testid="wa-server">
         <p className="text-slate-600">
           Para o número de WhatsApp do cliente ligado ao seu <strong>servidor de conexão</strong> (API não oficial). Cada mensagem avisa o CRM, que conta a

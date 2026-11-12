@@ -1880,6 +1880,29 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       return res(200, [...db.whatsappClicks].sort((a, b) => b.clicked_at.localeCompare(a.clicked_at)).map((c) => ({ ...c, touch: c.touch ?? null })));
     }
     // WhatsApp pelo servidor não oficial (Tracking T5.3): conexão sem conta oficial, chave só uma vez, liga/desliga.
+    // T5.35: excluir um site (some da lista, o script para; nada é apagado) e restaurar.
+    if (url.includes("/rest/v1/rpc/tracking_container_exclude") || url.includes("/rest/v1/rpc/tracking_container_restore")) {
+      const p = parse();
+      const restaurar = url.includes("/rest/v1/rpc/tracking_container_restore");
+      if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: restaurar ? "Só administrador e gestor restauram um site." : "Só administrador e gestor excluem um site." });
+      const k = db.trackingContainers.find((t) => t.id === p.p_container);
+      if (!k) return res(404, { code: "P0002", message: "Site não encontrado." });
+      if (restaurar) {
+        if (!k.excluded_at) return res(400, { code: "22023", message: "Este site não está excluído." });
+        k.excluded_at = null;
+        k.excluded_by = null;
+        k.status = "ativo";
+      } else {
+        if (k.excluded_at) return res(400, { code: "22023", message: "Este site já está excluído." });
+        if (k.kind === "whatsapp") return res(400, { code: "22023", message: "Este é o WhatsApp do cliente, não um site. Ele não é excluído por aqui." });
+        if (String(p.p_confirmar ?? "").trim().toLowerCase() !== k.name.trim().toLowerCase()) return res(400, { code: "22023", message: "O nome digitado não confere com o nome do site." });
+        k.excluded_at = new Date().toISOString();
+        k.excluded_by = "mock";
+        k.status = "pausado";
+      }
+      db.rpcCalls.push({ fn: url.includes("restore") ? "tracking_container_restore" : "tracking_container_exclude", id: k.id });
+      return res(200, null);
+    }
     if (url.includes("/rest/v1/rpc/wa_sem_site_container")) {
       const p = parse();
       if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor ligam o WhatsApp de um cliente." });
