@@ -23,11 +23,12 @@ begin
     execute format('alter table public.wa_avisos_config drop constraint %I', r.conname);
   end loop;
 end $$;
-alter table public.wa_avisos_config
-  add constraint wa_avisos_config_sem_gasto_minutos_check check (sem_gasto_minutos between 360 and 720);
+-- o valor guardado hoje (60 min) não passa na regra nova: sobe para 6 h ANTES de criar a trava
+update public.wa_avisos_config set sem_gasto_minutos = 360 where sem_gasto_minutos < 360;
 alter table public.wa_avisos_config alter column sem_gasto_minutos set default 360;
 comment on column public.wa_avisos_config.sem_gasto_minutos is 'Quanto tempo sem o gasto subir para avisar (6 a 12 horas). A leitura real é a da sincronização, cerca de 1 h. Cliente com período próprio usa o dele.';
-update public.wa_avisos_config set sem_gasto_minutos = 360 where sem_gasto_minutos < 360;
+alter table public.wa_avisos_config
+  add constraint wa_avisos_config_sem_gasto_minutos_check check (sem_gasto_minutos between 360 and 720);
 
 -- 2) O período por cliente
 create table public.wa_sem_gasto_minutos_clientes (
