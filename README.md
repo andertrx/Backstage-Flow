@@ -161,6 +161,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T5.32 — Subtarefas, etapa 6 de 6 (MCP, repetição, fechamento)](docs/etapa-52-subtarefas/T5.32-ETAPA-6-MCP-REPETICAO.md) ✅ 11/11
   - [T5.33 — Responsável obrigatório em toda tarefa (e subtarefa)](docs/etapa-52-subtarefas/T5.33-RESPONSAVEL-OBRIGATORIO.md) ✅ 11/11
   - [T5.34 — Aviso "cliente sem gastar": 6 h no mínimo e período por conta](docs/etapa-43-organizacao/T5.34-SEM-GASTO-POR-CLIENTE.md) ✅ 12/11
+  - [T5.35 — Plano: organizar o Tracking (por cliente, por tipo de conexão, excluir site)](docs/etapa-34-tracking/T5.35-PLANO-ORGANIZAR-TRACKING.md) 📋 plano (12/11)
   - [T5.23 — Período do histórico e limpeza dos dados de conversa do cliente](docs/etapa-34-tracking/T5.23-PERIODO-DO-HISTORICO-E-LIMPEZA.md) ✅ 10/11
   - [45.1 — avisos no WhatsApp (motor: fila, agrupamento, silêncio; sem tela ainda)](docs/etapa-43-organizacao/45.1-AVISOS-NO-WHATSAPP.md) ✅ 07/11 (testado só no banco; sem envio real)
   - [45.2 — aviso "cliente sem gastar" no WhatsApp (motor, sem tela; precisão ~1 h)](docs/etapa-43-organizacao/45.2-AVISO-CLIENTE-SEM-GASTAR.md) ✅ 07/11
