@@ -1579,6 +1579,50 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       return res(200, db.clients.filter((c) => contactClientIds().includes(c.id)).sort((a, b) => a.name.localeCompare(b.name))
         .map((c) => (contactSeed(c.id), { id: c.id, name: c.name, has_site: db.trackingContainers.some((t) => t.client_id === c.id) })));
     }
+    if (url.includes("/rest/v1/rpc/contact_rastreio")) {
+      const p = parse();
+      const k = db.contacts.find((c) => c.id === p.p_contact);
+      if (!k || !contactClientIds().includes(k.client_id)) return res(200, []);
+      const click = k.wa_click_id ? db.whatsappClicks.find((w) => w.id === k.wa_click_id) : null;
+      const touch = click?.touch ?? null;
+      const container = db.trackingContainers.find((t) => t.id === k.container_id);
+      const conn = db.whatsappConnections.find((w) => w.container_id === k.container_id);
+      const conversa = db.whatsappConversations.find((w) => w.client_id === k.client_id);
+      return res(200, [{
+        origem: k.origin,
+        metodo: k.origin === "site" ? "Clique no site"
+          : k.origin === "whatsapp" ? (conn?.mode === "nao_oficial" ? "WhatsApp (servidor próprio)" : "WhatsApp (API oficial)")
+          : k.origin === "manual" ? "Cadastro manual" : "Sistema de vendas",
+        ref_code: k.ref_code,
+        criado_em: k.created_at,
+        site: container?.name ?? null,
+        canal: touch?.channel ?? k.channel ?? null,
+        evidence: touch?.evidence ?? "desconhecida",
+        motivo: touch?.reason ?? null,
+        pago: touch?.paid ?? null,
+        url_origem: touch?.landing_url ?? null,
+        referrer: touch?.referrer_host ?? null,
+        utm_source: touch?.utm_source ?? null,
+        utm_medium: touch?.utm_medium ?? null,
+        utm_campaign: touch?.utm_campaign ?? null,
+        utm_content: touch?.utm_content ?? null,
+        fbclid: touch?.fbclid ?? null,
+        gclid: touch?.gclid ?? null,
+        ad_campaign_id: touch?.ad_campaign_id ?? null,
+        ad_adset_id: touch?.ad_adset_id ?? null,
+        ad_ad_id: touch?.ad_ad_id ?? null,
+        campanha: touch?.utm_campaign ?? k.campaign ?? null,
+        conjunto: null,
+        plataforma: touch?.channel === "meta" ? "Meta Ads" : null,
+        ctwa_clid: conversa?.ctwa_clid ?? null,
+        waba_id: conn?.waba_id ?? null,
+        numero: conn?.display_phone ?? conn?.phone_number_id ?? null,
+        meta_enviado: k.meta_sent ?? [],
+        capi_eventos: null,
+        capi_quando: null,
+        capi_erro: null,
+      }]);
+    }
     if (url.includes("/rest/v1/rpc/contacts_list")) {
       const p = parse();
       if (!contactClientIds().includes(p.p_client)) return res(200, []);

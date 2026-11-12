@@ -23,6 +23,21 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
   return data as Profile | null;
 }
 
+/**
+ * A mesma busca do perfil não sai duas vezes: em desenvolvimento o React repete o efeito
+ * (StrictMode) e a tela pedia o perfil duas vezes. A promessa em andamento é reaproveitada.
+ */
+let emAndamento: { userId: string; promise: Promise<Profile | null> } | null = null;
+function fetchProfileUmaVez(userId: string): Promise<Profile | null> {
+  if (emAndamento?.userId === userId) return emAndamento.promise;
+  const promise = fetchProfile(userId);
+  emAndamento = { userId, promise };
+  promise.finally(() => {
+    if (emAndamento?.promise === promise) emAndamento = null;
+  });
+  return promise;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
@@ -32,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const apply = async (next: Session | null) => {
-      const nextProfile = next ? await fetchProfile(next.user.id) : null;
+      const nextProfile = next ? await fetchProfileUmaVez(next.user.id) : null;
       if (cancelled) return;
       setSession(next);
       setProfile(nextProfile);

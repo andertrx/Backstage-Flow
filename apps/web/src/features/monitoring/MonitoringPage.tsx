@@ -37,17 +37,21 @@ const OLD_LEVELS: Record<string, CompareLevel> = { account: "account", campaign:
 export function MonitoringPage() {
   const [params, updateParams] = useSearchParamsUpdater();
   const oldTab = params.get("aba") ?? "";
+  // O nível vem do endereço TAL COMO ESTÁ no render, e não de dentro do updateParams: em desenvolvimento
+  // o React repete o efeito, e na segunda vez o endereço já foi trocado (aba=alertas) e o nível antigo
+  // se perderia — a aba "Comparativos" abriria sempre em Campanhas.
+  const oldLevelParam = params.get("nivel") ?? "";
   useEffect(() => {
     if (!(oldTab in OLD_TABS)) return;
     updateParams((latest) => {
-      const oldLevel = OLD_LEVELS[latest.get("nivel") ?? ""];
+      const oldLevel = OLD_LEVELS[oldLevelParam];
       const level = oldTab === "comparativos" && oldLevel ? oldLevel : OLD_TABS[oldTab];
       latest.set("aba", "alertas");
       latest.set("nivel", LEVEL_PARAM[level]);
       if (oldTab === "campanhas") latest.delete("campanha");
       return latest;
     });
-  }, [oldTab, updateParams]);
+  }, [oldTab, oldLevelParam, updateParams]);
   const tab: Tab = TABS.some((t) => t.value === params.get("aba")) ? (params.get("aba") as Tab) : "visao-geral";
   const setTab = (value: Tab) =>
     updateParams((latest) => {

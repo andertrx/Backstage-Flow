@@ -53,6 +53,40 @@ export interface ContactHistoryRow {
   meta_note: string | null;
 }
 
+/** T5.35: ficha de rastreio — de onde veio o contato (só leitura do que o tracking já gravou). */
+export interface ContactRastreio {
+  origem: string;
+  metodo: string;
+  ref_code: string | null;
+  criado_em: string;
+  site: string | null;
+  canal: string | null;
+  evidence: string | null;
+  motivo: string | null;
+  pago: boolean | null;
+  url_origem: string | null;
+  referrer: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_content: string | null;
+  fbclid: string | null;
+  gclid: string | null;
+  ad_campaign_id: string | null;
+  ad_adset_id: string | null;
+  ad_ad_id: string | null;
+  campanha: string | null;
+  conjunto: string | null;
+  plataforma: string | null;
+  ctwa_clid: string | null;
+  waba_id: string | null;
+  numero: string | null;
+  meta_enviado: string[] | null;
+  capi_eventos: number | null;
+  capi_quando: string | null;
+  capi_erro: string | null;
+}
+
 const KEY = ["contacts"] as const;
 // Regras do banco que já vêm em português (código 22023 = dado inválido; P0002 = não encontrado; 23505 = repetido).
 const ruleError = (error: { code?: string; message: string }, fallback: string) =>
@@ -102,6 +136,20 @@ export async function findContacts(clientId: string, by: { code?: string; phHash
   const { data, error } = await supabase.rpc("contacts_list", { p_client: clientId, p_code: by.code ?? null, p_ph_hash: by.phHash ?? null });
   if (error) throw ruleError(error, "Não conseguimos buscar o contato.");
   return (data ?? []) as ContactRow[];
+}
+
+/** T5.35: ficha de rastreio do contato (de onde veio). Traz o que o tracker.ads mostra, com os dados do CRM. */
+export function useContactRastreio(contactId: number | null) {
+  return useQuery({
+    queryKey: [...KEY, "rastreio", contactId],
+    enabled: contactId != null,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("contact_rastreio", { p_contact: contactId! });
+      if (error) throw ruleError(error, "Não conseguimos carregar o rastreio do contato.");
+      const row = (data ?? [])[0] as ContactRastreio | undefined;
+      return row ?? null;
+    },
+  });
 }
 
 export function useContactHistory(contactId: number | null) {

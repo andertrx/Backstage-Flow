@@ -1,4 +1,4 @@
-import { can, CHANNEL_LABELS, type Channel, hashUserData, normalizeLeadPhone } from "@backstage/shared";
+import { can, CHANNEL_LABELS, type Channel, EVIDENCE_LABELS, type Evidence, hashUserData, normalizeLeadPhone } from "@backstage/shared";
 import { Archive, ClipboardList, MessageSquareText, Plus, Search, Settings2, Store } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -21,6 +21,7 @@ import {
   useArchiveContact,
   useContactClients,
   useContactHistory,
+  useContactRastreio,
   useContacts,
   useContactSetup,
   useCreateContact,
@@ -267,6 +268,89 @@ export function ContactsPage({ fixedClientId }: { fixedClientId?: string } = {})
   );
 }
 
+/**
+ * T5.35: ficha de rastreio do contato — de onde ele veio (o que o tracker.ads mostra no "Rastreio do contato").
+ * Tudo aqui já estava gravado pelo tracking: a tela só reúne. Nenhum dado pessoal (e-mail e telefone nunca saem em claro).
+ */
+function RastreioContato({ contactId }: { contactId: number }) {
+  const { data, isLoading, error } = useContactRastreio(contactId);
+  if (isLoading) return <div className="h-16 animate-pulse rounded-lg bg-slate-100" aria-label="Carregando o rastreio" />;
+  if (error) return <Alert tone="error">{errorMessage(error)}</Alert>;
+  if (!data) return null;
+
+  const canal = data.canal ? CHANNEL_LABELS[data.canal as Channel] ?? data.canal : "Origem não identificada";
+  const confianca = data.evidence ? EVIDENCE_LABELS[data.evidence as Evidence] ?? data.evidence : "—";
+  const pago = data.pago === true ? "Pago" : data.pago === false ? "Orgânico" : "Não dá para saber";
+  const utms = [
+    ["utm_source", data.utm_source], ["utm_medium", data.utm_medium],
+    ["utm_campaign", data.utm_campaign], ["utm_content", data.utm_content],
+    ["fbclid", data.fbclid], ["gclid", data.gclid],
+  ].filter(([, v]) => v) as [string, string][];
+
+  const Item = ({ rotulo, valor }: { rotulo: string; valor: string | null | undefined }) => (
+    <div>
+      <dt className="text-[11px] uppercase tracking-wide text-slate-400">{rotulo}</dt>
+      <dd className="break-words text-sm text-slate-900">{valor || "—"}</dd>
+    </div>
+  );
+
+  const bloco = (titulo: string, children: React.ReactNode) => (
+    <div className="space-y-1.5 rounded-lg bg-white p-3 ring-1 ring-slate-200">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{titulo}</p>
+      <dl className="grid grid-cols-2 gap-2 text-xs text-slate-500">{children}</dl>
+    </div>
+  );
+
+  return (
+    <section className="space-y-2" data-testid="contact-rastreio">
+      <p className="text-sm font-semibold text-slate-900">Rastreio do contato</p>
+
+      {bloco("Resumo", <>
+        <Item rotulo="Canal de captura" valor={canal} />
+        <Item rotulo="Método" valor={data.metodo} />
+        <Item rotulo="Plataforma do anúncio" valor={data.plataforma} />
+        <Item rotulo="Confiança" valor={confianca} />
+        <Item rotulo="Origem do anúncio" valor={pago} />
+        <Item rotulo="Site" valor={data.site} />
+      </>)}
+
+      {(data.url_origem || data.ad_ad_id || data.ad_campaign_id || data.ad_adset_id) && bloco("Dados do anúncio (capturados no clique)", <>
+        {data.url_origem && <div className="col-span-2"><dt className="text-[11px] uppercase tracking-wide text-slate-400">URL de origem</dt><dd className="break-all text-sm text-slate-900">{data.url_origem}</dd></div>}
+        <Item rotulo="ID do anúncio" valor={data.ad_ad_id} />
+        <Item rotulo="ID do conjunto" valor={data.ad_adset_id} />
+        <Item rotulo="ID da campanha" valor={data.ad_campaign_id} />
+      </>)}
+
+      {(data.campanha || data.conjunto || data.plataforma) && bloco("Campanha e conjunto", <>
+        <Item rotulo="Campanha" valor={data.campanha} />
+        <Item rotulo="Conjunto" valor={data.conjunto} />
+        <Item rotulo="Plataforma" valor={data.plataforma} />
+        <Item rotulo="Origem do clique" valor={data.referrer} />
+      </>)}
+
+      {(data.ctwa_clid || data.waba_id || data.numero) && bloco("Clique to WhatsApp (técnico)", <>
+        <Item rotulo="ctwa_clid" valor={data.ctwa_clid} />
+        <Item rotulo="waba_id" valor={data.waba_id} />
+        <Item rotulo="Número" valor={data.numero} />
+        <Item rotulo="Código da mensagem" valor={data.ref_code} />
+      </>)}
+
+      {(data.capi_eventos != null || (data.meta_enviado?.length ?? 0) > 0) && bloco("Conversões (API de Conversões do Meta)", <>
+        <Item rotulo="Eventos enviados" valor={data.capi_eventos != null ? String(data.capi_eventos) : null} />
+        <Item rotulo="Último envio" valor={data.capi_quando ? formatDateTime(data.capi_quando) : null} />
+        <Item rotulo="Já foi ao Meta" valor={(data.meta_enviado?.length ?? 0) > 0 ? data.meta_enviado!.join(", ") : null} />
+        <Item rotulo="Erro" valor={data.capi_erro} />
+      </>)}
+
+      {utms.length > 0 && bloco("Parâmetros capturados na visita", utms.map(([k, v]) => (
+        <Item key={k} rotulo={k} valor={v} />
+      )))}
+
+      {data.motivo && <p className="text-xs text-slate-500">Como a origem foi identificada: {data.motivo}.</p>}
+    </section>
+  );
+}
+
 function ContactModal({ contact: c, profiles, stages, canMark, canArchive, stageOf, profileOf, onClose }: {
   contact: ContactRow;
   profiles: ContactProfile[];
@@ -305,6 +389,8 @@ function ContactModal({ contact: c, profiles, stages, canMark, canArchive, stage
           <div><dt>Contato guardado</dt><dd className="text-sm text-slate-900">{[c.has_phone && "telefone", c.has_email && "e-mail"].filter(Boolean).join(" e ") ? `${[c.has_phone && "telefone", c.has_email && "e-mail"].filter(Boolean).join(" e ")} (cifrado)` : "Só o código da mensagem"}</dd></div>
           <div><dt>Desde</dt><dd className="text-sm text-slate-900">{formatDateTime(c.created_at)}</dd></div>
         </dl>
+
+        <RastreioContato contactId={c.id} />
 
         <section className="space-y-2">
           <h3 className="font-semibold text-slate-900">Perfil</h3>
