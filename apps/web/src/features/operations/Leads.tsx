@@ -322,7 +322,7 @@ export function LeadDrawer({ id, ctx, onClose, focusRelease }: { id: string; ctx
     if (!l) return;
     setError(null);
     if (body.trim().length < 2) return setError("Escreva o que aconteceu.");
-    try { await note.mutateAsync({ leadId: l.id, kind, body, happenedAt: when }); setBody(""); } catch (err) { setError(errorMessage(err)); }
+    try { await note.mutateAsync({ leadId: l.id, kind, body, happenedAt: when }); setBody((atual) => (atual === body ? "" : atual)); } catch (err) { setError(errorMessage(err)); }
   }
   async function toggleArchive() {
     if (!l) return;

@@ -30,11 +30,16 @@ async function newMeeting(page, fields, people = []) {
 
 async function addItem(drawer, kind, text, { owner, sector, due } = {}) {
   const form = drawer.getByTestId("ops-meeting-item-form");
+  const texto = form.getByLabel("Texto do item");
+  // Depois de registrar, o formulário é limpo. Espera esse reset antes de digitar o
+  // próximo item: se o texto for escrito antes da limpeza, o React apaga o que
+  // o teste acabou de digitar e o item nunca é registrado.
+  for (let i = 0; i < 100 && (await texto.inputValue()) !== ""; i++) await new Promise((r) => setTimeout(r, 50));
   await form.getByLabel("Tipo do item").selectOption({ label: kind });
   await form.getByLabel("Responsável do item").selectOption(owner ? { label: owner } : { value: "" });
   if (sector) await form.getByLabel("Setor do item").selectOption({ label: sector });
   if (due) await form.getByLabel("Prazo do item").fill(due);
-  await form.getByLabel("Texto do item").fill(text);
+  await texto.fill(text);
   await form.getByRole("button", { name: "Registrar" }).click();
   await drawer.getByText(text, { exact: true }).waitFor();
 }

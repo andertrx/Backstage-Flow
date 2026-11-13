@@ -172,7 +172,8 @@ function ContactsCard({ detail, ctx }: { detail: OpsClientDetail; ctx: TasksCont
     if (body.trim().length < 3) return setError("Escreva o que aconteceu.");
     try {
       await add.mutateAsync({ clientId: detail.client.id, kind, body, when });
-      setBody("");
+      // Só limpa se o usuário não tiver escrito outra coisa enquanto o envio não voltava.
+      setBody((atual) => (atual === body ? "" : atual));
       setWhen(localNow());
     } catch (err) { setError(errorMessage(err)); }
   }

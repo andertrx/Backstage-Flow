@@ -295,7 +295,10 @@ function ItemForm({ d, ctx }: { d: OpsMeetingDetail; ctx: TasksContext }) {
     if (body.trim().length < 2) return setError("Escreva o item.");
     try {
       await add.mutateAsync({ meetingId: d.meeting.id, kind, body, ownerId: owner, sectorId: sector, dueDate: withTask ? due : "" });
-      setBody(""); setDue("");
+      // Limpa o campo — mas só se o usuário não tiver escrito outra coisa enquanto o
+      // registro não voltava (senão a limpeza apaga o que ele acabou de digitar).
+      setBody((atual) => (atual === body ? "" : atual));
+      setDue((atual) => (atual === due ? "" : atual));
     } catch (err) { setError(errorMessage(err)); }
   }
   return (

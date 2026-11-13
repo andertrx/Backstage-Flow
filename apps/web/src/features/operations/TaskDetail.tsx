@@ -55,7 +55,8 @@ function Comments({ detail, directory, me }: { detail: OpsTaskDetail; directory:
     const still = mentions.filter((m) => body.includes(`@${m.name}`)).map((m) => m.id);
     try {
       await add.mutateAsync({ taskId: detail.task.id, body, mentions: still });
-      setBody("");
+      // Só limpa se o usuário não tiver escrito outra coisa enquanto o envio não voltava.
+      setBody((atual) => (atual === body ? "" : atual));
       setMentions([]);
     } catch (err) {
       setError(errorMessage(err));
