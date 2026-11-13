@@ -1,4 +1,5 @@
 import { normalizeDomain } from "@backstage/shared";
+import { formatDataCurta } from "@/lib/format.ts";
 
 /** Endereço público do script (fica no site do CRM, na Vercel). */
 export const TRACKING_SCRIPT_URL = "https://www.backstageflow.com.br/t.js";
@@ -377,8 +378,8 @@ export function siteReadiness(i: ReadinessInput): { items: ReadinessItem[]; summ
 
   const last = i.lastEventAt ? Date.parse(i.lastEventAt) : null;
   if (last == null) add("codigo", "Código instalado e eventos chegando", "fail", "Nenhum evento recebido ainda. Cole o código de instalação no site.");
-  else if (i.nowMs - last > DAY_MS) add("codigo", "Código instalado e eventos chegando", "warn", "O último evento chegou há mais de 24 horas. Confira se o código continua no site.");
-  else add("codigo", "Código instalado e eventos chegando", "ok", "Evento recebido nas últimas 24 horas.");
+  else if (i.nowMs - last > DAY_MS) add("codigo", "Código instalado e eventos chegando", "warn", `O último evento chegou em ${formatDataCurta(i.lastEventAt!)}, há mais de 24 horas. Confira se o código continua no site.`);
+  else add("codigo", "Código instalado e eventos chegando", "ok", `Evento recebido em ${formatDataCurta(i.lastEventAt!)}.`);
 
   if (!i.quality) add("origem", "Origem dos anúncios", "na", "Sem visitas no período escolhido.");
   else {
@@ -577,4 +578,35 @@ export function mergeJourneySummaries(rows: JourneySummaryInput[]): JourneySumma
     mais_rapido_dias: maisRapido.length ? Math.min(...maisRapido) : null,
     origem_paga: soma((r) => r.origem_paga),
   };
+}
+
+// -----------------------------------------------------------------------------
+// T5.35 (etapa 5): acabamento — o que está sem uso
+// -----------------------------------------------------------------------------
+
+/** Dias sem nenhum evento para o site (ou a conexão) ser considerado "sem uso". */
+export const USO_LIMITE_DIAS = 7;
+export type UsoLevel = "ok" | "atencao" | "nunca";
+
+/**
+ * Há quanto tempo o site (ou a conexão) não manda nada.
+ * "nunca" = nunca chegou evento; "atencao" = está parado há mais de 7 dias.
+ */
+export function usoRecente(lastAt: string | null, nowMs: number, limiteDias = USO_LIMITE_DIAS): { level: UsoLevel; dias: number | null } {
+  if (!lastAt) return { level: "nunca", dias: null };
+  const t = Date.parse(lastAt);
+  if (Number.isNaN(t)) return { level: "nunca", dias: null };
+  const dias = Math.max(0, Math.floor((nowMs - t) / DAY_MS));
+  return { level: dias >= limiteDias ? "atencao" : "ok", dias };
+}
+
+/**
+ * Site recém-criado (menos de 2 dias): ainda não dá para dizer que está "sem uso" —
+ * o código pode ter acabado de ser colado no site.
+ */
+export function siteRecemCriado(createdAt: string | null, nowMs: number): boolean {
+  if (!createdAt) return false;
+  const t = Date.parse(createdAt);
+  if (Number.isNaN(t)) return false;
+  return nowMs - t < 2 * DAY_MS;
 }

@@ -12,11 +12,11 @@
 - [ ] **Servidor do WhatsApp (etapa 44 e T5.3):** quando estiver no ar, em Tracking → Sites → "WhatsApp servidor" criar a conexão do cliente e cadastrar o webhook no servidor (endereço + chave). O primeiro aviso real confirma o formato (se for outro, ajusto o leitor). Sem a conta oficial do WhatsApp, o Meta recebe a venda como "conversa", não como anúncio de WhatsApp.
 - [ ] **Stand-by (tarefa futura):** ligação com GoHighLevel e Kommo (a skill "Metrik" serve de modelo, mas com hash, token no cofre e sem contato duplicado).
 
-## Tracking T5.35 — organizar o Tracking, a ficha do contato e a visão de marketing (12/11/2026)
+## Tracking T5.35 — organizar o Tracking, a ficha do contato e a visão de marketing (12/11/2026) — plano fechado
 - [ ] **Aplicar no banco as três migrations novas** (a tela já está pronta; sem isso o botão de excluir site, a ficha de rastreio e a visão de marketing não funcionam): `supabase.cmd db query --remote --yes --file C:\Claude\_tools\aplicar-t535.sql`. O arquivo aplica `20261112160000_excluir_site.sql` (excluir/restaurar um site), `20261112170000_contact_rastreio.sql` (ficha de rastreio do contato) e `20261112180000_tracking_marketing.sql` (função de leitura do caminho até a venda).
 - [ ] **Publicar o site** depois de aplicar o SQL: `vercel.cmd deploy --prod --yes` (o projeto `web`, raiz `apps/web`).
-- [ ] Depois de publicado: conferir em **Tracking → Sites** o botão "Excluir site" (pede o nome do site); em **Contatos → buscar pelo código da mensagem → abrir o contato**, a seção "Rastreio do contato"; e na aba **Painel → Marketing**, a visão de "de onde veio cada venda".
-- [ ] Falta a etapa 5 (acabamento) do plano `docs/etapa-34-tracking/T5.35-PLANO-ORGANIZAR-TRACKING.md`.
+- [ ] Depois de publicado: conferir em **Tracking → Sites** o botão "Excluir site" (pede o nome do site) e a etiqueta "Sem uso desde" nos sites parados; em **Contatos → buscar pelo código da mensagem → abrir o contato**, a seção "Rastreio do contato"; na aba **Painel → Marketing**, a visão de "de onde veio cada venda"; e em **Configurações → Ferramentas → Testar um link**, o criativo que o link aponta.
+- [x] O plano T5.35 está **fechado** (as 5 etapas): separar por cliente e por tipo de WhatsApp · excluir um site só · ficha de rastreio do contato · visão de marketing ("Marketing") · acabamento (site/conexão sem uso e criativo no testador de link).
 
 ## Central — prazo de guarda dos cartões excluídos (51.3, 07/11/2026)
 - Tarefas e leads **excluídos** ficam guardados (somem das telas, aparecem só em Central → "Arquivados e excluídos"). Quando você decidir **por quanto tempo** guardar (ex.: 90 dias), eu crio a limpeza automática depois desse prazo. Até lá, ficam guardados.

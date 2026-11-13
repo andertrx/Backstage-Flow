@@ -691,6 +691,61 @@ export function useJourneySummary(from: string, to: string, enabled: boolean) {
 }
 
 // -----------------------------------------------------------------------------
+// T5.35 (etapa 5): testador de link — o criativo e o conjunto que o link traz
+// -----------------------------------------------------------------------------
+
+export interface AdLinkEntity {
+  id: string;
+  name: string;
+  external_id: string;
+  client_id: string;
+  creative_type?: string | null;
+  thumbnail_url?: string | null;
+}
+
+export interface AdLinkLookup {
+  campaign: AdLinkEntity | null;
+  adset: AdLinkEntity | null;
+  ad: AdLinkEntity | null;
+  /** O mesmo ID aparece em mais de um cliente: o link, sozinho, não diz de quem é. */
+  ambiguo: boolean;
+}
+
+/**
+ * Procura no CRM a campanha, o conjunto e o criativo (anúncio) que os IDs do link
+ * trazem. Só leitura: a RLS das tabelas de estrutura já limita aos clientes liberados.
+ */
+export function useAdLinkLookup(campaignId: string | null, adsetId: string | null, adId: string | null, enabled: boolean) {
+  const key = [campaignId ?? "", adsetId ?? "", adId ?? ""].join("|");
+  return useQuery({
+    queryKey: [...KEY, "ad-link", key],
+    enabled: enabled && Boolean(campaignId || adsetId || adId),
+    queryFn: async (): Promise<AdLinkLookup> => {
+      const campanha = campaignId
+        ? await supabase.from("campaigns").select("id, name, external_id, client_id").eq("external_id", campaignId).limit(5)
+        : null;
+      const conjunto = adsetId
+        ? await supabase.from("ad_groups").select("id, name, external_id, client_id").eq("external_id", adsetId).limit(5)
+        : null;
+      const anuncio = adId
+        ? await supabase.from("ads").select("id, name, external_id, client_id, creative_type, thumbnail_url").eq("external_id", adId).limit(5)
+        : null;
+      const erro = campanha?.error ?? conjunto?.error ?? anuncio?.error;
+      if (erro) throw new FriendlyError(friendlyDbError(erro, "Não conseguimos procurar a campanha do link."));
+      const linhas = [...(campanha?.data ?? []), ...(conjunto?.data ?? []), ...(anuncio?.data ?? [])] as AdLinkEntity[];
+      const clientes = new Set(linhas.map((l) => l.client_id));
+      const um = (dados: AdLinkEntity[] | null) => dados?.[0] ?? null;
+      return {
+        campaign: um(campanha?.data as AdLinkEntity[] | null),
+        adset: um(conjunto?.data as AdLinkEntity[] | null),
+        ad: um(anuncio?.data as AdLinkEntity[] | null),
+        ambiguo: clientes.size > 1,
+      };
+    },
+  });
+}
+
+// -----------------------------------------------------------------------------
 // Regras do site sem Tag Manager (Tracking T2): rascunho, publicar e voltar versão
 // -----------------------------------------------------------------------------
 export interface TrackingRule extends TrackingRuleInput {

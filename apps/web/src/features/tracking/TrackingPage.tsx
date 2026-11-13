@@ -20,13 +20,16 @@ import { Modal } from "@/components/ui/modal.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useActiveClients } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
-import { formatDateTime, formatMoney, formatRelative } from "@/lib/format.ts";
+import { formatDataCurta, formatDateTime, formatMoney, formatRelative } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import {
   type OverviewRow,
   type CapiOverview,
   type Destination,
   type TrackingContainer,
+  type AdLinkEntity,
+  type AdLinkLookup,
+  useAdLinkLookup,
   useCapiOverview,
   useConversionsSummary,
   useDestinations,
@@ -53,7 +56,7 @@ import { ConfigSection } from "@/components/ui/section.tsx";
 import { ContainerFormModal, InstallModal } from "./ContainerModals.tsx";
 import { LeadsSection } from "./LeadsSection.tsx";
 import { ReadinessSection, type SiteReadiness } from "./ReadinessSection.tsx";
-import { capiStatus, PERIOD_LABELS, siteReadiness, type PeriodPreset, periodRange, summarizeConversions, waConnectionStatus } from "./logic.ts";
+import { capiStatus, PERIOD_LABELS, siteReadiness, type PeriodPreset, periodRange, siteRecemCriado, summarizeConversions, usoRecente, waConnectionStatus } from "./logic.ts";
 import { MetaCapiModal } from "./MetaCapiModal.tsx";
 import { SuggestionsSection } from "./SuggestionsSection.tsx";
 import { RulesModal } from "./RulesModal.tsx";
@@ -621,6 +624,8 @@ function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onA
 
   const linha = (c: TrackingContainer, conn: WhatsAppConnection | undefined, tipo: "servidor" | "oficial" | "nenhum") => {
     const status = waConnectionStatus(conn);
+    /** T5.35 (etapa 5): conexão sem uso — diz desde quando ninguém mandou mensagem. */
+    const uso = usoRecente(conn?.last_webhook_at ?? null, Date.now());
     return (
       <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 p-3" data-testid="wa-connection-row">
         <div className="min-w-0">
@@ -630,6 +635,9 @@ function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onA
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <Badge tone={status.tone}>{tipo === "servidor" ? status.label.replace(/^Servidor:\s*/, "") : status.label}</Badge>
+            {uso.level === "atencao" && (
+              <Badge tone="warning" data-testid="wa-sem-uso">Sem uso desde {formatDataCurta(conn!.last_webhook_at!)}</Badge>
+            )}
             {conn?.mode === "nao_oficial" && (
               <Badge tone={conn.store_messages && conn.store_ack_at ? "success" : "neutral"}>
                 {conn.store_messages && conn.store_ack_at ? "Guardando as conversas" : "Conversas não guardadas"}
@@ -787,6 +795,10 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
   onExclude: () => void;
 }) {
   const meta = capiStatus(destination, capi);
+  /** T5.35 (etapa 5): site sem uso — o aviso diz desde quando (não só "muito tempo"). */
+  const uso = usoRecente(stats?.last_event_at ?? null, Date.now());
+  /** Site recém-criado ainda não é "sem uso": o código pode ter acabado de ser colado. */
+  const recemCriado = siteRecemCriado(c.created_at, Date.now());
   return (
     <li>
       <Card className="space-y-3 p-4" data-testid="container-card">
@@ -798,10 +810,16 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
           <div className="flex flex-wrap gap-1">
             <Badge tone={c.status === "ativo" ? "success" : "neutral"}>{c.status === "ativo" ? "Ativo" : "Pausado"}</Badge>
             {c.test_mode && <Badge tone="warning">Modo teste</Badge>}
+            {uso.level === "nunca" && !recemCriado && <Badge tone="danger" data-testid="container-sem-uso">Nunca recebeu evento</Badge>}
+            {uso.level === "atencao" && (
+              <Badge tone="warning" data-testid="container-sem-uso">Sem uso desde {formatDataCurta(stats!.last_event_at!)}</Badge>
+            )}
           </div>
         </div>
         <p className="text-sm text-slate-600" data-testid="container-last-event">
-          {stats?.last_event_at ? `Último evento recebido ${formatRelative(stats.last_event_at)}.` : "Nenhum evento recebido ainda. Confira se o código foi instalado."}
+          {stats?.last_event_at
+            ? `Último evento recebido ${formatRelative(stats.last_event_at)}${uso.level === "atencao" ? ` (em ${formatDataCurta(stats.last_event_at)})` : ""}.`
+            : "Nenhum evento recebido ainda. Confira se o código foi instalado."}
         </p>
         <dl className="grid grid-cols-3 gap-2 text-center text-xs text-slate-500">
           <div className="rounded-lg bg-slate-50 p-2"><dt>Sessões</dt><dd className="text-base font-semibold text-slate-900">{stats?.sessions ?? 0}</dd></div>
@@ -920,6 +938,9 @@ function LinkTester() {
     setResult(classify(url, referrer));
   }
 
+  const adIds = result?.params.adIds ?? {};
+  const lookup = useAdLinkLookup(adIds.campaign ?? null, adIds.adset ?? null, adIds.ad ?? null, result != null);
+
   return (
     <Card className="space-y-3 p-4" aria-label="Testar link">
       <div className="flex items-center gap-2">
@@ -953,9 +974,58 @@ function LinkTester() {
             {Object.keys(result.params.clickIds).join(", ") || "nenhum"} · IDs do anúncio:{" "}
             {Object.entries(result.params.adIds).map(([k, v]) => `${k}=${v}`).join(", ") || "nenhum"}
           </p>
+          <AnuncioDoLink ids={adIds} lookup={lookup.data} carregando={lookup.isLoading} />
         </div>
       )}
     </Card>
+  );
+}
+
+/**
+ * O que o link aponta dentro do CRM: a campanha, o conjunto e o criativo (anúncio).
+ * Quando o ID não está no CRM, a tela diz que não está — não inventa nome.
+ */
+function AnuncioDoLink({ ids, lookup, carregando }: {
+  ids: { campaign?: string; adset?: string; ad?: string };
+  lookup: AdLinkLookup | undefined;
+  carregando: boolean;
+}) {
+  if (!ids.campaign && !ids.adset && !ids.ad) return null;
+  const linhas: { rotulo: string; id: string; entidade: AdLinkEntity | null }[] = [
+    { rotulo: "Campanha", id: ids.campaign ?? "", entidade: lookup?.campaign ?? null },
+    { rotulo: "Conjunto", id: ids.adset ?? "", entidade: lookup?.adset ?? null },
+    { rotulo: "Criativo (anúncio)", id: ids.ad ?? "", entidade: lookup?.ad ?? null },
+  ].filter((l) => l.id);
+  return (
+    <div className="space-y-1.5 rounded-lg border border-slate-200 bg-white p-3" data-testid="link-anuncio">
+      <p className="text-xs font-medium text-slate-600">O que este link aponta</p>
+      {carregando ? (
+        <p className="text-xs text-slate-500">Procurando no CRM…</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {linhas.map((l) => (
+            <li key={l.rotulo} className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-slate-500">{l.rotulo}:</span>
+              {l.entidade ? (
+                <>
+                  {l.entidade.thumbnail_url ? (
+                    <img src={l.entidade.thumbnail_url} alt="" className="size-8 shrink-0 rounded object-cover ring-1 ring-slate-200" referrerPolicy="no-referrer" loading="lazy" />
+                  ) : null}
+                  <span className="font-medium text-slate-900">{l.entidade.name}</span>
+                  <span className="text-xs text-slate-500">ID {l.id}</span>
+                  {l.entidade.creative_type ? <Badge tone="neutral">{l.entidade.creative_type}</Badge> : null}
+                </>
+              ) : (
+                <span className="text-slate-500">ID {l.id} — não encontrada no CRM</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {lookup?.ambiguo ? (
+        <p className="text-xs text-amber-700">Este ID existe em mais de um cliente: o link, sozinho, não diz de quem é.</p>
+      ) : null}
+    </div>
   );
 }
 

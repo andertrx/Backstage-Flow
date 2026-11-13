@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/cn.ts";
 
 type Tone = "neutral" | "brand" | "success" | "warning" | "danger";
@@ -12,10 +12,10 @@ const tones: Record<Tone, { box: string; dot: string | null }> = {
 };
 
 /** Etiqueta: as de estado (verde, âmbar, vermelho) levam um pontinho de cor, como o StatusBadge. */
-export function Badge({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
+export function Badge({ tone = "neutral", children, ...rest }: { tone?: Tone; children: ReactNode } & HTMLAttributes<HTMLSpanElement>) {
   const t = tones[tone];
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium", t.box)}>
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium", t.box)} {...rest}>
       {t.dot && <span className={cn("size-1.5 rounded-full", t.dot)} aria-hidden />}
       {children}
     </span>

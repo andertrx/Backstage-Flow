@@ -1473,7 +1473,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     // --- Anúncios (o site só lê; o Monitoramento lista os de uma campanha)
     if (url.includes("/rest/v1/ads?")) {
       const campaignId = eqParam(url, "campaign_id");
-      return res(200, db.ads.filter((a) => !campaignId || a.campaign_id === campaignId));
+      const externalId = eqParam(url, "external_id");
+      return res(200, db.ads.filter((a) => (!campaignId || a.campaign_id === campaignId) && (!externalId || a.external_id === externalId)));
     }
 
     // --- Contas de anúncio (o site só lê)
@@ -1488,6 +1489,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/campaigns")) {
       const id = eqParam(url, "id");
       if (id) return res(200, db.campaigns.find((c) => c.id === id) ?? null);
+      const externalId = eqParam(url, "external_id");
+      if (externalId) return res(200, db.campaigns.filter((c) => c.external_id === externalId));
       const accountId = eqParam(url, "ad_account_id");
       const clientId = eqParam(url, "client_id");
       const platform = eqParam(url, "platform_id");
@@ -2234,6 +2237,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     if (url.includes("/rest/v1/ad_groups")) {
       const id = eqParam(url, "id");
       const campaignId = eqParam(url, "campaign_id");
+      const externalId = eqParam(url, "external_id");
+      if (externalId) return res(200, db.adGroups.filter((g) => g.external_id === externalId));
       if (campaignId) return res(200, db.adGroups.filter((g) => g.campaign_id === campaignId));
       return res(200, db.adGroups.find((g) => g.id === id) ?? null);
     }

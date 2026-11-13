@@ -33,6 +33,13 @@ export function formatDate(date: string): string {
   return `${d}/${m}/${y}`;
 }
 
+/** Só a data, no padrão brasileiro ("05/11/2026"), a partir de uma data completa. */
+export function formatDataCurta(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("pt-BR");
+}
+
 /** "há 5 minutos", "há 3 horas", "há 2 dias" (texto curto para datas passadas). */
 export function formatRelative(iso: string, now: Date = new Date()): string {
   const minutes = Math.floor((now.getTime() - Date.parse(iso)) / 60_000);

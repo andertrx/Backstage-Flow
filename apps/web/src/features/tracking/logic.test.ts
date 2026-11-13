@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { siteReadiness, attributionMetrics, type AttributionRowInput, capiStatus, qualityReport, summarizeByChannel, validateWaIds, waConnectionStatus, normalizeWaCode, parseMoneyInput, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions, marketingCampaigns, marketingTotals, marketingOrigins, mergeJourneySummaries } from "./logic.ts";
+import { siteReadiness, attributionMetrics, type AttributionRowInput, capiStatus, qualityReport, summarizeByChannel, validateWaIds, waConnectionStatus, normalizeWaCode, parseMoneyInput, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions, marketingCampaigns, marketingTotals, marketingOrigins, mergeJourneySummaries, siteRecemCriado, usoRecente } from "./logic.ts";
 
 describe("domínios autorizados", () => {
   it("aceita um por linha, limpa o endereço e tira repetidos", () => {
@@ -265,5 +265,27 @@ describe("visão de marketing (T5.35 etapa 4)", () => {
     expect(origens[0].channel).toBe("meta");
     expect(origens[0].share).toBe(80);
     expect(origens[1].share).toBe(20);
+  });
+});
+
+describe("site (ou conexão) sem uso (T5.35 etapa 5)", () => {
+  const agora = Date.parse("2026-11-12T12:00:00Z");
+  const dias = (n: number) => new Date(agora - n * 86400000).toISOString();
+
+  it("nunca recebeu evento", () => {
+    expect(usoRecente(null, agora)).toEqual({ level: "nunca", dias: null });
+  });
+  it("avisa quando está parado há mais de 7 dias", () => {
+    expect(usoRecente(dias(3), agora).level).toBe("ok");
+    expect(usoRecente(dias(7), agora).level).toBe("atencao");
+    expect(usoRecente(dias(20), agora)).toEqual({ level: "atencao", dias: 20 });
+  });
+  it("data inválida não quebra a tela", () => {
+    expect(usoRecente("data furada", agora).level).toBe("nunca");
+  });
+  it("site recém-criado ainda não é 'sem uso'", () => {
+    expect(siteRecemCriado(dias(1), agora)).toBe(true);
+    expect(siteRecemCriado(dias(3), agora)).toBe(false);
+    expect(siteRecemCriado(null, agora)).toBe(false);
   });
 });
