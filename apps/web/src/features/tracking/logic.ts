@@ -414,3 +414,167 @@ export function siteReadiness(i: ReadinessInput): { items: ReadinessItem[]; summ
   const states = items.map((x) => x.state);
   return { items, summary: states.includes("fail") ? "faltam" : states.includes("warn") ? "quase" : "pronto" };
 }
+
+// -----------------------------------------------------------------------------
+// T5.35 (etapa 4): visão de marketing — de onde veio cada venda
+// -----------------------------------------------------------------------------
+
+/** Uma campanha da atribuição, já juntada (o investimento é o mesmo em todas as linhas da campanha). */
+export interface MarketingCampaign {
+  campaign_id: string | null;
+  label: string;
+  channel: string | null;
+  leads: number;
+  purchases: number;
+  revenue: Record<string, number>;
+  spend_micros: number | null;
+  spend_currency: string | null;
+  costPerLeadMicros: number | null;
+  roas: number | null;
+  /** Gastou no período e nenhum lead chegou no site. */
+  sem_lead: boolean;
+}
+
+/**
+ * Junta as linhas da atribuição por campanha.
+ *
+ * O investimento NÃO é somado linha a linha: a mesma campanha aparece em mais de uma
+ * linha quando a pessoa chegou por origens diferentes, e o banco repete o investimento
+ * da campanha em cada uma delas. Aqui ele é contado uma vez só.
+ */
+export function marketingCampaigns(rows: AttributionRowInput[]): MarketingCampaign[] {
+  const map = new Map<string, MarketingCampaign>();
+  for (const r of rows) {
+    const key = r.campaign_id ?? `sem-campanha:${r.campaign_label ?? ""}`;
+    const acc = map.get(key) ?? {
+      campaign_id: r.campaign_id,
+      label: r.campaign_label ?? (r.channel ? "Campanha não identificada" : "Sem origem identificada"),
+      channel: r.channel,
+      leads: 0,
+      purchases: 0,
+      revenue: {},
+      spend_micros: null,
+      spend_currency: r.spend_currency,
+      costPerLeadMicros: null,
+      roas: null,
+      sem_lead: false,
+    };
+    acc.leads += r.leads;
+    acc.purchases += r.purchases;
+    for (const [cur, v] of Object.entries(r.revenue)) acc.revenue[cur] = (acc.revenue[cur] ?? 0) + Number(v);
+    // O investimento da campanha é o mesmo em todas as linhas dela: guarda o primeiro que vier.
+    if (acc.spend_micros == null && r.spend_micros != null) {
+      acc.spend_micros = Number(r.spend_micros);
+      acc.spend_currency = r.spend_currency;
+    }
+    map.set(key, acc);
+  }
+  const out = [...map.values()].map((c) => {
+    const m = attributionMetrics({
+      ...c,
+      campaign_label: c.label,
+      match: null,
+      client_id: "",
+      confirmed: 0,
+      platform_leads: null,
+      platform_conversions: null,
+      platform_value_micros: null,
+    });
+    return { ...c, costPerLeadMicros: m.costPerLeadMicros, roas: m.roas, sem_lead: (c.spend_micros ?? 0) > 0 && c.leads === 0 };
+  });
+  return out.sort((a, b) => (b.spend_micros ?? 0) - (a.spend_micros ?? 0) || b.leads - a.leads);
+}
+
+export interface MarketingTotals {
+  leads: number;
+  purchases: number;
+  /** Receita por moeda (nunca somada entre moedas). */
+  revenue: Record<string, number>;
+  /** Investimento por moeda, contado uma vez por campanha. */
+  spend: Record<string, number>;
+  /** Só quando há uma moeda só: lead / investimento. */
+  costPerLeadMicros: number | null;
+  /** Por moeda: receita ÷ investimento da mesma moeda. */
+  roas: Record<string, number | null>;
+  /** Campanhas que gastaram e não trouxeram lead. */
+  sem_lead: MarketingCampaign[];
+}
+
+/** Totais do período. Receita e investimento sempre separados por moeda. */
+export function marketingTotals(rows: AttributionRowInput[]): MarketingTotals {
+  const leads = rows.reduce((s, r) => s + r.leads, 0);
+  const purchases = rows.reduce((s, r) => s + r.purchases, 0);
+  const revenue: Record<string, number> = {};
+  for (const r of rows) for (const [cur, v] of Object.entries(r.revenue)) revenue[cur] = (revenue[cur] ?? 0) + Number(v);
+
+  const campaigns = marketingCampaigns(rows);
+  const spend: Record<string, number> = {};
+  for (const c of campaigns) {
+    if (c.spend_micros == null || !c.spend_currency) continue;
+    spend[c.spend_currency] = (spend[c.spend_currency] ?? 0) + c.spend_micros;
+  }
+
+  const moedas = Object.keys(spend);
+  const costPerLeadMicros = moedas.length === 1 && leads > 0 ? Math.round(spend[moedas[0]] / leads) : null;
+  const roas: Record<string, number | null> = {};
+  for (const cur of new Set([...Object.keys(revenue), ...moedas])) {
+    const s = spend[cur] ?? 0;
+    roas[cur] = s > 0 ? Math.round(((revenue[cur] ?? 0) / s) * 100) / 100 : null;
+  }
+
+  return { leads, purchases, revenue, spend, costPerLeadMicros, roas, sem_lead: campaigns.filter((c) => c.sem_lead) };
+}
+
+/** Cada canal com a parte dele dos leads (para o gestor ver o peso de cada origem). */
+export function marketingOrigins(rows: AttributionRowInput[]) {
+  const base = summarizeByChannel(rows);
+  const total = base.reduce((s, c) => s + c.leads + c.purchases, 0);
+  return base.map((c) => ({ ...c, share: total > 0 ? Math.round(((c.leads + c.purchases) * 100) / total) : 0 }));
+}
+
+export interface JourneySummaryInput {
+  leads: number;
+  purchases: number;
+  toques_0: number;
+  toques_1: number;
+  toques_2_3: number;
+  toques_4p: number;
+  media_toques: number | null;
+  media_dias: number | null;
+  mais_rapido_dias: number | null;
+  origem_paga: number;
+}
+
+/**
+ * Junta o resumo de vários clientes num número só.
+ * A média de toques e a de dias são ponderadas pelo número de leads que tiveram
+ * origem — isso devolve exatamente a média de todos os leads juntos, sem inventar.
+ */
+export function mergeJourneySummaries(rows: JourneySummaryInput[]): JourneySummaryInput {
+  const soma = (f: (r: JourneySummaryInput) => number) => rows.reduce((s, r) => s + (f(r) || 0), 0);
+  const comToque = soma((r) => r.toques_1 + r.toques_2_3 + r.toques_4p);
+  const peso = (r: JourneySummaryInput) => r.toques_1 + r.toques_2_3 + r.toques_4p;
+  const media = (f: (r: JourneySummaryInput) => number | null) => {
+    if (comToque === 0) return null;
+    let acc = 0;
+    for (const r of rows) {
+      const v = f(r);
+      if (v == null) continue;
+      acc += v * peso(r);
+    }
+    return Math.round((acc / comToque) * 10) / 10;
+  };
+  const maisRapido = rows.map((r) => r.mais_rapido_dias).filter((v): v is number => v != null);
+  return {
+    leads: soma((r) => r.leads),
+    purchases: soma((r) => r.purchases),
+    toques_0: soma((r) => r.toques_0),
+    toques_1: soma((r) => r.toques_1),
+    toques_2_3: soma((r) => r.toques_2_3),
+    toques_4p: soma((r) => r.toques_4p),
+    media_toques: media((r) => r.media_toques),
+    media_dias: media((r) => r.media_dias),
+    mais_rapido_dias: maisRapido.length ? Math.min(...maisRapido) : null,
+    origem_paga: soma((r) => r.origem_paga),
+  };
+}

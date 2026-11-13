@@ -137,6 +137,8 @@ export function createMockDb({ role = "admin", userId = USER_ID, email = "ander@
     /** Atribuição (34.4): linhas prontas por modelo e qualidade por site. */
     trackingAttribution: { last: [], first: [] },
     trackingQuality: [],
+    /** T5.35 (etapa 4): caminho até a venda, por cliente. */
+    trackingJourneySummary: [],
     /** Dashboard do cliente (Etapa 19): modelo por cliente (como public.client_report_settings). */
     reportSettings: [],
     /** Inteligência de Resultados (Etapa 39.1): conta do Google (a chave fica só aqui), planilhas por cliente
@@ -2128,6 +2130,9 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
     }
     if (url.includes("/rest/v1/rpc/tracking_quality")) {
       return res(200, db.trackingQuality);
+    }
+    if (url.includes("/rest/v1/rpc/tracking_journey_summary")) {
+      return res(200, db.trackingJourneySummary);
     }
     if (url.includes("/rest/v1/tracking_leads")) {
       return res(200, [...db.trackingLeads].sort((a, b) => b.last_converted_at.localeCompare(a.last_converted_at)).slice(0, 50));

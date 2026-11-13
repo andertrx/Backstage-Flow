@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { siteReadiness, attributionMetrics, type AttributionRowInput, capiStatus, qualityReport, summarizeByChannel, validateWaIds, waConnectionStatus, normalizeWaCode, parseMoneyInput, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions } from "./logic.ts";
+import { siteReadiness, attributionMetrics, type AttributionRowInput, capiStatus, qualityReport, summarizeByChannel, validateWaIds, waConnectionStatus, normalizeWaCode, parseMoneyInput, emptyContainerForm, installSnippet, installSnippetWithOptions, parseContainerForm, parseDomains, periodRange, summarizeConversions, marketingCampaigns, marketingTotals, marketingOrigins, mergeJourneySummaries } from "./logic.ts";
 
 describe("domínios autorizados", () => {
   it("aceita um por linha, limpa o endereço e tira repetidos", () => {
@@ -200,5 +200,70 @@ describe("lista pronto para cliente (T5.5)", () => {
     const wa = { has_app_secret: false, enabled: true, last_webhook_at: new Date(NOW).toISOString(), last_error_at: null, last_error_message: null, mode: "nao_oficial" as const };
     expect(state(siteReadiness({ ...base, whatsapp: wa }), "whatsapp")).toBe("ok");
     expect(state(siteReadiness({ ...base, whatsapp: { ...wa, last_webhook_at: null } }), "whatsapp")).toBe("warn");
+  });
+});
+
+describe("visão de marketing (T5.35 etapa 4)", () => {
+  const row = (p: Partial<AttributionRowInput> & { leads: number }): AttributionRowInput => ({
+    client_id: "c1", channel: "meta", campaign_id: "k1", campaign_label: "Campanha", match: "id", confirmed: 0, purchases: 0,
+    revenue: {}, spend_currency: null, spend_micros: null, platform_leads: null, platform_conversions: null, platform_value_micros: null, ...p,
+  });
+
+  it("conta o investimento da campanha uma vez, mesmo com a campanha em duas origens", () => {
+    const rows = [
+      row({ leads: 4, purchases: 1, spend_micros: 200_000_000, spend_currency: "BRL" }),
+      row({ channel: "whatsapp", leads: 1, spend_micros: 200_000_000, spend_currency: "BRL" }),
+    ];
+    const campanhas = marketingCampaigns(rows);
+    expect(campanhas).toHaveLength(1);
+    expect(campanhas[0].leads).toBe(5);
+    expect(campanhas[0].spend_micros).toBe(200_000_000);
+    expect(marketingTotals(rows).spend).toEqual({ BRL: 200_000_000 });
+  });
+
+  it("separa as moedas: nunca soma BRL com USD", () => {
+    const rows = [
+      row({ leads: 2, purchases: 1, revenue: { BRL: 100_000_000 }, spend_micros: 50_000_000, spend_currency: "BRL" }),
+      row({ campaign_id: "k2", campaign_label: "Outra", channel: "google", leads: 1, revenue: { USD: 20_000_000 }, spend_micros: 10_000_000, spend_currency: "USD" }),
+    ];
+    const t = marketingTotals(rows);
+    expect(t.revenue).toEqual({ BRL: 100_000_000, USD: 20_000_000 });
+    expect(t.spend).toEqual({ BRL: 50_000_000, USD: 10_000_000 });
+    expect(t.roas.BRL).toBe(2);
+    expect(t.roas.USD).toBe(2);
+    // Com duas moedas, o custo por lead não é calculado (misturaria moedas).
+    expect(t.costPerLeadMicros).toBeNull();
+  });
+
+  it("acha a campanha que gastou e não trouxe lead", () => {
+    const rows = [
+      row({ leads: 3, spend_micros: 100_000_000, spend_currency: "BRL" }),
+      row({ campaign_id: "k9", campaign_label: "Sem lead", leads: 0, spend_micros: 80_000_000, spend_currency: "BRL", match: "sem_conversao" }),
+    ];
+    expect(marketingTotals(rows).sem_lead.map((c) => c.label)).toEqual(["Sem lead"]);
+  });
+
+  it("junta o caminho de vários clientes sem inventar a média", () => {
+    const j = mergeJourneySummaries([
+      { leads: 10, purchases: 2, toques_0: 0, toques_1: 8, toques_2_3: 2, toques_4p: 0, media_toques: 1.2, media_dias: 2, mais_rapido_dias: 1, origem_paga: 6 },
+      { leads: 4, purchases: 1, toques_0: 0, toques_1: 0, toques_2_3: 4, toques_4p: 0, media_toques: 3, media_dias: 5, mais_rapido_dias: 2, origem_paga: 4 },
+    ]);
+    expect(j.leads).toBe(14);
+    expect(j.toques_1).toBe(8);
+    expect(j.toques_2_3).toBe(6);
+    expect(j.origem_paga).toBe(10);
+    expect(j.mais_rapido_dias).toBe(1);
+    // Média ponderada: (1,2×10 + 3×4) ÷ 14 = 1,71…
+    expect(j.media_toques).toBe(1.7);
+  });
+
+  it("dá o peso de cada canal (em % dos leads e compras)", () => {
+    const origens = marketingOrigins([
+      row({ channel: "meta", leads: 3, purchases: 1 }),
+      row({ campaign_id: "k2", channel: "google", leads: 1, purchases: 0 }),
+    ]);
+    expect(origens[0].channel).toBe("meta");
+    expect(origens[0].share).toBe(80);
+    expect(origens[1].share).toBe(20);
   });
 });

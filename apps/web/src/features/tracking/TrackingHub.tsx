@@ -1,5 +1,5 @@
 import { can } from "@backstage/shared";
-import { MessageCircle, Radar, Settings2, Sparkles, Wallet } from "lucide-react";
+import { MessageCircle, Radar, Settings2, Sparkles, Target, Wallet } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -13,10 +13,11 @@ import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { useWaSuggestions } from "./api.ts";
 import { ConfigSection, SectionIndex } from "@/components/ui/section.tsx";
 import { ConversationsPanel } from "./ConversationsPage.tsx";
+import { MarketingView } from "./MarketingView.tsx";
 import { WaAiCard } from "./SuggestionsSection.tsx";
 import { TrackingPage, type TrackingTab } from "./TrackingPage.tsx";
 
-type PainelTab = "conversas" | "contatos" | "site" | "whatsapp" | "sugestoes";
+type PainelTab = "conversas" | "contatos" | "marketing" | "site" | "whatsapp" | "sugestoes";
 
 const SITE_PARTS: TrackingTab[] = ["resumo", "origens", "leads", "saude"];
 
@@ -43,6 +44,7 @@ export function TrackingHub() {
   const tabs: { id: PainelTab; label: string; icon: typeof Radar; show: boolean }[] = [
     { id: "conversas", label: "Conversas", icon: MessageCircle, show: canConversations },
     { id: "contatos", label: "Contatos e vendas", icon: Wallet, show: can(role, "contacts.view") },
+    { id: "marketing", label: "Marketing", icon: Target, show: true },
     { id: "site", label: "Site e origem", icon: Radar, show: true },
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, show: true },
     { id: "sugestoes", label: pending > 0 ? `Vendas sugeridas (${pending})` : "Vendas sugeridas", icon: Sparkles, show: can(role, "tracking.suggestions") },
@@ -142,6 +144,7 @@ export function TrackingHub() {
             <>
               {tab === "conversas" && clientId && <ConversationsPanel clientId={clientId} />}
               {tab === "contatos" && clientId && <ContactsPage fixedClientId={clientId} />}
+              {tab === "marketing" && <MarketingView clientId={clientId} />}
               {tab === "site" && <TrackingPage clientId={clientId} tabs={SITE_PARTS} />}
               {tab === "whatsapp" && <TrackingPage clientId={clientId} tabs={["whatsapp"]} />}
               {tab === "sugestoes" && <TrackingPage clientId={clientId} tabs={["sugestoes"]} />}

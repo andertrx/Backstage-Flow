@@ -663,6 +663,33 @@ export function useTrackingQuality(from: string, to: string, enabled: boolean) {
   });
 }
 
+/** T5.35 (etapa 4): caminho até a venda — quantas origens a pessoa tocou antes de converter. */
+export interface JourneySummaryRow {
+  client_id: string;
+  leads: number;
+  purchases: number;
+  toques_0: number;
+  toques_1: number;
+  toques_2_3: number;
+  toques_4p: number;
+  media_toques: number | null;
+  media_dias: number | null;
+  mais_rapido_dias: number | null;
+  origem_paga: number;
+}
+
+export function useJourneySummary(from: string, to: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "journey-summary", from.slice(0, 13), to.slice(0, 13)],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("tracking_journey_summary", { p_from: from, p_to: to });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos calcular o caminho até a venda."));
+      return (data ?? []) as JourneySummaryRow[];
+    },
+  });
+}
+
 // -----------------------------------------------------------------------------
 // Regras do site sem Tag Manager (Tracking T2): rascunho, publicar e voltar versão
 // -----------------------------------------------------------------------------
