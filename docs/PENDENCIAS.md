@@ -13,9 +13,8 @@
 - [ ] **Stand-by (tarefa futura):** ligação com GoHighLevel e Kommo (a skill "Metrik" serve de modelo, mas com hash, token no cofre e sem contato duplicado).
 
 ## Tracking T5.35 — organizar o Tracking, a ficha do contato e a visão de marketing (12/11/2026) — plano fechado
-- [ ] **Aplicar no banco as três migrations novas** (a tela já está pronta; sem isso o botão de excluir site, a ficha de rastreio e a visão de marketing não funcionam): `supabase.cmd db query --remote --yes --file C:\Claude\_tools\aplicar-t535.sql`. O arquivo aplica `20261112160000_excluir_site.sql` (excluir/restaurar um site), `20261112170000_contact_rastreio.sql` (ficha de rastreio do contato) e `20261112180000_tracking_marketing.sql` (função de leitura do caminho até a venda).
-- [ ] **Publicar o site** depois de aplicar o SQL: `vercel.cmd deploy --prod --yes` (o projeto `web`, raiz `apps/web`).
-- [ ] Depois de publicado: conferir em **Tracking → Sites** o botão "Excluir site" (pede o nome do site) e a etiqueta "Sem uso desde" nos sites parados; em **Contatos → buscar pelo código da mensagem → abrir o contato**, a seção "Rastreio do contato"; na aba **Painel → Marketing**, a visão de "de onde veio cada venda"; e em **Configurações → Ferramentas → Testar um link**, o criativo que o link aponta.
+- [x] **Aplicar no banco as três migrations novas** (aplicadas em 13/11/2026: `excluir_site`, `contact_rastreio` e `tracking_marketing`).
+- [ ] **Publicar o site**: o deploy de 13/11/2026 já saiu com sucesso — falta só conferir em produção (o botão "Excluir site" e a etiqueta "Sem uso desde" em **Tracking → Sites**; a seção "Rastreio do contato" em **Contatos**; a visão "de onde veio cada venda" em **Painel → Marketing**; e o criativo do link em **Configurações → Ferramentas → Testar um link**).
 - [x] O plano T5.35 está **fechado** (as 5 etapas): separar por cliente e por tipo de WhatsApp · excluir um site só · ficha de rastreio do contato · visão de marketing ("Marketing") · acabamento (site/conexão sem uso e criativo no testador de link).
 
 ## Central — prazo de guarda dos cartões excluídos (51.3, 07/11/2026)
