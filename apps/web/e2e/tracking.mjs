@@ -18,7 +18,20 @@ const aba = async (page, id) => {
 const sha = (t) => createHash("sha256").update(t).digest("hex");
 
 const EXC = "e0000000-0000-4000-8000-000000000001";
-const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString();
+/**
+ * "N minutos atrás", mas sempre dentro do dia de hoje: o "resumo do dia" só conta o que
+ * é de hoje, e sem isto o teste quebra todo dia entre a meia-noite e a primeira meia hora.
+ * Ao cruzar a meia-noite, os momentos são comprimidos no começo de hoje, mantendo a ordem.
+ */
+const ago = (minutes) => {
+  const agora = Date.now();
+  const meiaNoite = new Date();
+  meiaNoite.setHours(0, 0, 0, 0);
+  const passou = Math.max(3, (agora - meiaNoite.getTime()) / 60_000);
+  // Momento dentro do dia de hoje, no passado, e mais antigo quanto mais "minutos atrás".
+  const d = new Date(meiaNoite.getTime() + (passou - 1) * (1 - minutes / (minutes + 60)) * 60_000);
+  return d.toISOString();
+};
 
 function seedClients(db) {
   db.clients.push({ id: EXC, name: "Excalibur Fitness", company: null, cnpj: null, owner_name: null, phone: null, email: null, notes: null, status: "ativo", timezone: "America/Sao_Paulo", is_demo: false, created_at: "", updated_at: "", created_by: null });

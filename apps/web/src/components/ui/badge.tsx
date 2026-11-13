@@ -15,7 +15,7 @@ const tones: Record<Tone, { box: string; dot: string | null }> = {
 export function Badge({ tone = "neutral", children, ...rest }: { tone?: Tone; children: ReactNode } & HTMLAttributes<HTMLSpanElement>) {
   const t = tones[tone];
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium", t.box)} {...rest}>
+    <span {...rest} className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium", t.box)}>
       {t.dot && <span className={cn("size-1.5 rounded-full", t.dot)} aria-hidden />}
       {children}
     </span>
