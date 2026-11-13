@@ -40,7 +40,12 @@
 | 34.9 | Monitoramento do tracking | melhor por último |
 
 ## 3. Pendências técnicas (para o Claude)
-1. **Edge Functions `sync` e `ad-accounts` desatualizadas.**
+1. **Edge Functions `sync` e `ad-accounts` — RESOLVIDO em 13/11/2026 (a nota antiga estava desatualizada).**
+   - Conferido no Supabase: `ad-accounts` está na versão 15 (publicada em 29/10/2026) e `sync` na versão 16 (publicada em 09/11/2026). As duas são **posteriores** à regra nova do saldo (`_shared/platforms/meta/funding.ts`, 28/09) e ao ID do criativo (`creative{id}`, 30/09) — logo, o que está no ar já tem as duas correções.
+   - A única coisa do código compartilhado que mudou depois de 29/10 foi `_shared/ratelimit.ts`, e só ganhou duas{chaves novas} (`wa.gateway`, `google.agenda`), que não afetam a `ad-accounts`.
+   - A `sync` foi publicada em 09/11, depois da auditoria de 08/11 (grava só o que mudou e não grava mais `raw_actions`).
+   - A `mcp` também já está no ar (versão 8, 11/11/2026).
+   - Publicar de novo não é necessário; quando mexer nessas funções, publicar de novo normalmente.
    - O GitHub tem a regra nova do saldo (`_shared/platforms/meta/funding.ts`), mas as versões publicadas no Supabase são as antigas.
    - Não há risco: um gatilho no banco (`account_snapshots_meta_payment`) e a função `account_balances()` aplicam a regra a tudo que chega.
    - Publique as duas na próxima mudança de servidor (como fazer: COMO-TRABALHAR, seção 5).
@@ -49,8 +54,8 @@
    - Quando a primeira for conectada, confira o que a API informa sobre a forma de pagamento (cartão, PIX ou boleto) e o saldo. Hoje o disponível do Google é "orçamento − veiculado", só quando existe orçamento com limite.
 3. **Saúde das contas:** a tela mostra o disponível da função `account_health`, que não traz a origem do saldo. Conta no cartão aparece como "—" (não como R$ 0,00). É aceitável; melhorar se o Ander pedir.
 4. **Testes de navegador com falha conhecida:**
-   - `charts.mjs` às segundas-feiras;
-   - `tracking.mjs` entre 00h00 e 00h20 UTC.
+   - `tracking.mjs` entre 00h00 e 00h20 UTC — CORRIGIDO em 13/11/2026: os eventos de teste saíam "N minutos atrás" a partir de agora e, logo depois da meia-noite, caíam no dia anterior (o "resumo do dia" contava 1 sessão em vez de 2). Agora os momentos são sempre dentro do dia de hoje, no passado e na ordem certa.
+   - `charts.mjs` às segundas-feiras — **CORRIGIDO em 13/11/2026**: o teste passou a rodar com o relógio do navegador congelado numa data fixa (uma segunda-feira, 09/11/2026), então o dia da semana não muda mais o resultado. Antes ele dependia do dia em que a suíte rodava.
 
    Não é regressão, mas pode ser corrigido um dia.
 5. **Avisos de segurança do Supabase que já existiam e são aceitos:**

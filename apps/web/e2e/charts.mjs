@@ -4,7 +4,11 @@
  */
 import { BASE, check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
 
-const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+// Data fixa (uma segunda-feira): o teste não pode depender do dia da semana — agrupado por
+// semana, os últimos 7 dias caíam numa semana só e a linha virava um ponto sem comprimento.
+// O relógio do navegador é congelado na mesma data, para site e teste falarem do mesmo "hoje".
+const FIXTURE_HOJE = "2026-11-09";
+const today = FIXTURE_HOJE;
 const day = (o) => new Date(Date.parse(`${today}T00:00:00Z`) + o * 86_400_000).toISOString().slice(0, 10);
 const ddmm = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 const M = 1_000_000;
@@ -53,6 +57,7 @@ const reader = (page) => page.getByRole("region", { name: "Evolução" }).locato
 
 {
   const { browser, page, errors } = await launch();
+  await page.clock.setFixedTime(new Date(`${FIXTURE_HOJE}T12:00:00-03:00`));
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
   await login(page, "/");
