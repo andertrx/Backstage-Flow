@@ -58,6 +58,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [34.5-W — WhatsApp (aplicativo comum): código de rastreio e marcação de Lead/Venda](docs/etapa-34-tracking/34.5-W-WHATSAPP.md)
   - [34.5-W2 — WhatsApp pela API oficial: conversas automáticas, anúncios de WhatsApp e envio business_messaging](docs/etapa-34-tracking/34.5-W2-WHATSAPP-API.md)
   - [Reanálise e plano novo do tracking completo para o Meta (23/10)](docs/etapa-34-tracking/REANALISE-2026-10-23.md)
+  - [Auditoria completa do Tracking, só diagnóstico (15/11)](docs/etapa-34-tracking/AUDITORIA-2026-11-15.md)
   - [T2 — Regras do site sem Tag Manager (formulário lojista, página, clique, publicar/voltar versão)](docs/etapa-34-tracking/T2-REGRAS-SEM-TAG-MANAGER.md) ✅ 23/10
   - [T3.1 — Contatos no CRM (no lugar da planilha) e papel Vendedor do cliente](docs/etapa-34-tracking/T3.1-CONTATOS-E-VENDEDOR.md) ✅ 25/10
   - [T3.2 — Vendas pelo webhook de qualquer sistema de vendas](docs/etapa-34-tracking/T3.2-VENDAS-WEBHOOK.md) ✅ 25/10
