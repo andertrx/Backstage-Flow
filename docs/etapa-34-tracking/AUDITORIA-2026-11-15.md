@@ -327,3 +327,21 @@ Legenda: **Código** = implementado e testado. **Ligado** = configurado em uso r
 
 - **Feito:** leitura do código real (`t.js`, `track`, `capi-sender`, `tracking-destinations`, `_shared/capi`, `params.ts`, funções SQL de ingestão/atribuição/fila), consulta **somente leitura** ao banco (contagens e estados, sem ler e-mail/telefone/nome), lista de funções publicadas e agendamentos.
 - **Não feito:** nenhuma alteração de código, tabela, migração ou configuração; nenhum teste de navegador em site de cliente; nenhuma chamada ao Meta; nenhuma conferência no Gerenciador de Eventos (não tenho acesso). Por isso, **deduplicação Pixel×servidor e qualidade de correspondência (EMQ) real não puderam ser medidas** — só deduzidas do código e dos dados da fila.
+
+---
+
+## 16. Atualização: o que mudou na branch durante a auditoria (T5.34 a T5.36, 12–14/11)
+
+Ao enviar este relatório, encontrei no repositório trabalho novo de outra sessão. Conferi o que muda no diagnóstico:
+
+| Novidade | Efeito no diagnóstico |
+|---|---|
+| **T5.35 etapa 1:** aba Configurações do Tracking reorganizada **por cliente e por tipo de conexão** (Site · WhatsApp oficial · não oficial) | Só tela. Nada muda nos fluxos. |
+| **T5.35 etapa 2:** **excluir um site** (coluna `excluded_at` em `tracking_containers`) | Resolve em parte o achado 8 (containers de teste poluindo a lista): agora dá para excluir sem perder referências. |
+| **T5.35 etapa 3:** **ficha de rastreio do contato** (canal, anúncio, `ctwa_clid`, envios ao Meta) | Mostra na tela dados que já eram gravados. **Não cria origem nova:** se o contato não tem origem, a ficha também não terá. |
+| **T5.35 etapa 4:** **Visão de marketing** ("de onde veio cada venda", arquivo `features/tracking/MarketingView.tsx`) | Continua **dentro do módulo Tracking**. Relatório do cliente, Painel e Executivo **continuam sem ler o tracking** (seção 9 segue valendo). |
+| **T5.35 etapa 5:** aviso de site/conexão **sem uso** ("Nunca recebeu evento", "Sem uso desde…") e testador de link com criativo/conjunto | Ajuda a ver o achado 1 na própria tela: um site sem evento agora é sinalizado. |
+| **T5.34/T5.36:** aviso "cliente sem gastar" confirmado pela entrega | Não é tracking (é monitoramento de contas). |
+| **MCP 1.6.0** (publicação pela CLI) | O MCP continua **sem ferramenta que leia dados de tracking**. |
+
+Os números do banco (seção 0 e 11) foram lidos **ao vivo no dia 15/11** e já refletem o estado atual. O código do `t.js`, do `track` e do envio ao Meta **não mudou** nessas etapas.
