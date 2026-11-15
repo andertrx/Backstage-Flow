@@ -4,8 +4,9 @@
 > Quando fizer um item, me avise que eu marco como feito.
 
 ## Aviso "cliente sem gastar" confirmado pela entrega — T5.36 (15/11/2026)
-- [ ] **Aplicar a migration `20261114120000_wa_sem_gasto_entrega.sql` no banco** (Supabase → SQL Editor → colar o arquivo `supabase/migrations/20261114120000_wa_sem_gasto_entrega.sql`; ou, com a permissão liberada, `supabase db query --remote --yes -f supabase/migrations/20261114120000_wa_sem_gasto_entrega.sql`). Sem isso, o aviso continua decidindo só pelo dinheiro.
-- [ ] **Rodar o teste SQL da fase** `supabase/tests/etapa_t536_sem_gasto_entrega.sql` no SQL Editor (9 verificações; tudo é desfeito no final). Precisa da migration aplicada.
+- [x] **Migration `20261114120000_wa_sem_gasto_entrega.sql` aplicada no banco** (15/11/2026, registrada no histórico de migrations). A sincronização já está gravando as leituras de entrega das contas.
+- [x] **Teste SQL da fase rodado no banco de verdade** (`supabase/tests/etapa_t536_sem_gasto_entrega.sql`): 8 verificações OK de 8 (tudo desfeito no final).
+- [ ] **Publicar o site** para a frase nova da tela ("não entregou nada nas últimas 2 horas") aparecer em produção.
 - [ ] **Conferir com uma conta de verdade**: uma conta que continua entregando não deve mais receber o aviso de "sem gasto" (é o objetivo da fase).
 
 ## Tracking T5 — pronto para cliente (08/11/2026)

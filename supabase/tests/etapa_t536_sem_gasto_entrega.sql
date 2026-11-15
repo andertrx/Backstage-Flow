@@ -84,5 +84,5 @@ begin
   if exists (select 1 from public.account_delivery_readings
               where ad_account_id = conta and date = hoje and impressions is null and reach is null and clicks is null) then n := n + 1; end if;
 
-  raise exception 'T5.36: % verificações OK de 9 (desfeito)', n;
+  raise exception 'T5.36: % verificações OK de 8 (desfeito)', n;
 end $$;
