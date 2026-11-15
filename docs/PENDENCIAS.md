@@ -6,7 +6,7 @@
 ## Aviso "cliente sem gastar" confirmado pela entrega — T5.36 (15/11/2026)
 - [x] **Migration `20261114120000_wa_sem_gasto_entrega.sql` aplicada no banco** (15/11/2026, registrada no histórico de migrations). A sincronização já está gravando as leituras de entrega das contas.
 - [x] **Teste SQL da fase rodado no banco de verdade** (`supabase/tests/etapa_t536_sem_gasto_entrega.sql`): 8 verificações OK de 8 (tudo desfeito no final).
-- [ ] **Publicar o site** para a frase nova da tela ("não entregou nada nas últimas 2 horas") aparecer em produção.
+- [x] **Site publicado** em 15/11/2026 (Vercel, `www.backstageflow.com.br`): a frase nova da tela já está no ar.
 - [ ] **Conferir com uma conta de verdade**: uma conta que continua entregando não deve mais receber o aviso de "sem gasto" (é o objetivo da fase).
 
 ## Tracking T5 — pronto para cliente (08/11/2026)
