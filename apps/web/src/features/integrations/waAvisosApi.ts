@@ -55,6 +55,7 @@ export const WA_AVISO_GRUPOS: WaAvisoGrupo[] = [
       { id: "campanha_sem_entrega", label: ALERT_TYPE_LABELS.campanha_sem_entrega },
       { id: "queda_resultados", label: ALERT_TYPE_LABELS.queda_resultados },
       { id: "sem_gasto", label: "Cliente sem gastar", hint: "precisão de cerca de 1 hora; só em horário comercial" },
+      { id: "campanha_critica", label: "Casos críticos de campanhas", hint: "só campanhas, só gravidade crítica (Monitoramento de Desempenho); vale só para os casos novos, a partir de quando você liga" },
     ],
   },
   {

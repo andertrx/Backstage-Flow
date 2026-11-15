@@ -32,7 +32,7 @@ function seed(db) {
   const grupos = await card.locator("[data-testid^=wa-avisos-grupo-]").evaluateAll((els) => els.map((e) => e.getAttribute("data-testid")));
   check(grupos.join(",") === "wa-avisos-grupo-contas,wa-avisos-grupo-tarefas,wa-avisos-grupo-reunioes,wa-avisos-grupo-outros", `quatro grupos de avisos (${grupos.join(", ")})`);
   const contas = await card.getByTestId("wa-avisos-grupo-contas").locator("input[type=checkbox]").count();
-  check(contas === 12, `alertas das contas: todas as 11 situações + cliente sem gastar (${contas})`);
+  check(contas === 13, `alertas das contas: 11 situações + cliente sem gastar + casos críticos de campanhas (${contas})`);
   check(await card.getByTestId("wa-avisos-grupo-tarefas").getByLabel("Tarefa atrasada").count() === 1 && await card.getByTestId("wa-avisos-grupo-tarefas").getByLabel("Fui mencionado num comentário").count() === 1, "avisos de tarefas disponíveis");
   await card.getByRole("button", { name: "Marcar todos: Tarefas" }).click();
   check((await card.getByRole("button", { name: "Desmarcar todos: Tarefas" }).count()) === 1, "marcar todos as tarefas");
