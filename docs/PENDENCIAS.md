@@ -3,6 +3,11 @@
 > Lista do que ficou para depois. Eu (Claude) confiro e lembro esta lista nos relatórios.
 > Quando fizer um item, me avise que eu marco como feito.
 
+## Aviso "cliente sem gastar" confirmado pela entrega — T5.36 (15/11/2026)
+- [ ] **Aplicar a migration `20261114120000_wa_sem_gasto_entrega.sql` no banco** (Supabase → SQL Editor → colar o arquivo `supabase/migrations/20261114120000_wa_sem_gasto_entrega.sql`; ou, com a permissão liberada, `supabase db query --remote --yes -f supabase/migrations/20261114120000_wa_sem_gasto_entrega.sql`). Sem isso, o aviso continua decidindo só pelo dinheiro.
+- [ ] **Rodar o teste SQL da fase** `supabase/tests/etapa_t536_sem_gasto_entrega.sql` no SQL Editor (9 verificações; tudo é desfeito no final). Precisa da migration aplicada.
+- [ ] **Conferir com uma conta de verdade**: uma conta que continua entregando não deve mais receber o aviso de "sem gasto" (é o objetivo da fase).
+
 ## Tracking T5 — pronto para cliente (08/11/2026)
 - [ ] **Pixel de teste da agência:** passar só o **número** do Pixel (o token você cola no campo do CRM, nunca no chat) e o **código de teste** da aba "Testar eventos". Com isso fazemos o último passo da T5.4 (ver `docs/etapa-34-tracking/T5.4-JORNADA-COMPLETA.md`).
 - [ ] **Conversas do WhatsApp (T5.7):** (1) ligar de novo "Guardar as conversas" no site e **confirmar o aviso de privacidade** (sem isso nada é guardado); (2) colocar o texto de aviso (o CRM mostra pronto) no site, no botão de WhatsApp ou na primeira mensagem; (3) **um advogado revisar** a Política de Privacidade e o contrato com os clientes. Ver `docs/etapa-34-tracking/T5.7-CONVERSAS-WHATSAPP.md`.

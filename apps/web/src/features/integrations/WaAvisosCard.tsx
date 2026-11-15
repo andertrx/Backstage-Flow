@@ -148,7 +148,7 @@ export function WaAvisosCard() {
               </Select>
           )}</Field>
           </div>
-          <p className="text-xs text-slate-500">Só avisa conta que <strong>não gasta há esse tempo</strong> (mínimo de 6 h). O CRM lê as contas de hora em hora: a precisão é de cerca de 1 hora. Pode haver aviso falso (campanha programada para outro horário, orçamento do dia esgotado). Cada conta pode ter um tempo diferente, no campo ao lado do nome. Desmarque os clientes que não devem avisar:</p>
+          <p className="text-xs text-slate-500">Só avisa conta que <strong>não gasta há esse tempo</strong> (mínimo de 6 h) <strong>e que não entregou nada nas últimas 2 horas</strong> (o CRM confere impressões, alcance e cliques: o valor cobrado pelo Meta chega atrasado, e a conta pode estar entregando enquanto o gasto continua igual). O CRM lê as contas de hora em hora: a precisão é de cerca de 1 hora. Pode haver aviso falso (campanha programada para outro horário, orçamento do dia esgotado). Cada conta pode ter um tempo diferente, no campo ao lado do nome. Desmarque os clientes que não devem avisar:</p>
           <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="wa-sem-gasto-clientes-barra">
             <span className="font-medium text-slate-700">{lista.length - lista.filter((c) => mute.has(c.id)).length} de {lista.length} clientes avisam</span>
             <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setMute(new Set())}>Avisar todos</button>

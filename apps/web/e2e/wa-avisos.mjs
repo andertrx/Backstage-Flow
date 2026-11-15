@@ -49,6 +49,8 @@ function seed(db) {
   await card.getByLabel("Cliente sem gastar", { exact: false }).first().check();
   const sg = card.getByTestId("wa-sem-gasto");
   await sg.waitFor();
+  // T5.36: o aviso é confirmado pela entrega das últimas 2 h (não só pelo dinheiro)
+  check((await sg.innerText()).includes("não entregou nada nas últimas 2 horas"), "o aviso confirma a entrega das últimas 2 h");
   await sg.getByLabel("Avisar sem gasto: Loja Brisa").uncheck();
   // T5.34: o período pode ser escolhido por conta (a tela global é de 6 a 12 h)
   await sg.getByLabel("Período sem gasto: Loja Aurora").selectOption("480");
