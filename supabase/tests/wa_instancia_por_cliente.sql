@@ -93,5 +93,16 @@ begin
   exception when sqlstate '42501' then null; end;
   v_ok := v_ok + 1;
 
+  -- A tela lê estas colunas com permissão por coluna: sem isso a consulta inteira falha e as conexões somem (erro real de 16/11/2026)
+  if not (has_column_privilege('authenticated', 'public.tracking_whatsapp_connections', 'instance_name', 'select')
+          and has_column_privilege('authenticated', 'public.tracking_whatsapp_connections', 'gateway_state', 'select')
+          and has_column_privilege('authenticated', 'public.tracking_whatsapp_connections', 'gateway_state_at', 'select')) then
+    raise exception 'a tela precisa ler instance_name, gateway_state e gateway_state_at';
+  end if;
+  if has_column_privilege('authenticated', 'public.tracking_whatsapp_connections', 'inbound_key_hash', 'select') then
+    raise exception 'o hash da chave nunca pode ser lido pela tela';
+  end if;
+  v_ok := v_ok + 1;
+
   raise exception 'R: % verificações OK', v_ok;
 end $$;
