@@ -13,6 +13,7 @@ export function seedWaGateway() {
     waParticipantes: {},
     waAuto: [],
     waDisparos: [],
+    waAvisosSetores: [],
     waAvisosCfg: { ativo: false, grupo_id: null, grupo_nome: null, tipos: ["sem_saldo", "saldo_baixo", "conta_restrita", "pagamento_pendente", "erro_api", "envio_aprovar"],
       silencio_inicio: 22, silencio_fim: 7, repetir_horas: 12, sem_gasto_inicio: 8, sem_gasto_fim: 22, sem_gasto_minutos: 360 },
     waSemGasto: [],
@@ -92,6 +93,27 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
     }
   }
   // Etapa 45.3 — avisos no WhatsApp (só administrador)
+  // Avisos por setor (só administrador)
+  if (url.includes("/rest/v1/wa_avisos_setores")) return res(200, role === "admin" ? db.waAvisosSetores : []);
+  if (url.includes("/rest/v1/rpc/wa_avisos_setor_save")) {
+    const p = parse();
+    db.rpcCalls.push({ fn: "wa_avisos_setor_save", ...p });
+    if (role !== "admin") return res(403, { code: "42501", message: "Só o administrador configura os avisos por setor." });
+    const bad = (message) => res(400, { code: "22023", message });
+    const sec = db.opsSectors.find((x) => x.id === p.p_setor && x.status === "ativo");
+    if (!sec) return bad("Escolha um setor ativo.");
+    const nome = sec.name.trim().toLowerCase();
+    const tarefas = ["st:tarefa.nova", "st:tarefa.prazo", "st:tarefa.atrasada", "st:tarefa.concluida"];
+    const extra = nome === "gestão de tráfego" ? ["sem_saldo", "saldo_baixo", "conta_restrita", "conta_desativada", "pagamento_pendente", "cobranca_problema", "sem_forma_pagamento", "sincronizacao_atrasada", "erro_api", "campanha_sem_entrega", "queda_resultados", "campanha_critica"]
+      : nome === "account manager" ? ["am:cliente.fluxo", "am:cliente.etapa", "am:cliente.reuniao"] : nome === "comercial" ? ["com:lead.novo", "com:lead.ganho", "com:lead.perdido"] : [];
+    if (p.p_grupo_id != null && !/^[0-9A-Za-z._-]{5,60}@g\.us$/.test(p.p_grupo_id)) return bad("Grupo inválido. Escolha o grupo na lista do WhatsApp.");
+    if (p.p_ativo && p.p_grupo_id == null) return bad("Escolha o grupo do setor antes de ligar.");
+    if ((p.p_tipos ?? []).some((t) => ![...tarefas, ...extra].includes(t))) return bad("Este setor não tem esse tipo de aviso.");
+    const row = { setor_id: p.p_setor, ativo: p.p_ativo, grupo_id: p.p_grupo_id, grupo_nome: p.p_grupo_nome, tipos: p.p_tipos ?? [] };
+    const i = db.waAvisosSetores.findIndex((x) => x.setor_id === p.p_setor);
+    if (i >= 0) db.waAvisosSetores[i] = row; else db.waAvisosSetores.push(row);
+    return res(204);
+  }
   if (url.includes("/rest/v1/wa_avisos_config")) return res(200, role === "admin" ? db.waAvisosCfg : null);
   if (url.includes("/rest/v1/wa_sem_gasto_silenciados")) return res(200, role === "admin" ? db.waSemGasto.map((cliente_id) => ({ cliente_id })) : []);
   if (url.includes("/rest/v1/wa_sem_gasto_minutos_clientes")) return res(200, role === "admin" ? db.waSemGastoMinutos : []);

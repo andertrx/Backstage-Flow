@@ -6,6 +6,7 @@ import { GoogleIntegrationCard } from "./GoogleIntegrationCard.tsx";
 import { GoogleSheetsCard } from "./GoogleSheetsCard.tsx";
 import { MetaIntegrationCard } from "./MetaIntegrationCard.tsx";
 import { WaAvisosCard } from "./WaAvisosCard.tsx";
+import { WaAvisosSetoresCard } from "./WaAvisosSetoresCard.tsx";
 import { WaGatewayCard } from "./WaGatewayCard.tsx";
 import { WhatsAppAppCard } from "./WhatsAppAppCard.tsx";
 
@@ -47,6 +48,7 @@ export function IntegrationsPage() {
         <WhatsAppAppCard />
         <WaGatewayCard />
         <WaAvisosCard />
+        <WaAvisosSetoresCard />
       </Secao>
       <Secao id="dados" titulo="Dados" texto="Envio de números para planilhas.">
         <GoogleSheetsCard />

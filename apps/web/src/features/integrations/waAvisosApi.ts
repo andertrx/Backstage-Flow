@@ -167,3 +167,76 @@ export function useSalvarWaAvisos() {
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Avisos no WhatsApp POR SETOR: um grupo para cada setor, com os avisos de cada um (só administrador).
+// ---------------------------------------------------------------------------
+export interface WaAvisoSetor {
+  setor_id: string;
+  ativo: boolean;
+  grupo_id: string | null;
+  grupo_nome: string | null;
+  tipos: string[];
+}
+
+/** Avisos de tarefas do setor: valem para todo setor. */
+const WA_SETOR_TAREFAS: WaAvisoGrupo = {
+  id: "tarefas", titulo: "Tarefas do setor",
+  nota: "Sobre as tarefas que são deste setor (não só as suas).",
+  tipos: [
+    { id: "st:tarefa.nova", label: "Tarefa nova no setor" },
+    { id: "st:tarefa.prazo", label: "Prazo amanhã" },
+    { id: "st:tarefa.atrasada", label: "Tarefa atrasada" },
+    { id: "st:tarefa.concluida", label: "Tarefa concluída" },
+  ],
+};
+
+/**
+ * Avisos de cada setor. As opções específicas só existem no setor certo (o banco confere):
+ * campanhas e contas só para a Gestão de Tráfego, onboarding só para o Account Manager, leads só para o Comercial.
+ */
+export function waAvisosDoSetor(nome: string): WaAvisoGrupo[] {
+  const n = nome.trim().toLowerCase();
+  const out: WaAvisoGrupo[] = [WA_SETOR_TAREFAS];
+  if (n === "gestão de tráfego") {
+    const contas = WA_AVISO_GRUPOS.find((g) => g.id === "contas");
+    out.push({ id: "contas", titulo: "Contas de anúncio e campanhas", nota: contas?.nota, tipos: (contas?.tipos ?? []).filter((t) => t.id !== "sem_gasto") });
+  }
+  if (n === "account manager") {
+    out.push({ id: "onboarding", titulo: "Onboarding dos clientes", tipos: [
+      { id: "am:cliente.fluxo", label: "Cliente entrou no fluxo do onboarding" },
+      { id: "am:cliente.etapa", label: "Cliente mudou de etapa" },
+      { id: "am:cliente.reuniao", label: "Reunião de onboarding marcada" },
+    ] });
+  }
+  if (n === "comercial") {
+    out.push({ id: "leads", titulo: "Leads", nota: "Só o nome da empresa vai na mensagem; o contato do lead nunca sai do CRM.", tipos: [
+      { id: "com:lead.novo", label: "Lead novo" },
+      { id: "com:lead.ganho", label: "Lead ganho (contrato pago)" },
+      { id: "com:lead.perdido", label: "Lead perdido" },
+    ] });
+  }
+  return out;
+}
+
+export function useWaAvisosSetores() {
+  return useQuery({
+    queryKey: [...KEY, "setores"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("wa_avisos_setores").select("setor_id,ativo,grupo_id,grupo_nome,tipos");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os avisos por setor."));
+      return new Map(((data as WaAvisoSetor[] | null) ?? []).map((r) => [r.setor_id, r]));
+    },
+  });
+}
+
+export function useSalvarWaAvisoSetor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: WaAvisoSetor) => {
+      const { error } = await supabase.rpc("wa_avisos_setor_save", { p_setor: v.setor_id, p_ativo: v.ativo, p_grupo_id: v.grupo_id, p_grupo_nome: v.grupo_nome, p_tipos: v.tipos });
+      if (error) throw new FriendlyError(dbError(error, "Não conseguimos salvar os avisos do setor."));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}

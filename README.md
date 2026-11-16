@@ -155,6 +155,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [T5.30 — Celular: número do Saldo cortado corrigido e varredura de todas as telas (auditoria de celular)](docs/etapa-43-organizacao/T5.30-CELULAR-NADA-CORTADO.md) ✅ 11/11
   - [T5.31 — Avisos no WhatsApp: alertas das contas, tarefas, reuniões e outros, à escolha](docs/etapa-43-organizacao/T5.31-AVISOS-WHATSAPP-TAREFAS-E-OUTROS.md) ✅ 11/11
   - [T5.37 — Avisos no WhatsApp: casos críticos de campanhas](docs/etapa-43-organizacao/T5.37-AVISOS-WHATSAPP-CASOS-CRITICOS-DE-CAMPANHAS.md) ✅ 11/11
+  - [T5.38 — Avisos no WhatsApp por setor (um grupo para cada setor)](docs/etapa-43-organizacao/T5.38-AVISOS-WHATSAPP-POR-SETOR.md) ✅ 11/11
   - [T5.32 — Subtarefas, etapa 1 de 6 (banco e regras: tarefa principal + subtarefas)](docs/etapa-52-subtarefas/T5.32-ETAPA-1-BANCO.md) ✅ 11/11
   - [T5.32 — Subtarefas, etapa 2 de 6 (tela da tarefa)](docs/etapa-52-subtarefas/T5.32-ETAPA-2-TELA-DA-TAREFA.md) ✅ 11/11
   - [T5.32 — Subtarefas, etapa 3 de 6 (Kanban, lista, Minhas tarefas, filas)](docs/etapa-52-subtarefas/T5.32-ETAPA-3-KANBAN-E-LISTAS.md) ✅ 11/11
