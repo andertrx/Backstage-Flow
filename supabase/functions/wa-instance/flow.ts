@@ -165,11 +165,20 @@ export async function status(d: Deps): Promise<{ state: ConnState; message: stri
   return { state, message: null };
 }
 
+/**
+ * Desconectar = apagar de verdade no servidor: sai do WhatsApp E apaga a instância (sessão, número, códigos), e limpa o cadastro da instância.
+ * Assim a próxima conexão (inclusive de OUTRO número) começa do zero. Contatos e conversas guardados no CRM não são tocados.
+ */
 export async function logout(d: Deps): Promise<{ state: ConnState }> {
   const cur = await d.get();
   if (cur.instance) {
     const r = await d.gw(cur.instance, "DELETE", "/instance/logout/{instance}");
-    if (r.status >= 400 && r.status !== 404) throw new GatewayFailure(502, d.problem(r.status));
+    if (r.status >= 400 && r.status !== 404 && r.status !== 400) throw new GatewayFailure(502, d.problem(r.status));
+    const del = await d.gw(cur.instance, "DELETE", "/instance/delete/{instance}");
+    if (del.status >= 400 && del.status !== 404) throw new GatewayFailure(502, d.problem(del.status));
+    await d.setState("desconectado", false);
+    await d.clear();
+    return { state: "desconectado" };
   }
   await d.setState("desconectado", false);
   return { state: "desconectado" };

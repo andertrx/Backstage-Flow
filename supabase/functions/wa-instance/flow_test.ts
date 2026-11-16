@@ -152,8 +152,11 @@ Deno.test("logout desliga a conexão; remove limpa a instância (e não falha se
   const f = fake({ "DELETE /instance/logout/{instance}": [{ status: 200 }], "DELETE /instance/delete/{instance}": [{ status: 404 }] });
   assertEquals((await logout(f.d)).state, "desconectado");
   assertEquals(f.states.at(-1), { state: "desconectado", enable: false });
-  assertEquals((await remove(f.d)).removed, true);
+  // desconectar apaga de verdade: sai, apaga a instância no servidor e limpa o cadastro da instância
+  assertEquals(f.calls.map((c) => `${c.method} ${c.path}`), ["DELETE /instance/logout/{instance}", "DELETE /instance/delete/{instance}"]);
   assertEquals(f.cleared(), 1);
+  assertEquals((await remove(f.d)).removed, true);
+  assertEquals(f.cleared(), 2);
   const g = fake({});
   g.cur.instance = null;
   assertEquals((await remove(g.d)).removed, false);

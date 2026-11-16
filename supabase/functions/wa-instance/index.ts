@@ -87,7 +87,7 @@ Deno.serve(handle(async (req) => {
     throw new AppError(400, "INVALID_INPUT", "Pedido inválido.");
   }
   const caller = await requireRole(req, db, staff);
-  await enforceRateLimit(db, "wa.gateway", caller.id);
+  await enforceRateLimit(db, "wa.instance", caller.id);
   const input = parsed.data;
   const base = await loadBase(db);
   const d = depsFor(db, base, caller.id, input.connectionId);
