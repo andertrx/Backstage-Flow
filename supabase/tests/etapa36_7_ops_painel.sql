@@ -37,9 +37,10 @@ insert into k367 select 't1', public.ops_task_save(null, null, jsonb_build_objec
   'due_date', ((now() at time zone 'America/Sao_Paulo')::date - 1)::text, 'people', jsonb_build_object('principal', '00000000-0000-0000-0000-00000367aa03')));
 -- T5.33: toda tarefa nova exige responsável; a "sem dono" é uma tarefa ANTIGA (criada direto no banco, como as de antes da regra).
 reset role;
-insert into k367 select 't2', (with x as (insert into public.ops_tasks (title, sector_id, status_id, due_date, created_by, updated_by)
+insert into public.ops_tasks (title, sector_id, status_id, due_date, created_by, updated_by)
   values ('Sem dono T367', (select id from k367 where k = 'setor'), 'nao_iniciado', (now() at time zone 'America/Sao_Paulo')::date,
-          '00000000-0000-0000-0000-00000367aa02', '00000000-0000-0000-0000-00000367aa02') returning id) select id from x);
+          '00000000-0000-0000-0000-00000367aa02', '00000000-0000-0000-0000-00000367aa02');
+insert into k367 select 't2', id from public.ops_tasks where title = 'Sem dono T367';
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000367aa02","role":"authenticated"}';
 insert into k367 select 't3', public.ops_task_save(null, null, jsonb_build_object('title', 'Secreta T367', 'sector_id', (select id from k367 where k = 'setor'),
