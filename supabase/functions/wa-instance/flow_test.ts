@@ -186,29 +186,63 @@ Deno.test("código: instância nova nasce já com o número", async () => {
   assertEquals((f.calls.find((c) => c.path === "/instance/create")!.body as { number: string }).number, "5581995067876");
 });
 
-Deno.test("código: o servidor só gera para o número certo → tenta a outra forma (com/sem o 9)", async () => {
+Deno.test("código: conexão que já existia devolve só QR (pairingCode vazio) → apaga e recria já com o número, e refaz o aviso", async () => {
   const f = fake({
-    "GET /instance/connect/{instance}": [
-      { status: 200, body: { base64: "data:image/png;base64,AAAA" } }, // com o número cadastrado: só QR, sem código
-      { status: 200, body: { pairingCode: "ABCD1234" } }, // forma com o 9: gerou o código
+    "GET /instance/connect/{instance}": [{ status: 200, body: { pairingCode: null, code: "2@x", base64: "data:image/png;base64,AAAA", count: 1 } }],
+    "DELETE /instance/delete/{instance}": [{ status: 200 }],
+    "POST /instance/create": [{ status: 201, body: { qrcode: { pairingCode: "ABCD1234", code: "2@y", base64: "data:image/png;base64,BBBB" } } }],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  const r = await connect(f.d, "67 98105-6623");
+  assertEquals(r.pairingCode, "ABCD1234");
+  assertEquals(r.pairingNumber, "5567981056623");
+  const ordem = f.calls.map((c) => `${c.method} ${c.path}`);
+  assertEquals(ordem.filter((x) => x === "DELETE /instance/delete/{instance}").length, 1);
+  assertEquals((f.calls.find((c) => c.path === "/instance/create")!.body as { number: string }).number, "5567981056623");
+  // o último aviso configurado vem DEPOIS de criar a instância nova (senão a nova ficaria sem aviso)
+  assert(ordem.lastIndexOf("POST /webhook/set/{instance}") > ordem.indexOf("POST /instance/create"));
+});
+
+Deno.test("código: se a 1ª criação não gera código, recria com a outra forma do número (com/sem o 9)", async () => {
+  const f = fake({
+    "GET /instance/connect/{instance}": [{ status: 200, body: { pairingCode: null, base64: "data:image/png;base64,AAAA" } }],
+    "DELETE /instance/delete/{instance}": [{ status: 200 }],
+    "POST /instance/create": [
+      { status: 201, body: { qrcode: { pairingCode: null, base64: "data:image/png;base64,BBBB" } } }, // número como veio: sem código
+      { status: 201, body: { qrcode: { pairingCode: "WXYZ5678", base64: "data:image/png;base64,CCCC" } } }, // forma com o 9: gerou
     ],
     "POST /webhook/set/{instance}": [{ status: 200 }],
   });
-  const r = await connect(f.d, "81 95067876");
-  assertEquals(r.pairingCode, "ABCD1234");
-  assertEquals(r.pairingNumber, "5581995067876");
+  const r = await connect(f.d, "67 8105-6623"); // 8 dígitos depois do DDD
+  assertEquals(r.pairingCode, "WXYZ5678");
+  assertEquals(r.pairingNumber, "5567981056623");
+  const criacoes = f.calls.filter((c) => c.path === "/instance/create").map((c) => (c.body as { number: string }).number);
+  assertEquals(criacoes, ["556781056623", "5567981056623"]);
 });
 
 Deno.test("código: se nenhuma forma gera código, avisa e mantém o QR (não fica 'esperando')", async () => {
   const f = fake({
-    "GET /instance/connect/{instance}": [{ status: 200, body: { base64: "data:image/png;base64,AAAA" } }],
+    "GET /instance/connect/{instance}": [{ status: 200, body: { pairingCode: null, base64: "data:image/png;base64,AAAA" } }],
+    "DELETE /instance/delete/{instance}": [{ status: 200 }],
+    "POST /instance/create": [{ status: 201, body: { qrcode: { pairingCode: null, base64: "data:image/png;base64,BBBB" } } }],
     "POST /webhook/set/{instance}": [{ status: 200 }],
   });
-  const r = await connect(f.d, "5581995067876");
+  const r = await connect(f.d, "5567981056623");
   assertEquals(r.pairingCode, null);
   assertEquals(r.state, "aguardando_leitura");
   assert(r.qr?.startsWith("data:image/png"));
   assert(r.message?.includes("não gerou o código"));
+});
+
+Deno.test("código: não apaga a conexão se o servidor recusa o pedido de apagar (erro do servidor)", async () => {
+  const f = fake({
+    "GET /instance/connect/{instance}": [{ status: 200, body: { pairingCode: null, base64: "data:image/png;base64,AAAA" } }],
+    "DELETE /instance/delete/{instance}": [{ status: 500 }],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  const r = await connect(f.d, "5567981056623");
+  assertEquals(f.calls.some((c) => c.path === "/instance/create"), false);
+  assert(r.qr?.startsWith("data:image/png"));
 });
 
 Deno.test("código: telefone inválido é recusado antes de falar com o servidor", async () => {

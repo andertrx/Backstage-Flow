@@ -97,23 +97,37 @@ export async function connect(d: Deps, numberRaw?: string): Promise<ConnectResul
     info = parseConnectResponse(again.body);
   }
   let pairingNumber: string | null = number && info.pairingCode ? number : null;
-  // Pediu o código e o servidor devolveu só o QR: tenta a outra forma do número (com/sem o 9), uma vez.
+  let webhookOk = await hook;
+
+  // Pediu o código e o servidor devolveu só o QR (pairingCode vazio): esse tipo de servidor só gera o código quando a conexão
+  // é CRIADA já com o número. Como ela já existia, apaga e cria de novo com o número (e, se não vier, com a outra forma do número: com/sem o 9).
   if (number && !info.pairingCode && !info.alreadyConnected) {
-    const alt = altBrNumber(number);
-    if (alt) {
-      const r2 = await d.gw(instance, "GET", "/instance/connect/{instance}", { query: { number: alt } });
-      if (r2.status < 400) {
-        const info2 = parseConnectResponse(r2.body);
-        if (info2.pairingCode) { info = info2; pairingNumber = alt; }
+    const tries = [number, altBrNumber(number)].filter((n): n is string => Boolean(n));
+    for (const n of tries) {
+      const del = await d.gw(instance, "DELETE", "/instance/delete/{instance}");
+      if (del.status >= 400 && del.status !== 404) break;
+      const rc = await d.gw(instance, "POST", "/instance/create", {
+        body: { instanceName: instance, integration: "WHATSAPP-BAILEYS", qrcode: true, number: n },
+      });
+      if (rc.status >= 400) break;
+      let info2 = parseConnectResponse(rc.body);
+      for (let i = 0; i < 3 && !info2.pairingCode && !info2.qr; i++) {
+        await d.wait(1500);
+        const again = await d.gw(instance, "GET", "/instance/connect/{instance}", { query: { number: n } });
+        if (again.status >= 400) break;
+        info2 = parseConnectResponse(again.body);
       }
+      // A instância é nova: o aviso (webhook) precisa ser configurado de novo.
+      webhookOk = await setWebhook(d, instance, key);
+      if (info2.pairingCode) { info = info2; pairingNumber = n; break; }
+      if (!info.qr && info2.qr) info = info2;
     }
   }
-  const webhookOk = await hook;
 
   // Diagnóstico: pediu código e não veio. Registra SÓ os nomes dos campos da resposta (nunca valores), para saber o que o servidor devolve.
   if (number && !info.pairingCode && !info.alreadyConnected) {
     const o = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
-    console.log(JSON.stringify({ wa_instance: "codigo_nao_veio", http: r.status, campos: Object.keys(o(r.body)), campos_qrcode: Object.keys(o(o(r.body).qrcode)), numero_digitos: number.length }));
+    console.log(JSON.stringify({ wa_instance: "codigo_nao_veio", http: r.status, campos: Object.keys(o(r.body)), campos_qrcode: Object.keys(o(o(r.body).qrcode)), numero_digitos: number.length, pc_tipo: typeof o(r.body).pairingCode, pc_tamanho: typeof o(r.body).pairingCode === "string" ? (o(r.body).pairingCode as string).length : null, count: o(r.body).count ?? null }));
   }
 
   if (info.alreadyConnected) {
