@@ -1092,3 +1092,21 @@ export function useWaInstanceRemove() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });
 }
+
+/** Cartão do WhatsApp na ficha do cliente (T5.38): diz se a pessoa pode conectar (admin, gestor do cliente ou Account Manager do cliente) e devolve as conexões. */
+export interface WaClientCard {
+  pode: boolean;
+  conexoes: Array<{ id: string; display_phone: string | null; phone_number_id: string; instance_name: string | null; gateway_state: WaInstanceState | null; enabled: boolean; last_webhook_at: string | null }>;
+}
+
+export function useWaClientCard(clientId: string | undefined) {
+  return useQuery({
+    queryKey: [...KEY, "wa-cartao-cliente", clientId],
+    enabled: !!clientId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("wa_instance_minha_conexao", { p_client: clientId });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar o WhatsApp do cliente."));
+      return data as WaClientCard;
+    },
+  });
+}

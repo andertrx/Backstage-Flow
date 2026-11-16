@@ -4,6 +4,8 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
+import { useWaClientCard } from "@/features/tracking/api.ts";
+import { WaQrSection } from "@/features/tracking/WaQrSection.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
@@ -255,12 +257,31 @@ function NotesCard({ detail }: { detail: OpsClientDetail }) {
 }
 
 /** Aba "Onboarding" da ficha do cliente. */
+/** T5.38: WhatsApp do cliente por QR Code. Aparece só para quem pode conectar (administrador, gestor do cliente e Account Manager do cliente). */
+function WhatsAppQrCard({ clientId }: { clientId: string }) {
+  const { data } = useWaClientCard(clientId);
+  if (!data?.pode) return null;
+  return (
+    <Card className="space-y-3 p-4" data-testid="ops-onb-whatsapp">
+      <h3 className="text-sm font-semibold text-slate-900">WhatsApp do cliente</h3>
+      {data.conexoes.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          Nenhum número do WhatsApp cadastrado para este cliente. Peça ao administrador ou ao gestor para cadastrar o número em Tracking → Configurações; depois ele aparece aqui para você conectar por QR Code.
+        </p>
+      ) : (
+        data.conexoes.map((c) => <WaQrSection key={c.id} connection={c} />)
+      )}
+    </Card>
+  );
+}
+
 export function ClientOnboardingPanel({ detail, ctx }: { detail: OpsClientDetail; ctx: TasksContext }) {
   return (
     <div className="space-y-4" data-testid="ops-client-onboarding">
       <ClientDataCard clientId={detail.client.id} />
       <LeadSummaryCard detail={detail} />
       <ContactsCard detail={detail} ctx={ctx} />
+      <WhatsAppQrCard clientId={detail.client.id} />
       <NotesCard detail={detail} />
     </div>
   );

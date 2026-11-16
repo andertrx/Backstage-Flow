@@ -26,7 +26,9 @@ const REFRESH_MS = 40_000;
  * Quem lê o QR é a pessoa que está com o celular do cliente: WhatsApp → Aparelhos conectados → Conectar um aparelho.
  * O QR Code só aparece para quem está logado e nunca é guardado nem vai para log.
  */
-export function WaQrSection({ connection }: { connection: WhatsAppConnection }) {
+export type WaQrConnection = Pick<WhatsAppConnection, "id" | "display_phone" | "phone_number_id" | "instance_name" | "gateway_state">;
+
+export function WaQrSection({ connection }: { connection: WaQrConnection }) {
   const connect = useWaInstanceConnect();
   const status = useWaInstanceStatus();
   const logout = useWaInstanceLogout();

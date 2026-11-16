@@ -132,5 +132,5 @@
 
 ## QR Code do WhatsApp por cliente (T5.38, 16/11/2026)
 - [ ] **Publicar a função `wa-instance`** (fase A): `supabase.cmd functions deploy wa-instance --remote=dkatllzkmlzpginuzvis --use-api --yes`.
-- [ ] Decidir na fase B: dar ao **Account Manager** (papel Equipe) acesso à tela do Tracking só para conectar o WhatsApp dos clientes dele (hoje ele não vê o Tracking).
+- [x] (Feito em 16/11/2026) **Account Manager** conecta o WhatsApp dos clientes dele por um cartão na ficha do Onboarding, sem abrir o Tracking. Ele não cadastra o número: isso continua com administrador e gestor.
 - [ ] No primeiro teste real (Acollar): ter o **celular do cliente na mão** para ler o QR Code, e confirmar que o servidor de WhatsApp aceita mais um chip.

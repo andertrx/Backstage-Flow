@@ -4,16 +4,25 @@
 const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 export function seedWaInstance() {
-  return { waInst: { connectAfter: 2, webhookOk: true, polls: 0, connectCalls: 0, hookKeys: [], serverHas: {} } };
+  // amClients: ids de clientes dos quais a pessoa logada é Account Manager (o banco usa ops_client_ops.am_user_id)
+  return { waInst: { connectAfter: 2, webhookOk: true, polls: 0, connectCalls: 0, hookKeys: [], serverHas: {}, amClients: [] } };
 }
 
 export function handleWaInstance({ db, url, parse, role, res }) {
+  const sim = db.waInst;
+  const pode = (clientId) => role === "admin" || role === "gestor" || sim.amClients.includes(clientId);
+  if (url.includes("/rest/v1/rpc/wa_instance_minha_conexao")) {
+    const p = parse();
+    db.rpcCalls.push({ fn: "wa_instance_minha_conexao", ...p });
+    if (!pode(p.p_client)) return res(200, { pode: false, conexoes: [] });
+    return res(200, { pode: true, conexoes: db.whatsappConnections.filter((c) => c.client_id === p.p_client && c.mode === "nao_oficial").map((c) => ({
+      id: c.id, display_phone: c.display_phone, phone_number_id: c.phone_number_id, instance_name: c.instance_name ?? null,
+      gateway_state: c.gateway_state ?? null, enabled: c.enabled, last_webhook_at: c.last_webhook_at ?? null })) });
+  }
   if (!url.includes("/functions/v1/wa-instance")) return null;
   const p = parse();
-  const sim = db.waInst;
-  if (!["admin", "gestor"].includes(role)) return res(403, { error: { code: "FORBIDDEN", message: "Você não pode conectar o WhatsApp deste cliente." } });
   const c = db.whatsappConnections.find((x) => x.id === p.connectionId && x.mode === "nao_oficial");
-  if (!c) return res(403, { error: { code: "FORBIDDEN", message: "Você não pode conectar o WhatsApp deste cliente." } });
+  if (!c || !pode(c.client_id)) return res(403, { error: { code: "FORBIDDEN", message: "Você não pode conectar o WhatsApp deste cliente." } });
 
   if (p.action === "connect") {
     sim.connectCalls += 1;
