@@ -101,12 +101,12 @@
 
 ## Limpeza dos dados de conversa (T5.23, 10/11/2026)
 - [x] Função que apaga (`wa_unofficial_limpar`) aplicada e testada em 10/11/2026. Ver `docs/etapa-34-tracking/T5.23-PERIODO-DO-HISTORICO-E-LIMPEZA.md`.
-- [ ] **Publicar a função `mcp`** (texto do guia atualizado na T5.22): numa sessão nova, pedir "publique a função mcp".
+- [x] (Feito em 16/11/2026: publicada pela CLI, versão 9 / MCP 1.6.0, conferida contra o repositório.) **Publicar a função `mcp`** (texto do guia atualizado na T5.22).
 
 ## Marcar pessoas (@) nos envios (T5.20, 09/11/2026)
 - [ ] **Teste real da marcação:** num grupo de teste, ligar o grupo a um cliente e adicionar o seu número em "Pessoas a marcar" (Envios → aba Clientes, ou Ficha do cliente → Grupo do WhatsApp). Aprovar um envio de teste só com esse cliente e conferir se o WhatsApp mostra a marcação azul no fim da mensagem. Se não mostrar, me avise (ajusto o formato). (O botão "Enviar agora" não existe mais.)
 - [ ] Adicionar as pessoas (número + apelido) de cada cliente (Envios → aba Clientes → "Pessoas a marcar").
-- [ ] T5.22: publicar a função `mcp` (só o texto do guia mudou; vai junto com a Fase 2).
+- [x] (Feito em 16/11/2026, junto com a 1.6.0.) T5.22: publicar a função `mcp`.
 
 ## WhatsApp por API não oficial (Etapa 44, 06/11/2026)
 - [ ] **Contratar o servidor de conexão** e seguir `docs/etapa-43-organizacao/44.1-SERVIDOR-PASSO-A-PASSO.md` (arquivos prontos em `infra/whatsapp-evolution/`). Eu acompanho cada passo.
@@ -120,6 +120,6 @@
 - [ ] **Google Agenda (46.1):** no Google Cloud, adicionar aos URIs de redirecionamento do cliente OAuth: `https://www.backstageflow.com.br/google-agenda/retorno` e `https://backstageflow.com.br/google-agenda/retorno`; conferir se a tela de consentimento pode ser "Interna" (dispensa o vídeo). Depois conectar em Reuniões → Google Agenda.
 
 ## Subtarefas e responsável obrigatório (T5.32/T5.33, 11/11/2026)
-- [ ] **Publicar a função `mcp`** (agora também com subtarefas e `responsavel_id` obrigatório): Actions → "Publicar função do Supabase" (precisa do segredo `SUPABASE_ACCESS_TOKEN` no GitHub).
+- [x] (Feito em 16/11/2026: MCP 1.6.0 no ar, com subtarefas e `responsavel_id` obrigatório; `backstage_status` responde 1.6.0.) **Publicar a função `mcp`**. O fluxo do GitHub ("Publicar função do Supabase") continua sem o segredo `SUPABASE_ACCESS_TOKEN` funcionando (chega vazio); **não é mais necessário**, a publicação é feita pela CLI (`docs/etapa-40-mcp/40.5-PUBLICACAO-PELA-CLI.md`).
 - [ ] Conferir com dados reais, quando houver: repetição de tarefa com subtarefas (roda de madrugada) e reunião → tarefa com responsável.
 - [ ] Tarefas antigas sem responsável aparecem em vermelho ("Sem responsável"): definir um responsável nelas (filtro "Sem responsável" na Central de Tarefas).

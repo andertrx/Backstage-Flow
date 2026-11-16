@@ -11,13 +11,13 @@ begin
   -- Pelo site (login normal, sem client_id): continua "manual"
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
   perform set_config('request.headers', '{}', true);
-  t1 := public.ops_task_save(null, null, jsonb_build_object('title', 'Teste origem site', 'sector_id', v_sector));
+  t1 := public.ops_task_save(null, null, jsonb_build_object('title', 'Teste origem site', 'sector_id', v_sector, 'people', jsonb_build_object('principal', v_admin)));
   if (select origin from public.ops_activity where task_id = t1 order by id limit 1) <> 'manual' then raise exception 'pelo site continua manual'; end if;
   v_ok := v_ok + 1;
 
   -- Pelo MCP com login OAuth (token com client_id): "mcp"
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated', 'client_id', gen_random_uuid())::text, true);
-  t2 := public.ops_task_save(null, null, jsonb_build_object('title', 'Teste origem oauth', 'sector_id', v_sector));
+  t2 := public.ops_task_save(null, null, jsonb_build_object('title', 'Teste origem oauth', 'sector_id', v_sector, 'people', jsonb_build_object('principal', v_admin)));
   if (select origin from public.ops_activity where task_id = t2 order by id limit 1) <> 'mcp' then raise exception 'OAuth vira mcp'; end if;
   perform public.ops_comment_add(t2, 'comentário pelo MCP', '{}');
   if exists (select 1 from public.ops_activity where task_id = t2 and origin <> 'mcp') then raise exception 'todas as ações pelo MCP ficam mcp'; end if;
@@ -26,7 +26,7 @@ begin
   -- Pelo MCP com o sinal do servidor (cabeçalho): "mcp"; auditoria ganha "origem"
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
   perform set_config('request.headers', '{"x-backstage-origin": "mcp"}', true);
-  t3 := public.ops_task_save(null, null, jsonb_build_object('title', 'Teste origem cabecalho', 'sector_id', v_sector));
+  t3 := public.ops_task_save(null, null, jsonb_build_object('title', 'Teste origem cabecalho', 'sector_id', v_sector, 'people', jsonb_build_object('principal', v_admin)));
   if (select origin from public.ops_activity where task_id = t3 order by id limit 1) <> 'mcp' then raise exception 'cabeçalho vira mcp'; end if;
   perform public.ops_activity_type_save(null, 'Tipo teste origem MCP', true);
   if (select details ->> 'origem' from public.audit_logs where action = 'ops.activity_type.create' order by id desc limit 1) is distinct from 'mcp' then
