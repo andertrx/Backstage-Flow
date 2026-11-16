@@ -7,6 +7,7 @@ import {
   ChartPie,
   Handshake,
   FileBarChart,
+  FilePlus2,
   Gauge,
   KanbanSquare,
   LayoutDashboard,
@@ -61,6 +62,8 @@ export const NAV_ITEMS: NavItem[] = [
   // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...), na ordem do catálogo.
   ...PLATFORMS.map((p): NavItem => ({ label: p.name, path: p.path, icon: platformLook(p.id).icon, group: "Anúncios", permission: "internal.view" })),
   { label: "Campanhas", path: "/campanhas", icon: Target, group: "Anúncios", permission: "internal.view" },
+  // Fase 35.2: rascunhos de campanha do Campaign Builder (aprovado pelo Ander em 16/11/2026: logo depois de Campanhas). Nada é criado no Meta aqui.
+  { label: "Criar campanhas", path: "/criar-campanhas", icon: FilePlus2, group: "Anúncios", permission: "ads.builder" },
   // Etapa 42: monta o pedido em texto para o Claude criar anúncios no Meta (a página não cria nada no Meta).
   { label: "Criador de Anúncios", path: "/criador-de-anuncios", icon: Wand2, group: "Anúncios", permission: "ads.builder" },
   { label: "Relatórios", path: "/relatorios", icon: FileBarChart, group: "Análise", permission: "reports.generate" },

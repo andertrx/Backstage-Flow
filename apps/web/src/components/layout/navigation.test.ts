@@ -43,6 +43,13 @@ describe("menu lateral", () => {
     for (const r of ["visualizador", "equipe", "vendedor", "cliente"] as const) expect(labels(r)).not.toContain("Criador de Anúncios");
   });
 
+  it("Criar campanhas (Fase 35.2): mesmos papéis do Criador de Anúncios, logo depois de Campanhas", () => {
+    for (const r of ["admin", "gestor", "operador"] as const) expect(labels(r)).toContain("Criar campanhas");
+    for (const r of ["visualizador", "equipe", "vendedor", "cliente"] as const) expect(labels(r)).not.toContain("Criar campanhas");
+    const nomes = NAV_ITEMS.map((i) => i.label);
+    expect(nomes.indexOf("Criar campanhas")).toBe(nomes.indexOf("Campanhas") + 1);
+  });
+
   it("operador não vê Logs", () => {
     expect(labels("operador")).not.toContain("Logs");
     expect(labels("gestor")).toContain("Logs");
@@ -52,7 +59,7 @@ describe("menu lateral", () => {
 describe("grupos do menu", () => {
   it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36; Monitoramento antes de Alertas na Etapa 37; Inteligência de Resultados depois de Monitoramento na Etapa 39; Criador de Anúncios depois de Campanhas na Etapa 42; Reuniões, Comercial e Envios semanais depois da Central na 43.6/43.7)", () => {
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Painel", "Comercial", "Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas", "Envios semanais", "Configurações da Central", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
+      "Dashboard", "Clientes", "Contas", "Painel", "Comercial", "Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas", "Envios semanais", "Configurações da Central", "Meta Ads", "Google Ads", "Campanhas", "Criar campanhas", "Criador de Anúncios",
       "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking", "Sincronização", "Logs", "Configurações",
     ]);
   });

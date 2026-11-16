@@ -123,3 +123,9 @@
 - [x] (Feito em 16/11/2026: MCP 1.6.0 no ar, com subtarefas e `responsavel_id` obrigatório; `backstage_status` responde 1.6.0.) **Publicar a função `mcp`**. O fluxo do GitHub ("Publicar função do Supabase") continua sem o segredo `SUPABASE_ACCESS_TOKEN` funcionando (chega vazio); **não é mais necessário**, a publicação é feita pela CLI (`docs/etapa-40-mcp/40.5-PUBLICACAO-PELA-CLI.md`).
 - [ ] Conferir com dados reais, quando houver: repetição de tarefa com subtarefas (roda de madrugada) e reunião → tarefa com responsável.
 - [ ] Tarefas antigas sem responsável aparecem em vermelho ("Sem responsável"): definir um responsável nelas (filtro "Sem responsável" na Central de Tarefas).
+
+## Campaign Builder (Etapa 35, 16/11/2026)
+- [ ] **Publicar a função `ad-accounts`** (traz o botão "Conferir permissões" do token do Meta): `npx supabase functions deploy ad-accounts --project-ref dkatllzkmlzpginuzvis`. Depois clicar em Configurações → Integrações → Meta Ads → **Conferir permissões** e me dizer o que aparece (principalmente `ads_management`).
+- [ ] Em **Criar campanhas → Quem pode o quê**, liberar criar/editar/publicar para quem for usar (gestor/operador).
+- [ ] Conferir se a conexão nova do Meta (usuário do sistema "Backstage Flow - By STG") sincronizou todas as contas; se alguma der erro, me avisar qual.
+- [ ] Para a primeira publicação real (fase 35.4): escolher o cliente/conta de teste (campanha **Pausada**).

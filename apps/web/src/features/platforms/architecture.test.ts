@@ -58,9 +58,9 @@ describe("arquitetura preparada para novas plataformas", () => {
     }
   });
 
-  it("a ordem do menu só mudou com aprovação do Ander (43.6; 11/11: Envios semanais e Configurações da Central trocaram de lugar)", () => {
+  it("a ordem do menu só mudou com aprovação do Ander (43.6; 11/11: Envios semanais e Configurações da Central trocaram de lugar; 16/11: Criar campanhas entrou depois de Campanhas, aprovado pelo Ander)", () => {
     expect(NAV_ITEMS.map((n) => n.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Painel", "Comercial", "Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas", "Envios semanais", "Configurações da Central", "Meta Ads", "Google Ads", "Campanhas", "Criador de Anúncios",
+      "Dashboard", "Clientes", "Contas", "Painel", "Comercial", "Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas", "Envios semanais", "Configurações da Central", "Meta Ads", "Google Ads", "Campanhas", "Criar campanhas", "Criador de Anúncios",
       "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking", "Sincronização", "Logs", "Configurações",
     ]);
   });

@@ -33,6 +33,7 @@ const ExecutivePage = lazy(() => import("@/features/executive/ExecutivePage.tsx"
 const ComparisonPage = lazy(() => import("@/features/comparison/ComparisonPage.tsx").then((m) => ({ default: m.ComparisonPage })));
 const MonitoringPage = lazy(() => import("@/features/monitoring/MonitoringPage.tsx").then((m) => ({ default: m.MonitoringPage })));
 const ResultsPage = lazy(() => import("@/features/results/ResultsPage.tsx").then((m) => ({ default: m.ResultsPage })));
+const CampaignBuilderPage = lazy(() => import("@/features/campaign-builder/CampaignBuilderPage.tsx").then((m) => ({ default: m.CampaignBuilderPage })));
 const AdsBuilderPage = lazy(() => import("@/features/ads-builder/AdsBuilderPage.tsx").then((m) => ({ default: m.AdsBuilderPage })));
 const AlertsPage = lazy(() => import("@/features/alerts/AlertsPage.tsx").then((m) => ({ default: m.AlertsPage })));
 const OpsLayout = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsLayout })));
@@ -163,6 +164,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="internal.view">
             <CampaignsPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "criar-campanhas",
+        element: (
+          <RequirePermission permission="ads.builder">
+            <CampaignBuilderPage />
           </RequirePermission>
         ),
       },
