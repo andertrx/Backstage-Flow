@@ -68,6 +68,11 @@ export async function setWebhook(d: Deps, instance: string, key: string): Promis
   return v1.status < 400;
 }
 
+/** Registro simples de cada passo (sem código, sem QR, sem telefone): serve para ver em que ponto uma conexão parou. */
+function logStep(passo: string, extra: Record<string, unknown> = {}) {
+  console.log(JSON.stringify({ wa_instance: passo, ...extra }));
+}
+
 export async function connect(d: Deps, numberRaw?: string): Promise<ConnectResult> {
   let number: string | null = null;
   if (numberRaw?.trim()) {
@@ -75,71 +80,52 @@ export async function connect(d: Deps, numberRaw?: string): Promise<ConnectResul
     if (!number) throw new GatewayFailure(400, "Telefone inválido. Use o número do chip com DDD (ex.: 11 98765-4321).");
   }
   const { instance, key } = await d.prepare();
+  let r: GatewayReply;
 
-  // Uma chamada só para pedir o QR (ou o código, se veio o número): se a instância ainda não existe (404), cria já pedindo.
-  let r = await d.gw(instance, "GET", "/instance/connect/{instance}", { query: number ? { number } : {} });
-  if (r.status === 404) {
+  if (number) {
+    // CÓDIGO: este tipo de servidor só gera o código quando a conexão é CRIADA já com o número. Então começa do zero, UMA vez:
+    // apaga a conexão antiga (se não existir, tudo bem) e cria de novo com o número. Nunca tenta outras formas do número sozinho.
+    const del = await d.gw(instance, "DELETE", "/instance/delete/{instance}");
+    if (del.status >= 400 && del.status !== 404) throw new GatewayFailure(502, d.problem(del.status));
     r = await d.gw(instance, "POST", "/instance/create", {
-      body: { instanceName: instance, integration: "WHATSAPP-BAILEYS", qrcode: true, ...(number ? { number } : {}) },
+      body: { instanceName: instance, integration: "WHATSAPP-BAILEYS", qrcode: true, number },
     });
+  } else {
+    // QR: uma chamada só; se a conexão ainda não existe (404), cria.
+    r = await d.gw(instance, "GET", "/instance/connect/{instance}");
+    if (r.status === 404) {
+      r = await d.gw(instance, "POST", "/instance/create", { body: { instanceName: instance, integration: "WHATSAPP-BAILEYS", qrcode: true } });
+    }
   }
   if (r.status >= 400) throw new GatewayFailure(502, d.problem(r.status));
 
-  // O aviso é configurado SEMPRE (a chave acabou de ser trocada), em paralelo com a espera do QR/código.
+  // O aviso é configurado SEMPRE (a chave acabou de ser trocada / a conexão é nova), em paralelo com a espera do QR/código.
   const hook = setWebhook(d, instance, key);
 
   let info = parseConnectResponse(r.body);
-  // O servidor gera o QR em segundo plano: logo depois de criar, ele pode ainda não ter vindo. Tenta de novo poucas vezes.
+  // O servidor gera o QR/código em segundo plano: pode ainda não ter vindo. Tenta de novo poucas vezes.
   for (let i = 0; i < 4 && !info.qr && !info.pairingCode && !info.alreadyConnected; i++) {
     await d.wait(1500);
     const again = await d.gw(instance, "GET", "/instance/connect/{instance}", { query: number ? { number } : {} });
     if (again.status >= 400) break;
     info = parseConnectResponse(again.body);
   }
-  let pairingNumber: string | null = number && info.pairingCode ? number : null;
-  let webhookOk = await hook;
-
-  // Pediu o código e o servidor devolveu só o QR (pairingCode vazio): esse tipo de servidor só gera o código quando a conexão
-  // é CRIADA já com o número. Como ela já existia, apaga e cria de novo com o número (e, se não vier, com a outra forma do número: com/sem o 9).
-  if (number && !info.pairingCode && !info.alreadyConnected) {
-    const tries = [number, altBrNumber(number)].filter((n): n is string => Boolean(n));
-    for (const n of tries) {
-      const del = await d.gw(instance, "DELETE", "/instance/delete/{instance}");
-      if (del.status >= 400 && del.status !== 404) break;
-      const rc = await d.gw(instance, "POST", "/instance/create", {
-        body: { instanceName: instance, integration: "WHATSAPP-BAILEYS", qrcode: true, number: n },
-      });
-      if (rc.status >= 400) break;
-      let info2 = parseConnectResponse(rc.body);
-      for (let i = 0; i < 3 && !info2.pairingCode && !info2.qr; i++) {
-        await d.wait(1500);
-        const again = await d.gw(instance, "GET", "/instance/connect/{instance}", { query: { number: n } });
-        if (again.status >= 400) break;
-        info2 = parseConnectResponse(again.body);
-      }
-      // A instância é nova: o aviso (webhook) precisa ser configurado de novo.
-      webhookOk = await setWebhook(d, instance, key);
-      if (info2.pairingCode) { info = info2; pairingNumber = n; break; }
-      if (!info.qr && info2.qr) info = info2;
-    }
-  }
-
-  // Diagnóstico: pediu código e não veio. Registra SÓ os nomes dos campos da resposta (nunca valores), para saber o que o servidor devolve.
-  if (number && !info.pairingCode && !info.alreadyConnected) {
-    const o = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
-    console.log(JSON.stringify({ wa_instance: "codigo_nao_veio", http: r.status, campos: Object.keys(o(r.body)), campos_qrcode: Object.keys(o(o(r.body).qrcode)), numero_digitos: number.length, pc_tipo: typeof o(r.body).pairingCode, pc_tamanho: typeof o(r.body).pairingCode === "string" ? (o(r.body).pairingCode as string).length : null, count: o(r.body).count ?? null }));
-  }
+  const webhookOk = await hook;
+  const pairingNumber = number && info.pairingCode ? number : null;
 
   if (info.alreadyConnected) {
+    logStep("conectado");
     await d.setState("conectado", true);
     return { state: "conectado", qr: null, pairingCode: null, pairingNumber: null, webhookOk, message: webhookOk ? null : "Conectado, mas o servidor não aceitou o aviso automático. As mensagens não chegam ao CRM." };
   }
   if (!info.qr && !info.pairingCode) {
+    logStep("sem_qr_nem_codigo", { pediu_codigo: Boolean(number) });
     await d.setState("desconhecido", null);
     return { state: "desconhecido", qr: null, pairingCode: null, pairingNumber: null, webhookOk, message: "O servidor ainda não gerou o QR Code. Clique de novo em alguns segundos." };
   }
+  logStep(number ? (info.pairingCode ? "codigo_gerado" : "codigo_nao_veio") : "qr_gerado", { numero_digitos: number?.length ?? null });
   await d.setState("aguardando_leitura", null);
-  const semCodigo = number && !info.pairingCode ? "O servidor não gerou o código de pareamento para esse número. Confira o número (com o DDD, com ou sem o 9) ou use o QR Code abaixo." : null;
+  const semCodigo = number && !info.pairingCode ? "O servidor não gerou o código para esse número. Tente com ou sem o 9, ou use o QR Code." : null;
   return {
     state: "aguardando_leitura", qr: info.qr, pairingCode: info.pairingCode, pairingNumber, webhookOk,
     message: semCodigo ?? (webhookOk ? null : "O servidor não aceitou o aviso automático. Mesmo conectando, as mensagens não chegam ao CRM."),

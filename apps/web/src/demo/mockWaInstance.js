@@ -44,7 +44,7 @@ export function handleWaInstance({ db, url, parse, role, res }) {
     return res(200, { data: {
       state: "aguardando_leitura", qr: p.number && !semCodigo ? null : PNG, pairingCode: p.number && !semCodigo ? "ABCD-1234" : null,
       pairingNumber: p.number && !semCodigo ? num : null, webhookOk: sim.webhookOk,
-      message: semCodigo ? "O servidor não gerou o código de pareamento para esse número. Confira o número (com o DDD, com ou sem o 9) ou use o QR Code abaixo."
+      message: semCodigo ? "O servidor não gerou o código para esse número. Tente com ou sem o 9, ou use o QR Code."
         : sim.webhookOk ? null : "O servidor não aceitou o aviso automático. Mesmo conectando, as mensagens não chegam ao CRM.",
     } });
   }
@@ -61,9 +61,9 @@ export function handleWaInstance({ db, url, parse, role, res }) {
     return res(200, { data: { state: c.gateway_state ?? "desconhecido", message: null } });
   }
   if (p.action === "logout") {
-    if (c.instance_name) sim.serverHas[c.instance_name] = "close";
-    c.gateway_state = "desconectado";
-    c.enabled = false;
+    // Desconectar apaga de verdade: sai, apaga a instância no servidor e limpa o cadastro da instância.
+    if (c.instance_name) delete sim.serverHas[c.instance_name];
+    Object.assign(c, { instance_name: null, gateway_state: "desconectado", enabled: false });
     return res(200, { data: { state: "desconectado" } });
   }
   if (p.action === "remove") {

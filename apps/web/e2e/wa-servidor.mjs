@@ -158,9 +158,9 @@ function seed(db, official = false) {
   check(db.whatsappConnections.length === 1 && db.whatsappConnections[0].client_id === SO_WA && db.whatsappConnections[0].mode === "nao_oficial", "o WhatsApp é ligado sem site");
   await page.getByRole("button", { name: "Fechar", exact: true }).last().click();
   // T5.28: o botão de limpar os dados está na própria linha do cliente (administrador)
-  await linha("Loja Só WhatsApp").getByRole("button", { name: "Limpar dados deste cliente" }).waitFor();
-  check(await linha("Loja Só Site").getByRole("button", { name: "Limpar dados deste cliente" }).count() === 0, "limpar dados aparece na linha só de quem tem WhatsApp ligado");
-  await linha("Loja Só WhatsApp").getByRole("button", { name: "Limpar dados deste cliente" }).click();
+  await linha("Loja Só WhatsApp").getByRole("button", { name: "Apagar conversas e contatos do CRM" }).waitFor();
+  check(await linha("Loja Só Site").getByRole("button", { name: "Apagar conversas e contatos do CRM" }).count() === 0, "limpar dados aparece na linha só de quem tem WhatsApp ligado");
+  await linha("Loja Só WhatsApp").getByRole("button", { name: "Apagar conversas e contatos do CRM" }).click();
   await page.getByTestId("wa-limpar-modal").waitFor();
   await page.getByTestId("wa-limpar-modal").getByRole("button", { name: "Cancelar" }).click();
   check(true, "limpar dados pela linha do cliente abre a confirmação");

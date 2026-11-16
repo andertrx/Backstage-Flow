@@ -56,34 +56,48 @@ async function openModal(page) {
 
   // Desconectar
   page.once("dialog", (d) => d.accept());
-  await qr.getByRole("button", { name: "Desconectar" }).click();
+  await qr.getByRole("button", { name: /Desconectar/ }).click();
   await qr.getByText("Desconectado", { exact: true }).waitFor();
   check(c.enabled === false, "desconectar desliga a conexão");
 
-  // Conectar por código (o QR continua ao lado)
+  // Conectar por código (aba "O celular está em outro lugar")
+  check(c.instance_name === null, "desconectar apaga a conexão no servidor (a próxima começa do zero)");
+  await qr.getByRole("tab", { name: /em outro lugar/ }).click();
   check((await qr.getByLabel("Número do chip para o código").inputValue()) === "558195067876", "o campo do código já vem com o número cadastrado");
   await qr.getByLabel("Número do chip para o código").fill("81 99506-7876");
   await qr.getByRole("button", { name: "Gerar código" }).click();
   await qr.getByTestId("wa-qr-code").waitFor();
+  check(await qr.getByRole("button", { name: "Copiar mensagem para o cliente" }).isVisible(), "dá para copiar a mensagem pronta para o cliente");
   check((await qr.getByTestId("wa-qr-code").innerText()).includes("ABCD-1234"), "o código de pareamento aparece");
   check(db.waInst.numbers.at(-1) === "81 99506-7876", "o código é pedido para o número digitado (dá para corrigir o 9 sem mexer no cadastro)");
   check((await qr.getByTestId("wa-qr-code").innerText()).includes("5581995067876"), "mostra para qual número o código foi gerado");
-  // Servidor que não devolve o código: avisa e mostra o QR de reserva (não fica esperando)
+  // O código não muda sozinho: passa mais de uma conferência (3 s cada) e o código continua o mesmo
+  db.waInst.connectAfter = 999;
+  const antes = db.waInst.numbers.length;
+  await page.waitForTimeout(7000);
+  check(db.waInst.numbers.length === antes, "o código não é trocado sozinho enquanto a pessoa digita");
+  // Tentar com/sem o 9
+  await qr.getByLabel("Número do chip para o código").fill("81 9506-7876");
+  await qr.getByRole("button", { name: "Tentar com o 9" }).click();
+  await qr.getByTestId("wa-qr-code").waitFor();
+  check(db.waInst.numbers.at(-1) === "81995067876", "o botão 'Tentar com o 9' pede o código para o número com o 9");
+  // Servidor que não devolve o código: avisa (e a pessoa pode usar o QR na outra aba)
   db.waInst.noCode = true;
-  await qr.getByRole("button", { name: "Gerar código" }).click();
-  await qr.getByText("não gerou o código de pareamento", { exact: false }).waitFor();
-  check(await qr.getByRole("img", { name: "QR Code do WhatsApp" }).isVisible(), "sem código, mostra o QR de reserva");
+  await qr.getByRole("button", { name: /Gerar (outro )?código/ }).click();
+  await qr.getByText("não gerou o código para esse número", { exact: false }).waitFor();
+  check((await qr.getByTestId("wa-qr-code").count()) === 0, "sem código, não mostra código velho");
   db.waInst.noCode = false;
-  // Reconectar depois de desconectar gera outro QR
+  // Reconectar por QR gera outro QR
+  await qr.getByRole("tab", { name: /comigo/ }).click();
   await qr.getByRole("button", { name: /Conectar por QR Code|Gerar novo QR Code/ }).click();
   await qr.getByTestId("wa-qr-box").waitFor();
   check(true, "dá para gerar o QR Code de novo");
 
-  // Remover
+  // Desconectar apaga a conexão do servidor e mantém o cadastro do número
   page.once("dialog", (d) => d.accept());
-  await qr.getByRole("button", { name: "Remover conexão do servidor" }).click();
-  await qr.getByText("contatos e as conversas continuam guardados", { exact: false }).waitFor();
-  check(c.instance_name === null && db.whatsappConnections.length === 1, "remover limpa a instância e mantém o cadastro do número");
+  await qr.getByRole("button", { name: /Desconectar/ }).click();
+  await qr.getByText("Conexão apagada no servidor", { exact: false }).waitFor();
+  check(c.instance_name === null && db.whatsappConnections.length === 1, "desconectar limpa a instância e mantém o cadastro do número");
   check(errors.length === 0, "sem erros no navegador");
   await browser.close();
 }

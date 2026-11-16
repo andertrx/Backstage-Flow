@@ -24,10 +24,10 @@ function seed(db) {
   await login(page, "/tracking?secao=config");
   const rows = page.getByTestId("cli-site-whatsapp-row");
   const acollar = rows.filter({ hasText: "Acollar" });
-  const botao = acollar.getByRole("button", { name: "Conectar por QR Code o WhatsApp de Acollar" });
+  const botao = acollar.getByRole("button", { name: "Conectar o WhatsApp de Acollar" });
   await botao.waitFor();
-  check(true, "a linha do cliente tem o botão 'Conectar por QR Code' (sem abrir a janela grande)");
-  check((await rows.filter({ hasText: "Loja Sem Número" }).getByRole("button", { name: /Conectar por QR Code/ }).count()) === 0, "cliente sem número cadastrado não tem o botão (primeiro cadastra o número em 'Ligar')");
+  check(true, "a linha do cliente tem o botão 'Conectar WhatsApp' (sem abrir a janela grande)");
+  check((await rows.filter({ hasText: "Loja Sem Número" }).getByRole("button", { name: /Conectar o WhatsApp de/ }).count()) === 0, "cliente sem número cadastrado não tem o botão (primeiro cadastra o número em 'Ligar')");
   check((await acollar.getByText(/^QR:/).count()) === 0, "antes de conectar, não mostra estado de QR");
 
   await botao.click();
@@ -40,8 +40,8 @@ function seed(db) {
   check(true, "QR lido (simulado) → conectado");
   await modal.screenshot({ path: `${SHOTS}/t538-linha-modal.png` });
   await modal.getByRole("button", { name: "Fechar" }).click();
-  await acollar.getByText("QR: conectado").waitFor();
-  check(true, "a linha mostra 'QR: conectado' depois de fechar");
+  await acollar.getByText("Conectado (aguardando a 1ª mensagem)").waitFor();
+  check(true, "a linha mostra um selo só: 'Conectado' depois de fechar");
   await acollar.screenshot({ path: `${SHOTS}/t538-linha-conectado.png` });
   check(errors.length === 0, `sem erros no navegador ${errors.join(" | ")}`);
   await browser.close();
@@ -54,7 +54,7 @@ function seed(db) {
   seed(db);
   await login(page, "/tracking?secao=config");
   await page.waitForTimeout(800);
-  check((await page.getByRole("button", { name: /Conectar por QR Code/ }).count()) === 0, "visualizador não vê o botão de QR Code");
+  check((await page.getByRole("button", { name: /Conectar o WhatsApp de/ }).count()) === 0, "visualizador não vê o botão de QR Code");
   await browser.close();
 }
 console.log("OK: wa-qr-linha");

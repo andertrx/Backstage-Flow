@@ -328,7 +328,7 @@ export function LimparDadosCliente({ connectionId, compact = false, onMessage }:
   return (
     <div className={compact ? "contents" : "space-y-2"}>
       <Button type="button" variant={compact ? "ghost" : "secondary"} className={compact ? "px-2 py-1 text-xs text-slate-500 hover:text-red-600" : undefined} loading={contagem.isPending}
-        title="Limpar dados deste cliente" aria-label="Limpar dados deste cliente"
+        title={compact ? "Apagar conversas e contatos do CRM" : "Limpar dados deste cliente"} aria-label={compact ? "Apagar conversas e contatos do CRM" : "Limpar dados deste cliente"}
         onClick={() => { setLimpou(null); setError(null); onMessage?.(null); contagem.mutate(connectionId, { onSuccess: (n) => setLimpeza({ passo: 1, n }), onError: (e) => setError(errorMessage(e)) }); }}>
         <Trash2 className="size-3.5" aria-hidden />{!compact && " Limpar dados deste cliente"}
       </Button>

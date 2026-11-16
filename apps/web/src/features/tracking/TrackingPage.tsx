@@ -50,7 +50,6 @@ import {
   useTrackingOverview,
   useExcludeContainer,
   useRestoreContainer,
-  useWaInstanceLogout,
 } from "./api.ts";
 import { AttributionSection } from "./AttributionSection.tsx";
 import { ConfigSection } from "@/components/ui/section.tsx";
@@ -494,7 +493,6 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
   const podeGerenciar = can(useAuth().profile?.role, "tracking.manage");
   const queryClient = useQueryClient();
   const [qrDe, setQrDe] = useState<{ clienteId: string; nome: string } | null>(null);
-  const waLogout = useWaInstanceLogout();
   const [busy, setBusy] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
@@ -581,31 +579,19 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">WhatsApp</p>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="w-24 shrink-0 text-xs font-medium text-slate-600">Servidor próprio</span>
-                  {servidor.connection ? <Badge tone={stServidor.tone}>{semPrefixo(stServidor.label)}</Badge> : <Badge>não ligado</Badge>}
+                  {servidor.connection ? (
+                    servidor.connection.mode === "nao_oficial" && servidor.connection.instance_name && servidor.connection.gateway_state && servidor.connection.gateway_state !== "conectado"
+                      ? <Badge tone={WA_QR_LABEL[servidor.connection.gateway_state].tone}>{WA_QR_LABEL[servidor.connection.gateway_state].text}</Badge>
+                      : servidor.connection.mode === "nao_oficial" && servidor.connection.gateway_state === "conectado" && !servidor.connection.last_webhook_at
+                        ? <Badge tone="success">Conectado (aguardando a 1ª mensagem)</Badge>
+                        : <Badge tone={stServidor.tone}>{semPrefixo(stServidor.label)}</Badge>
+                  ) : <Badge>não ligado</Badge>}
                   <Button variant="secondary" className="px-2 py-1 text-xs" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id, "servidor")} aria-label={`${servidor.connection ? "Configurar WhatsApp" : "Ligar WhatsApp"} de ${cl.name}`}>
                     <MessageCircle className="size-3.5" aria-hidden /> {servidor.connection ? "Configurar" : "Ligar"}
                   </Button>
-                  {servidor.connection?.mode === "nao_oficial" && servidor.connection.instance_name && servidor.connection.gateway_state && (
-                    <Badge tone={WA_QR_LABEL[servidor.connection.gateway_state].tone}>QR: {WA_QR_LABEL[servidor.connection.gateway_state].text.toLowerCase()}</Badge>
-                  )}
                   {servidor.connection?.mode === "nao_oficial" && podeGerenciar && (
-                    <Button className="px-2 py-1 text-xs" onClick={() => setQrDe({ clienteId: cl.id, nome: cl.name })} aria-label={`Conectar por QR Code o WhatsApp de ${cl.name}`}>
-                      <QrCode className="size-3.5" aria-hidden /> Conectar por QR Code
-                    </Button>
-                  )}
-                  {servidor.connection?.mode === "nao_oficial" && podeGerenciar && servidor.connection.instance_name && (
-                    <Button variant="secondary" className="px-2 py-1 text-xs" loading={waLogout.isPending} aria-label={`Desconectar e começar do zero o WhatsApp de ${cl.name}`}
-                      title="Sai do WhatsApp e apaga a conexão no servidor. Contatos e conversas do CRM continuam."
-                      onClick={() => {
-                        if (!window.confirm(`Desconectar o WhatsApp de ${cl.name} e apagar a conexão no servidor? A próxima conexão começa do zero. Contatos e conversas já guardados continuam no CRM.`)) return;
-                        const id = servidor.connection!.id;
-                        setAvisos((a) => ({ ...a, [cl.id]: null }));
-                        waLogout.mutate(id, {
-                          onSuccess: () => setAvisos((a) => ({ ...a, [cl.id]: { tone: "success", text: "Conexão apagada no servidor. Agora é só conectar de novo, do zero." } })),
-                          onError: (e) => setAvisos((a) => ({ ...a, [cl.id]: { tone: "error", text: errorMessage(e) } })),
-                        });
-                      }}>
-                      Desconectar e começar do zero
+                    <Button className="px-2 py-1 text-xs" onClick={() => setQrDe({ clienteId: cl.id, nome: cl.name })} aria-label={`Conectar o WhatsApp de ${cl.name}`}>
+                      <QrCode className="size-3.5" aria-hidden /> Conectar WhatsApp
                     </Button>
                   )}
                   {servidor.connection?.mode === "nao_oficial" && isAdmin && (
