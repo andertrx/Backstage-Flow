@@ -474,6 +474,9 @@ export interface WhatsAppConnection {
   ai_suggest?: boolean;
   /** T5.23: dias de histórico antigo que entram (0 = nenhum; vazio = tudo). */
   history_days?: number | null;
+  /** T5.38: instância deste cliente no servidor de WhatsApp e o último estado conhecido (QR Code por cliente). */
+  instance_name?: string | null;
+  gateway_state?: "conectado" | "desconectado" | "aguardando_leitura" | "erro" | "desconhecido" | null;
 }
 
 export function useWhatsAppConnections(enabled: boolean) {
@@ -484,7 +487,7 @@ export function useWhatsAppConnections(enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_whatsapp_connections")
-        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint, store_messages, store_ack_at, ai_suggest, history_days");
+        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint, store_messages, store_ack_at, ai_suggest, history_days, instance_name, gateway_state");
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conexões do WhatsApp."));
       return data as WhatsAppConnection[];
     },
@@ -1036,5 +1039,56 @@ export function useWaAiRemoveKey() {
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos remover a chave."));
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [...KEY, "wa-ai-settings"] }),
+  });
+}
+
+// -----------------------------------------------------------------------------
+// QR Code do WhatsApp por cliente (T5.38) — Edge Function wa-instance (o QR só passa por quem está logado)
+// -----------------------------------------------------------------------------
+export type WaInstanceState = "conectado" | "desconectado" | "aguardando_leitura" | "erro" | "desconhecido";
+export interface WaInstanceConnect {
+  state: WaInstanceState;
+  qr: string | null;
+  pairingCode: string | null;
+  /** O servidor aceitou o aviso automático? Se não, as mensagens não chegam ao CRM. */
+  webhookOk: boolean;
+  message: string | null;
+}
+
+async function callWaInstance<T>(body: { action: "connect"; connectionId: string; number?: string } | { action: "status" | "logout" | "remove"; connectionId: string }): Promise<T> {
+  const { data, error } = await supabase.functions.invoke("wa-instance", { body });
+  if (error) throw new FriendlyError(await friendlyFunctionError(error));
+  return (data as { data: T }).data;
+}
+
+export function useWaInstanceConnect() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { connectionId: string; number?: string }) => callWaInstance<WaInstanceConnect>({ action: "connect", ...input }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useWaInstanceStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (connectionId: string) => callWaInstance<{ state: WaInstanceState; message: string | null }>({ action: "status", connectionId }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useWaInstanceLogout() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (connectionId: string) => callWaInstance<{ state: WaInstanceState }>({ action: "logout", connectionId }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useWaInstanceRemove() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (connectionId: string) => callWaInstance<{ removed: boolean }>({ action: "remove", connectionId }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });
 }

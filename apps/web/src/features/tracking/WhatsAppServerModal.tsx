@@ -24,6 +24,7 @@ import {
   type WhatsAppConnection,
 } from "./api.ts";
 import { waConnectionStatus } from "./logic.ts";
+import { WaQrSection } from "./WaQrSection.tsx";
 
 /** Texto de aviso que o cliente coloca no site, no botão de WhatsApp ou na primeira mensagem (Tracking T5.7). */
 export const WA_PRIVACY_NOTICE =
@@ -127,9 +128,11 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
           </section>
         )}
 
+        {mine && canManage && <WaQrSection key={mine.id} connection={mine} />}
+
         {mine && url && (
           <section className="space-y-2">
-            <h4 className="font-medium text-slate-800">2. No servidor de WhatsApp, cadastre o webhook</h4>
+            <h4 className="font-medium text-slate-800">2. Configuração manual no servidor de WhatsApp (só se não usar o QR Code acima)</h4>
             <CopyLine label="Endereço (método POST)" text={url} />
             {revealed?.id === mine.id ? (
               <div className="space-y-2" data-testid="wa-server-key">
