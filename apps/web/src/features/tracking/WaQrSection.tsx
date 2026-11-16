@@ -1,4 +1,4 @@
-import { QrCode, Smartphone, Unplug } from "lucide-react";
+import { QrCode, Unplug } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -18,89 +18,94 @@ export const WA_QR_LABEL: Record<WaInstanceState, { text: string; tone: "success
   desconhecido: { text: "Ainda não conectado", tone: "neutral" },
 };
 
+/** Intervalo entre conferências. A próxima só começa DEPOIS que a anterior terminar (o servidor de WhatsApp pode demorar). */
 const POLL_MS = 3000;
 /** O QR Code do WhatsApp vence em cerca de um minuto: pedimos um novo antes disso. */
-const REFRESH_MS = 40_000;
+const REFRESH_MS = 50_000;
 
-/**
- * Conectar o WhatsApp do cliente por QR Code (ou código de pareamento), dentro do Tracking (T5.38).
- * Quem lê o QR é a pessoa que está com o celular do cliente: WhatsApp → Aparelhos conectados → Conectar um aparelho.
- * O QR Code só aparece para quem está logado e nunca é guardado nem vai para log.
- */
 export type WaQrConnection = Pick<WhatsAppConnection, "id" | "display_phone" | "phone_number_id" | "instance_name" | "gateway_state">;
 
-export function WaQrSection({ connection }: { connection: WaQrConnection }) {
+/**
+ * Conectar o WhatsApp do cliente por QR Code, dentro do Tracking (T5.38).
+ * Quem lê o QR é a pessoa que está com o celular do cliente: WhatsApp → Aparelhos conectados → Conectar um aparelho.
+ * O QR Code só aparece para quem está logado e nunca é guardado nem vai para log.
+ * `autoStart`: já pede o QR ao abrir (sem precisar clicar).
+ */
+export function WaQrSection({ connection, autoStart = false }: { connection: WaQrConnection; autoStart?: boolean }) {
   const connect = useWaInstanceConnect();
   const status = useWaInstanceStatus();
   const logout = useWaInstanceLogout();
   const remove = useWaInstanceRemove();
   const [state, setState] = useState<WaInstanceState>(connection.gateway_state ?? "desconhecido");
   const [qr, setQr] = useState<string | null>(null);
-  const [code, setCode] = useState<string | null>(null);
-  const [codeFor, setCodeFor] = useState<string | null>(null);
-  const [codeNumber, setCodeNumber] = useState<string>(connection.display_phone ?? connection.phone_number_id);
   const [warn, setWarn] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const mode = useRef<"qr" | "code">("qr");
+  const qrAt = useRef(0);
+  const started = useRef(false);
   const waiting = state === "aguardando_leitura";
   const busy = connect.isPending || logout.isPending || remove.isPending;
 
-  async function start(kind: "qr" | "code") {
-    mode.current = kind;
+  const { mutateAsync: askQr } = connect;
+  const { mutateAsync: checkStatus } = status;
+
+  async function start() {
     setError(null);
     setNotice(null);
     try {
-      const r = await connect.mutateAsync({ connectionId: connection.id, ...(kind === "code" ? { number: codeNumber } : {}) });
+      const r = await askQr({ connectionId: connection.id });
       setState(r.state);
       setQr(r.qr);
-      setCode(r.pairingCode);
-      setCodeFor(r.pairingNumber ?? null);
       setWarn(r.message);
+      qrAt.current = Date.now();
       if (r.state === "conectado") setNotice("WhatsApp conectado. As mensagens deste número já chegam ao CRM.");
     } catch (err) {
       setError(errorMessage(err));
     }
   }
 
-  // Enquanto espera a leitura: confere a cada 3 s e renova o QR antes de vencer.
-  const { mutateAsync: checkStatus } = status;
-  const { mutateAsync: refreshQr } = connect;
+  // Abre já pedindo o QR (uma vez só).
+  useEffect(() => {
+    if (!autoStart || started.current || state === "conectado") return;
+    started.current = true;
+    void start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
+
+  // Enquanto espera a leitura: confere, UMA chamada de cada vez, e renova o QR só quando está para vencer.
   useEffect(() => {
     if (!waiting) return;
     let stopped = false;
-    const poll = setInterval(async () => {
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      if (stopped) return;
       try {
         const r = await checkStatus(connection.id);
         if (stopped) return;
         if (r.state === "conectado") {
           setState("conectado");
           setQr(null);
-          setCode(null);
           setNotice("WhatsApp conectado. As mensagens deste número já chegam ao CRM.");
+          return;
+        }
+        if (Date.now() - qrAt.current > REFRESH_MS) {
+          const q = await askQr({ connectionId: connection.id });
+          if (stopped) return;
+          setState(q.state);
+          setQr(q.qr);
+          qrAt.current = Date.now();
         }
       } catch {
         /* a próxima conferência tenta de novo */
       }
-    }, POLL_MS);
-    const refresh = setInterval(async () => {
-      try {
-        const r = await refreshQr({ connectionId: connection.id, ...(mode.current === "code" ? { number: codeNumber } : {}) });
-        if (stopped) return;
-        setState(r.state);
-        setQr(r.qr);
-        setCode(r.pairingCode);
-        setCodeFor(r.pairingNumber ?? null);
-      } catch {
-        /* mantém o QR atual até a próxima tentativa */
-      }
-    }, REFRESH_MS);
+      if (!stopped) timer = setTimeout(tick, POLL_MS);
+    };
+    timer = setTimeout(tick, POLL_MS);
     return () => {
       stopped = true;
-      clearInterval(poll);
-      clearInterval(refresh);
+      clearTimeout(timer);
     };
-  }, [waiting, connection.id, codeNumber, checkStatus, refreshQr]);
+  }, [waiting, connection.id, checkStatus, askQr]);
 
   async function doLogout() {
     if (!window.confirm("Desconectar o WhatsApp deste cliente? O CRM deixa de receber as mensagens até conectar de novo.")) return;
@@ -109,7 +114,6 @@ export function WaQrSection({ connection }: { connection: WaQrConnection }) {
       await logout.mutateAsync(connection.id);
       setState("desconectado");
       setQr(null);
-      setCode(null);
       setNotice("WhatsApp desconectado e conexão desligada.");
     } catch (err) {
       setError(errorMessage(err));
@@ -122,7 +126,6 @@ export function WaQrSection({ connection }: { connection: WaQrConnection }) {
       await remove.mutateAsync(connection.id);
       setState("desconhecido");
       setQr(null);
-      setCode(null);
       setNotice("Conexão removida do servidor. Os contatos e as conversas continuam guardados.");
     } catch (err) {
       setError(errorMessage(err));
@@ -145,24 +148,11 @@ export function WaQrSection({ connection }: { connection: WaQrConnection }) {
 
       {state !== "conectado" && (
         <>
-          <div className="flex flex-wrap gap-2">
-            <Button loading={busy && mode.current === "qr"} disabled={busy} onClick={() => void start("qr")}>
-              <QrCode className="size-4" aria-hidden /> {waiting ? "Gerar novo QR Code" : "Conectar por QR Code"}
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-end gap-2" data-testid="wa-qr-codigo-form">
-            <label className="space-y-1 text-xs font-medium text-slate-600">
-              Número do chip para o código (com DDD e o 9 na frente)
-              <input
-                className="block w-56 rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-inset focus:ring-brand-600"
-                inputMode="tel" aria-label="Número do chip para o código" value={codeNumber} onChange={(e) => setCodeNumber(e.target.value)} placeholder="81 99999-8888"
-              />
-            </label>
-            <Button variant="secondary" loading={busy && mode.current === "code"} disabled={busy || codeNumber.replace(/\D/g, "").length < 10} onClick={() => void start("code")}>
-              <Smartphone className="size-4" aria-hidden /> Gerar código
-            </Button>
-          </div>
-          {waiting && safeQr && (mode.current === "qr" || !code) && (
+          <Button loading={connect.isPending} disabled={busy} onClick={() => void start()}>
+            <QrCode className="size-4" aria-hidden /> {waiting ? "Gerar novo QR Code" : "Conectar por QR Code"}
+          </Button>
+          {connect.isPending && !safeQr && <p className="text-xs text-slate-500">Gerando o QR Code... o servidor de WhatsApp pode levar alguns segundos.</p>}
+          {waiting && safeQr && (
             <div className="space-y-2 rounded-xl bg-slate-50 p-4" data-testid="wa-qr-box">
               <img src={safeQr} alt="QR Code do WhatsApp" className="size-56 rounded-lg bg-white p-2 ring-1 ring-slate-200" />
               <ol className="list-decimal space-y-0.5 pl-5 text-xs text-slate-600">
@@ -172,14 +162,6 @@ export function WaQrSection({ connection }: { connection: WaQrConnection }) {
               </ol>
             </div>
           )}
-          {waiting && code && (
-            <div className="space-y-2 rounded-xl bg-slate-50 p-4" data-testid="wa-qr-code">
-              <p className="text-xs text-slate-600">No celular do cliente: <strong>Configurações → Aparelhos conectados → Conectar um aparelho → Conectar com número de telefone</strong>, e digite:</p>
-              <p className="font-mono text-2xl font-semibold tracking-widest text-slate-900" aria-label="Código de pareamento">{code}</p>
-              {codeFor && <p className="text-xs text-slate-500">Código gerado para o número <strong>{codeFor}</strong>. Ele precisa ser o do WhatsApp que está no celular.</p>}
-            </div>
-          )}
-          {waiting && !safeQr && !code && <p className="text-xs text-slate-500">O servidor não devolveu o QR Code nem o código. Clique de novo; se repetir, confira se o servidor de WhatsApp está no ar (Configurações → Integrações).</p>}
         </>
       )}
 
@@ -200,18 +182,18 @@ export function WaQrSection({ connection }: { connection: WaQrConnection }) {
         </div>
       )}
       <p className="text-xs text-slate-500">
-        Conexão por API <strong>não oficial</strong>: o WhatsApp pode bloquear números pareados assim. O texto das conversas continua sem ser guardado, a menos que você ligue o passo 4.
+        Conexão por API <strong>não oficial</strong>: o WhatsApp pode bloquear números pareados assim. O texto das conversas continua sem ser guardado, a menos que você ligue “Guardar as conversas”.
       </p>
     </section>
   );
 }
 
-/** Janela só com o QR Code do cliente (aberta direto da linha do cliente em Tracking → Configurações). */
+/** Janela só com o QR Code do cliente (aberta direto da linha do cliente em Tracking → Configurações): já pede o QR ao abrir. */
 export function WaQrModal({ clientName, connection, onClose }: { clientName: string; connection: WaQrConnection; onClose: () => void }) {
   return (
     <Modal title={`Conectar o WhatsApp de ${clientName}`} open size="lg" onClose={onClose}>
       <div className="space-y-4 text-sm text-slate-700" data-testid="wa-qr-modal">
-        <WaQrSection connection={connection} />
+        <WaQrSection connection={connection} autoStart />
         <div className="flex justify-end"><Button type="button" onClick={onClose}>Fechar</Button></div>
       </div>
     </Modal>

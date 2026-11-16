@@ -21,21 +21,22 @@ function seed(db, official = false) {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
+  db.waInst.connectAfter = 99999; // o QR fica esperando a leitura durante o teste
   await login(page, "/tracking?secao=config");
   await page.getByRole("button", { name: "WhatsApp pelo servidor: loja.com.br" }).click();
   const modal = page.getByTestId("wa-server");
   await modal.waitFor();
-  check(await modal.getByRole("button", { name: "Criar conexão" }).isDisabled(), "sem número, o botão criar fica travado");
-  await modal.getByLabel("Número com DDD (só números)").fill("(45) 99999-8888");
-  await modal.getByRole("button", { name: "Criar conexão" }).click();
-  await page.getByTestId("wa-server-key").waitFor();
+  check(await modal.getByRole("button", { name: "Gerar QR Code" }).isDisabled(), "sem número, o botão criar fica travado");
+  await modal.getByLabel("Número com DDD (com ou sem o 9 na frente)").fill("(45) 99999-8888");
+  await modal.getByRole("button", { name: "Gerar QR Code" }).click();
+  await page.getByTestId("wa-qr-box").waitFor();
   const w = db.whatsappConnections[0];
   check(w && w.mode === "nao_oficial" && w.phone_number_id === "5545999998888" && w.enabled === false && w.waba_id === null && /^[0-9a-f]{48}$/.test(w.inbound_key),
     "conexão nova: modo não oficial, número com 55, desligada, sem conta oficial, com chave");
+  check(db.waInst.connectCalls === 1, "criar a conexão já gera o QR Code, sem outro clique");
   const txt = await modal.innerText();
-  check(txt.includes(`/functions/v1/wa-inbound?c=${w.id}`) && txt.includes(`&k=${w.inbound_key}`) && txt.includes("Servidor: desligado"), "mostra o endereço do webhook, a chave uma vez e a situação desligada");
-  await modal.getByRole("button", { name: "Copiar: Chave (cabeçalho x-webhook-key)" }).click();
-  check((await page.evaluate(() => navigator.clipboard.readText())) === w.inbound_key, "botão copia a chave");
+  check(txt.includes("Servidor: desligado"), "mostra a situação desligada até conectar");
+  check((await modal.getByTestId("wa-server-manual").evaluate((el) => el.open)) === false, "a configuração manual (endereço e chave) fica recolhida");
   check(txt.includes("conta oficial") && txt.includes("conversa"), "avisa que sem a conta oficial o Meta recebe a venda como conversa");
 
   await modal.getByRole("checkbox", { name: "Ligado" }).click();
@@ -48,6 +49,7 @@ function seed(db, official = false) {
   await page.reload();
   await page.getByRole("button", { name: "WhatsApp pelo servidor: loja.com.br" }).click();
   await modal.waitFor();
+  await modal.getByTestId("wa-server-manual").locator("summary").click();
   check(await page.getByTestId("wa-server-key").count() === 0 && (await modal.innerText()).includes(`••••${w.inbound_key_hint}`), "reaberto: a chave não aparece mais");
   check((await page.getByTestId("wa-server-status").innerText()).includes("funcionando"), "com mensagem recebida: funcionando");
   // Guardar as conversas (opt-in, sem prazo, só depois de confirmar o aviso de privacidade — T5.7)
@@ -150,9 +152,9 @@ function seed(db, official = false) {
   const modal = page.getByTestId("wa-server");
   await modal.waitFor();
   check(db.trackingContainers.length === 1 && db.trackingContainers[0].kind === "whatsapp" && db.trackingContainers[0].allowed_domains.length === 0, "só WhatsApp: cria o recipiente técnico, sem domínio");
-  await modal.getByLabel("Número com DDD (só números)").fill("(45) 99999-1234");
-  await modal.getByRole("button", { name: "Criar conexão" }).click();
-  await page.getByTestId("wa-server-key").waitFor();
+  await modal.getByLabel("Número com DDD (com ou sem o 9 na frente)").fill("(45) 99999-1234");
+  await modal.getByRole("button", { name: "Gerar QR Code" }).click();
+  await page.getByTestId("wa-qr").waitFor();
   check(db.whatsappConnections.length === 1 && db.whatsappConnections[0].client_id === SO_WA && db.whatsappConnections[0].mode === "nao_oficial", "o WhatsApp é ligado sem site");
   await page.getByRole("button", { name: "Fechar", exact: true }).last().click();
   // T5.28: o botão de limpar os dados está na própria linha do cliente (administrador)

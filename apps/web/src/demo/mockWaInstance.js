@@ -38,13 +38,9 @@ export function handleWaInstance({ db, url, parse, role, res }) {
     sim.polls = 0;
     sim.serverHas[c.instance_name] = "connecting";
     c.gateway_state = "aguardando_leitura";
-    sim.numbers = [...(sim.numbers ?? []), p.number ?? null];
-    const semCodigo = Boolean(p.number) && sim.noCode;
     return res(200, { data: {
-      state: "aguardando_leitura", qr: p.number && !semCodigo ? null : PNG, pairingCode: p.number && !semCodigo ? "ABCD-1234" : null,
-      pairingNumber: p.number && !semCodigo ? String(p.number).replace(/\D/g, "").replace(/^(\d{10,11})$/, "55$1") : null, webhookOk: sim.webhookOk,
-      message: semCodigo ? "O servidor não gerou o código de pareamento para esse número. Confira o número (com o DDD e o 9 na frente) ou use o QR Code abaixo."
-        : sim.webhookOk ? null : "O servidor não aceitou o aviso automático. Mesmo conectando, as mensagens não chegam ao CRM.",
+      state: "aguardando_leitura", qr: PNG, webhookOk: sim.webhookOk,
+      message: sim.webhookOk ? null : "O servidor não aceitou o aviso automático. Mesmo conectando, as mensagens não chegam ao CRM.",
     } });
   }
   if (p.action === "status") {

@@ -33,10 +33,9 @@ function seed(db) {
   await botao.click();
   const modal = page.getByTestId("wa-qr-modal");
   await modal.waitFor();
-  check((await modal.getByRole("button", { name: "Conectar por QR Code" }).count()) === 1, "a janela é só do QR (sem os outros passos)");
   check((await modal.innerText()).includes("Número com DDD") === false, "sem o formulário do número nem os passos de configuração");
-  await modal.getByRole("button", { name: "Conectar por QR Code" }).click();
   await modal.getByTestId("wa-qr-box").waitFor();
+  check(db.waInst.connectCalls === 1, "a janela já pede o QR ao abrir, sem precisar clicar (uma chamada só)");
   await modal.getByText("Conectado", { exact: true }).waitFor({ timeout: 15000 });
   check(true, "QR lido (simulado) → conectado");
   await modal.screenshot({ path: `${SHOTS}/t538-linha-modal.png` });

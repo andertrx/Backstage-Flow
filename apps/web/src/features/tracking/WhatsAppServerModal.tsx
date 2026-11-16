@@ -1,4 +1,4 @@
-import { Copy, KeyRound, Trash2 } from "lucide-react";
+import { Copy, KeyRound, QrCode, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -73,6 +73,7 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
   const [notice, setNotice] = useState<string | null>(null);
   const [ack, setAck] = useState(false);
   const [ackChecked, setAckChecked] = useState(false);
+  const [autoQr, setAutoQr] = useState(false);
   const status = waConnectionStatus(connection);
   const mine = connection?.mode === "nao_oficial" ? connection : undefined;
   const url = mine ? waInboundUrl(mine.id) : null;
@@ -92,9 +93,8 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
     <Modal title={`WhatsApp pelo servidor — ${container.kind === "whatsapp" ? "WhatsApp do cliente" : container.name}`} open size="lg" onClose={onClose}>
       <div className="space-y-5 text-sm text-slate-700" data-testid="wa-server">
         <p className="text-slate-600">
-          Para o número de WhatsApp do cliente ligado ao seu <strong>servidor de conexão</strong> (API não oficial). Cada mensagem avisa o CRM, que conta a
-          conversa, lê o <strong>código do botão do site</strong> e a <strong>origem do anúncio de WhatsApp</strong>, e marca a venda pelas <strong>frases</strong> (Contatos → Frases do WhatsApp).
-          Por padrão o texto das conversas <strong>não é guardado</strong>: o número vira código e o texto é lido só na memória. Se você ligar o passo 4, as conversas passam a ficar guardadas no CRM. Grupos são ignorados.
+          Conecta o WhatsApp do cliente ao CRM por <strong>QR Code</strong> (API não oficial). Cada mensagem avisa o CRM, que conta a conversa, lê o <strong>código do botão do site</strong> e a
+          <strong> origem do anúncio de WhatsApp</strong>, e marca a venda pelas <strong>frases</strong>. Por padrão o texto das conversas <strong>não é guardado</strong>. Grupos são ignorados.
         </p>
         {official && <Alert tone="warning">Este site já tem WhatsApp pela API oficial. Desligue e remova essa conexão (botão “WhatsApp API”) antes de usar o servidor.</Alert>}
         {error && <Alert tone="error">{error}</Alert>}
@@ -108,31 +108,50 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
           </div>
         )}
 
-        {canManage && !official && (
-          <section className="space-y-2">
-            <h4 className="font-medium text-slate-800">1. Número do WhatsApp do cliente</h4>
+        {mine && canManage && <WaQrSection key={mine.id} connection={mine} autoStart={autoQr} />}
+
+        {canManage && !official && !mine && (
+          <section className="space-y-2" data-testid="wa-server-novo">
+            <h4 className="font-medium text-slate-800">Número do WhatsApp do cliente</h4>
             <div className="flex flex-wrap items-end gap-2">
               <div className="min-w-56 flex-1">
-                <Field label="Número com DDD (só números)">
+                <Field label="Número com DDD (com ou sem o 9 na frente)">
                   {(id) => <Input id={id} value={phone} inputMode="tel" placeholder="45 99999-8888" onChange={(e) => setPhone(e.target.value)} />}
                 </Field>
               </div>
               <Button loading={save.isPending} disabled={phone.replace(/\D/g, "").length < 10}
                 onClick={() => run(() => save.mutateAsync({ containerId: container.id, phone }), (r) => {
                   if (r.key) setRevealed({ id: r.id, key: r.key });
-                  setNotice(r.key ? "Conexão criada (desligada). Copie o endereço e a chave abaixo." : "Número atualizado.");
+                  setAutoQr(true);
                 })}>
-                {mine ? "Atualizar número" : "Criar conexão"}
+                <QrCode className="size-4" aria-hidden /> Gerar QR Code
               </Button>
             </div>
+            <p className="text-xs text-slate-500">O número só serve para o CRM reconhecer o chip; o QR Code vale para o WhatsApp que ler. Pode digitar com ou sem o 9.</p>
           </section>
         )}
 
-        {mine && canManage && <WaQrSection key={mine.id} connection={mine} />}
+        {mine && canManage && !official && (
+          <details className="rounded-lg bg-slate-50 p-3" data-testid="wa-server-trocar-numero">
+            <summary className="cursor-pointer text-xs font-medium text-slate-600">Trocar o número cadastrado</summary>
+            <div className="mt-2 flex flex-wrap items-end gap-2">
+              <div className="min-w-56 flex-1">
+                <Field label="Número com DDD (com ou sem o 9 na frente)">
+                  {(id) => <Input id={id} value={phone} inputMode="tel" placeholder="45 99999-8888" onChange={(e) => setPhone(e.target.value)} />}
+                </Field>
+              </div>
+              <Button variant="secondary" loading={save.isPending} disabled={phone.replace(/\D/g, "").length < 10}
+                onClick={() => run(() => save.mutateAsync({ containerId: container.id, phone }), () => setNotice("Número atualizado."))}>
+                Atualizar número
+              </Button>
+            </div>
+          </details>
+        )}
 
         {mine && url && (
-          <section className="space-y-2">
-            <h4 className="font-medium text-slate-800">2. Configuração manual no servidor de WhatsApp (só se não usar o QR Code acima)</h4>
+          <details className="rounded-lg bg-slate-50 p-3" data-testid="wa-server-manual">
+            <summary className="cursor-pointer text-xs font-medium text-slate-600">Configuração manual no servidor de WhatsApp (avançado — não precisa usando o QR Code)</summary>
+          <section className="mt-2 space-y-2">
             <CopyLine label="Endereço (método POST)" text={url} />
             {revealed?.id === mine.id ? (
               <div className="space-y-2" data-testid="wa-server-key">
@@ -154,11 +173,12 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
               </Button>
             )}
           </section>
+          </details>
         )}
 
         {mine && canManage && (
           <section className="space-y-2">
-            <h4 className="font-medium text-slate-800">3. Ligue</h4>
+            <h4 className="font-medium text-slate-800">Ligado ou desligado</h4>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={mine.enabled} aria-label="Ligado" onChange={(e) => run(() => toggle.mutateAsync({ id: mine.id, enabled: e.target.checked }))} />
               <span className="font-medium">Ligado</span>
@@ -172,7 +192,7 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
         )}
         {mine && canManage && (
           <section className="space-y-2" data-testid="wa-server-store">
-            <h4 className="font-medium text-slate-800">4. Guardar as conversas (para conferir vendas e a IA sugerir)</h4>
+            <h4 className="font-medium text-slate-800">Guardar as conversas (para conferir vendas e a IA sugerir)</h4>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={!!mine.store_messages} aria-label="Guardar as conversas deste WhatsApp"
                 onChange={(e) => {
@@ -214,7 +234,7 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
         )}
         {mine && canManage && (
           <section className="space-y-2" data-testid="wa-server-ai">
-            <h4 className="font-medium text-slate-800">5. IA que sugere vendas (só este WhatsApp)</h4>
+            <h4 className="font-medium text-slate-800">IA que sugere vendas (só este WhatsApp)</h4>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={!!mine.ai_suggest && !!mine.store_messages} disabled={!mine.store_messages || !mine.store_ack_at || ai.isPending}
                 aria-label="IA que sugere vendas neste WhatsApp"
@@ -223,14 +243,14 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
             </label>
             <p className="text-xs text-slate-500">
               Uma vez por dia (3h da manhã) a IA lê as conversas guardadas <strong>só deste cliente</strong> e sugere onde pode ter havido venda; quem decide é você (Tracking → Painel → Vendas sugeridas).
-              {!mine.store_messages || !mine.store_ack_at ? " Para ligar, primeiro ligue “Guardar as conversas” (item 4). " : " "}
+              {!mine.store_messages || !mine.store_ack_at ? " Para ligar, primeiro ligue “Guardar as conversas” (acima). " : " "}
               Precisa também da chave e do interruptor geral da IA (Tracking → Configurações → IA de vendas sugeridas). Cada cliente novo começa com a IA <strong>desligada</strong>.
             </p>
           </section>
         )}
         {mine && isAdmin && (
           <section className="space-y-2" data-testid="wa-server-limpar">
-            <h4 className="font-medium text-slate-800">6. Limpar os dados de conversa deste cliente</h4>
+            <h4 className="font-medium text-slate-800">Limpar os dados de conversa deste cliente</h4>
             <p className="text-xs text-slate-500">
               Apaga o <strong>texto das mensagens, os telefones, os nomes e as sugestões</strong> deste cliente (de <strong>todos os WhatsApps dele</strong>).
               Mantém as conversas (só com o código cifrado do telefone), as vendas marcadas e as contagens. Não dá para desfazer.

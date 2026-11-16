@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
-import { altBrNumber, connect, type Deps, GatewayFailure, logout, remove, setWebhook, status } from "./flow.ts";
+import { connect, type Deps, GatewayFailure, logout, remove, setWebhook, status } from "./flow.ts";
 
 type Call = { instance: string; method: string; path: string; body?: unknown; query?: Record<string, string> };
 
@@ -12,6 +12,7 @@ function fake(routes: Record<string, Array<{ status: number; body?: unknown }>>)
   const d: Deps = {
     inboundUrl: "https://x.supabase.co/functions/v1/wa-inbound?c=11111111-1111-4111-8111-111111111111",
     problem: (s) => `erro ${s}`,
+    wait: () => Promise.resolve(),
     gw(instance, method, path, opts = {}) {
       calls.push({ instance, method, path, body: opts.body, query: opts.query });
       const list = routes[`${method} ${path}`];
@@ -27,9 +28,9 @@ function fake(routes: Record<string, Array<{ status: number; body?: unknown }>>)
   return { d, calls, states, cur, cleared: () => cleared };
 }
 
-Deno.test("connect: instância nova → cria, configura o aviso com a chave e devolve o QR", async () => {
+Deno.test("connect: instância nova (404) → cria já pedindo o QR, configura o aviso com a chave e devolve o QR", async () => {
   const f = fake({
-    "GET /instance/connectionState/{instance}": [{ status: 404 }],
+    "GET /instance/connect/{instance}": [{ status: 404 }],
     "POST /instance/create": [{ status: 201, body: { qrcode: { base64: "data:image/png;base64,AAAA", code: "2@abc" } } }],
     "POST /webhook/set/{instance}": [{ status: 201 }],
   });
@@ -44,24 +45,50 @@ Deno.test("connect: instância nova → cria, configura o aviso com a chave e de
   assert(w.url.includes("wa-inbound?c=11111111"));
   assertEquals(w.headers["x-webhook-key"], "chave-secreta-123");
   assertEquals(f.states.at(-1), { state: "aguardando_leitura", enable: null });
+  assert(!f.calls.some((c) => c.path === "/instance/connectionState/{instance}"), "uma chamada a menos: não confere o estado antes de pedir o QR");
 });
 
-
-Deno.test("connect: instância que já existe e ainda não conectou → pede o QR em /instance/connect", async () => {
+Deno.test("connect: instância que já existe → pede o QR direto em /instance/connect (sem criar)", async () => {
   const f = fake({
-    "GET /instance/connectionState/{instance}": [{ status: 200, body: { instance: { state: "close" } } }],
     "GET /instance/connect/{instance}": [{ status: 200, body: { base64: "data:image/png;base64,BBBB", code: "2@xyz" } }],
     "POST /webhook/set/{instance}": [{ status: 200 }],
   });
-  const r = await connect(f.d, "81 95067-8760");
+  const r = await connect(f.d);
   assertEquals(r.state, "aguardando_leitura");
-  assertEquals(f.calls.find((c) => c.path === "/instance/connect/{instance}")?.query?.number, "5581950678760");
   assert(!f.calls.some((c) => c.path === "/instance/create"));
+  assertEquals(f.calls.filter((c) => c.path === "/instance/connect/{instance}").length, 1);
+});
+
+Deno.test("connect: o QR demora a nascer → tenta de novo poucas vezes e entrega assim que vier", async () => {
+  const f = fake({
+    "GET /instance/connect/{instance}": [
+      { status: 200, body: { count: 0 } },
+      { status: 200, body: { count: 0 } },
+      { status: 200, body: { base64: "data:image/png;base64,CCCC" } },
+    ],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  const r = await connect(f.d);
+  assertEquals(r.state, "aguardando_leitura");
+  assert(r.qr?.startsWith("data:image/png;base64,CCCC"));
+  assertEquals(f.calls.filter((c) => c.path === "/instance/connect/{instance}").length, 3);
+});
+
+Deno.test("connect: o servidor nunca gera o QR → avisa em vez de ficar esperando", async () => {
+  const f = fake({
+    "GET /instance/connect/{instance}": [{ status: 200, body: { count: 0 } }],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  const r = await connect(f.d);
+  assertEquals(r.state, "desconhecido");
+  assertEquals(r.qr, null);
+  assert(r.message?.includes("ainda não gerou o QR Code"));
+  assertEquals(f.calls.filter((c) => c.path === "/instance/connect/{instance}").length, 5); // 1 + 4 tentativas
 });
 
 Deno.test("connect: já conectado → liga sozinho e RECONFIGURA o aviso (a chave foi trocada)", async () => {
   const f = fake({
-    "GET /instance/connectionState/{instance}": [{ status: 200, body: { instance: { state: "open" } } }],
+    "GET /instance/connect/{instance}": [{ status: 200, body: { instance: { state: "open" } } }],
     "POST /webhook/set/{instance}": [{ status: 200 }],
   });
   const r = await connect(f.d);
@@ -81,7 +108,7 @@ Deno.test("aviso: tenta o formato novo e, se o servidor não reconhece, o antigo
 
 Deno.test("aviso: se o servidor recusa os dois formatos, avisa que as mensagens não chegam (não finge que deu certo)", async () => {
   const f = fake({
-    "GET /instance/connectionState/{instance}": [{ status: 404 }],
+    "GET /instance/connect/{instance}": [{ status: 404 }],
     "POST /instance/create": [{ status: 201, body: { qrcode: { base64: "data:image/png;base64,AAAA" } } }],
     "POST /webhook/set/{instance}": [{ status: 404 }],
   });
@@ -93,11 +120,8 @@ Deno.test("aviso: se o servidor recusa os dois formatos, avisa que as mensagens 
   assertEquals(g.calls.length, 1); // erro do servidor não tenta o outro formato
 });
 
-Deno.test("connect: telefone inválido é recusado antes de falar com o servidor; erro do servidor vira mensagem", async () => {
-  const f = fake({});
-  await assertRejects(() => connect(f.d, "123"), GatewayFailure, "Telefone inválido");
-  assertEquals(f.calls.length, 0);
-  const g = fake({ "GET /instance/connectionState/{instance}": [{ status: 401 }] });
+Deno.test("connect: erro do servidor vira mensagem amigável", async () => {
+  const g = fake({ "GET /instance/connect/{instance}": [{ status: 401 }] });
   await assertRejects(() => connect(g.d), GatewayFailure, "erro 401");
 });
 
@@ -138,38 +162,3 @@ Deno.test("logout desliga a conexão; remove limpa a instância (e não falha se
   assertEquals(h.cleared(), 0);
 });
 
-Deno.test("código de pareamento: o servidor só gera para o número certo → tenta a outra forma do número (com/sem o 9)", async () => {
-  const f = fake({
-    "GET /instance/connectionState/{instance}": [{ status: 200, body: { instance: { state: "close" } } }],
-    "GET /instance/connect/{instance}": [
-      { status: 200, body: { base64: "data:image/png;base64,AAAA" } }, // 1º número: só QR, sem código
-      { status: 200, body: { pairingCode: "ABCD1234", code: "2@x" } }, // 2º (com o 9): gerou o código
-    ],
-    "POST /webhook/set/{instance}": [{ status: 200 }],
-  });
-  const r = await connect(f.d, "81 95067876");
-  assertEquals(r.pairingCode, "ABCD1234");
-  assertEquals(r.pairingNumber, "5581995067876");
-  const pedidos = f.calls.filter((c) => c.path === "/instance/connect/{instance}").map((c) => c.query?.number);
-  assertEquals(pedidos, ["558195067876", "5581995067876"]);
-});
-
-Deno.test("código de pareamento: se nenhuma forma do número gera código, avisa e mantém o QR (não fica 'esperando')", async () => {
-  const f = fake({
-    "GET /instance/connectionState/{instance}": [{ status: 200, body: { instance: { state: "close" } } }],
-    "GET /instance/connect/{instance}": [{ status: 200, body: { base64: "data:image/png;base64,AAAA" } }],
-    "POST /webhook/set/{instance}": [{ status: 200 }],
-  });
-  const r = await connect(f.d, "5581995067876");
-  assertEquals(r.pairingCode, null);
-  assertEquals(r.state, "aguardando_leitura");
-  assert(r.qr?.startsWith("data:image/png"));
-  assert(r.message?.includes("não gerou o código"));
-});
-
-Deno.test("altBrNumber: forma com e sem o 9; ignora número de fora do Brasil", () => {
-  assertEquals(altBrNumber("558195067876"), "5581995067876");
-  assertEquals(altBrNumber("5581995067876"), "558195067876");
-  assertEquals(altBrNumber("5541322112345"), null); // 9 dígitos que não começam com 9
-  assertEquals(altBrNumber("14155550123"), null);
-});
