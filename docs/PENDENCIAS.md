@@ -129,3 +129,8 @@
 - [ ] Em **Criar campanhas → Quem pode o quê**, liberar criar/editar/publicar para quem for usar (gestor/operador).
 - [ ] Conferir se a conexão nova do Meta (usuário do sistema "Backstage Flow - By STG") sincronizou todas as contas; se alguma der erro, me avisar qual.
 - [ ] Para a primeira publicação real (fase 35.4): escolher o cliente/conta de teste (campanha **Pausada**).
+
+## QR Code do WhatsApp por cliente (T5.38, 16/11/2026)
+- [ ] **Publicar a função `wa-instance`** (fase A): `supabase.cmd functions deploy wa-instance --remote=dkatllzkmlzpginuzvis --use-api --yes`.
+- [ ] Decidir na fase B: dar ao **Account Manager** (papel Equipe) acesso à tela do Tracking só para conectar o WhatsApp dos clientes dele (hoje ele não vê o Tracking).
+- [ ] No primeiro teste real (Acollar): ter o **celular do cliente na mão** para ler o QR Code, e confirmar que o servidor de WhatsApp aceita mais um chip.
