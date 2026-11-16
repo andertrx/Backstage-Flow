@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
-import { connect, type Deps, GatewayFailure, logout, remove, setWebhook, status } from "./flow.ts";
+import { altBrNumber, connect, type Deps, GatewayFailure, logout, remove, setWebhook, status } from "./flow.ts";
 
 type Call = { instance: string; method: string; path: string; body?: unknown; query?: Record<string, string> };
 
@@ -136,4 +136,40 @@ Deno.test("logout desliga a conexão; remove limpa a instância (e não falha se
   const h = fake({ "DELETE /instance/delete/{instance}": [{ status: 500 }] });
   await assertRejects(() => remove(h.d), GatewayFailure);
   assertEquals(h.cleared(), 0);
+});
+
+Deno.test("código de pareamento: o servidor só gera para o número certo → tenta a outra forma do número (com/sem o 9)", async () => {
+  const f = fake({
+    "GET /instance/connectionState/{instance}": [{ status: 200, body: { instance: { state: "close" } } }],
+    "GET /instance/connect/{instance}": [
+      { status: 200, body: { base64: "data:image/png;base64,AAAA" } }, // 1º número: só QR, sem código
+      { status: 200, body: { pairingCode: "ABCD1234", code: "2@x" } }, // 2º (com o 9): gerou o código
+    ],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  const r = await connect(f.d, "81 95067876");
+  assertEquals(r.pairingCode, "ABCD1234");
+  assertEquals(r.pairingNumber, "5581995067876");
+  const pedidos = f.calls.filter((c) => c.path === "/instance/connect/{instance}").map((c) => c.query?.number);
+  assertEquals(pedidos, ["558195067876", "5581995067876"]);
+});
+
+Deno.test("código de pareamento: se nenhuma forma do número gera código, avisa e mantém o QR (não fica 'esperando')", async () => {
+  const f = fake({
+    "GET /instance/connectionState/{instance}": [{ status: 200, body: { instance: { state: "close" } } }],
+    "GET /instance/connect/{instance}": [{ status: 200, body: { base64: "data:image/png;base64,AAAA" } }],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  const r = await connect(f.d, "5581995067876");
+  assertEquals(r.pairingCode, null);
+  assertEquals(r.state, "aguardando_leitura");
+  assert(r.qr?.startsWith("data:image/png"));
+  assert(r.message?.includes("não gerou o código"));
+});
+
+Deno.test("altBrNumber: forma com e sem o 9; ignora número de fora do Brasil", () => {
+  assertEquals(altBrNumber("558195067876"), "5581995067876");
+  assertEquals(altBrNumber("5581995067876"), "558195067876");
+  assertEquals(altBrNumber("5541322112345"), null); // 9 dígitos que não começam com 9
+  assertEquals(altBrNumber("14155550123"), null);
 });

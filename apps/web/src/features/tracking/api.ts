@@ -1050,6 +1050,8 @@ export interface WaInstanceConnect {
   state: WaInstanceState;
   qr: string | null;
   pairingCode: string | null;
+  /** Número (com 55 e DDD) para o qual o código foi gerado. */
+  pairingNumber?: string | null;
   /** O servidor aceitou o aviso automático? Se não, as mensagens não chegam ao CRM. */
   webhookOk: boolean;
   message: string | null;
