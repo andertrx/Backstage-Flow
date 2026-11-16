@@ -1,7 +1,7 @@
 /**
  * Edge Function: wa-instance (T5.38) — conectar o WhatsApp de CADA CLIENTE por QR Code, dentro do Tracking (servidor não oficial).
  *
- *   connect { connectionId }          → cria a instância do cliente, configura o aviso e devolve o QR Code
+ *   connect { connectionId, number? } → cria a instância do cliente, configura o aviso e devolve o QR Code (ou o código de pareamento, se vier o número)
  *   status  { connectionId }          → confere se conectou; ao conectar, liga a conexão sozinha
  *   logout  { connectionId }          → desconecta o WhatsApp do cliente e desliga a conexão
  *   remove  { connectionId }          → remove a instância do servidor (contatos e conversas continuam guardados)
@@ -20,7 +20,7 @@ import { connect, type Deps, GatewayFailure, logout, remove, status } from "./fl
 
 const id = z.guid("Identificador inválido.");
 const schema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("connect"), connectionId: id }),
+  z.object({ action: z.literal("connect"), connectionId: id, number: z.string().max(30).optional() }),
   z.object({ action: z.literal("status"), connectionId: id }),
   z.object({ action: z.literal("logout"), connectionId: id }),
   z.object({ action: z.literal("remove"), connectionId: id }),
@@ -92,7 +92,7 @@ Deno.serve(handle(async (req) => {
   const base = await loadBase(db);
   const d = depsFor(db, base, caller.id, input.connectionId);
   try {
-    if (input.action === "connect") return json(req, 200, { data: await connect(d) });
+    if (input.action === "connect") return json(req, 200, { data: await connect(d, input.number) });
     if (input.action === "status") return json(req, 200, { data: await status(d) });
     if (input.action === "logout") return json(req, 200, { data: await logout(d) });
     return json(req, 200, { data: await remove(d) });

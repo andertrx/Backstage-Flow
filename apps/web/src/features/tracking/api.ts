@@ -1049,12 +1049,16 @@ export type WaInstanceState = "conectado" | "desconectado" | "aguardando_leitura
 export interface WaInstanceConnect {
   state: WaInstanceState;
   qr: string | null;
+  /** Código de pareamento (quando se pede por código em vez de QR). */
+  pairingCode?: string | null;
+  /** Número (com 55 e DDD) para o qual o código foi gerado. */
+  pairingNumber?: string | null;
   /** O servidor aceitou o aviso automático? Se não, as mensagens não chegam ao CRM. */
   webhookOk: boolean;
   message: string | null;
 }
 
-async function callWaInstance<T>(body: { action: "connect" | "status" | "logout" | "remove"; connectionId: string }): Promise<T> {
+async function callWaInstance<T>(body: { action: "connect"; connectionId: string; number?: string } | { action: "status" | "logout" | "remove"; connectionId: string }): Promise<T> {
   const { data, error } = await supabase.functions.invoke("wa-instance", { body });
   if (error) throw new FriendlyError(await friendlyFunctionError(error));
   return (data as { data: T }).data;
@@ -1063,7 +1067,7 @@ async function callWaInstance<T>(body: { action: "connect" | "status" | "logout"
 export function useWaInstanceConnect() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { connectionId: string }) => callWaInstance<WaInstanceConnect>({ action: "connect", ...input }),
+    mutationFn: (input: { connectionId: string; number?: string }) => callWaInstance<WaInstanceConnect>({ action: "connect", ...input }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });
 }

@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
-import { connect, type Deps, GatewayFailure, logout, remove, setWebhook, status } from "./flow.ts";
+import { altBrNumber, connect, type Deps, GatewayFailure, logout, remove, setWebhook, status } from "./flow.ts";
 
 type Call = { instance: string; method: string; path: string; body?: unknown; query?: Record<string, string> };
 
@@ -162,3 +162,64 @@ Deno.test("logout desliga a conexão; remove limpa a instância (e não falha se
   assertEquals(h.cleared(), 0);
 });
 
+
+Deno.test("código: pede /instance/connect com o número e devolve o código de pareamento", async () => {
+  const f = fake({
+    "GET /instance/connect/{instance}": [{ status: 200, body: { pairingCode: "ABCD1234", code: "2@x" } }],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  const r = await connect(f.d, "81 99506-7876");
+  assertEquals(r.pairingCode, "ABCD1234");
+  assertEquals(r.pairingNumber, "5581995067876");
+  assertEquals(r.state, "aguardando_leitura");
+  assertEquals(f.calls.find((c) => c.path === "/instance/connect/{instance}")?.query?.number, "5581995067876");
+});
+
+Deno.test("código: instância nova nasce já com o número", async () => {
+  const f = fake({
+    "GET /instance/connect/{instance}": [{ status: 404 }],
+    "POST /instance/create": [{ status: 201, body: { qrcode: { pairingCode: "WXYZ5678", base64: "data:image/png;base64,AAAA" } } }],
+    "POST /webhook/set/{instance}": [{ status: 201 }],
+  });
+  const r = await connect(f.d, "5581995067876");
+  assertEquals(r.pairingCode, "WXYZ5678");
+  assertEquals((f.calls.find((c) => c.path === "/instance/create")!.body as { number: string }).number, "5581995067876");
+});
+
+Deno.test("código: o servidor só gera para o número certo → tenta a outra forma (com/sem o 9)", async () => {
+  const f = fake({
+    "GET /instance/connect/{instance}": [
+      { status: 200, body: { base64: "data:image/png;base64,AAAA" } }, // com o número cadastrado: só QR, sem código
+      { status: 200, body: { pairingCode: "ABCD1234" } }, // forma com o 9: gerou o código
+    ],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  const r = await connect(f.d, "81 95067876");
+  assertEquals(r.pairingCode, "ABCD1234");
+  assertEquals(r.pairingNumber, "5581995067876");
+});
+
+Deno.test("código: se nenhuma forma gera código, avisa e mantém o QR (não fica 'esperando')", async () => {
+  const f = fake({
+    "GET /instance/connect/{instance}": [{ status: 200, body: { base64: "data:image/png;base64,AAAA" } }],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  const r = await connect(f.d, "5581995067876");
+  assertEquals(r.pairingCode, null);
+  assertEquals(r.state, "aguardando_leitura");
+  assert(r.qr?.startsWith("data:image/png"));
+  assert(r.message?.includes("não gerou o código"));
+});
+
+Deno.test("código: telefone inválido é recusado antes de falar com o servidor", async () => {
+  const f = fake({});
+  await assertRejects(() => connect(f.d, "123"), GatewayFailure, "Telefone inválido");
+  assertEquals(f.calls.length, 0);
+});
+
+Deno.test("altBrNumber: forma com e sem o 9; ignora número de fora do Brasil", () => {
+  assertEquals(altBrNumber("558195067876"), "5581995067876");
+  assertEquals(altBrNumber("5581995067876"), "558195067876");
+  assertEquals(altBrNumber("5541322112345"), null);
+  assertEquals(altBrNumber("14155550123"), null);
+});
