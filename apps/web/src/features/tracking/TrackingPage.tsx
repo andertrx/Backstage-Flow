@@ -50,6 +50,7 @@ import {
   useTrackingOverview,
   useExcludeContainer,
   useRestoreContainer,
+  useWaInstanceLogout,
 } from "./api.ts";
 import { AttributionSection } from "./AttributionSection.tsx";
 import { ConfigSection } from "@/components/ui/section.tsx";
@@ -493,6 +494,7 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
   const podeGerenciar = can(useAuth().profile?.role, "tracking.manage");
   const queryClient = useQueryClient();
   const [qrDe, setQrDe] = useState<{ clienteId: string; nome: string } | null>(null);
+  const waLogout = useWaInstanceLogout();
   const [busy, setBusy] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
@@ -589,6 +591,21 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
                   {servidor.connection?.mode === "nao_oficial" && podeGerenciar && (
                     <Button className="px-2 py-1 text-xs" onClick={() => setQrDe({ clienteId: cl.id, nome: cl.name })} aria-label={`Conectar por QR Code o WhatsApp de ${cl.name}`}>
                       <QrCode className="size-3.5" aria-hidden /> Conectar por QR Code
+                    </Button>
+                  )}
+                  {servidor.connection?.mode === "nao_oficial" && podeGerenciar && servidor.connection.instance_name && (
+                    <Button variant="secondary" className="px-2 py-1 text-xs" loading={waLogout.isPending} aria-label={`Desconectar e começar do zero o WhatsApp de ${cl.name}`}
+                      title="Sai do WhatsApp e apaga a conexão no servidor. Contatos e conversas do CRM continuam."
+                      onClick={() => {
+                        if (!window.confirm(`Desconectar o WhatsApp de ${cl.name} e apagar a conexão no servidor? A próxima conexão começa do zero. Contatos e conversas já guardados continuam no CRM.`)) return;
+                        const id = servidor.connection!.id;
+                        setAvisos((a) => ({ ...a, [cl.id]: null }));
+                        waLogout.mutate(id, {
+                          onSuccess: () => setAvisos((a) => ({ ...a, [cl.id]: { tone: "success", text: "Conexão apagada no servidor. Agora é só conectar de novo, do zero." } })),
+                          onError: (e) => setAvisos((a) => ({ ...a, [cl.id]: { tone: "error", text: errorMessage(e) } })),
+                        });
+                      }}>
+                      Desconectar e começar do zero
                     </Button>
                   )}
                   {servidor.connection?.mode === "nao_oficial" && isAdmin && (
