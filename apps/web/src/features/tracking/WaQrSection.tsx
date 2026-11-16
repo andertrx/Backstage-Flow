@@ -3,13 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { useWaInstanceConnect, useWaInstanceLogout, useWaInstanceRemove, useWaInstanceStatus, type WaInstanceState, type WhatsAppConnection } from "./api.ts";
 
 /** Só mostra imagem que venha como PNG/JPEG/WebP em base64 (nunca um endereço qualquer). */
 const SAFE_IMAGE = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 
-const LABEL: Record<WaInstanceState, { text: string; tone: "success" | "warning" | "neutral" | "danger" }> = {
+export const WA_QR_LABEL: Record<WaInstanceState, { text: string; tone: "success" | "warning" | "neutral" | "danger" }> = {
   conectado: { text: "Conectado", tone: "success" },
   aguardando_leitura: { text: "Aguardando a leitura", tone: "warning" },
   desconectado: { text: "Desconectado", tone: "neutral" },
@@ -131,7 +132,7 @@ export function WaQrSection({ connection }: { connection: WaQrConnection }) {
     <section className="space-y-3" data-testid="wa-qr">
       <h4 className="font-medium text-slate-800">Conectar por QR Code</h4>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={LABEL[state].tone}>{LABEL[state].text}</Badge>
+        <Badge tone={WA_QR_LABEL[state].tone}>{WA_QR_LABEL[state].text}</Badge>
         <span className="text-xs text-slate-500">Cada cliente tem a sua conexão: um número nunca lê as mensagens de outro.</span>
       </div>
       {error && <Alert tone="error">{error}</Alert>}
@@ -188,5 +189,17 @@ export function WaQrSection({ connection }: { connection: WaQrConnection }) {
         Conexão por API <strong>não oficial</strong>: o WhatsApp pode bloquear números pareados assim. O texto das conversas continua sem ser guardado, a menos que você ligue o passo 4.
       </p>
     </section>
+  );
+}
+
+/** Janela só com o QR Code do cliente (aberta direto da linha do cliente em Tracking → Configurações). */
+export function WaQrModal({ clientName, connection, onClose }: { clientName: string; connection: WaQrConnection; onClose: () => void }) {
+  return (
+    <Modal title={`Conectar o WhatsApp de ${clientName}`} open size="lg" onClose={onClose}>
+      <div className="space-y-4 text-sm text-slate-700" data-testid="wa-qr-modal">
+        <WaQrSection connection={connection} />
+        <div className="flex justify-end"><Button type="button" onClick={onClose}>Fechar</Button></div>
+      </div>
+    </Modal>
   );
 }

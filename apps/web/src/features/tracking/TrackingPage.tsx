@@ -7,7 +7,7 @@ import {
   EVIDENCE_LABELS,
   eventLabel,
 } from "@backstage/shared";
-import { Code2, ListChecks, MessageCircle, MousePointerClick, Pencil, Plus, Radar, Trash2, Undo2 } from "lucide-react";
+import { Code2, ListChecks, MessageCircle, MousePointerClick, Pencil, Plus, QrCode, Radar, Trash2, Undo2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useMemo, useState } from "react";
 import { Link } from "react-router";
@@ -62,6 +62,7 @@ import { SuggestionsSection } from "./SuggestionsSection.tsx";
 import { RulesModal } from "./RulesModal.tsx";
 import { WhatsAppApiModal } from "./WhatsAppApiModal.tsx";
 import { LimparDadosCliente, LimparDadosDoClienteCard, WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
+import { WA_QR_LABEL, WaQrModal } from "./WaQrSection.tsx";
 import { WhatsAppSection } from "./WhatsAppSection.tsx";
 
 const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
@@ -489,7 +490,9 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
 }) {
   const semSite = useWaSemSiteContainer();
   const isAdmin = useAuth().profile?.role === "admin";
+  const podeGerenciar = can(useAuth().profile?.role, "tracking.manage");
   const queryClient = useQueryClient();
+  const [qrDe, setQrDe] = useState<{ clienteId: string; nome: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
@@ -580,6 +583,14 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
                   <Button variant="secondary" className="px-2 py-1 text-xs" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id, "servidor")} aria-label={`${servidor.connection ? "Configurar WhatsApp" : "Ligar WhatsApp"} de ${cl.name}`}>
                     <MessageCircle className="size-3.5" aria-hidden /> {servidor.connection ? "Configurar" : "Ligar"}
                   </Button>
+                  {servidor.connection?.mode === "nao_oficial" && servidor.connection.instance_name && servidor.connection.gateway_state && (
+                    <Badge tone={WA_QR_LABEL[servidor.connection.gateway_state].tone}>QR: {WA_QR_LABEL[servidor.connection.gateway_state].text.toLowerCase()}</Badge>
+                  )}
+                  {servidor.connection?.mode === "nao_oficial" && podeGerenciar && (
+                    <Button className="px-2 py-1 text-xs" onClick={() => setQrDe({ clienteId: cl.id, nome: cl.name })} aria-label={`Conectar por QR Code o WhatsApp de ${cl.name}`}>
+                      <QrCode className="size-3.5" aria-hidden /> Conectar por QR Code
+                    </Button>
+                  )}
                   {servidor.connection?.mode === "nao_oficial" && isAdmin && (
                     <LimparDadosCliente connectionId={servidor.connection.id} compact onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
                   )}
@@ -601,6 +612,10 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
         })}
         {rows.length === 0 && <li className="px-3 py-4 text-center text-sm text-slate-500">Nenhum cliente encontrado.</li>}
       </ul>
+      {qrDe && (() => {
+        const conn = conexoesDe(qrDe.clienteId).servidor.connection;
+        return conn ? <WaQrModal clientName={qrDe.nome} connection={conn} onClose={() => setQrDe(null)} /> : null;
+      })()}
     </Card>
   );
 }
