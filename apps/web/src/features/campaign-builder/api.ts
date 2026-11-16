@@ -110,3 +110,55 @@ export function useSaveBuilderPermission() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [...KEY, "pessoas"] }),
   });
 }
+
+export interface BuilderDraftFull {
+  id: string;
+  client_id: string;
+  ad_account_id: string | null;
+  name: string;
+  data: unknown;
+  version: number;
+  updated_at: string;
+}
+
+export function useBuilderDraft(id: string | undefined) {
+  return useQuery({
+    queryKey: [...KEY, "rascunho", id],
+    enabled: !!id,
+    // O editor guarda a própria cópia; só carrega uma vez ao abrir.
+    staleTime: Infinity,
+    gcTime: 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("builder_draft_get", { p_id: id });
+      if (error) throw new FriendlyError(dbError(error, "Não conseguimos abrir o rascunho."));
+      return data as BuilderDraftFull;
+    },
+  });
+}
+
+/** Salva o conteúdo do rascunho. Devolve a nova versão. Conflito (outra pessoa salvou antes) vira erro com a mensagem do banco. */
+export async function saveDraftData(input: { id: string; version: number; name: string; data: unknown }) {
+  const { data, error } = await supabase.rpc("builder_draft_save", {
+    p_id: input.id, p_version: input.version, p_client: null, p_account: null, p_name: input.name, p_data: input.data,
+  });
+  if (error) {
+    const e = new FriendlyError(dbError(error, "Não conseguimos salvar o rascunho."));
+    (e as FriendlyError & { conflict?: boolean }).conflict = error.code === "40001";
+    throw e;
+  }
+  return data as { id: string; version: number; updated_at: string };
+}
+
+/** Moeda e nome da conta do rascunho (para escrever o orçamento na moeda certa; nunca se soma moedas). */
+export function useDraftAccount(accountId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...KEY, "conta", accountId],
+    enabled: !!accountId,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("ad_accounts").select("id, name, currency, external_id").eq("id", accountId!).maybeSingle();
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar a conta."));
+      return data as { id: string; name: string; currency: string; external_id: string } | null;
+    },
+  });
+}

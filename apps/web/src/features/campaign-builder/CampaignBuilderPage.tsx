@@ -1,5 +1,6 @@
 import { FilePlus2, Megaphone } from "lucide-react";
 import { type FormEvent, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
@@ -16,6 +17,7 @@ import {
 function NewDraftModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const accounts = useMetaAccounts();
   const create = useCreateDraft();
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [accountId, setAccountId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,10 +28,11 @@ function NewDraftModal({ open, onClose }: { open: boolean; onClose: () => void }
     if (!account) return;
     setError(null);
     try {
-      await create.mutateAsync({ name: name.trim(), clientId: account.client_id, adAccountId: account.id });
+      const r = await create.mutateAsync({ name: name.trim(), clientId: account.client_id, adAccountId: account.id });
       setName("");
       setAccountId("");
       onClose();
+      navigate(`/criar-campanhas/${r.id}`);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -169,7 +172,7 @@ export function CampaignBuilderPage() {
           {drafts.data?.map((d) => (
             <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
               <div className="min-w-0">
-                <p className="font-medium">{d.name}</p>
+                <Link to={`/criar-campanhas/${d.id}`} className="font-medium text-brand-700 hover:underline">{d.name}</Link>
                 <p className="text-xs text-slate-500">
                   {d.client_name} · {d.ad_account_name ?? "sem conta"} · atualizado {formatDateTime(d.updated_at)}
                   {d.updated_by_name ? ` por ${d.updated_by_name}` : ""}

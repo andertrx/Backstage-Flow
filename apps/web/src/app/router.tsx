@@ -34,6 +34,7 @@ const ComparisonPage = lazy(() => import("@/features/comparison/ComparisonPage.t
 const MonitoringPage = lazy(() => import("@/features/monitoring/MonitoringPage.tsx").then((m) => ({ default: m.MonitoringPage })));
 const ResultsPage = lazy(() => import("@/features/results/ResultsPage.tsx").then((m) => ({ default: m.ResultsPage })));
 const CampaignBuilderPage = lazy(() => import("@/features/campaign-builder/CampaignBuilderPage.tsx").then((m) => ({ default: m.CampaignBuilderPage })));
+const DraftEditorPage = lazy(() => import("@/features/campaign-builder/DraftEditorPage.tsx").then((m) => ({ default: m.DraftEditorPage })));
 const AdsBuilderPage = lazy(() => import("@/features/ads-builder/AdsBuilderPage.tsx").then((m) => ({ default: m.AdsBuilderPage })));
 const AlertsPage = lazy(() => import("@/features/alerts/AlertsPage.tsx").then((m) => ({ default: m.AlertsPage })));
 const OpsLayout = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsLayout })));
@@ -172,6 +173,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="ads.builder">
             <CampaignBuilderPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "criar-campanhas/:id",
+        element: (
+          <RequirePermission permission="ads.builder">
+            <DraftEditorPage />
           </RequirePermission>
         ),
       },

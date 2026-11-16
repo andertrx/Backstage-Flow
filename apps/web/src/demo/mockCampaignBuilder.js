@@ -40,6 +40,11 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
       name: d.name, version: d.version, updated_at: d.updated_at, updated_by_name: name(d.updated_by),
     })));
   }
+  if (rpc("builder_draft_get")) {
+    const d = db.builderDrafts.find((x) => x.id === p.p_id && !x.archived_at);
+    if (!d) return bad("Rascunho não encontrado.");
+    return res(200, { id: d.id, client_id: d.client_id, ad_account_id: d.ad_account_id, name: d.name, data: d.data, version: d.version, updated_at: d.updated_at });
+  }
   if (rpc("builder_draft_save")) {
     const nome = String(p.p_name ?? "").trim();
     if (nome.length < 2) return bad("Dê um nome ao rascunho (2 a 120 letras).");
