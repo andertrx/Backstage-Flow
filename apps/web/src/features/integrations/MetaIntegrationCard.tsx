@@ -106,7 +106,7 @@ export function MetaIntegrationCard() {
         o token fica criptografado no servidor (Supabase Vault). Nem esta tela, nem os usuários, conseguem vê-lo depois de salvo.
       </Alert>
 
-      <ConnectionsList platform="meta" emptyText="Nenhuma conexão com o Meta ainda." />
+      <ConnectionsList platform="meta" emptyText="Nenhuma conexão com o Meta ainda." canCheckPermissions />
 
       <div className="space-y-3 border-t border-slate-100 pt-5">
         <h3 className="text-sm font-semibold">{hasActive ? "Adicionar ou renovar token" : "Conectar"}</h3>

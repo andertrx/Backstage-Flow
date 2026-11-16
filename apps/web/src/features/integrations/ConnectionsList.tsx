@@ -1,21 +1,24 @@
-import { List } from "lucide-react";
+import { List, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { useConnectionAction, useConnections } from "@/features/ad-accounts/api.ts";
+import { useConnectionAction, useConnections, useMetaPermissions } from "@/features/ad-accounts/api.ts";
 import type { PlatformConnection } from "@/features/ad-accounts/types.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { ConnectionAccountsModal } from "./ConnectionAccountsModal.tsx";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge.tsx";
+import { MetaPermissionsPanel } from "./MetaPermissionsPanel.tsx";
 
 const dateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR") : "—");
 
 /** Conexões ativas de uma plataforma, com o botão de desconectar. O token nunca aparece. */
-export function ConnectionsList({ platform, emptyText }: { platform: string; emptyText: string }) {
+export function ConnectionsList({ platform, emptyText, canCheckPermissions = false }: { platform: string; emptyText: string; canCheckPermissions?: boolean }) {
   const { data: connections, isLoading, error } = useConnections(platform);
   const action = useConnectionAction();
   const active = connections?.filter((c) => c.status !== "revogada") ?? [];
   const [viewing, setViewing] = useState<PlatformConnection | null>(null);
+  const permissions = useMetaPermissions();
+  const [checking, setChecking] = useState<string | null>(null);
 
   async function disconnect(id: string, label: string) {
     if (!window.confirm(`Desconectar "${label}"? A credencial será apagada do cofre e as contas vinculadas param de atualizar.`)) return;
@@ -49,10 +52,28 @@ export function ConnectionsList({ platform, emptyText }: { platform: string; emp
               <Button variant="secondary" className="px-3 py-1 text-xs" onClick={() => setViewing(c)}>
                 <List className="size-3.5" aria-hidden /> Ver contas desta conexão
               </Button>
+              {canCheckPermissions && (
+                <Button
+                  variant="secondary"
+                  className="px-3 py-1 text-xs"
+                  loading={permissions.isPending && checking === c.id}
+                  onClick={() => {
+                    setChecking(c.id);
+                    permissions.mutate(c.id);
+                  }}
+                >
+                  <ShieldCheck className="size-3.5" aria-hidden /> Conferir permissões
+                </Button>
+              )}
               <Button variant="ghost" className="text-xs" onClick={() => disconnect(c.id, c.label)} aria-label={`Desconectar ${c.label}`}>
                 Desconectar
               </Button>
             </div>
+            {canCheckPermissions && checking === c.id && (permissions.data || permissions.error) && (
+              <div className="basis-full">
+                <MetaPermissionsPanel report={permissions.data ?? null} error={permissions.error ? errorMessage(permissions.error) : null} />
+              </div>
+            )}
           </li>
         ))}
       </ul>

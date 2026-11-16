@@ -2593,6 +2593,13 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           db.connections.find((c) => c.id === body.connectionId).status = "revogada";
           return res(200, { data: { connectionId: body.connectionId } });
         }
+        case "meta_permissions": {
+          const names = ["ads_management", "ads_read", "business_management", "pages_show_list", "pages_read_engagement", "instagram_basic"];
+          const why = ["Criar e alterar campanhas, conjuntos e anúncios.", "Ler campanhas e métricas.", "Listar contas, páginas e Instagram da BM.", "Escolher a página do anúncio.", "Ler dados da página usada no anúncio.", "Escolher o perfil de Instagram do anúncio."];
+          const granted = db.metaPermissionsGranted ?? ["ads_read", "business_management"];
+          const checks = names.map((name, i) => ({ name, why: why[i], state: granted.includes(name) ? "concedida" : "ausente" }));
+          return res(200, { data: { checks, canCreate: checks.every((c) => c.state === "concedida"), canRead: granted.includes("ads_read") && granted.includes("business_management"), others: [] } });
+        }
         case "list_available": {
           const platform = db.connections.find((c) => c.id === body.connectionId)?.platform_id;
           const source = platform === "google" ? db.googleAccounts : db.metaAccounts;

@@ -48,6 +48,7 @@ type Action =
   | { action: "google_start"; redirectUri: string }
   | { action: "google_complete"; code: string; state: string; redirectUri: string; label: string }
   | { action: "disconnect"; connectionId: string }
+  | { action: "meta_permissions"; connectionId: string }
   | { action: "list_available"; connectionId: string }
   | { action: "link"; connectionId: string; externalId: string; clientId: string; managerCustomerId?: string | null }
   | { action: "refresh"; adAccountId: string }
@@ -111,4 +112,23 @@ export function useGoogleStatus() {
 export async function startGoogleConnection(): Promise<void> {
   const { url } = await callAdAccounts<{ url: string }>({ action: "google_start", redirectUri: googleRedirectUri() });
   window.location.assign(url);
+}
+
+export interface MetaPermissionCheck {
+  name: string;
+  why: string;
+  state: "concedida" | "recusada" | "ausente";
+}
+export interface MetaPermissionsReport {
+  checks: MetaPermissionCheck[];
+  canCreate: boolean;
+  canRead: boolean;
+  others: string[];
+}
+
+/** Fase 35.1: confere as permissões do token do Meta (só leitura; o servidor lê o token no cofre). */
+export function useMetaPermissions() {
+  return useMutation({
+    mutationFn: (connectionId: string) => callAdAccounts<MetaPermissionsReport>({ action: "meta_permissions", connectionId }),
+  });
 }

@@ -11,6 +11,7 @@
  *   google_start    { redirectUri }                                → admin (inicia o login com o Google)
  *   google_complete { code, state, redirectUri, label }            → admin (conclui o login com o Google)
  *   disconnect      { connectionId }                               → admin
+ *   meta_permissions { connectionId }                              → admin (Fase 35.1: confere as permissões do token; só lê)
  *   list_available  { connectionId }                               → admin, gestor
  *   link            { connectionId, externalId, clientId, managerCustomerId? } → admin, gestor com acesso ao cliente
  *   refresh         { adAccountId }                                → admin, gestor com acesso ao cliente
@@ -29,13 +30,14 @@ import type { PlatformAdapter } from "../_shared/platforms/adapter.ts";
 import { getAdapter } from "../_shared/platforms/registry.ts";
 import { missingConfig as googleMissingConfig } from "../_shared/platforms/google/config.ts";
 import { buildAuthorizeUrl, exchangeCode, fetchUserInfo } from "../_shared/platforms/google/oauth.ts";
+import { fetchPermissions } from "../_shared/platforms/meta/permissions.ts";
 import type { AccountFunding, CredentialOwner, PlatformAccount } from "../_shared/platforms/types.ts";
 import { FRESH_MINUTES } from "../../../packages/shared/src/sync/freshness.ts";
 
 const MANAGERS = ["admin", "gestor"] as const;
 /** Etapa 42: quem usa o Criador de Anúncios (só pode atualizar páginas e Instagram das contas que vê). */
 const ADS_BUILDER = ["admin", "gestor", "operador"] as const;
-const ADMIN_ONLY = new Set(["connect", "disconnect", "google_status", "google_start", "google_complete"]);
+const ADMIN_ONLY = new Set(["connect", "disconnect", "meta_permissions", "google_status", "google_start", "google_complete"]);
 const GOOGLE_CALLBACK_PATH = "/configuracoes/integracoes/google/callback";
 
 /** O endereço de retorno do Google precisa ser a página de callback do site (https, ou localhost em testes). */
@@ -70,6 +72,7 @@ const schema = z.discriminatedUnion("action", [
     label,
   }),
   z.object({ action: z.literal("disconnect"), connectionId: z.guid("Identificador inválido.") }),
+  z.object({ action: z.literal("meta_permissions"), connectionId: z.guid("Identificador inválido.") }),
   z.object({ action: z.literal("list_available"), connectionId: z.guid("Identificador inválido.") }),
   z.object({
     action: z.literal("link"),
@@ -355,6 +358,13 @@ async function disconnect(ctx: Ctx, input: Of<"disconnect">) {
   return { connectionId: input.connectionId };
 }
 
+/** Fase 35.1: quais permissões o token do Meta tem (só leitura; o token não sai do servidor). */
+async function metaPermissions(ctx: Ctx, input: Of<"meta_permissions">) {
+  const { connection, token } = await loadConnection(ctx, input.connectionId);
+  if (connection.platform_id !== "meta") throw new AppError(400, "PLATFORM_NOT_SUPPORTED", "A conferência de permissões vale só para o Meta.");
+  return await callPlatform(ctx, connection.id, () => fetchPermissions(token));
+}
+
 async function listAvailable(ctx: Ctx, input: Of<"list_available">) {
   const { connection, token } = await loadConnection(ctx, input.connectionId);
   const adapter = adapterFor(connection.platform_id);
@@ -572,6 +582,7 @@ Deno.serve(
         case "google_start": return googleStart(ctx, input);
         case "google_complete": return googleComplete(ctx, input);
         case "disconnect": return disconnect(ctx, input);
+        case "meta_permissions": return metaPermissions(ctx, input);
         case "list_available": return listAvailable(ctx, input);
         case "link": return link(ctx, input);
         case "refresh": return refresh(ctx, input);
