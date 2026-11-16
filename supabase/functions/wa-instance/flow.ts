@@ -110,6 +110,12 @@ export async function connect(d: Deps, numberRaw?: string): Promise<ConnectResul
   }
   const webhookOk = await hook;
 
+  // Diagnóstico: pediu código e não veio. Registra SÓ os nomes dos campos da resposta (nunca valores), para saber o que o servidor devolve.
+  if (number && !info.pairingCode && !info.alreadyConnected) {
+    const o = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+    console.log(JSON.stringify({ wa_instance: "codigo_nao_veio", http: r.status, campos: Object.keys(o(r.body)), campos_qrcode: Object.keys(o(o(r.body).qrcode)), numero_digitos: number.length }));
+  }
+
   if (info.alreadyConnected) {
     await d.setState("conectado", true);
     return { state: "conectado", qr: null, pairingCode: null, pairingNumber: null, webhookOk, message: webhookOk ? null : "Conectado, mas o servidor não aceitou o aviso automático. As mensagens não chegam ao CRM." };
