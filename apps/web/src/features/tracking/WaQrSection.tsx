@@ -20,6 +20,8 @@ export const WA_QR_LABEL: Record<WaInstanceState, { text: string; tone: "success
 
 /** Intervalo entre conferências. A próxima só começa DEPOIS que a anterior terminar (o servidor de WhatsApp pode demorar). */
 const POLL_MS = 3000;
+/** Depois deste tempo esperando a leitura, a tela para de conferir sozinha (poupa o servidor); um botão retoma. */
+const POLL_MAX_MS = 6 * 60_000;
 /** O QR Code do WhatsApp vence em cerca de um minuto: pedimos um novo antes disso. */
 const REFRESH_MS = 50_000;
 
@@ -54,6 +56,7 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
   const [codeNumber, setCodeNumber] = useState<string>(connection.display_phone ?? connection.phone_number_id);
   const [tab, setTab] = useState<"qr" | "code">("qr");
   const [copied, setCopied] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [warn, setWarn] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -68,6 +71,7 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
 
   async function start(kind: "qr" | "code" = "qr", numberOverride?: string) {
     mode.current = kind;
+    setPaused(false);
     setError(null);
     setNotice(null);
     try {
@@ -94,11 +98,13 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
 
   // Enquanto espera a leitura: confere, UMA chamada de cada vez, e renova o QR só quando está para vencer.
   useEffect(() => {
-    if (!waiting) return;
+    if (!waiting || paused) return;
+    const t0 = Date.now();
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {
       if (stopped) return;
+      if (Date.now() - t0 > POLL_MAX_MS) { setPaused(true); return; }
       try {
         const r = await checkStatus(connection.id);
         if (stopped) return;
@@ -130,7 +136,7 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
       stopped = true;
       clearTimeout(timer);
     };
-  }, [waiting, connection.id, checkStatus, askQr]);
+  }, [waiting, paused, connection.id, checkStatus, askQr]);
 
   async function doLogout() {
     if (!window.confirm("Desconectar o WhatsApp deste cliente e apagar a conexão no servidor? A próxima conexão (de qualquer número) começa do zero. Contatos e conversas já guardados continuam no CRM.")) return;
@@ -170,6 +176,14 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
       {error && <Alert tone="error">{error}</Alert>}
       {notice && <Alert tone="success">{notice}</Alert>}
       {warn && <Alert tone="warning">{warn}</Alert>}
+      {waiting && paused && (
+        <Alert tone="info">
+          <div className="flex flex-wrap items-center gap-2">
+            <span>Parei de conferir sozinho depois de alguns minutos, para não sobrecarregar o servidor.</span>
+            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setPaused(false)}>Continuar conferindo</Button>
+          </div>
+        </Alert>
+      )}
 
       {state !== "conectado" && (
         <>
