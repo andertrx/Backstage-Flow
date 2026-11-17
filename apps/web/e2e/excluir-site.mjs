@@ -41,12 +41,9 @@ function seed(db) {
   check((await aurora.innerText()).includes("aurora.com.br") && (await aurora.innerText()).includes("loja.aurora.com.br"), "dois sites do mesmo cliente aparecem um por um");
   check((await aurora.innerText()).includes("não ligado"), "quem não tem WhatsApp mostra “não ligado” nos dois tipos");
 
-  // Blocos por tipo nos detalhes do cliente
-  const detalhesBrisa = page.getByTestId("cliente-detalhe").filter({ hasText: "Loja Brisa" });
-  await detalhesBrisa.locator("summary").click();
-  await detalhesBrisa.getByTestId("wa-bloco-servidor").waitFor();
-  check((await detalhesBrisa.getByTestId("wa-bloco-servidor").innerText()).includes("Loja Brisa · Só WhatsApp"), "bloco do servidor próprio mostra a conexão do servidor");
-  check((await detalhesBrisa.getByTestId("wa-bloco-oficial").innerText()).includes("Loja Brisa · brisa.com.br"), "bloco da API oficial mostra a conta oficial");
+  // O WhatsApp aparece UMA vez só (na lista do cliente); os detalhes mostram só os sites
+  check(txt.includes("Servidor próprio") && txt.includes("API oficial"), "o WhatsApp do cliente fica na própria linha do cliente");
+  check(await page.getByTestId("wa-connections").count() === 0 && await page.getByTestId("wa-bloco-servidor").count() === 0, "não há mais o bloco repetido de WhatsApp nos detalhes");
   check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
   await browser.close();
 }
@@ -94,7 +91,7 @@ function seed(db) {
   const db = await mockSupabase(page, { role: "operador" });
   seed(db);
   await login(page, "/tracking?secao=config");
-  await page.getByRole("heading", { name: "Detalhes de cada cliente" }).waitFor();
+  await page.getByRole("heading", { name: "Detalhes dos sites de cada cliente" }).waitFor();
   check(await page.getByRole("button", { name: /Excluir site:/ }).count() === 0, "operador não exclui site");
   check(await page.getByTestId("excluded-sites").count() === 0, "operador não vê a lista de sites excluídos");
   await browser.close();

@@ -18,7 +18,7 @@ function seed(db) {
 
 async function openModal(page) {
   await login(page, "/tracking?secao=config");
-  await page.getByRole("button", { name: "WhatsApp pelo servidor: acollar.com.br" }).click();
+  await page.getByRole("button", { name: /(Ligar|Configurar) WhatsApp de Acollar/ }).click();
   const qr = page.getByTestId("wa-qr");
   await qr.waitFor();
   return qr;
@@ -131,7 +131,7 @@ async function openModal(page) {
   const db = await mockSupabase(page, { role: "operador" });
   seed(db);
   await login(page, "/tracking?secao=config");
-  const open = page.getByRole("button", { name: "WhatsApp pelo servidor: acollar.com.br" });
+  const open = page.getByRole("button", { name: /(Ligar|Configurar) WhatsApp de Acollar/ });
   if (await open.count()) {
     await open.click();
     await page.getByTestId("wa-server").waitFor();

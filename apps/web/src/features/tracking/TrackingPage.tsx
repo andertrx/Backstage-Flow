@@ -249,14 +249,14 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
                     onAddSite={(id) => { setNewSiteClient(id); setEditing("new"); }} onWhatsApp={setWaServerFor} onWhatsAppApi={setWaApiFor} />
                 </ConfigSection>
               )}
-              <ConfigSection id="cfg-detalhes" title="Detalhes de cada cliente" description="Código de instalação, Meta (API de Conversões), regras de eventos e as conexões de WhatsApp, agrupados por cliente.">
+              <ConfigSection id="cfg-detalhes" title="Detalhes dos sites de cada cliente" description="Código de instalação, Meta (API de Conversões) e regras de eventos de cada site. O WhatsApp do cliente fica na lista acima, em “Clientes: site e/ou WhatsApp”.">
                 <span id="cfg-sites" /><span id="cfg-whatsapp" />
                 <div className="space-y-5">
-                  {!visible.some((c) => c.kind !== "whatsapp" || waConnOf(c.id)) && <p className="text-sm text-slate-500">Nenhum site nem WhatsApp ligado ainda. Use a lista acima ("Adicionar site" ou "Ligar WhatsApp").</p>}
+                  {!visible.some((c) => c.kind !== "whatsapp" && !c.excluded_at) && <p className="text-sm text-slate-500">Nenhum site cadastrado ainda. Use "Adicionar site" na lista acima.</p>}
                   {(() => { const ids = [...new Set(visible.map((c) => c.client_id))]; return ids.map((cid) => {
                     const mine = visible.filter((c) => c.client_id === cid);
                     const mineSites = mine.filter((c) => c.kind !== "whatsapp" && !c.excluded_at);
-                    if (mineSites.length === 0 && !mine.some((c) => waConnOf(c.id))) return null;
+                    if (mineSites.length === 0) return null;
                     return (
                       <details key={cid} open={ids.length === 1 || Boolean(clientId) || undefined} className="group space-y-2 rounded-xl ring-1 ring-slate-200 p-3" data-testid="cliente-detalhe">
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-slate-900">
@@ -283,7 +283,6 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
                             ))}
                           </ul>
                         )}
-                        <WhatsAppConnectionsCard sites={mine} connectionOf={waConnOf} canManage={canManage} onServer={setWaServerFor} onApi={setWaApiFor} />
                       </details>
                     );
                   }); })()}
@@ -601,12 +600,33 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
                       onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
                   )}
                 </div>
+                {servidor.connection && (() => {
+                  const cn = servidor.connection;
+                  const uso = usoRecente(cn.last_webhook_at ?? null, Date.now());
+                  return (
+                    <div className="flex flex-wrap items-center gap-2 pl-0 sm:pl-[6.5rem]" data-testid="wa-detalhe-servidor">
+                      {uso.level === "atencao" && <Badge tone="warning" data-testid="wa-sem-uso">Sem uso desde {formatDataCurta(cn.last_webhook_at!)}</Badge>}
+                      {cn.mode === "nao_oficial" && (
+                        <Badge tone={cn.store_messages && cn.store_ack_at ? "success" : "neutral"}>
+                          {cn.store_messages && cn.store_ack_at ? "Guardando as conversas" : "Conversas não guardadas"}
+                        </Badge>
+                      )}
+                      {cn.mode === "nao_oficial" && cn.store_messages && cn.store_ack_at && (
+                        <Badge tone={cn.ai_suggest ? "brand" : "neutral"}>{cn.ai_suggest ? "IA sugerindo vendas" : "IA desligada"}</Badge>
+                      )}
+                      <span className="text-xs text-slate-500">{stServidor.detail}</span>
+                    </div>
+                  );
+                })()}
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="w-24 shrink-0 text-xs font-medium text-slate-600">API oficial</span>
                   {oficial.connection ? <Badge tone={stOficial.tone}>{stOficial.label}</Badge> : <Badge>não ligado</Badge>}
                   <Button variant="secondary" className="px-2 py-1 text-xs" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id, "oficial")} aria-label={`${oficial.connection ? "Configurar API oficial" : "Ligar pela API oficial"} de ${cl.name}`}>
                     <MessageCircle className="size-3.5" aria-hidden /> {oficial.connection ? "Configurar" : "Ligar"}
                   </Button>
+                  {oficial.connection && usoRecente(oficial.connection.last_webhook_at ?? null, Date.now()).level === "atencao" && (
+                    <Badge tone="warning" data-testid="wa-sem-uso">Sem uso desde {formatDataCurta(oficial.connection.last_webhook_at!)}</Badge>
+                  )}
                 </div>
               </div>
 
@@ -623,115 +643,6 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
         return conn ? <WaQrModal clientName={qrDe.nome} connection={conn} onClose={() => setQrDe(null)} /> : null;
       })()}
     </Card>
-  );
-}
-
-/**
- * Conexões de WhatsApp dos sites (servidor próprio ou API oficial): o único lugar para ligar, conferir e configurar.
- *
- * T5.35: os dois tipos ficam em blocos separados. São coisas diferentes — chip, chave e problema diferentes — e um mesmo
- * cliente pode ter as duas ao mesmo tempo (o servidor fica no container técnico, a API oficial fica no site).
- */
-function WhatsAppConnectionsCard({ sites, connectionOf, canManage, onServer, onApi }: {
-  sites: TrackingContainer[];
-  connectionOf: (containerId: string) => WhatsAppConnection | undefined;
-  canManage: boolean;
-  onServer: (c: TrackingContainer) => void;
-  onApi: (c: TrackingContainer) => void;
-}) {
-  const comServidor = sites.filter((c) => connectionOf(c.id)?.mode === "nao_oficial");
-  const comOficial = sites.filter((c) => { const cn = connectionOf(c.id); return cn && cn.mode !== "nao_oficial"; });
-  const semConexao = sites.filter((c) => !connectionOf(c.id));
-
-  const linha = (c: TrackingContainer, conn: WhatsAppConnection | undefined, tipo: "servidor" | "oficial" | "nenhum") => {
-    const status = waConnectionStatus(conn);
-    /** T5.35 (etapa 5): conexão sem uso — diz desde quando ninguém mandou mensagem. */
-    const uso = usoRecente(conn?.last_webhook_at ?? null, Date.now());
-    return (
-      <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 p-3" data-testid="wa-connection-row">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-slate-900">
-            {c.clients?.name ? <><span className="font-semibold">{c.clients.name}</span><span className="text-slate-400"> · </span></> : null}
-            {c.kind === "whatsapp" ? "Só WhatsApp (sem site)" : c.name}
-          </p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <Badge tone={status.tone}>{tipo === "servidor" ? status.label.replace(/^Servidor:\s*/, "") : status.label}</Badge>
-            {uso.level === "atencao" && (
-              <Badge tone="warning" data-testid="wa-sem-uso">Sem uso desde {formatDataCurta(conn!.last_webhook_at!)}</Badge>
-            )}
-            {conn?.mode === "nao_oficial" && (
-              <Badge tone={conn.store_messages && conn.store_ack_at ? "success" : "neutral"}>
-                {conn.store_messages && conn.store_ack_at ? "Guardando as conversas" : "Conversas não guardadas"}
-              </Badge>
-            )}
-            {conn?.mode === "nao_oficial" && conn.store_messages && conn.store_ack_at && (
-              <Badge tone={conn.ai_suggest ? "brand" : "neutral"}>{conn.ai_suggest ? "IA sugerindo vendas" : "IA desligada"}</Badge>
-            )}
-            {tipo !== "nenhum" && <span className="text-xs text-slate-500">{status.detail}</span>}
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {tipo === "servidor" && (canManage || conn?.mode === "nao_oficial") && (
-            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onServer(c)} aria-label={`WhatsApp pelo servidor: ${c.name}`}>
-              <MessageCircle className="size-3.5" aria-hidden /> WhatsApp pelo servidor
-            </Button>
-          )}
-          {tipo === "oficial" && (canManage || conn) && (
-            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onApi(c)} aria-label={`WhatsApp API oficial: ${c.name}`}>
-              WhatsApp API oficial
-            </Button>
-          )}
-          {tipo === "nenhum" && canManage && (
-            <>
-              <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onServer(c)} aria-label={`WhatsApp pelo servidor: ${c.name}`}>
-                <MessageCircle className="size-3.5" aria-hidden /> WhatsApp pelo servidor
-              </Button>
-              <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onApi(c)} aria-label={`WhatsApp API oficial: ${c.name}`}>
-                WhatsApp API oficial
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <section aria-label="Conexões de WhatsApp dos sites" data-testid="wa-connections">
-      <Card className="divide-y divide-slate-100">
-        {sites.length === 0 ? (
-          <p className="p-4 text-sm text-slate-500">Nenhum WhatsApp ligado ainda. Use "Por cliente", logo acima: dá para ligar só o WhatsApp, sem cadastrar site.</p>
-        ) : (
-          <>
-            <div className="p-4" data-testid="wa-bloco-servidor">
-              <p className="text-sm font-semibold text-slate-900">WhatsApp pelo servidor próprio <span className="font-normal text-slate-500">(API não oficial)</span></p>
-              <p className="mt-0.5 text-xs text-slate-500">Chip ligado ao CRM por um servidor próprio: as conversas chegam e dá para responder.</p>
-              <div className="mt-2 space-y-2">
-                {comServidor.map((c) => linha(c, connectionOf(c.id), "servidor"))}
-                {comServidor.length === 0 && <p className="text-sm text-slate-500">Nenhum servidor ligado.</p>}
-              </div>
-            </div>
-            <div className="p-4" data-testid="wa-bloco-oficial">
-              <p className="text-sm font-semibold text-slate-900">WhatsApp pela API oficial <span className="font-normal text-slate-500">(Meta / Cloud API)</span></p>
-              <p className="mt-0.5 text-xs text-slate-500">Conta oficial do Meta: é o que manda as conversões ao Meta (API de Conversões) e liga o clique do botão do site.</p>
-              <div className="mt-2 space-y-2">
-                {comOficial.map((c) => linha(c, connectionOf(c.id), "oficial"))}
-                {comOficial.length === 0 && <p className="text-sm text-slate-500">Nenhuma conta oficial ligada.</p>}
-              </div>
-            </div>
-            {semConexao.length > 0 && (
-              <div className="p-4" data-testid="wa-bloco-sem-configurar">
-                <p className="text-sm font-semibold text-slate-900">Sem configurar</p>
-                <p className="mt-0.5 text-xs text-slate-500">Estes ainda não têm WhatsApp. Escolha por onde ligar: servidor próprio ou conta oficial.</p>
-                <div className="mt-2 space-y-2">
-                  {semConexao.map((c) => linha(c, undefined, "nenhum"))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </Card>
-    </section>
   );
 }
 
@@ -776,7 +687,7 @@ function WhatsAppStatusStrip({ sites, connectionOf, clientId }: { sites: Trackin
           </div>
         )}
       </div>
-      <Link to={`/tracking?secao=config${clientId ? `&cliente=${clientId}` : ""}#cfg-whatsapp`} className="text-sm font-medium text-brand-700 hover:underline" data-testid="wa-go-config">
+      <Link to={`/tracking?secao=config${clientId ? `&cliente=${clientId}` : ""}#cfg-clientes`} className="text-sm font-medium text-brand-700 hover:underline" data-testid="wa-go-config">
         Ligar ou configurar o WhatsApp →
       </Link>
     </Card>

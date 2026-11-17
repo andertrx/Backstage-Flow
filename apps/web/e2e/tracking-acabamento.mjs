@@ -66,7 +66,7 @@ function seed(db) {
 
   // 2) Conexão de WhatsApp sem uso.
   await escolher(EXC);
-  const conexao = page.getByTestId("wa-connection-row").first();
+  const conexao = page.getByTestId("cli-site-whatsapp-row").filter({ has: page.getByTestId("wa-sem-uso") }).first();
   await conexao.waitFor();
   check((await conexao.getByTestId("wa-sem-uso").innerText()).includes("Sem uso desde"), "conexão de WhatsApp sem uso: o aviso diz desde quando");
 

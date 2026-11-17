@@ -98,12 +98,11 @@ function seed(db) {
   check(await page.getByRole("button", { name: /Marcar como Venda|Marcar como Lead/ }).count() === 0, "WhatsApp: não há botão de marcar venda aqui");
   check(await page.getByLabel("Código da conversa").count() === 0, "WhatsApp: sem o antigo campo de código da conversa");
   await page.getByTestId("wa-go-config").click();
-  await page.getByTestId("wa-connections").waitFor();
-  check(page.url().includes("secao=config"), "o link leva às Configurações → WhatsApp");
-  const wc = await page.getByTestId("wa-connections").innerText();
-  check(wc.includes("atacado.com.br") && !wc.includes("varejo.com.br"), "Configurações → WhatsApp: só a conexão do cliente escolhido");
-  check(wc.replace(/\s+/g, " ").includes("Loja Atacado · atacado.com.br"), "Configurações → WhatsApp: o nome da empresa (cliente) vem na frente do nome do site");
-  check(await page.getByRole("button", { name: "WhatsApp pelo servidor: atacado.com.br" }).count() === 1, "Configurações → WhatsApp: botão do servidor");
+  await page.getByTestId("cli-site-whatsapp").waitFor();
+  check(page.url().includes("secao=config"), "o link leva às Configurações → lista de clientes (WhatsApp)");
+  const wc = await page.getByTestId("cli-site-whatsapp").innerText();
+  check(wc.includes("Loja Atacado") && !wc.includes("Loja Varejo"), "Configurações → WhatsApp: só o cliente escolhido");
+  check(await page.getByRole("button", { name: /Ligar WhatsApp de Loja Atacado|Configurar WhatsApp de Loja Atacado/ }).count() === 1, "Configurações → WhatsApp: botão do servidor próprio na linha do cliente");
   check(await page.getByTestId("section-index").count() === 1, "Configurações tem o índice de seções");
   await page.getByTestId("tracking-section-painel").click();
 

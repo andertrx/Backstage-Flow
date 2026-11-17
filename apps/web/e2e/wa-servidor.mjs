@@ -23,7 +23,7 @@ function seed(db, official = false) {
   seed(db);
   db.waInst.connectAfter = 99999; // o QR fica esperando a leitura durante o teste
   await login(page, "/tracking?secao=config");
-  await page.getByRole("button", { name: "WhatsApp pelo servidor: loja.com.br" }).click();
+  await page.getByRole("button", { name: "Ligar WhatsApp de Loja Atacado" }).click();
   const modal = page.getByTestId("wa-server");
   await modal.waitFor();
   check(await modal.getByRole("button", { name: "Gerar QR Code" }).isDisabled(), "sem número, o botão criar fica travado");
@@ -47,7 +47,7 @@ function seed(db, official = false) {
   w.last_webhook_at = new Date().toISOString();
   await page.getByRole("button", { name: "Fechar", exact: true }).last().click();
   await page.reload();
-  await page.getByRole("button", { name: "WhatsApp pelo servidor: loja.com.br" }).click();
+  await page.getByRole("button", { name: "Ligar WhatsApp de Loja Atacado" }).click();
   await modal.waitFor();
   await modal.getByTestId("wa-server-manual").locator("summary").click();
   check(await page.getByTestId("wa-server-key").count() === 0 && (await modal.innerText()).includes(`••••${w.inbound_key_hint}`), "reaberto: a chave não aparece mais");
@@ -117,10 +117,10 @@ function seed(db, official = false) {
   const db = await mockSupabase(page, { role: "admin" });
   seed(db, true);
   await login(page, "/tracking?secao=config");
-  await page.getByRole("button", { name: /WhatsApp API oficial/ }).waitFor();
+  await page.getByRole("button", { name: "Configurar API oficial de Loja Atacado" }).waitFor();
   await page.waitForTimeout(500);
-  check(await page.getByRole("button", { name: "WhatsApp pelo servidor: loja.com.br" }).count() === 0 && await page.getByRole("button", { name: /WhatsApp API oficial/ }).count() === 1,
-    "com API oficial ligada: só o botão da API oficial");
+  check(await page.getByRole("button", { name: "Configurar API oficial de Loja Atacado" }).count() === 1 && await page.getByRole("button", { name: "Conectar o WhatsApp de Loja Atacado" }).count() === 0,
+    "com API oficial ligada: o botão da API oficial fica no lugar e não há conexão por QR Code");
   await browser.close();
 }
 {
@@ -129,9 +129,9 @@ function seed(db, official = false) {
     const db = await mockSupabase(page, { role });
     seed(db);
     await login(page, "/tracking?secao=config");
-    await page.getByTestId("wa-connection-row").waitFor();
+    await page.getByText("Detalhes dos sites de cada cliente").waitFor();
     await page.waitForTimeout(500);
-    check(await page.getByRole("button", { name: "WhatsApp pelo servidor: loja.com.br" }).count() === 0, `${role} não configura o WhatsApp pelo servidor`);
+    check(await page.getByTestId("cli-site-whatsapp").count() === 0 && await page.getByRole("button", { name: /Ligar WhatsApp de|Configurar WhatsApp de/ }).count() === 0, `${role} não configura o WhatsApp pelo servidor`);
     await browser.close();
   }
 }
@@ -249,7 +249,7 @@ function seed(db, official = false) {
   await login(page, "/tracking?secao=config");
   await page.getByTestId("cliente-detalhe").first().waitFor();
   const det = await page.getByTestId("cliente-detalhe").first().innerText();
-  check(det.includes("Loja Os Dois") && det.includes("loja.com.br") && await page.getByTestId("wa-connections").count() === 1, "configuração por cliente: site e WhatsApp do cliente no mesmo bloco");
+  check(det.includes("Loja Os Dois") && det.includes("loja.com.br") && await page.getByTestId("cli-site-whatsapp").count() === 1, "configuração por cliente: site e WhatsApp do cliente na mesma lista");
   check(await page.locator("#cfg-sites").count() === 1 && await page.locator("#cfg-whatsapp").count() === 1 && await page.getByTestId("section-index").count() === 1, "âncoras antigas e índice continuam");
   await page.goto(page.url().split("/").slice(0, 3).join("/") + "/tracking?aba=whatsapp");
   const ch = page.getByTestId("wa-click-channels");

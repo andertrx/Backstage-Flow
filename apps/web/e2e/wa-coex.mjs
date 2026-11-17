@@ -27,7 +27,7 @@ function seed(db) {
 
   // Antes de configurar, o Tracking não mostra o botão (sem botão de mentira)
   await page.goto(`${BASE}/tracking?secao=config`);
-  await page.getByRole("button", { name: "WhatsApp API oficial: loja.com.br" }).click();
+  await page.getByRole("button", { name: /(Ligar pela API oficial|Configurar API oficial) de Loja Atacado/ }).click();
   const dlg = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });
   await dlg.getByTestId("wa-coex-not-ready").waitFor();
   check(await dlg.getByRole("button", { name: "Ligar WhatsApp Business" }).count() === 0, "sem o app da agência: sem botão, com aviso");
@@ -50,7 +50,7 @@ function seed(db) {
 
   // Tracking → Ligar WhatsApp Business → Meta (simulado) → retorno
   await page.goto(`${BASE}/tracking?secao=config`);
-  await page.getByRole("button", { name: "WhatsApp API oficial: loja.com.br" }).click();
+  await page.getByRole("button", { name: /(Ligar pela API oficial|Configurar API oficial) de Loja Atacado/ }).click();
   await dlg.getByRole("button", { name: "Ligar WhatsApp Business" }).click();
   await page.getByRole("heading", { name: "Ligando o WhatsApp" }).waitFor();
   await page.getByText("WhatsApp ligado: +55 45 3000-4242 (Loja Atacado)").waitFor();
@@ -61,7 +61,7 @@ function seed(db) {
   check(start?.redirectUri?.endsWith("/tracking/whatsapp/retorno") && start.containerId === "t-coex", "cadastro começa pelo site certo e volta para o Tracking");
 
   await page.getByRole("link", { name: "Voltar para o Tracking" }).click();
-  await page.getByRole("button", { name: "WhatsApp API oficial: loja.com.br" }).click();
+  await page.getByRole("button", { name: /(Ligar pela API oficial|Configurar API oficial) de Loja Atacado/ }).click();
   await dlg.getByTestId("wa-coex-on").waitFor();
   check((await dlg.getByTestId("wa-coex-on").innerText()).includes("+55 45 3000-4242") && await dlg.getByLabel(/ID do número de telefone/).count() === 0,
     "ligado: mostra o número e esconde o formulário manual");
@@ -90,12 +90,12 @@ function seed(db) {
   seed(db);
   db.access.push({ user_id: USER_ID, client_id: CLI, created_at: "" });
   await login(page, "/tracking?secao=config");
-  await page.getByRole("button", { name: "WhatsApp API oficial: loja.com.br" }).click();
+  await page.getByRole("button", { name: /(Ligar pela API oficial|Configurar API oficial) de Loja Atacado/ }).click();
   await page.getByTestId("wa-coex-not-ready").waitFor();
   check(true, "gestor sem o app da agência configurado: aviso para falar com o administrador");
   db.waApp = { app_id: "123456789012", config_id: "987654321098", graph_version: "v23.0", secret: SECRET, verify_token: "x" };
   await page.reload();
-  await page.getByRole("button", { name: "WhatsApp API oficial: loja.com.br" }).click();
+  await page.getByRole("button", { name: /(Ligar pela API oficial|Configurar API oficial) de Loja Atacado/ }).click();
   await page.getByRole("button", { name: "Ligar WhatsApp Business" }).waitFor();
   check(true, "gestor com o app pronto: pode ligar o WhatsApp do cliente");
   await browser.close();
