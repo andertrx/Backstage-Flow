@@ -35,14 +35,13 @@ function seed(db) {
   await page.getByTestId("cli-site-whatsapp").waitFor();
   const linhaBrisa = page.getByTestId("cli-site-whatsapp-row").filter({ hasText: "Loja Brisa" });
   const txt = await linhaBrisa.innerText();
-  check(txt.includes("Servidor próprio") && txt.includes("API oficial"), "cada cliente mostra os dois tipos de WhatsApp separados");
+  check((await page.getByTestId("cli-site-whatsapp").innerText()).toLowerCase().includes("whatsapp (servidor próprio)") && (await page.getByTestId("cli-site-whatsapp").innerText()).toLowerCase().includes("api oficial"), "a lista mostra os dois tipos de WhatsApp em colunas separadas");
   check(txt.includes("brisa.com.br"), "o site do cliente aparece na coluna de site");
   const aurora = page.getByTestId("cli-site-whatsapp-row").filter({ hasText: "Loja Aurora" });
   check((await aurora.innerText()).includes("aurora.com.br") && (await aurora.innerText()).includes("loja.aurora.com.br"), "dois sites do mesmo cliente aparecem um por um");
-  check((await aurora.innerText()).includes("não ligado"), "quem não tem WhatsApp mostra “não ligado” nos dois tipos");
+  check(((await aurora.innerText()).match(/não ligado/gi) ?? []).length === 2, "quem não tem WhatsApp mostra “não ligado” nos dois tipos");
 
   // O WhatsApp aparece UMA vez só (na lista do cliente); os detalhes mostram só os sites
-  check(txt.includes("Servidor próprio") && txt.includes("API oficial"), "o WhatsApp do cliente fica na própria linha do cliente");
   check(await page.getByTestId("wa-connections").count() === 0 && await page.getByTestId("wa-bloco-servidor").count() === 0, "não há mais o bloco repetido de WhatsApp nos detalhes");
   check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
   await browser.close();

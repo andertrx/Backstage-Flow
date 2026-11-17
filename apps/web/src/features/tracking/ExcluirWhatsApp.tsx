@@ -2,6 +2,7 @@ import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { IconButton } from "@/components/ui/icon-button.tsx";
 import { Input } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
@@ -44,10 +45,8 @@ export function ExcluirWhatsApp({ connectionId, instanceName, clientName, onMess
 
   return (
     <>
-      <Button type="button" variant="ghost" className="px-2 py-1 text-xs text-rose-700 hover:text-rose-800" aria-label={`Excluir o WhatsApp de ${clientName}`}
-        onClick={() => { onMessage(null); setPalavra(""); setAberto(true); }}>
-        <Trash2 className="size-3.5" aria-hidden /> Excluir WhatsApp
-      </Button>
+      <IconButton size="sm" variant="danger" label={`Excluir o WhatsApp de ${clientName}`} icon={<Trash2 />}
+        onClick={() => { onMessage(null); setPalavra(""); setAberto(true); }} />
       {aberto && (
         <Modal open title={`Excluir o WhatsApp de ${clientName}?`} onClose={() => (ocupado ? undefined : setAberto(false))}>
           <div className="space-y-3 text-sm" data-testid="wa-excluir-modal">

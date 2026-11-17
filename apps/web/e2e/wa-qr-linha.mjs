@@ -40,7 +40,7 @@ function seed(db) {
   check(true, "QR lido (simulado) → conectado");
   await modal.screenshot({ path: `${SHOTS}/t538-linha-modal.png` });
   await modal.getByRole("button", { name: "Fechar" }).click();
-  await acollar.getByText("Conectado (aguardando a 1ª mensagem)").waitFor();
+  await acollar.getByText("Conectado", { exact: true }).waitFor();
   check(true, "a linha mostra um selo só: 'Conectado' depois de fechar");
   await acollar.screenshot({ path: `${SHOTS}/t538-linha-conectado.png` });
   check(errors.length === 0, `sem erros no navegador ${errors.join(" | ")}`);

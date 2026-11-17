@@ -249,7 +249,7 @@ function seedClients(db) {
 
   // 34.5-W2: WhatsApp pela API oficial
   await aba(page, "sites");
-  check((await page.getByTestId("cli-site-whatsapp-row").filter({ hasText: "Excalibur Fitness" }).innerText()).includes("não ligado"), "Configurações → WhatsApp mostra a situação do WhatsApp do cliente");
+  check((await page.getByTestId("cli-site-whatsapp-row").filter({ hasText: "Excalibur Fitness" }).innerText()).toLowerCase().includes("não ligado"), "Configurações → WhatsApp mostra a situação do WhatsApp do cliente");
   check(await page.getByTestId("wa-conversations").count() === 0, "sem API oficial: lista de conversas não aparece (app comum segue igual)");
   await page.getByRole("button", { name: "Ligar pela API oficial de Excalibur Fitness" }).click();
   const waApi = page.getByRole("dialog", { name: /WhatsApp — API oficial/ });

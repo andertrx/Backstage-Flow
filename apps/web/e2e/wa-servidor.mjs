@@ -47,7 +47,7 @@ function seed(db, official = false) {
   w.last_webhook_at = new Date().toISOString();
   await page.getByRole("button", { name: "Fechar", exact: true }).last().click();
   await page.reload();
-  await page.getByRole("button", { name: "Ligar WhatsApp de Loja Atacado" }).click();
+  await page.getByRole("button", { name: "Configurar WhatsApp de Loja Atacado" }).click();
   await modal.waitFor();
   await modal.getByTestId("wa-server-manual").locator("summary").click();
   check(await page.getByTestId("wa-server-key").count() === 0 && (await modal.innerText()).includes(`••••${w.inbound_key_hint}`), "reaberto: a chave não aparece mais");
@@ -145,7 +145,7 @@ function seed(db, official = false) {
   const lista = page.getByTestId("cli-site-whatsapp");
   await lista.waitFor();
   const linha = (nome) => lista.getByTestId("cli-site-whatsapp-row").filter({ hasText: nome });
-  check((await linha("Loja Só WhatsApp").innerText()).includes("sem site") && (await linha("Loja Só WhatsApp").innerText()).includes("não ligado"), "cada cliente mostra o site e o WhatsApp separados");
+  check((await linha("Loja Só WhatsApp").innerText()).includes("sem site") && (await linha("Loja Só WhatsApp").innerText()).toLowerCase().includes("não ligado"), "cada cliente mostra o site e o WhatsApp separados");
 
   // 1) só WhatsApp: sem cadastrar site
   await linha("Loja Só WhatsApp").getByRole("button", { name: /Ligar WhatsApp/ }).click();
