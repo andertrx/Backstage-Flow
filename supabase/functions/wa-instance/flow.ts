@@ -85,15 +85,18 @@ export async function connect(d: Deps, numberRaw?: string): Promise<ConnectResul
   if (number) {
     // CÓDIGO: este tipo de servidor só gera o código quando a conexão é CRIADA já com o número. Então começa do zero, UMA vez:
     // apaga a conexão antiga (se não existir, tudo bem) e cria de novo com o número. Nunca tenta outras formas do número sozinho.
+    // Se a conexão ainda não existe, este servidor pode responder 401/403/404 ao apagar: tudo bem, segue e cria. Chave errada de verdade aparece
+    // no passo seguinte (criar), com a mensagem certa. Só erro do próprio servidor (5xx) para aqui.
     const del = await d.gw(instance, "DELETE", "/instance/delete/{instance}");
-    if (del.status >= 400 && del.status !== 404) throw new GatewayFailure(502, d.problem(del.status));
+    if (del.status >= 500) throw new GatewayFailure(502, d.problem(del.status));
     r = await d.gw(instance, "POST", "/instance/create", {
       body: { instanceName: instance, integration: "WHATSAPP-BAILEYS", qrcode: true, number },
     });
   } else {
     // QR: uma chamada só; se a conexão ainda não existe (404), cria.
     r = await d.gw(instance, "GET", "/instance/connect/{instance}");
-    if (r.status === 404) {
+    // Conexão que ainda não existe: este servidor responde 404, e às vezes 401/403, na primeira vez. Então cria (chave errada de verdade falha ao criar).
+    if (r.status === 404 || r.status === 401 || r.status === 403) {
       r = await d.gw(instance, "POST", "/instance/create", { body: { instanceName: instance, integration: "WHATSAPP-BAILEYS", qrcode: true } });
     }
   }

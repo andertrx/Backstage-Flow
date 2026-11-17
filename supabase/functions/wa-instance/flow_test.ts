@@ -121,7 +121,7 @@ Deno.test("aviso: se o servidor recusa os dois formatos, avisa que as mensagens 
 });
 
 Deno.test("connect: erro do servidor vira mensagem amigável", async () => {
-  const g = fake({ "GET /instance/connect/{instance}": [{ status: 401 }] });
+  const g = fake({ "GET /instance/connect/{instance}": [{ status: 401 }], "POST /instance/create": [{ status: 401 }] });
   await assertRejects(() => connect(g.d), GatewayFailure, "erro 401");
 });
 
@@ -209,6 +209,35 @@ Deno.test("código: NÃO tenta outras formas do número sozinho (sem 9 / com 9):
   assertEquals(f.calls.filter((c) => c.path === "/instance/create").length, 1);
   assertEquals(f.calls.filter((c) => c.path === "/instance/delete/{instance}").length, 1);
   for (const c of f.calls.filter((c) => c.path === "/instance/connect/{instance}")) assertEquals(c.query?.number, "556781056623");
+});
+
+Deno.test("primeira vez: o servidor responde 403 para uma conexão que ainda não existe → cria e devolve o QR (sem erro de chave)", async () => {
+  const f = fake({
+    "GET /instance/connect/{instance}": [{ status: 403 }],
+    "POST /instance/create": [{ status: 201, body: { qrcode: { base64: "data:image/png;base64,AAAA" } } }],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  const r = await connect(f.d);
+  assertEquals(r.state, "aguardando_leitura");
+  assert(r.qr?.startsWith("data:image/png"));
+});
+
+Deno.test("primeira vez por código: apagar devolve 403 (não existe) → segue e cria já com o número", async () => {
+  const f = fake({
+    "DELETE /instance/delete/{instance}": [{ status: 403 }],
+    "POST /instance/create": [{ status: 201, body: { qrcode: { pairingCode: "ABCD1234", base64: "data:image/png;base64,BBBB" } } }],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  const r = await connect(f.d, "5567981056623");
+  assertEquals(r.pairingCode, "ABCD1234");
+});
+
+Deno.test("chave errada de verdade: o 403 também vem ao criar → mostra a mensagem da chave (não esconde o problema)", async () => {
+  const f = fake({
+    "GET /instance/connect/{instance}": [{ status: 403 }],
+    "POST /instance/create": [{ status: 403 }],
+  });
+  await assertRejects(() => connect(f.d), GatewayFailure, "erro 403");
 });
 
 Deno.test("código: o servidor recusa apagar (erro) → não cria nada e avisa", async () => {

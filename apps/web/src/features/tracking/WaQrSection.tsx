@@ -63,6 +63,8 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
   const qrAt = useRef(0);
   const mode = useRef<"qr" | "code">("qr");
   const started = useRef(false);
+  /** Só vale a resposta do pedido MAIS NOVO: um QR automático lento não pode apagar o código gerado depois, nem mostrar erro velho. */
+  const reqSeq = useRef(0);
   const waiting = state === "aguardando_leitura";
   const busy = connect.isPending || logout.isPending;
 
@@ -71,11 +73,13 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
 
   async function start(kind: "qr" | "code" = "qr", numberOverride?: string) {
     mode.current = kind;
+    const my = ++reqSeq.current;
     setPaused(false);
     setError(null);
     setNotice(null);
     try {
       const r = await askQr({ connectionId: connection.id, ...(kind === "code" ? { number: numberOverride ?? codeNumber } : {}) });
+      if (my !== reqSeq.current) return;
       setState(r.state);
       setQr(r.qr);
       setCode(r.pairingCode ?? null);
@@ -84,7 +88,7 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
       qrAt.current = Date.now();
       if (r.state === "conectado") setNotice("WhatsApp conectado. As mensagens deste número já chegam ao CRM.");
     } catch (err) {
-      setError(errorMessage(err));
+      if (my === reqSeq.current) setError(errorMessage(err));
     }
   }
 
@@ -118,8 +122,9 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
         // Só o QR se renova sozinho. O CÓDIGO nunca muda sozinho: quem decide é a pessoa ("Gerar outro código"),
         // senão o cliente digitaria um código que já foi trocado.
         if (mode.current === "qr" && Date.now() - qrAt.current > REFRESH_MS) {
+          const mySeq = reqSeq.current;
           const q = await askQr({ connectionId: connection.id });
-          if (stopped) return;
+          if (stopped || mySeq !== reqSeq.current) return;
           setState(q.state);
           setQr(q.qr);
           setCode(q.pairingCode ?? null);
