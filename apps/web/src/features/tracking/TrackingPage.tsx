@@ -49,6 +49,7 @@ import {
   useTrackingContainers,
   useTrackingOverview,
   useExcludeContainer,
+  useExcludedWhatsAppContainers,
   useRestoreContainer,
 } from "./api.ts";
 import { AttributionSection } from "./AttributionSection.tsx";
@@ -61,7 +62,8 @@ import { MetaCapiModal } from "./MetaCapiModal.tsx";
 import { SuggestionsSection } from "./SuggestionsSection.tsx";
 import { RulesModal } from "./RulesModal.tsx";
 import { WhatsAppApiModal } from "./WhatsAppApiModal.tsx";
-import { ApagarTudoCliente, LimparDadosCliente, LimparDadosDoClienteCard, WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
+import { ExcluirWhatsApp } from "./ExcluirWhatsApp.tsx";
+import { LimparDadosDoClienteCard, WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
 import { WA_QR_LABEL, WaQrModal } from "./WaQrSection.tsx";
 import { WhatsAppSection } from "./WhatsAppSection.tsx";
 
@@ -489,7 +491,7 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
   onWhatsAppApi: (c: TrackingContainer) => void;
 }) {
   const semSite = useWaSemSiteContainer();
-  const isAdmin = useAuth().profile?.role === "admin";
+  const excluidos = new Set(useExcludedWhatsAppContainers(true).data ?? []);
   const podeGerenciar = can(useAuth().profile?.role, "tracking.manage");
   const queryClient = useQueryClient();
   const [qrDe, setQrDe] = useState<{ clienteId: string; nome: string } | null>(null);
@@ -530,7 +532,7 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
     if (doTipo) { abrir(doTipo); return; }
     const alvo = tipo === "servidor" ? mine.find((c) => c.kind === "whatsapp") : sites[0];
     if (alvo) { abrir(alvo); return; }
-    const livre = mine.find((c) => !connectionOf(c.id));
+    const livre = mine.find((c) => !connectionOf(c.id) && !excluidos.has(c.id));
     if (livre && tipo === "oficial") { abrir(livre); return; }
     setBusy(clientId);
     try {
@@ -594,11 +596,9 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
                       <QrCode className="size-3.5" aria-hidden /> Conectar WhatsApp
                     </Button>
                   )}
-                  {servidor.connection?.mode === "nao_oficial" && isAdmin && (
-                    <>
-                      <LimparDadosCliente connectionId={servidor.connection.id} compact onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
-                      <ApagarTudoCliente connectionId={servidor.connection.id} instanceName={servidor.connection.instance_name} compact onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
-                    </>
+                  {servidor.connection?.mode === "nao_oficial" && podeGerenciar && (
+                    <ExcluirWhatsApp connectionId={servidor.connection.id} instanceName={servidor.connection.instance_name} clientName={cl.name}
+                      onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">

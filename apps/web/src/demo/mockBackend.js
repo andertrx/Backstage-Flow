@@ -1981,6 +1981,12 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       const found = db.whatsappConnections.find((w) => w.container_id === k.id);
       if (found && found.mode !== "nao_oficial") return res(400, { code: "22023", message: "Este site já tem WhatsApp pela API oficial. Desligue e remova essa conexão antes." });
       if (db.whatsappConnections.some((w) => w.phone_number_id === digits && w.container_id !== k.id)) return res(400, { code: "22023", message: "Este número já está ligado a outro site." });
+      if (found?.excluded_at) {
+        // ligar de novo num cliente com WhatsApp excluído: reaproveita o cadastro, começa desligado e com chave nova
+        const nk = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, "0")).join("");
+        Object.assign(found, { excluded_at: null, enabled: false, phone_number_id: digits, display_phone: digits, has_inbound_key: true, inbound_key: nk, inbound_key_hint: nk.slice(-4) });
+        return res(200, { id: found.id, key: nk });
+      }
       if (found) { Object.assign(found, { phone_number_id: digits, display_phone: digits }); return res(200, { id: found.id, key: null }); }
       const key = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, "0")).join("");
       const conn = { id: crypto.randomUUID(), container_id: k.id, client_id: k.client_id, phone_number_id: digits, waba_id: null, enabled: false, last_webhook_at: null,
@@ -2142,9 +2148,23 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       if (!["admin", "gestor", "equipe"].includes(role)) return res(200, []);
       return res(200, [...db.waSuggestions].sort((a, b) => b.created_at.localeCompare(a.created_at)));
     }
+    if (url.includes("/rest/v1/rpc/tracking_whatsapp_exclude")) {
+      // Excluir o WhatsApp de UM cliente: some das telas, número livre, histórico fica; confirma com EXCLUIR
+      const p = parse();
+      const w = db.whatsappConnections.find((x) => x.id === p.p_id && x.mode === "nao_oficial");
+      if (!w || !["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor excluem o WhatsApp de um cliente." });
+      if (w.excluded_at) return res(400, { code: "22023", message: "Este WhatsApp já está excluído." });
+      if (String(p.p_confirmar ?? "").trim().toUpperCase() !== "EXCLUIR") return res(400, { code: "22023", message: "Confirmação inválida: digite EXCLUIR." });
+      db.waExcluidos ??= [];
+      db.waExcluidos.push({ id: w.id, client_id: w.client_id });
+      Object.assign(w, { excluded_at: new Date().toISOString(), enabled: false, instance_name: null, gateway_state: null, last_webhook_at: null, has_inbound_key: false, inbound_key: null, store_messages: false, ai_suggest: false });
+      return res(204);
+    }
     if (url.includes("/rest/v1/tracking_whatsapp_connections")) {
       const cid = eqParam(url, "client_id");
-      return res(200, db.whatsappConnections.filter((w) => !cid || w.client_id === cid).map(({ inbound_key: _key, ...w }) => ({ ...w, has_app_secret: db.waSecrets[w.id]?.app != null })));
+      const soAtivas = url.includes("excluded_at=is.null");
+      const soExcluidas = url.includes("excluded_at=not.is.null");
+      return res(200, db.whatsappConnections.filter((w) => (!cid || w.client_id === cid) && (!soAtivas || !w.excluded_at) && (!soExcluidas || w.excluded_at)).map(({ inbound_key: _key, ...w }) => ({ ...w, has_app_secret: db.waSecrets[w.id]?.app != null })));
     }
     if (url.includes("/rest/v1/tracking_whatsapp_conversations")) {
       return res(200, [...db.whatsappConversations].sort((a, b) => b.last_message_at.localeCompare(a.last_message_at)).map((c) => ({ ...c, touch: c.touch ?? null })));

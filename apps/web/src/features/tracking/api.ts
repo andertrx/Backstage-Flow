@@ -487,9 +487,39 @@ export function useWhatsAppConnections(enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_whatsapp_connections")
-        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint, store_messages, store_ack_at, ai_suggest, history_days, instance_name, gateway_state");
+        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint, store_messages, store_ack_at, ai_suggest, history_days, instance_name, gateway_state")
+        .is("excluded_at", null); // conexão excluída não aparece em lugar nenhum
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conexões do WhatsApp."));
       return data as WhatsAppConnection[];
+    },
+  });
+}
+
+/** Recipientes que têm um WhatsApp EXCLUÍDO (o cadastro antigo fica guardado e é reaproveitado se o cliente ligar de novo). */
+export function useExcludedWhatsAppContainers(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "whatsapp-excluded-containers"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tracking_whatsapp_connections").select("container_id").not("excluded_at", "is", null);
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conexões do WhatsApp."));
+      return (data as { container_id: string }[]).map((r) => r.container_id);
+    },
+  });
+}
+
+/** Exclui o WhatsApp (servidor próprio) de UM cliente: some de todas as telas, o número fica livre e o histórico continua guardado. Confirma com EXCLUIR. */
+export function useExcludeWhatsApp() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; confirmar: string }) => {
+      const { error } = await supabase.rpc("tracking_whatsapp_exclude", { p_id: input.id, p_confirmar: input.confirmar });
+      if (error) throw new FriendlyError(error.code === "22023" || error.code === "42501" ? error.message : friendlyDbError(error, "Não conseguimos excluir o WhatsApp."));
+    },
+    onSuccess: (_d, input) => {
+      // some NA HORA da tela (sem esperar o recarregar) e depois confere no banco
+      queryClient.setQueryData<WhatsAppConnection[]>([...KEY, "whatsapp-connections"], (old) => (old ?? []).filter((w) => w.id !== input.id));
+      void queryClient.invalidateQueries();
     },
   });
 }

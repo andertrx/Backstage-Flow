@@ -157,18 +157,19 @@ function seed(db, official = false) {
   await page.getByTestId("wa-qr").waitFor();
   check(db.whatsappConnections.length === 1 && db.whatsappConnections[0].client_id === SO_WA && db.whatsappConnections[0].mode === "nao_oficial", "o WhatsApp é ligado sem site");
   await page.getByRole("button", { name: "Fechar", exact: true }).last().click();
-  // T5.28: o botão de limpar os dados está na própria linha do cliente (administrador)
-  await linha("Loja Só WhatsApp").getByRole("button", { name: "Apagar conversas e contatos do CRM" }).waitFor();
-  check(await linha("Loja Só Site").getByRole("button", { name: "Apagar conversas e contatos do CRM" }).count() === 0, "limpar dados aparece na linha só de quem tem WhatsApp ligado");
-  await linha("Loja Só WhatsApp").getByRole("button", { name: "Apagar conversas e contatos do CRM" }).click();
+  // Organização: na linha do cliente só ficam "Conectar", "Configurar" e "Excluir WhatsApp"; as ações de apagar dados ficam dentro de "Configurar"
+  const lw = linha("Loja Só WhatsApp");
+  check(await lw.getByRole("button", { name: "Apagar conversas e contatos do CRM" }).count() === 0 && await lw.getByRole("button", { name: "Apagar tudo deste cliente e começar do zero" }).count() === 0, "a linha do cliente não tem botões de apagar dados soltos (ficam em Configurar)");
+  await lw.getByRole("button", { name: "Configurar WhatsApp de Loja Só WhatsApp" }).click();
+  const mCfg = page.getByTestId("wa-server");
+  await mCfg.waitFor();
+  await mCfg.getByTestId("wa-server-limpar").waitFor();
+  await mCfg.getByRole("button", { name: "Limpar dados deste cliente" }).click();
   await page.getByTestId("wa-limpar-modal").waitFor();
   await page.getByTestId("wa-limpar-modal").getByRole("button", { name: "Cancelar" }).click();
-  check(true, "limpar dados pela linha do cliente abre a confirmação");
+  check(true, "limpar dados (texto, telefone, nome) está dentro de Configurar e pede confirmação");
   // "Apagar tudo e começar do zero" (por cliente, só administrador, com a palavra APAGAR)
-  const btnTudo = linha("Loja Só WhatsApp").getByRole("button", { name: "Apagar tudo deste cliente e começar do zero" });
-  await btnTudo.waitFor();
-  check(await linha("Loja Só Site").getByRole("button", { name: "Apagar tudo deste cliente e começar do zero" }).count() === 0, "apagar tudo aparece só na linha de quem tem WhatsApp ligado");
-  await btnTudo.click();
+  await mCfg.getByRole("button", { name: "Apagar tudo deste cliente e começar do zero" }).click();
   const mTudo = page.getByTestId("wa-apagar-tudo-modal");
   await mTudo.waitFor();
   check((await mTudo.innerText()).includes("só deste cliente"), "o primeiro passo explica que apaga só deste cliente");
@@ -179,9 +180,37 @@ function seed(db, official = false) {
   check(await apagarBtn.isDisabled(), "'apagar' em minúsculas não vale");
   await mTudo.getByLabel("Digite APAGAR").fill("APAGAR");
   await apagarBtn.click();
-  await linha("Loja Só WhatsApp").getByText("Tudo apagado", { exact: false }).waitFor();
-  check((db.waApagarTudo ?? []).length === 1 && db.waApagarTudo[0].client_id === SO_WA, "apagou só o cliente da linha");
-  check(db.whatsappConnections.find((w) => w.client_id === SO_WA).enabled === false, "a conexão do cliente ficou desligada");
+  await mCfg.getByText("Tudo apagado", { exact: false }).waitFor();
+  check((db.waApagarTudo ?? []).length === 1 && db.waApagarTudo[0].client_id === SO_WA, "apagou só o cliente");
+  await page.getByRole("button", { name: "Fechar", exact: true }).last().click();
+
+  // EXCLUIR o WhatsApp de um cliente: some na hora, continua sumido depois de recarregar (F5), o número fica livre, o histórico fica e dá para ligar de novo
+  const outro = db.whatsappConnections.find((w) => w.client_id !== SO_WA);
+  await lw.getByRole("button", { name: "Excluir o WhatsApp de Loja Só WhatsApp" }).click();
+  const mEx = page.getByTestId("wa-excluir-modal");
+  await mEx.waitFor();
+  check((await mEx.innerText()).includes("só para Loja Só WhatsApp"), "o aviso diz que vale só para aquele cliente");
+  const exBtn = mEx.getByRole("button", { name: "Excluir WhatsApp" });
+  check(await exBtn.isDisabled(), "sem digitar EXCLUIR, o botão fica travado");
+  await mEx.getByLabel("Digite EXCLUIR").fill("excluir");
+  await exBtn.click();
+  await lw.getByText("WhatsApp de Loja Só WhatsApp excluído", { exact: false }).waitFor();
+  check(await lw.getByText("não ligado").count() >= 1 && await lw.getByRole("button", { name: "Excluir o WhatsApp de Loja Só WhatsApp" }).count() === 0, "o WhatsApp some da linha na hora (sem recarregar)");
+  check(db.whatsappConnections.find((w) => w.client_id === SO_WA).excluded_at && (db.waExcluidos ?? []).length === 1, "foi excluído só o cliente da linha");
+  if (outro) check(!outro.excluded_at, "os outros clientes não foram tocados");
+  await page.reload();
+  await page.getByTestId("cli-site-whatsapp").waitFor();
+  check(await linha("Loja Só WhatsApp").getByRole("button", { name: "Excluir o WhatsApp de Loja Só WhatsApp" }).count() === 0 && await linha("Loja Só WhatsApp").getByRole("button", { name: "Conectar o WhatsApp de Loja Só WhatsApp" }).count() === 0, "depois de recarregar a página (F5) continua excluído");
+  check(!(await page.locator("body").innerText()).includes("(45) 99999-1234") && !(await page.locator("body").innerText()).includes("5545999991234"), "o número do WhatsApp excluído não aparece em lugar nenhum");
+  // ligar de novo: reaproveita o cadastro antigo
+  await linha("Loja Só WhatsApp").getByRole("button", { name: /Ligar WhatsApp de Loja Só WhatsApp/ }).click();
+  const m2 = page.getByTestId("wa-server");
+  await m2.waitFor();
+  await m2.getByLabel("Número com DDD (com ou sem o 9 na frente)").fill("(45) 98888-7777");
+  await m2.getByRole("button", { name: "Gerar QR Code" }).click();
+  await page.getByTestId("wa-qr").waitFor();
+  check(db.whatsappConnections.filter((w) => w.client_id === SO_WA).length === 1 && !db.whatsappConnections.find((w) => w.client_id === SO_WA).excluded_at, "ligar de novo reaproveita o cadastro (sem duplicar) e volta a aparecer");
+  await page.getByRole("button", { name: "Fechar", exact: true }).last().click();
   // e também no Painel (aba WhatsApp e aba Conversas) do cliente escolhido
   await page.goto(`${process.env.E2E_BASE_URL}/tracking?aba=whatsapp&cliente=${SO_WA}`);
   await page.getByTestId("limpar-dados-card").waitFor();
