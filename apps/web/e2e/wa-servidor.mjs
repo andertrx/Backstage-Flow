@@ -164,6 +164,24 @@ function seed(db, official = false) {
   await page.getByTestId("wa-limpar-modal").waitFor();
   await page.getByTestId("wa-limpar-modal").getByRole("button", { name: "Cancelar" }).click();
   check(true, "limpar dados pela linha do cliente abre a confirmação");
+  // "Apagar tudo e começar do zero" (por cliente, só administrador, com a palavra APAGAR)
+  const btnTudo = linha("Loja Só WhatsApp").getByRole("button", { name: "Apagar tudo deste cliente e começar do zero" });
+  await btnTudo.waitFor();
+  check(await linha("Loja Só Site").getByRole("button", { name: "Apagar tudo deste cliente e começar do zero" }).count() === 0, "apagar tudo aparece só na linha de quem tem WhatsApp ligado");
+  await btnTudo.click();
+  const mTudo = page.getByTestId("wa-apagar-tudo-modal");
+  await mTudo.waitFor();
+  check((await mTudo.innerText()).includes("só deste cliente"), "o primeiro passo explica que apaga só deste cliente");
+  await mTudo.getByRole("button", { name: "Continuar" }).click();
+  const apagarBtn = mTudo.getByRole("button", { name: "Apagar tudo", exact: true });
+  check(await apagarBtn.isDisabled(), "sem digitar APAGAR, o botão fica travado");
+  await mTudo.getByLabel("Digite APAGAR").fill("apagar");
+  check(await apagarBtn.isDisabled(), "'apagar' em minúsculas não vale");
+  await mTudo.getByLabel("Digite APAGAR").fill("APAGAR");
+  await apagarBtn.click();
+  await linha("Loja Só WhatsApp").getByText("Tudo apagado", { exact: false }).waitFor();
+  check((db.waApagarTudo ?? []).length === 1 && db.waApagarTudo[0].client_id === SO_WA, "apagou só o cliente da linha");
+  check(db.whatsappConnections.find((w) => w.client_id === SO_WA).enabled === false, "a conexão do cliente ficou desligada");
   // e também no Painel (aba WhatsApp e aba Conversas) do cliente escolhido
   await page.goto(`${process.env.E2E_BASE_URL}/tracking?aba=whatsapp&cliente=${SO_WA}`);
   await page.getByTestId("limpar-dados-card").waitFor();

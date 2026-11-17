@@ -2019,6 +2019,20 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       w.history_days = p.p_days;
       return res(204);
     }
+    if (url.includes("/rest/v1/rpc/wa_unofficial_apagar_tudo")) {
+      // "Apagar tudo deste cliente": só administrador; só o cliente da conexão; mantém conversas com venda; desliga as conexões do cliente.
+      const p = parse();
+      const w = db.whatsappConnections.find((x) => x.id === p.p_id && x.mode === "nao_oficial");
+      if (!w || role !== "admin") return res(403, { code: "42501", message: "Só o administrador apaga os dados do cliente." });
+      const n = { mensagens: (db.waMessages ?? []).length, pessoas: (db.waPeople ?? []).length, sugestoes: 0, conversas_apagar: 5, conversas_com_venda_mantidas: 2, conexoes: 1 };
+      if (url.includes("apagar_tudo_contagem")) return res(200, n);
+      if (String(p.p_confirmar ?? "").trim() !== "APAGAR") return res(400, { code: "22023", message: "Confirmação inválida: digite APAGAR." });
+      db.waApagarTudo ??= [];
+      db.waApagarTudo.push({ id: p.p_id, client_id: w.client_id });
+      db.waMessages = []; db.waPeople = [];
+      for (const x of db.whatsappConnections) if (x.client_id === w.client_id && x.mode === "nao_oficial") { x.enabled = false; x.last_webhook_at = null; }
+      return res(200, { mensagens: n.mensagens, pessoas: n.pessoas, sugestoes: 0, conversas: n.conversas_apagar, conversas_com_venda_mantidas: n.conversas_com_venda_mantidas, conexoes_desligadas: 1 });
+    }
     if (url.includes("/rest/v1/rpc/wa_unofficial_limpar")) {
       const p = parse();
       const w = db.whatsappConnections.find((x) => x.id === p.p_id && x.mode === "nao_oficial");

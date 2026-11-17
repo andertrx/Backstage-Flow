@@ -16,6 +16,9 @@ import {
   useWaHistoryDays,
   useWaLimpar,
   useWaLimparContagem,
+  useWaApagarTudo,
+  useWaApagarTudoContagem,
+  useWaInstanceLogout,
   useTrackingContainers,
   useWhatsAppConnections,
   useWaStoreMessages,
@@ -256,6 +259,11 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
               Mantém as conversas (só com o código cifrado do telefone), as vendas marcadas e as contagens. Não dá para desfazer.
             </p>
             <LimparDadosCliente connectionId={mine.id} />
+            <h4 className="pt-2 font-medium text-slate-800">Apagar tudo deste cliente (começar do zero)</h4>
+            <p className="text-xs text-slate-500">
+              Apaga também as conversas sem venda, desliga a conexão e a apaga no servidor de WhatsApp. Só deste cliente. Mantém as conversas com venda marcada, o site e o tracking.
+            </p>
+            <ApagarTudoCliente connectionId={mine.id} instanceName={mine.instance_name} />
           </section>
         )}
         {!canManage && <p className="text-slate-500">Só administrador e gestor configuram o WhatsApp do site.</p>}
@@ -356,6 +364,75 @@ export function LimparDadosCliente({ connectionId, compact = false, onMessage }:
                     onError: (e) => { setLimpeza(null); setError(errorMessage(e)); } })}>
                     Sim, apagar tudo
                   </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Apagar tudo deste cliente (começar do zero)" (só administrador, um cliente por vez): desconecta e apaga a conexão no servidor de WhatsApp,
+ * apaga mensagens, telefones, nomes, sugestões e as conversas SEM venda, e desliga as conexões do cliente. As conversas COM venda marcada ficam
+ * (carregam a venda e as contagens dos relatórios). Pede confirmação em dois passos, o segundo digitando APAGAR. Não toca em outros clientes.
+ */
+export function ApagarTudoCliente({ connectionId, instanceName, compact = false, onMessage }: { connectionId: string; instanceName?: string | null; compact?: boolean; onMessage?: (m: { tone: "success" | "error"; text: string } | null) => void }) {
+  const contagem = useWaApagarTudoContagem();
+  const apagar = useWaApagarTudo();
+  const desconectar = useWaInstanceLogout();
+  const [passo, setPasso] = useState<{ n: { mensagens: number; pessoas: number; sugestoes: number; conversas_apagar: number; conversas_com_venda_mantidas: number; conexoes: number }; etapa: 1 | 2 } | null>(null);
+  const [palavra, setPalavra] = useState("");
+  const [local, setLocal] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const say = (m: { tone: "success" | "error"; text: string } | null) => { if (onMessage) onMessage(m); else setLocal(m); };
+  const ocupado = apagar.isPending || desconectar.isPending;
+
+  async function executar() {
+    let aviso = "";
+    // 1) apaga a conexão no servidor de WhatsApp (se houver). Se o servidor não responder, segue e avisa.
+    if (instanceName) {
+      try { await desconectar.mutateAsync(connectionId); } catch { aviso = " Não consegui apagar a conexão no servidor de WhatsApp agora: use “Desconectar (começar do zero)” na janela de conexão."; }
+    }
+    // 2) apaga os dados e desliga as conexões do cliente
+    try {
+      const r = await apagar.mutateAsync({ id: connectionId, confirmar: palavra });
+      setPasso(null); setPalavra("");
+      say({ tone: "success", text: `Tudo apagado: ${r.mensagens} mensagem(ns), ${r.pessoas} pessoa(s), ${r.sugestoes} sugestão(ões) e ${r.conversas} conversa(s). ${r.conversas_com_venda_mantidas > 0 ? `${r.conversas_com_venda_mantidas} conversa(s) com venda ficaram guardadas. ` : ""}A conexão foi desligada.${aviso}` });
+    } catch (e) {
+      setPasso(null); setPalavra("");
+      say({ tone: "error", text: errorMessage(e) });
+    }
+  }
+
+  return (
+    <div className={compact ? "contents" : "space-y-2"}>
+      <Button type="button" variant="secondary" className={compact ? "px-2 py-1 text-xs" : undefined} loading={contagem.isPending}
+        aria-label="Apagar tudo deste cliente e começar do zero"
+        onClick={() => { say(null); contagem.mutate(connectionId, { onSuccess: (n) => { setPalavra(""); setPasso({ n, etapa: 1 }); }, onError: (e) => say({ tone: "error", text: errorMessage(e) }) }); }}>
+        <Trash2 className="size-3.5" aria-hidden /> Apagar tudo e começar do zero
+      </Button>
+      {!onMessage && local && <Alert tone={local.tone}>{local.text}</Alert>}
+      {passo && (
+        <Modal open title={passo.etapa === 1 ? "Apagar tudo deste cliente?" : "Digite APAGAR para confirmar"} onClose={() => ocupado ? undefined : setPasso(null)}>
+          <div className="space-y-3 text-sm" data-testid="wa-apagar-tudo-modal">
+            {passo.etapa === 1 ? (
+              <>
+                <p>Vão ser apagados <strong>só deste cliente</strong>: <strong>{passo.n.mensagens}</strong> mensagem(ns), <strong>{passo.n.pessoas}</strong> pessoa(s) com telefone e nome, <strong>{passo.n.sugestoes}</strong> sugestão(ões) e <strong>{passo.n.conversas_apagar}</strong> conversa(s) sem venda. A conexão do WhatsApp será desligada{instanceName ? " e apagada no servidor" : ""}.</p>
+                <p className="text-slate-600">Ficam: <strong>{passo.n.conversas_com_venda_mantidas}</strong> conversa(s) com venda marcada (para os relatórios não mudarem), o cadastro do número, o site e o tracking. Não dá para desfazer.</p>
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setPasso(null)}>Cancelar</Button>
+                  <Button onClick={() => setPasso({ ...passo, etapa: 2 })}>Continuar</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Alert tone="warning">Isto não pode ser desfeito. Para confirmar, digite <strong>APAGAR</strong>.</Alert>
+                <Input aria-label="Digite APAGAR" value={palavra} onChange={(e) => setPalavra(e.target.value)} placeholder="APAGAR" autoComplete="off" />
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" disabled={ocupado} onClick={() => setPasso(null)}>Voltar</Button>
+                  <Button loading={ocupado} disabled={palavra.trim() !== "APAGAR"} onClick={() => void executar()}>Apagar tudo</Button>
                 </div>
               </>
             )}

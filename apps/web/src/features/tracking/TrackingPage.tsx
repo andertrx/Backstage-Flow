@@ -61,7 +61,7 @@ import { MetaCapiModal } from "./MetaCapiModal.tsx";
 import { SuggestionsSection } from "./SuggestionsSection.tsx";
 import { RulesModal } from "./RulesModal.tsx";
 import { WhatsAppApiModal } from "./WhatsAppApiModal.tsx";
-import { LimparDadosCliente, LimparDadosDoClienteCard, WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
+import { ApagarTudoCliente, LimparDadosCliente, LimparDadosDoClienteCard, WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
 import { WA_QR_LABEL, WaQrModal } from "./WaQrSection.tsx";
 import { WhatsAppSection } from "./WhatsAppSection.tsx";
 
@@ -595,7 +595,10 @@ function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onW
                     </Button>
                   )}
                   {servidor.connection?.mode === "nao_oficial" && isAdmin && (
-                    <LimparDadosCliente connectionId={servidor.connection.id} compact onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
+                    <>
+                      <LimparDadosCliente connectionId={servidor.connection.id} compact onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
+                      <ApagarTudoCliente connectionId={servidor.connection.id} instanceName={servidor.connection.instance_name} compact onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
+                    </>
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">

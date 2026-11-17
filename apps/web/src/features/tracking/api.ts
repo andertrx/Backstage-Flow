@@ -939,6 +939,32 @@ export function useWaLimpar() {
   });
 }
 
+export interface WaApagarTudoContagem { mensagens: number; pessoas: number; sugestoes: number; conversas_apagar: number; conversas_com_venda_mantidas: number; conexoes: number }
+
+/** "Apagar tudo deste cliente": quanto será apagado (passo 1). Só administrador. */
+export function useWaApagarTudoContagem() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase.rpc("wa_unofficial_apagar_tudo_contagem", { p_id: id });
+      if (error) throw new FriendlyError(readableDbError(error, "Não conseguimos contar os dados."));
+      return data as WaApagarTudoContagem;
+    },
+  });
+}
+
+/** "Apagar tudo deste cliente (começar do zero)": apaga mensagens, pessoas, sugestões e conversas sem venda; desliga as conexões. Só administrador, com a palavra APAGAR. */
+export function useWaApagarTudo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; confirmar: string }) => {
+      const { data, error } = await supabase.rpc("wa_unofficial_apagar_tudo", { p_id: input.id, p_confirmar: input.confirmar });
+      if (error) throw new FriendlyError(readableDbError(error, "Não conseguimos apagar."));
+      return data as { mensagens: number; pessoas: number; sugestoes: number; conversas: number; conversas_com_venda_mantidas: number; conexoes_desligadas: number };
+    },
+    onSuccess: () => queryClient.invalidateQueries(),
+  });
+}
+
 /** IA que sugere vendas, ligada por WhatsApp (empresa). Só liga com "Guardar as conversas" ligado. */
 export function useWaAiSuggest() {
   const queryClient = useQueryClient();
