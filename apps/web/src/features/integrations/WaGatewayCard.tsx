@@ -114,7 +114,7 @@ export function WaGatewayCard() {
             {(id) => <Input id={id} value={instance} maxLength={60} onChange={(e) => setInstance(e.target.value)} />}
           </Field>
           <Field label={s?.has_key ? "Trocar a chave de acesso (opcional)" : "Chave de acesso do servidor"} hint="Colada aqui, vai direto para o cofre criptografado e nunca volta para a tela. Nunca envie a chave por chat.">
-            {(id) => <Input id={id} type="password" autoComplete="off" spellCheck={false} value={apiKey} onChange={(e) => setApiKey(e.target.value)} />}
+            {(id) => <Input id={id} type="password" autoComplete="new-password" data-1p-ignore data-lpignore="true" spellCheck={false} value={apiKey} onChange={(e) => setApiKey(e.target.value)} />}
           </Field>
         </div>
         {s?.risk_accepted_at ? (

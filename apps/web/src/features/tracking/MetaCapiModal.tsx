@@ -82,19 +82,19 @@ export function MetaCapiModal({ container, destination, overview, canManage, onC
           <form onSubmit={onSave} className="space-y-4" noValidate>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="ID do Pixel (conjunto de dados) *" hint="Gerenciador de Eventos → seu Pixel → número abaixo do nome.">
-                {(id) => <Input id={id} value={pixelId} onChange={(e) => setPixelId(e.target.value)} inputMode="numeric" placeholder="123456789012345" />}
+                {(id) => <Input id={id} name="meta-pixel-id" autoComplete="off" data-1p-ignore data-lpignore="true" value={pixelId} onChange={(e) => setPixelId(e.target.value)} inputMode="numeric" placeholder="123456789012345" />}
               </Field>
               <Field
                 label={destination?.has_token ? "Token da API de Conversões (salvo)" : "Token da API de Conversões *"}
                 hint="Gerenciador de Eventos → Configurações → API de Conversões → Gerar token. Fica guardado no cofre e nunca aparece de novo."
               >
                 {(id) => (
-                  <Input id={id} type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)}
+                  <Input id={id} name="meta-capi-token" type="password" autoComplete="new-password" data-1p-ignore data-lpignore="true" value={token} onChange={(e) => setToken(e.target.value)}
                     placeholder={destination?.has_token ? "•••••• salvo (deixe vazio para manter)" : "Cole o token aqui"} />
                 )}
               </Field>
               <Field label="Código de teste (opcional)" hint="Gerenciador de Eventos → Testar eventos. Com ele, nada conta como conversão real.">
-                {(id) => <Input id={id} value={testCode} onChange={(e) => setTestCode(e.target.value)} placeholder="TEST12345" />}
+                {(id) => <Input id={id} name="meta-test-code" autoComplete="off" data-1p-ignore data-lpignore="true" value={testCode} onChange={(e) => setTestCode(e.target.value)} placeholder="TEST12345" />}
               </Field>
               <label className="flex items-start gap-2 self-end rounded-lg bg-slate-50 p-3">
                 <input type="checkbox" className="mt-0.5" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />

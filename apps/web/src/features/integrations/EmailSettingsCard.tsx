@@ -93,7 +93,7 @@ export function EmailSettingsCard() {
           </Field>
           <Field label={s?.has_key ? "Trocar a chave do Resend (opcional)" : "Chave do Resend"} hint="Colada aqui, vai direto para o cofre criptografado. Nunca envie a chave por chat ou e-mail.">
             {(id) => (
-              <Input id={id} type="password" autoComplete="off" spellCheck={false} value={apiKey} placeholder="re_..." onChange={(e) => setApiKey(e.target.value)} />
+              <Input id={id} type="password" autoComplete="new-password" data-1p-ignore data-lpignore="true" spellCheck={false} value={apiKey} placeholder="re_..." onChange={(e) => setApiKey(e.target.value)} />
             )}
           </Field>
         </div>

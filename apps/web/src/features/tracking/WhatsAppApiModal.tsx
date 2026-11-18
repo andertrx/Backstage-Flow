@@ -132,7 +132,7 @@ export function WhatsAppApiModal({ container, connection, canManage, onClose }: 
                 hint="Configurações do app → Básico → Chave secreta do app. Fica guardado no cofre e nunca aparece de novo."
               >
                 {(id) => (
-                  <Input id={id} type="password" autoComplete="off" value={appSecret} onChange={(e) => setAppSecret(e.target.value)}
+                  <Input id={id} type="password" autoComplete="new-password" data-1p-ignore data-lpignore="true" value={appSecret} onChange={(e) => setAppSecret(e.target.value)}
                     placeholder={connection?.has_app_secret ? "•••••• salvo (deixe vazio para manter)" : "Cole o segredo aqui"} />
                 )}
               </Field>

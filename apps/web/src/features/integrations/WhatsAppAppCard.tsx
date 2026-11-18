@@ -74,7 +74,7 @@ export function WhatsAppAppCard() {
           </Field>
           <Field label={s?.has_secret ? "Segredo do app (salvo)" : "Segredo do app"} hint="Vai direto para o cofre; nunca aparece de novo.">
             {(id) => (
-              <Input id={id} type="password" autoComplete="off" value={secret} onChange={(e) => setSecret(e.target.value)}
+              <Input id={id} type="password" autoComplete="new-password" data-1p-ignore data-lpignore="true" value={secret} onChange={(e) => setSecret(e.target.value)}
                 placeholder={s?.has_secret ? "•••••• (vazio = manter)" : "Cole aqui"} />
             )}
           </Field>

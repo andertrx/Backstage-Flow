@@ -44,7 +44,9 @@ function ConnectForm() {
             <Input
               id={id}
               type="password"
-              autoComplete="off"
+              autoComplete="new-password"
+              data-1p-ignore
+              data-lpignore="true"
               spellCheck={false}
               value={token}
               onChange={(e) => setToken(e.target.value)}

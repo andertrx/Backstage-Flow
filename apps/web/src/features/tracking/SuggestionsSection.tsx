@@ -49,7 +49,7 @@ export function WaAiCard() {
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-64 flex-1">
           <Field label={s?.has_key ? "Trocar a chave da Anthropic" : "Chave da Anthropic (começa com sk-ant-)"}>
-            {(id) => <Input id={id} type="password" autoComplete="off" value={key} placeholder={s?.has_key ? "•••••••• (já cadastrada)" : "sk-ant-..."} onChange={(e) => setKey(e.target.value)} />}
+            {(id) => <Input id={id} type="password" autoComplete="new-password" data-1p-ignore data-lpignore="true" value={key} placeholder={s?.has_key ? "•••••••• (já cadastrada)" : "sk-ant-..."} onChange={(e) => setKey(e.target.value)} />}
           </Field>
         </div>
         <Button loading={save.isPending} disabled={!key.trim()} onClick={() => run(() => save.mutateAsync({ apiKey: key.trim() }), () => setKey(""))}>
