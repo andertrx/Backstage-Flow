@@ -183,8 +183,8 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
           {canManage && <p className="max-w-md text-sm text-slate-500">Cliente que só usa WhatsApp, sem site? Ligue direto, sem cadastrar site:</p>}
           {canManage && (
             <div className="w-full max-w-3xl text-left">
-              <ClienteSiteWhatsApp clients={clients.filter((cl) => !clientId || cl.id === clientId)} containers={containers} connectionOf={waConnOf}
-                onAddSite={(id) => { setNewSiteClient(id); setEditing("new"); }} onWhatsApp={setWaServerFor} onWhatsAppApi={setWaApiFor} />
+              <ClienteSiteWhatsApp clients={clients.filter((cl) => !clientId || cl.id === clientId)} containers={containers} connectionOf={waConnOf} destinationOf={destOf}
+                onAddSite={(id) => { setNewSiteClient(id); setEditing("new"); }} onWhatsApp={setWaServerFor} onWhatsAppApi={setWaApiFor} onPixel={setMetaFor} />
             </div>
           )}
         </Card>
@@ -243,8 +243,8 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
             <div className="space-y-8">
               {canManage && (
                 <ConfigSection id="cfg-clientes" title="Clientes: site e/ou WhatsApp" description="Escolha, cliente por cliente, se ele tem site, WhatsApp ou os dois. Um não depende do outro.">
-                  <ClienteSiteWhatsApp clients={clients.filter((c) => !clientId || c.id === clientId)} containers={containers} connectionOf={waConnOf}
-                    onAddSite={(id) => { setNewSiteClient(id); setEditing("new"); }} onWhatsApp={setWaServerFor} onWhatsAppApi={setWaApiFor} />
+                  <ClienteSiteWhatsApp clients={clients.filter((c) => !clientId || c.id === clientId)} containers={containers} connectionOf={waConnOf} destinationOf={destOf}
+                    onAddSite={(id) => { setNewSiteClient(id); setEditing("new"); }} onWhatsApp={setWaServerFor} onWhatsAppApi={setWaApiFor} onPixel={setMetaFor} />
                 </ConfigSection>
               )}
               <ConfigSection id="cfg-detalhes" title="Detalhes dos sites de cada cliente" description="Código de instalação, Meta (API de Conversões) e regras de eventos de cada site. O WhatsApp do cliente fica na lista acima, em “Clientes: site e/ou WhatsApp”.">

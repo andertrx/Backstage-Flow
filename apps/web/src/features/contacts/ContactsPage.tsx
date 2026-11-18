@@ -47,6 +47,7 @@ function metaMessage(r: UpdateResult): string | null {
       : `Perfil ${r.perfil} salvo.${note(r.perfil_meta) || " Evento preparado para o Meta (sai pelo Meta CAPI do site)."}`);
   }
   if (r.etapa) parts.push(r.venda_meta == null ? `Etapa ${r.etapa} salva.` : `Venda registrada.${note(r.venda_meta)}`);
+  if ((r.etapa || r.perfil) && r.pixel_ok === false) parts.push("Atenção: este cliente ainda não tem pixel do Meta ligado — o evento ficou só registrado aqui.");
   return parts.length ? parts.join(" ") : null;
 }
 

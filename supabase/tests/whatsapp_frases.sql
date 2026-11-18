@@ -88,6 +88,7 @@ begin
 
   if not exists (select 1 from public.tracking_capi_queue where destination_id = v_dest and event_name = 'Purchase' and action_source = 'business_messaging' and ctwa_clid = 'ARAkTesteFrase' and waba_id = '880000000000001')
      or not exists (select 1 from public.tracking_capi_queue where destination_id = v_dest and event_name = 'LeadLojista' and ctwa_clid = 'ARAkTesteFrase')
+     or not exists (select 1 from public.tracking_capi_queue where destination_id = v_dest and event_name = 'LeadQualificado' and ctwa_clid = 'ARAkTesteFrase')
      or not exists (select 1 from public.tracking_purchases where container_id = v_ct and value_micros = 297500000 and currency = 'BRL')
      or not exists (select 1 from public.tracking_contact_history where contact_id = v_k and kind = 'venda' and meta_note like 'Frase "Parabéns pela sua compra" no WhatsApp%' and by_user is null)
      or (select status from public.tracking_whatsapp_conversations where connection_id = v_conn and wa_hash = v_ana_wa) <> 'venda' then
@@ -108,6 +109,7 @@ begin
     'message_key', '1111000022223333444455556666aaaa', 'matches', jsonb_build_array(
       jsonb_build_object('trigger_id', t_venda, 'value', '10', 'currency', 'BRL'))));
   if (select sales from public.tracking_contacts where id = v_k) <> 2 then raise exception 'segunda venda em outra mensagem conta: %', v_res; end if;
+  if (select count(*) from public.tracking_capi_queue where destination_id = v_dest and event_name = 'LeadQualificado') <> 1 then raise exception 'LeadQualificado só uma vez por pessoa'; end if;
   v_ok := v_ok + 1;
 
   -- Venda sem valor (e sem valor padrão): não registra, nada inventado
@@ -135,6 +137,7 @@ begin
      or (select count(*) from public.tracking_contacts where client_id = v_a and ph_hash = v_bia_ph) <> 1 then
     raise exception 'contato que já existia é ligado (sem duplicar): %', v_res;
   end if;
+  if (select count(*) from public.tracking_capi_queue where destination_id = v_dest and event_name = 'LeadQualificado') <> 2 then raise exception 'Bia na etapa Qualificado envia LeadQualificado'; end if;
   -- Mesma etapa de novo: ignorado (sem histórico novo)
   v_res := private.wa_echo(jsonb_build_object('connection_id', v_conn, 'wa_hash', v_bia_wa, 'ph_hash', v_bia_ph,
     'message_key', '5555000066667777888899990000eeee', 'matches', jsonb_build_array(jsonb_build_object('trigger_id', t_qual))));

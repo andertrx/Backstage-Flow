@@ -185,6 +185,10 @@ export interface UpdateResult {
   perfil_meta?: string | null;
   etapa?: string;
   venda_meta?: string | null;
+  /** Lead qualificado enviado junto com a venda (ou ao entrar na etapa Qualificado). */
+  qualificado_meta?: string | null;
+  /** O cliente tem pixel do Meta ligado? Se não, o evento fica só registrado aqui. */
+  pixel_ok?: boolean;
 }
 
 export function useUpdateContact() {

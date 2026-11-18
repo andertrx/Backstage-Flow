@@ -11,7 +11,7 @@ import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { can } from "@backstage/shared";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDataCurta } from "@/lib/format.ts";
-import { type TrackingContainer, useExcludedWhatsAppContainers, useWaSemSiteContainer, type WhatsAppConnection } from "./api.ts";
+import { type Destination, type TrackingContainer, useExcludedWhatsAppContainers, useWaSemSiteContainer, type WhatsAppConnection } from "./api.ts";
 import { ExcluirWhatsApp } from "./ExcluirWhatsApp.tsx";
 import { usoRecente, waConnectionStatus } from "./logic.ts";
 import { WA_QR_LABEL, WaQrModal } from "./WaQrSection.tsx";
@@ -61,13 +61,17 @@ function estadoDe(conn: WhatsAppConnection | undefined): { estado: Estado; tone:
  * Computador: uma linha por cliente, em colunas (Cliente · Site · WhatsApp · API oficial). Celular: um cartão por cliente.
  * Feita para lista grande: busca, filtros e "mostrar mais" (30 por vez), sem rolagem dentro de rolagem.
  */
-export function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSite, onWhatsApp, onWhatsAppApi }: {
+export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destinationOf, onAddSite, onWhatsApp, onWhatsAppApi, onPixel }: {
   clients: { id: string; name: string }[];
   containers: TrackingContainer[];
   connectionOf: (containerId: string) => WhatsAppConnection | undefined;
   onAddSite: (clientId: string) => void;
   onWhatsApp: (c: TrackingContainer) => void;
   onWhatsAppApi: (c: TrackingContainer) => void;
+  /** Pixel do Meta (API de Conversões) de um recipiente do cliente. */
+  destinationOf: (containerId: string) => Destination | undefined;
+  /** Abre a configuração do pixel do cliente naquele recipiente. */
+  onPixel: (c: TrackingContainer) => void;
 }) {
   const semSite = useWaSemSiteContainer();
   const excluidos = new Set(useExcludedWhatsAppContainers(true).data ?? []);
@@ -122,6 +126,30 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSi
     } catch (e) { setErro(errorMessage(e)); } finally { setBusy(null); }
   }
 
+  /** Um pixel por cliente: o que estiver ligado em qualquer recipiente dele (site ou WhatsApp). */
+  function pixelDe(clientId: string) {
+    const mine = containers.filter((c) => c.client_id === clientId && !c.excluded_at);
+    const comPixel = mine.find((c) => destinationOf(c.id));
+    return { container: comPixel, destination: comPixel ? destinationOf(comPixel.id) : undefined };
+  }
+
+  /** Abre o pixel: no recipiente que já tem pixel; senão no site; senão no recipiente técnico do WhatsApp (criado na hora, se preciso). */
+  async function abrirPixel(clientId: string) {
+    setErro(null);
+    const { container } = pixelDe(clientId);
+    if (container) { onPixel(container); return; }
+    const mine = containers.filter((c) => c.client_id === clientId && !c.excluded_at);
+    const alvo = mine.find((c) => c.kind !== "whatsapp") ?? mine.find((c) => c.kind === "whatsapp");
+    if (alvo) { onPixel(alvo); return; }
+    setBusy(clientId);
+    try {
+      const id = await semSite.mutateAsync(clientId);
+      await queryClient.refetchQueries({ queryKey: ["tracking", "containers"] });
+      const c = (queryClient.getQueryData<TrackingContainer[]>(["tracking", "containers"]) ?? []).find((x) => x.id === id);
+      if (c) onPixel(c);
+    } catch (e) { setErro(errorMessage(e)); } finally { setBusy(null); }
+  }
+
   // Situação de cada cliente, calculada uma vez (a busca e os filtros usam isto).
   const linhas = useMemo(() => clients.map((cl) => {
     const dados = conexoesDe(cl.id);
@@ -164,8 +192,8 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSi
 
       <div className="overflow-hidden rounded-xl ring-1 ring-slate-200">
         {/* Cabeçalho das colunas (só no computador) */}
-        <div className="hidden grid-cols-[minmax(8rem,0.9fr)_minmax(9rem,0.9fr)_minmax(27rem,2.4fr)_minmax(11rem,0.9fr)] items-center gap-4 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 xl:grid" aria-hidden>
-          <span>Cliente</span><span>Site</span><span>WhatsApp (servidor próprio)</span><span>API oficial</span>
+        <div className="hidden grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(7rem,0.7fr)_minmax(8rem,0.7fr)] items-center gap-4 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 xl:grid" aria-hidden>
+          <span>Cliente</span><span>Site</span><span>WhatsApp (servidor próprio)</span><span>API oficial</span><span>Pixel do Meta</span>
         </div>
         <ul className="divide-y divide-slate-100">
           {visiveis.map(({ cl, sites, servidor, oficial, est, estOficial }) => {
@@ -174,7 +202,7 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSi
             const usoOficial = usoRecente(oficial.connection?.last_webhook_at ?? null, Date.now());
             const guardando = Boolean(cn && cn.mode === "nao_oficial" && cn.store_messages && cn.store_ack_at);
             return (
-              <li key={cl.id} className="grid gap-x-4 gap-y-3 px-3 py-3 sm:px-4 xl:grid-cols-[minmax(8rem,0.9fr)_minmax(9rem,0.9fr)_minmax(27rem,2.4fr)_minmax(11rem,0.9fr)] xl:items-center xl:py-2.5" data-testid="cli-site-whatsapp-row">
+              <li key={cl.id} className="grid gap-x-4 gap-y-3 px-3 py-3 sm:px-4 xl:grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(7rem,0.7fr)_minmax(8rem,0.7fr)] xl:items-center xl:py-2.5" data-testid="cli-site-whatsapp-row">
                 {/* Cliente */}
                 <p className="truncate text-sm font-semibold text-slate-900" title={cl.name}>{cl.name}</p>
 
@@ -229,8 +257,26 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, onAddSi
                   </Button>
                 </div>
 
+                {/* Pixel do Meta: um por cliente (vale para o site e para o WhatsApp) */}
+                {(() => {
+                  const px = pixelDe(cl.id);
+                  const pronto = Boolean(px.destination?.enabled && px.destination.has_token);
+                  return (
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2" data-testid="cli-pixel-coluna">
+                      <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Pixel</span>
+                      {!px.destination ? <span className="text-xs text-slate-400">Sem pixel</span>
+                        : pronto ? <Badge tone="success" title={`Pixel ${px.destination.pixel_id}`}><span className="whitespace-nowrap">Ligado ···{px.destination.pixel_id.slice(-4)}</span></Badge>
+                        : <Badge tone="warning" title="Falta o token ou o envio está desligado"><span className="whitespace-nowrap">Incompleto</span></Badge>}
+                      {podeGerenciar && (px.destination
+                        ? <IconButton size="sm" className="ml-auto" label={`Configurar pixel de ${cl.name}`} icon={<Settings2 />} onClick={() => void abrirPixel(cl.id)} />
+                        : <Button variant="ghost" className="ml-auto px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50" loading={busy === cl.id}
+                            onClick={() => void abrirPixel(cl.id)} aria-label={`Ligar pixel de ${cl.name}`}>Ligar</Button>)}
+                    </div>
+                  );
+                })()}
+
                 {avisos[cl.id] && (
-                  <div className="xl:col-span-4"><Alert tone={avisos[cl.id]!.tone}>{avisos[cl.id]!.text}</Alert></div>
+                  <div className="xl:col-span-5"><Alert tone={avisos[cl.id]!.tone}>{avisos[cl.id]!.text}</Alert></div>
                 )}
               </li>
             );

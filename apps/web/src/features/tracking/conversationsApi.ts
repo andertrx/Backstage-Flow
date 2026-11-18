@@ -102,7 +102,7 @@ export function useWaConversationDelete() {
   });
 }
 
-export interface MarkSaleResult { etapa?: string; venda_meta?: string | null }
+export interface MarkSaleResult { etapa?: string; venda_meta?: string | null; qualificado_meta?: string | null; pixel_ok?: boolean }
 
 /**
  * "Marcar venda": acha (ou cria) o Contato da pessoa e põe na etapa de venda com valor e moeda — o mesmo caminho da tela

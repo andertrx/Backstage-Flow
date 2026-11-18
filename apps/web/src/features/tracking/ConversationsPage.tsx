@@ -51,7 +51,11 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
     setError(null);
     try {
       const r = await mark.mutateAsync({ personId: person.person_id, stageId: chosen, value: amount, currency, order, suggestionId: person.suggestion_id });
-      onDone(r.venda_meta === "sem_site" ? "Venda registrada. Não foi enviada ao Meta: o cliente não tem site no Tracking." : "Venda registrada. Ela entra na fila da API de Conversões do Meta.");
+      onDone(
+        r.venda_meta === "sem_site" ? "Venda registrada. Não foi enviada ao Meta: o cliente não tem site no Tracking."
+          : r.pixel_ok === false ? "Venda registrada. Atenção: este cliente ainda não tem pixel do Meta ligado, então ela NÃO foi enviada ao Meta. Ligue o pixel em Tracking → Clientes."
+            : "Venda registrada. A compra e o lead qualificado entram na fila da API de Conversões do Meta.",
+      );
     } catch (err) {
       setError(errorMessage(err));
     }

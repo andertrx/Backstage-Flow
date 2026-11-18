@@ -1569,7 +1569,7 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         && (role !== "vendedor" || c.status !== "encerrado")))).map((c) => c.id);
     const contactSeed = (clientId) => {
       if (!db.contactStages.some((s) => s.client_id === clientId)) {
-        [["Novo", "aberta", null], ["Qualificado", "aberta", null], ["Venda", "ganha", "Purchase"], ["Perdido", "perdida", null]].forEach(([name, kind, meta], i) =>
+        [["Novo", "aberta", null], ["Qualificado", "aberta", "LeadQualificado"], ["Venda", "ganha", "Purchase"], ["Perdido", "perdida", null]].forEach(([name, kind, meta], i) =>
           db.contactStages.push({ id: `st-${clientId.slice(-4)}-${i}`, client_id: clientId, name, kind, meta_event: meta, position: i, archived_at: null }));
       }
       if (!db.contactProfiles.some((p) => p.client_id === clientId)) {
@@ -1698,15 +1698,22 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           if (db.contactHistory.some((h) => h.client_id === k.client_id && h.kind === "venda" && h.order_id === order)) {
             return res(409, { code: "23505", message: "Já existe uma venda com este nº de pedido." });
           }
+          const qual = db.contactStages.find((x) => x.client_id === k.client_id && x.kind === "aberta" && x.meta_event && /^qualificad/i.test(x.name));
+          if (qual && !k.meta_sent.includes(qual.meta_event)) { const q = send(qual.meta_event); if (q !== "sem_site") k.meta_sent.push(qual.meta_event); }
           r = st.meta_event ? send("Purchase") : "ok";
           k.sales += 1;
           contactLog(k, { kind: "venda", stage_id: st.id, value_micros: Math.round(p.p_value * 1e6), currency: p.p_currency, order_id: order,
             meta_event: st.meta_event && r !== "sem_site" ? st.meta_event : null });
-        } else contactLog(k, { kind: "etapa", stage_id: st.id });
+        } else {
+          if (st.meta_event && !k.meta_sent.includes(st.meta_event)) { const q = send(st.meta_event); if (q !== "sem_site") k.meta_sent.push(st.meta_event); }
+          contactLog(k, { kind: "etapa", stage_id: st.id });
+        }
         k.stage_id = st.id;
         Object.assign(out, { etapa: st.name, venda_meta: r });
       }
       k.last_change_at = new Date().toISOString();
+      // Um pixel por cliente: o aviso "sem pixel" depende de o cliente ter um pixel ligado (com token) em algum recipiente.
+      out.pixel_ok = db.trackingDestinations.some((d) => d.enabled && db.capiTokens[d.id] != null && db.trackingContainers.find((t) => t.id === d.container_id)?.client_id === k.client_id);
       return res(200, out);
     }
     if (url.includes("/rest/v1/rpc/contact_archive")) {
