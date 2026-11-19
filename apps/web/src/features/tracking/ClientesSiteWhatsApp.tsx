@@ -192,8 +192,8 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
 
       <div className="overflow-hidden rounded-xl ring-1 ring-slate-200">
         {/* Cabeçalho das colunas (só no computador) */}
-        <div className="hidden grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(7rem,0.7fr)_minmax(8rem,0.7fr)] items-center gap-4 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 xl:grid" aria-hidden>
-          <span>Cliente</span><span>Site</span><span>WhatsApp (servidor próprio)</span><span>API oficial</span><span>Pixel do Meta</span>
+        <div className="hidden grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(8.5rem,0.7fr)_minmax(10rem,0.8fr)] items-center gap-4 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 min-[1400px]:grid" aria-hidden>
+          <span>Cliente</span><span>Site</span><span className="min-[1400px]:pl-4">WhatsApp (servidor próprio)</span><span className="min-[1400px]:pl-4">API oficial</span><span className="min-[1400px]:pl-4">Pixel do Meta</span>
         </div>
         <ul className="divide-y divide-slate-100">
           {visiveis.map(({ cl, sites, servidor, oficial, est, estOficial }) => {
@@ -202,13 +202,13 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
             const usoOficial = usoRecente(oficial.connection?.last_webhook_at ?? null, Date.now());
             const guardando = Boolean(cn && cn.mode === "nao_oficial" && cn.store_messages && cn.store_ack_at);
             return (
-              <li key={cl.id} className="grid gap-x-4 gap-y-3 px-3 py-3 sm:px-4 xl:grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(7rem,0.7fr)_minmax(8rem,0.7fr)] xl:items-center xl:py-2.5" data-testid="cli-site-whatsapp-row">
+              <li key={cl.id} className="grid gap-x-4 gap-y-3 px-3 py-3 sm:px-4 min-[1400px]:grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(8.5rem,0.7fr)_minmax(10rem,0.8fr)] min-[1400px]:items-center min-[1400px]:py-2.5" data-testid="cli-site-whatsapp-row">
                 {/* Cliente */}
                 <p className="truncate text-sm font-semibold text-slate-900" title={cl.name}>{cl.name}</p>
 
                 {/* Site */}
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5" data-testid="cli-site-coluna">
-                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Site</span>
+                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 min-[1400px]:hidden">Site</span>
                   {sites.length === 0 && <span className="text-xs text-slate-400">sem site</span>}
                   {sites.slice(0, 2).map((s) => (
                     <Badge key={s.id} tone={s.status === "ativo" ? "success" : "neutral"} title={s.status === "ativo" ? undefined : "Site pausado"}>
@@ -217,19 +217,19 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                   ))}
                   {sites.length > 2 && <span className="text-xs text-slate-500">+{sites.length - 2}</span>}
                   {sites.length === 1 && sites[0]!.allowed_domains.length > 1 && <span className="text-xs text-slate-500">+{sites[0]!.allowed_domains.length - 1} domínio(s)</span>}
-                  {sites.some((s) => s.status !== "ativo") && <span className="text-xs text-slate-400 xl:hidden">pausado</span>}
+                  {sites.some((s) => s.status !== "ativo") && <span className="text-xs text-slate-400 min-[1400px]:hidden">pausado</span>}
                   <IconButton size="sm" label={`${sites.length ? "Adicionar outro site" : "Adicionar site"} de ${cl.name}`} icon={<Plus />} onClick={() => onAddSite(cl.id)} />
                 </div>
 
                 {/* WhatsApp do servidor próprio: situação + ações, numa linha */}
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 xl:flex-nowrap" data-testid="cli-whatsapp-coluna">
-                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">WhatsApp</span>
-                  {est.estado === "nenhum" ? <span className="text-xs text-slate-400">Não ligado</span> : <Badge tone={est.tone} title={est.detalhe}><span className="whitespace-nowrap">{est.label}</span></Badge>}
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 min-[1400px]:flex-nowrap min-[1400px]:border-l min-[1400px]:border-slate-100 min-[1400px]:pl-4" data-testid="cli-whatsapp-coluna">
+                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 min-[1400px]:hidden">WhatsApp</span>
+                  {est.estado === "nenhum" ? <span className="whitespace-nowrap text-xs text-slate-400">Não ligado</span> : <Badge tone={est.tone} title={est.detalhe}><span className="whitespace-nowrap">{est.label}</span></Badge>}
                   {cn?.display_phone && <span className="whitespace-nowrap text-xs tabular-nums text-slate-500">{formatTelefone(cn.display_phone)}</span>}
                   {guardando && <span title="Guardando as conversas deste WhatsApp" className="text-slate-400"><MessageSquareText className="size-4" aria-label="Guardando as conversas" role="img" /></span>}
                   {guardando && cn?.ai_suggest && <span title="IA sugerindo vendas" className="text-brand-600"><Sparkles className="size-4" aria-label="IA sugerindo vendas" role="img" /></span>}
                   {uso.level === "atencao" && <Badge tone="warning" data-testid="wa-sem-uso">Sem uso desde {formatDataCurta(cn!.last_webhook_at!)}</Badge>}
-                  <span className="ml-auto flex items-center gap-1 xl:ml-auto" data-testid="wa-detalhe-servidor">
+                  <span className="flex items-center gap-1" data-testid="wa-detalhe-servidor">
                     {cn?.mode === "nao_oficial" && podeGerenciar && (
                       <Button className="px-3 py-1 text-xs" variant={est.estado === "conectado" ? "secondary" : "primary"} onClick={() => setQrDe({ clienteId: cl.id, nome: cl.name })} aria-label={`Conectar o WhatsApp de ${cl.name}`}>
                         <QrCode className="size-3.5" aria-hidden /> {est.estado === "conectado" ? "Reconectar" : "Conectar"}
@@ -247,11 +247,11 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                 </div>
 
                 {/* API oficial */}
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
-                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">API oficial</span>
-                  {estOficial.estado === "nenhum" ? <span className="text-xs text-slate-400">Não ligado</span> : <Badge tone={estOficial.tone}><span className="whitespace-nowrap">{estOficial.label}</span></Badge>}
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 min-[1400px]:flex-nowrap min-[1400px]:border-l min-[1400px]:border-slate-100 min-[1400px]:pl-4">
+                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 min-[1400px]:hidden">API oficial</span>
+                  {estOficial.estado === "nenhum" ? <span className="whitespace-nowrap text-xs text-slate-400">Não ligado</span> : <Badge tone={estOficial.tone}><span className="whitespace-nowrap">{estOficial.label}</span></Badge>}
                   {usoOficial.level === "atencao" && <Badge tone="warning" data-testid="wa-sem-uso">Sem uso desde {formatDataCurta(oficial.connection!.last_webhook_at!)}</Badge>}
-                  <Button variant={oficial.connection ? "secondary" : "ghost"} className={`ml-auto px-3 py-1 text-xs ${oficial.connection ? "" : "font-semibold text-brand-700 hover:bg-brand-50"}`} loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id, "oficial")}
+                  <Button variant={oficial.connection ? "secondary" : "ghost"} className={`px-3 py-1 text-xs ${oficial.connection ? "" : "font-semibold text-brand-700 hover:bg-brand-50"}`} loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id, "oficial")}
                     aria-label={`${oficial.connection ? "Configurar API oficial" : "Ligar pela API oficial"} de ${cl.name}`}>
                     {oficial.connection ? "Configurar" : "Ligar"}
                   </Button>
@@ -262,21 +262,21 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                   const px = pixelDe(cl.id);
                   const pronto = Boolean(px.destination?.enabled && px.destination.has_token);
                   return (
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2" data-testid="cli-pixel-coluna">
-                      <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Pixel</span>
-                      {!px.destination ? <span className="text-xs text-slate-400">Sem pixel</span>
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 min-[1400px]:flex-nowrap min-[1400px]:border-l min-[1400px]:border-slate-100 min-[1400px]:pl-4" data-testid="cli-pixel-coluna">
+                      <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 min-[1400px]:hidden">Pixel</span>
+                      {!px.destination ? <span className="whitespace-nowrap text-xs text-slate-400">Sem pixel</span>
                         : pronto ? <Badge tone="success" title={`Pixel ${px.destination.pixel_id}`}><span className="whitespace-nowrap">Ligado ···{px.destination.pixel_id.slice(-4)}</span></Badge>
                         : <Badge tone="warning" title="Falta o token ou o envio está desligado"><span className="whitespace-nowrap">Incompleto</span></Badge>}
                       {podeGerenciar && (px.destination
-                        ? <IconButton size="sm" className="ml-auto" label={`Configurar pixel de ${cl.name}`} icon={<Settings2 />} onClick={() => void abrirPixel(cl.id)} />
-                        : <Button variant="ghost" className="ml-auto px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50" loading={busy === cl.id}
+                        ? <IconButton size="sm" label={`Configurar pixel de ${cl.name}`} icon={<Settings2 />} onClick={() => void abrirPixel(cl.id)} />
+                        : <Button variant="ghost" className="px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50" loading={busy === cl.id}
                             onClick={() => void abrirPixel(cl.id)} aria-label={`Ligar pixel de ${cl.name}`}>Ligar</Button>)}
                     </div>
                   );
                 })()}
 
                 {avisos[cl.id] && (
-                  <div className="xl:col-span-5"><Alert tone={avisos[cl.id]!.tone}>{avisos[cl.id]!.text}</Alert></div>
+                  <div className="min-[1400px]:col-span-5"><Alert tone={avisos[cl.id]!.tone}>{avisos[cl.id]!.text}</Alert></div>
                 )}
               </li>
             );

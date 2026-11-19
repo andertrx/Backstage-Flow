@@ -29,6 +29,7 @@ function seed(db) {
 {
   // Lista por cliente: site separado, WhatsApp separado por tipo
   const { browser, page, errors } = await launch();
+  await page.setViewportSize({ width: 1440, height: 900 }); // colunas (com cabeçalho) só a partir de 1400px; abaixo disso a lista vira cartões
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
   await login(page, "/tracking?secao=config");
