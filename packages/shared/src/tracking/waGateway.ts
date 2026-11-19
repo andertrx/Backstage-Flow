@@ -86,7 +86,9 @@ function one(msg: unknown): GatewayMessage {
 
   const m = unwrap(msg.message);
   const text = textOf(m);
-  const ctx = contextOf(m);
+  // Alguns servidores (estilo Evolution v2) põem o contexto do anúncio fora da mensagem, em "contextInfo" no nível de cima.
+  const inCtx = contextOf(m);
+  const ctx = Object.keys(inCtx).length ? inCtx : isObj(msg.contextInfo) ? msg.contextInfo : {};
   const ad = isObj(ctx.externalAdReply) ? ctx.externalAdReply : {};
   const ctwa = str(ad.ctwaClid) || str(ad.ctwa_clid) || str(ctx.ctwaClid) || str(msg.ctwaClid);
   const adId = str(ad.sourceId);
@@ -104,6 +106,47 @@ function one(msg: unknown): GatewayMessage {
     sourceType: str(ad.sourceType).slice(0, 40) || null,
     sourceUrl: /^https?:\/\//.test(str(ad.sourceUrl)) ? str(ad.sourceUrl).slice(0, 2000) : null,
   };
+}
+
+/**
+ * Diagnóstico da origem do anúncio (18/11/2026): só CONTAGENS e NOMES de campos (nunca valores, texto, nome ou telefone).
+ * Serve para ver, no registro do servidor, se o WhatsApp do cliente está entregando os dados do anúncio de clique para o WhatsApp.
+ */
+export interface AdDiagnostics {
+  inbound: number;
+  com_contexto: number;
+  com_externalAdReply: number;
+  com_ctwa: number;
+  campos_item: string[];
+  campos_mensagem: string[];
+  campos_contexto: string[];
+  campos_anuncio: string[];
+}
+const SAFE_NAME = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
+const addNames = (set: Set<string>, o: unknown) => { if (isObj(o)) for (const k of Object.keys(o)) if (SAFE_NAME.test(k) && set.size < 40) set.add(k); };
+
+export function adDiagnostics(payload: unknown): AdDiagnostics {
+  const out: AdDiagnostics = { inbound: 0, com_contexto: 0, com_externalAdReply: 0, com_ctwa: 0, campos_item: [], campos_mensagem: [], campos_contexto: [], campos_anuncio: [] };
+  if (!isObj(payload) || isHistoryPayload(payload)) return out;
+  const data = payload.data;
+  const list: unknown[] = Array.isArray(data) ? data : isObj(data) && Array.isArray(data.messages) ? data.messages : isObj(data) ? [data] : [];
+  const item = new Set<string>(), mensagem = new Set<string>(), contexto = new Set<string>(), anuncio = new Set<string>();
+  for (const msg of list.slice(0, 50)) {
+    if (!isObj(msg)) continue;
+    const key = isObj(msg.key) ? msg.key : {};
+    if (key.fromMe === true || /@(g\.us|broadcast|newsletter)$/.test(str(key.remoteJid))) continue;
+    out.inbound++;
+    const m = unwrap(msg.message);
+    const inCtx = contextOf(m);
+    const ctx = Object.keys(inCtx).length ? inCtx : isObj(msg.contextInfo) ? msg.contextInfo : {};
+    addNames(item, msg); addNames(mensagem, m); addNames(contexto, ctx);
+    if (Object.keys(ctx).length) out.com_contexto++;
+    if (isObj(ctx.externalAdReply)) { out.com_externalAdReply++; addNames(anuncio, ctx.externalAdReply); }
+    const ad = isObj(ctx.externalAdReply) ? ctx.externalAdReply : {};
+    if (str(ad.ctwaClid) || str(ad.ctwa_clid) || str(ctx.ctwaClid) || str(msg.ctwaClid)) out.com_ctwa++;
+  }
+  out.campos_item = [...item].sort(); out.campos_mensagem = [...mensagem].sort(); out.campos_contexto = [...contexto].sort(); out.campos_anuncio = [...anuncio].sort();
+  return out;
 }
 
 /** T5.8: o servidor manda o histórico antigo do aparelho no evento "messages.set" (só no momento em que o aparelho é conectado). */

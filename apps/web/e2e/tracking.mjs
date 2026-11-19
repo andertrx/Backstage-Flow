@@ -288,7 +288,7 @@ function seedClients(db) {
   const convRows = page.getByTestId("wa-conversation-row");
   await convRows.first().waitFor();
   const firstConv = await convRows.first().innerText();
-  check(firstConv.includes("Anúncio de WhatsApp") && firstConv.includes("Anúncio 120210000000001 · confirmada") && (await convRows.nth(1).innerText()).includes("Direto no WhatsApp"),
+  check(firstConv.includes("Anúncio de WhatsApp") && firstConv.includes("Anúncio 120210000000001 · confirmada") && (await convRows.nth(1).innerText()).includes("Sem origem identificada"),
     "conversas da API oficial chegam com a origem (anúncio confirmado / direto, sem inventar)");
   check((await convRows.first().getByTestId("wa-conv-sale").innerText()).replace(/\u00a0/g, " ").includes("R$ 90,00 · pedido P-77"), "a conversa com venda mostra o valor e o nº do pedido ao lado de Venda");
   check(await convRows.nth(1).getByTestId("wa-conv-sale").count() === 0, "conversa sem venda não mostra valor");

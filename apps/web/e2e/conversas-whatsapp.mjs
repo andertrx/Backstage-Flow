@@ -58,7 +58,7 @@ function seed(db) {
   check(first.includes("João Silva") && first.includes("Fechado, vou pagar agora") && first.includes("Anúncio") && first.includes("IA sugere venda"),
     "a mais recente vem primeiro, com origem e aviso da IA");
   const second = await page.getByTestId("wa-conversation").nth(1).innerText();
-  check(second.includes("Maria Souza") && second.includes("Orgânico") && !second.includes("IA sugere"), "a conversa orgânica sem sugestão");
+  check(second.includes("Maria Souza") && second.includes("Sem origem identificada") && !second.includes("Orgânico") && !second.includes("IA sugere"), "a conversa sem origem identificada (não diz orgânico) e sem sugestão");
 
   // Busca por nome e por telefone
   await page.getByLabel("Buscar por nome ou telefone").fill("maria");

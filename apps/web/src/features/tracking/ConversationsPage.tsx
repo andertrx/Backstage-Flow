@@ -65,7 +65,7 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
     <Modal title={`Marcar venda — ${person.push_name ?? formatWaPhone(person.phone, person.phone_tail)}`} open onClose={onClose}>
       <div className="space-y-4 text-sm text-slate-700" data-testid="mark-sale">
         <p>
-          Registra a venda no Contato desta pessoa e a envia ao Meta pela API de Conversões. Vale também para quem veio <strong>sem anúncio</strong> (orgânico):
+          Registra a venda no Contato desta pessoa e a envia ao Meta pela API de Conversões. Vale também para quem veio <strong>sem anúncio identificado</strong>:
           o Meta só atribui se esse telefone casar com alguém que viu o anúncio, mas a venda fica registrada aqui de qualquer jeito.
         </p>
         {error && <Alert tone="error">{error}</Alert>}
@@ -258,7 +258,7 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
                       </span>
                       <span className="block truncate text-xs text-slate-600">{p.last_direction === "enviada" ? "Você: " : ""}{p.last_preview}</span>
                       <span className="flex flex-wrap gap-1">
-                        <Badge tone={p.from_ad ? "success" : "neutral"}>{p.from_ad ? "Anúncio" : p.origin === "site" ? "Site" : "Orgânico"}</Badge>
+                        <Badge tone={p.from_ad ? "success" : "neutral"}>{p.from_ad ? "Anúncio" : p.origin === "site" ? "Site" : "Sem origem identificada"}</Badge>
                         {p.suggestion_id && <Badge tone="warning">IA sugere venda</Badge>}
                         {(p.contact_sales ?? 0) > 0 && <Badge tone="success">Venda marcada</Badge>}
                       </span>

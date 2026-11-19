@@ -15,6 +15,7 @@
 import { adminClient } from "../_shared/auth.ts";
 import { recordError } from "../_shared/errorlog.ts";
 import type { WaTrigger } from "../../../packages/shared/src/tracking/waTriggers.ts";
+import { adDiagnostics } from "../../../packages/shared/src/tracking/waGateway.ts";
 import { echoesFor, HISTORY_MAX_BODY_BYTES, LIMIT, planGatewayPayload } from "./logic.ts";
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -49,6 +50,8 @@ Deno.serve(async (req) => {
     const { inbound, echoRaw, store, ignored, reasons } = await planGatewayPayload(payload, Date.now());
     // Diagnóstico dos avisos grandes (histórico): só contagens e motivos, nunca texto, nome ou telefone.
     if (body.length > 5000 || reasons["sem número de telefone na mensagem"]) console.log(JSON.stringify({ wa_inbound_diag: { bytes: body.length, ignored, reasons, store: store.length, history: store.filter((m) => m.history).length } }));
+    // Diagnóstico da origem do anúncio: só contagens e NOMES de campos (nunca valores, texto, nome ou telefone).
+    if (inbound.length) console.log(JSON.stringify({ wa_inbound_ad: adDiagnostics(payload) }));
     for (const msg of inbound) {
       const { error } = await db.rpc("tracking_whatsapp_inbound", { p: { connection_id: id, ...msg } });
       if (error) throw error;

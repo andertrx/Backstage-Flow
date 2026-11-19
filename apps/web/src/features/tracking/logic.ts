@@ -215,7 +215,7 @@ export function parseMoneyInput(text: string): number | null {
 // WhatsApp pela API oficial (34.5-W2)
 // -----------------------------------------------------------------------------
 
-export const WA_ORIGIN_LABELS = { anuncio_whatsapp: "Anúncio de WhatsApp", site: "Botão do site", desconhecida: "Direto no WhatsApp" } as const;
+export const WA_ORIGIN_LABELS = { anuncio_whatsapp: "Anúncio de WhatsApp", site: "Botão do site", desconhecida: "Sem origem identificada" } as const;
 export const WA_CONVERSATION_STATUS_LABELS = { conversa: "Conversa", lead: "Lead", venda: "Venda" } as const;
 
 /** Situação da conexão com a API oficial, em português. */

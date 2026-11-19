@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseGatewayPayload, refCodeOf } from "./waGateway.ts";
+import { adDiagnostics, parseGatewayPayload, refCodeOf } from "./waGateway.ts";
 
 const msg = (over: Record<string, unknown> = {}, key: Record<string, unknown> = {}) => ({
   event: "messages.upsert",
@@ -55,5 +55,24 @@ describe("nome do WhatsApp (T5.6)", () => {
     expect(parseGatewayPayload(base)[0]).toMatchObject({ kind: "inbound", pushName: "João" });
     const echo = { ...base, data: { ...base.data, key: { ...base.data.key, fromMe: true, id: "A2" } } };
     expect(parseGatewayPayload(echo)[0]).toMatchObject({ kind: "echo", pushName: "" });
+  });
+
+  it("servidor que põe o contexto do anúncio fora da mensagem (contextInfo no nível de cima) também é lido", () => {
+    const [r] = parseGatewayPayload(msg({ message: { conversation: "Oi" }, contextInfo: { externalAdReply: { ctwaClid: "ARAk-fora", sourceId: "120210000000002" } } }));
+    expect(r).toMatchObject({ kind: "inbound", ctwa: "ARAk-fora", adId: "120210000000002" });
+  });
+});
+
+describe("diagnóstico da origem do anúncio (só contagens e nomes de campos)", () => {
+  it("conta o que chegou e lista só nomes de campos, nunca valores", () => {
+    const d = adDiagnostics(msg({ message: { extendedTextMessage: { text: "segredo 5545999998888", contextInfo: { externalAdReply: { ctwaClid: "ARAk-x", sourceId: "1" } } } } }));
+    expect(d).toMatchObject({ inbound: 1, com_contexto: 1, com_externalAdReply: 1, com_ctwa: 1 });
+    expect(d.campos_anuncio).toEqual(["ctwaClid", "sourceId"]);
+    expect(JSON.stringify(d)).not.toMatch(/ARAk|segredo|5545|Ana/);
+  });
+  it("mensagem sem dados de anúncio, mensagem da agência e histórico não entram", () => {
+    expect(adDiagnostics(msg({ message: { conversation: "oi" } }))).toMatchObject({ inbound: 1, com_contexto: 0, com_externalAdReply: 0, com_ctwa: 0 });
+    expect(adDiagnostics(msg({ message: { conversation: "oi" } }, { fromMe: true })).inbound).toBe(0);
+    expect(adDiagnostics({ ...msg({ message: { conversation: "oi" } }), event: "messages.set" }).inbound).toBe(0);
   });
 });

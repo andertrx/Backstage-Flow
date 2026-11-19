@@ -157,5 +157,5 @@ export function formatWaPhone(phone: string | null, tail: string | null): string
 export const WA_ORIGIN_LABEL: Record<WaConversation["origin"], string> = {
   anuncio_whatsapp: "Anúncio de WhatsApp",
   site: "Veio do site",
-  desconhecida: "Sem origem (orgânico ou direto)",
+  desconhecida: "Sem origem identificada",
 };
