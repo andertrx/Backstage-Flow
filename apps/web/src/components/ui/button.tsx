@@ -7,7 +7,7 @@ type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
   primary: "bg-brand-600 text-white shadow-sm hover:bg-brand-700 hover:shadow-brand active:bg-brand-800 focus-visible:outline-brand-600",
-  secondary: "bg-white text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50 hover:ring-slate-300 active:bg-slate-100",
+  secondary: "bg-white text-slate-700 shadow-xs ring-1 ring-inset ring-slate-200 hover:bg-slate-50 hover:ring-slate-300 active:bg-slate-100",
   subtle: "bg-brand-50 text-brand-700 hover:bg-brand-100 active:bg-brand-200",
   ghost: "text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200",
   danger: "bg-red-600 text-white shadow-sm hover:bg-red-700 active:bg-red-800 focus-visible:outline-red-600",

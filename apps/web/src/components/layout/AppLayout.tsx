@@ -46,12 +46,12 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
       {navGroupsFor(profile?.role, opsPermissions).map(({ group, items }, gi) => {
         const recolhido = !collapsed && fechadosAgora.includes(group) && group !== grupoAtual;
         return (
-        <div key={group} className={cn(gi > 0 && "mt-5")}>
+        <div key={group} className={cn(gi > 0 && "mt-4")}>
           {collapsed ? (
             gi > 0 && <div className="mx-2 mb-3 border-t border-slate-200" aria-hidden />
           ) : (
             <button type="button" onClick={() => alternar(group)} aria-expanded={!recolhido} aria-label={`Grupo do menu: ${group}`} data-testid="nav-group-toggle" data-group={group}
-              className="mb-1.5 flex w-full items-center justify-between px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-700">
+              className="mb-1.5 flex w-full items-center justify-between rounded-md px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-700">
               {group}
               <ChevronDown className={cn("size-3 transition-transform", recolhido && "-rotate-90")} aria-hidden />
             </button>
@@ -72,13 +72,14 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
                         "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
                         "focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-brand-500",
                         collapsed && "justify-center px-0",
-                        isActive ? "nav-pop bg-slate-900 text-white shadow-[0_6px_14px_-6px_rgb(15_23_42/0.55)]" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                        isActive ? "nav-pop bg-brand-50 font-semibold text-brand-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                       )
                     }
                   >
                     {({ isActive }) => (
                       <>
-                                                <Icon className={cn("size-4 shrink-0 transition-colors", isActive ? "text-accent-400" : "text-slate-400 group-hover:text-slate-700")} aria-hidden />
+                        {isActive && !collapsed && <span className="absolute -left-3 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-600" aria-hidden />}
+                        <Icon className={cn("size-[1.05rem] shrink-0 transition-colors", isActive ? "text-brand-600" : "text-slate-400 group-hover:text-slate-700")} aria-hidden />
                         {!collapsed && label}
                         {badge && (
                           <span
@@ -161,7 +162,7 @@ export function AppLayout() {
           <Logo compact={collapsed} />
         </div>
         <SidebarNav collapsed={collapsed} />
-        <div className="shrink-0 border-t border-slate-100 p-3">
+        <div className="shrink-0 border-t border-slate-100 bg-slate-50/50 p-3">
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}

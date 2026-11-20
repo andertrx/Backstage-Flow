@@ -174,7 +174,7 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
     : f === "sem-site" ? l.sites.length === 0 : true).length;
 
   return (
-    <Card className="space-y-4 p-3 sm:p-4" data-testid="cli-site-whatsapp">
+    <Card className="@container space-y-4 p-3 sm:p-4" data-testid="cli-site-whatsapp">
       {/* Busca e filtros */}
       <div className="space-y-3">
         <Input aria-label="Buscar cliente" placeholder="Buscar cliente ou site" value={busca} onChange={(e) => { setBusca(e.target.value); setMostrar(POR_PAGINA); }} />
@@ -192,8 +192,8 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
 
       <div className="overflow-hidden rounded-xl ring-1 ring-slate-200">
         {/* Cabeçalho das colunas (só no computador) */}
-        <div className="hidden grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(8.5rem,0.7fr)_minmax(10rem,0.8fr)] items-center gap-4 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 min-[1400px]:grid" aria-hidden>
-          <span>Cliente</span><span>Site</span><span className="min-[1400px]:pl-4">WhatsApp (servidor próprio)</span><span className="min-[1400px]:pl-4">API oficial</span><span className="min-[1400px]:pl-4">Pixel do Meta</span>
+        <div className="hidden grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(8.5rem,0.7fr)_minmax(10rem,0.8fr)] items-center gap-4 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 @[64rem]:grid" aria-hidden>
+          <span>Cliente</span><span>Site</span><span className="@[64rem]:pl-4">WhatsApp (servidor próprio)</span><span className="@[64rem]:pl-4">API oficial</span><span className="@[64rem]:pl-4">Pixel do Meta</span>
         </div>
         <ul className="divide-y divide-slate-100">
           {visiveis.map(({ cl, sites, servidor, oficial, est, estOficial }) => {
@@ -202,13 +202,13 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
             const usoOficial = usoRecente(oficial.connection?.last_webhook_at ?? null, Date.now());
             const guardando = Boolean(cn && cn.mode === "nao_oficial" && cn.store_messages && cn.store_ack_at);
             return (
-              <li key={cl.id} className="grid gap-x-4 gap-y-3 px-3 py-3 sm:px-4 min-[1400px]:grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(8.5rem,0.7fr)_minmax(10rem,0.8fr)] min-[1400px]:items-center min-[1400px]:py-2.5" data-testid="cli-site-whatsapp-row">
+              <li key={cl.id} className="grid gap-x-4 gap-y-3 px-3 py-3 sm:px-4 @[64rem]:grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(8.5rem,0.7fr)_minmax(10rem,0.8fr)] @[64rem]:items-center @[64rem]:py-2.5" data-testid="cli-site-whatsapp-row">
                 {/* Cliente */}
                 <p className="truncate text-sm font-semibold text-slate-900" title={cl.name}>{cl.name}</p>
 
                 {/* Site */}
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5" data-testid="cli-site-coluna">
-                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 min-[1400px]:hidden">Site</span>
+                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">Site</span>
                   {sites.length === 0 && <span className="text-xs text-slate-400">sem site</span>}
                   {sites.slice(0, 2).map((s) => (
                     <Badge key={s.id} tone={s.status === "ativo" ? "success" : "neutral"} title={s.status === "ativo" ? undefined : "Site pausado"}>
@@ -217,13 +217,13 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                   ))}
                   {sites.length > 2 && <span className="text-xs text-slate-500">+{sites.length - 2}</span>}
                   {sites.length === 1 && sites[0]!.allowed_domains.length > 1 && <span className="text-xs text-slate-500">+{sites[0]!.allowed_domains.length - 1} domínio(s)</span>}
-                  {sites.some((s) => s.status !== "ativo") && <span className="text-xs text-slate-400 min-[1400px]:hidden">pausado</span>}
+                  {sites.some((s) => s.status !== "ativo") && <span className="text-xs text-slate-400 @[64rem]:hidden">pausado</span>}
                   <IconButton size="sm" label={`${sites.length ? "Adicionar outro site" : "Adicionar site"} de ${cl.name}`} icon={<Plus />} onClick={() => onAddSite(cl.id)} />
                 </div>
 
                 {/* WhatsApp do servidor próprio: situação + ações, numa linha */}
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 min-[1400px]:flex-nowrap min-[1400px]:border-l min-[1400px]:border-slate-100 min-[1400px]:pl-4" data-testid="cli-whatsapp-coluna">
-                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 min-[1400px]:hidden">WhatsApp</span>
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 @[64rem]:flex-nowrap @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:pl-4" data-testid="cli-whatsapp-coluna">
+                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">WhatsApp</span>
                   {est.estado === "nenhum" ? <span className="whitespace-nowrap text-xs text-slate-400">Não ligado</span> : <Badge tone={est.tone} title={est.detalhe}><span className="whitespace-nowrap">{est.label}</span></Badge>}
                   {cn?.display_phone && <span className="whitespace-nowrap text-xs tabular-nums text-slate-500">{formatTelefone(cn.display_phone)}</span>}
                   {guardando && <span title="Guardando as conversas deste WhatsApp" className="text-slate-400"><MessageSquareText className="size-4" aria-label="Guardando as conversas" role="img" /></span>}
@@ -247,8 +247,8 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                 </div>
 
                 {/* API oficial */}
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 min-[1400px]:flex-nowrap min-[1400px]:border-l min-[1400px]:border-slate-100 min-[1400px]:pl-4">
-                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 min-[1400px]:hidden">API oficial</span>
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 @[64rem]:flex-nowrap @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:pl-4">
+                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">API oficial</span>
                   {estOficial.estado === "nenhum" ? <span className="whitespace-nowrap text-xs text-slate-400">Não ligado</span> : <Badge tone={estOficial.tone}><span className="whitespace-nowrap">{estOficial.label}</span></Badge>}
                   {usoOficial.level === "atencao" && <Badge tone="warning" data-testid="wa-sem-uso">Sem uso desde {formatDataCurta(oficial.connection!.last_webhook_at!)}</Badge>}
                   <Button variant={oficial.connection ? "secondary" : "ghost"} className={`px-3 py-1 text-xs ${oficial.connection ? "" : "font-semibold text-brand-700 hover:bg-brand-50"}`} loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id, "oficial")}
@@ -262,8 +262,8 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                   const px = pixelDe(cl.id);
                   const pronto = Boolean(px.destination?.enabled && px.destination.has_token);
                   return (
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 min-[1400px]:flex-nowrap min-[1400px]:border-l min-[1400px]:border-slate-100 min-[1400px]:pl-4" data-testid="cli-pixel-coluna">
-                      <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 min-[1400px]:hidden">Pixel</span>
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 @[64rem]:flex-nowrap @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:pl-4" data-testid="cli-pixel-coluna">
+                      <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">Pixel</span>
                       {!px.destination ? <span className="whitespace-nowrap text-xs text-slate-400">Sem pixel</span>
                         : pronto ? <Badge tone="success" title={`Pixel ${px.destination.pixel_id}`}><span className="whitespace-nowrap">Ligado ···{px.destination.pixel_id.slice(-4)}</span></Badge>
                         : <Badge tone="warning" title="Falta o token ou o envio está desligado"><span className="whitespace-nowrap">Incompleto</span></Badge>}
@@ -276,7 +276,7 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                 })()}
 
                 {avisos[cl.id] && (
-                  <div className="min-[1400px]:col-span-5"><Alert tone={avisos[cl.id]!.tone}>{avisos[cl.id]!.text}</Alert></div>
+                  <div className="@[64rem]:col-span-5"><Alert tone={avisos[cl.id]!.tone}>{avisos[cl.id]!.text}</Alert></div>
                 )}
               </li>
             );

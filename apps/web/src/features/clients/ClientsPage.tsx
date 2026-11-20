@@ -6,6 +6,7 @@ import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
+import { EmptyState } from "@/components/ui/empty-state.tsx";
 import { Input } from "@/components/ui/field.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { cn } from "@/lib/cn.ts";
@@ -97,14 +98,12 @@ export function ClientsPage() {
       {isLoading ? (
         <FullPageSpinner />
       ) : filtered.length === 0 ? (
-        <Card className="flex flex-col items-center gap-2 px-6 py-14 text-center">
-          <Building2 className="size-10 text-slate-300" aria-hidden />
-          <p className="font-medium text-slate-700">
-            {clients?.length ? "Nenhum cliente encontrado com esses filtros." : "Nenhum cliente cadastrado ainda."}
-          </p>
-          {!clients?.length && !can(profile?.role, "clients.edit") && (
-            <p className="text-sm text-slate-500">Peça a um administrador para liberar seus clientes.</p>
-          )}
+        <Card>
+          <EmptyState
+            icon={Building2}
+            title={clients?.length ? "Nenhum cliente encontrado com esses filtros." : "Nenhum cliente cadastrado ainda."}
+            description={!clients?.length && !can(profile?.role, "clients.edit") ? "Peça a um administrador para liberar seus clientes." : clients?.length ? "Tente outro nome ou troque o filtro de status." : "Cadastre o primeiro cliente para começar a acompanhar contas, tracking e operações."}
+          />
         </Card>
       ) : (
         <Card className="overflow-x-auto">

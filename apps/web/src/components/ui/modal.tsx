@@ -28,7 +28,7 @@ export function Modal({ title, open, onClose, children, size = "md" }: ModalProp
 
   if (!open) return null;
   return (
-    <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4" onMouseDown={onClose}>
+    <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-[2px] sm:items-center sm:p-4" onMouseDown={onClose}>
       <div
         role="dialog"
         aria-modal="true"
@@ -40,7 +40,7 @@ export function Modal({ title, open, onClose, children, size = "md" }: ModalProp
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
-          <h2 className="text-base font-semibold tracking-tight text-slate-900">{title}</h2>
+          <h2 className="text-base font-semibold tracking-tight text-slate-900 sm:text-lg">{title}</h2>
           <IconButton label="Fechar janela" size="sm" onClick={onClose} icon={<X aria-hidden />} />
         </div>
         <div className="px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{children}</div>
