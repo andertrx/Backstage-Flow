@@ -9,6 +9,7 @@
     if (!KEY || !/^bf_[0-9a-f]{24}$/.test(KEY)) return;
     var ENDPOINT = (el && el.getAttribute("data-endpoint")) || "https://dkatllzkmlzpginuzvis.supabase.co/functions/v1/track";
     var NEEDS_CONSENT = el.getAttribute("data-consent") === "aguardar";
+    var CONSENT_VERSION = el.getAttribute("data-consent-version") || "";
     var SESSION_MS = 30 * 60 * 1000;
     var CAMPAIGN_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "gclid", "wbraid", "gbraid", "msclkid", "ttclid", "li_fat_id", "bf_c", "bf_s", "bf_a"];
 
@@ -35,6 +36,24 @@
 
     var consent = !NEEDS_CONSENT || getCookie("_bfc") === "1";
     var queue = [];
+    // Fila de espera do consentimento: guardada no navegador para não perder
+    // o que a pessoa fez antes de aceitar (recarregar a página não apaga nada).
+    var QUEUE_KEY = "_bfq", QUEUE_MAX = 20;
+    var queueSave = function () {
+      try { localStorage.setItem(QUEUE_KEY, JSON.stringify(queue)); } catch (e) { /* sem armazenamento */ }
+    };
+    var queueLoad = function () {
+      try {
+        var raw = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
+        if (raw && raw.length) for (var i = 0; i < raw.length && queue.length < QUEUE_MAX; i++) {
+          var q = raw[i];
+          if (q && q.length >= 5 && typeof q[0] === "string") queue.push([q[0], q[1], q[2], q[3], q[4], q[5] || null]);
+        }
+      } catch (e) { /* nada guardado */ }
+    };
+    var queueClear = function () {
+      try { localStorage.removeItem(QUEUE_KEY); } catch (e) { /* sem armazenamento */ }
+    };
 
     var campaignSignature = function (url) {
       try {
@@ -162,7 +181,10 @@
 
     var send = function (name, data, ud) {
       if (!consent) {
-        if (queue.length < 20) queue.push([name, data, Date.now(), location.href, d.referrer, ud]);
+        if (queue.length < QUEUE_MAX) {
+          queue.push([name, data, Date.now(), location.href, d.referrer, ud]);
+          queueSave();
+        }
         return;
       }
       transmit(name, data, Date.now(), location.href, d.referrer, ud);
@@ -173,11 +195,13 @@
       if (referrer) body.r = referrer;
       if (s.isNew) body.nt = true;
       if (NEEDS_CONSENT) body.c = "concedido";
+      if (CONSENT_VERSION) body.cv = CONSENT_VERSION;
       if (data && typeof data === "object") body.cd = data;
       if (!ud && CONVERSIONS[name] && identity) ud = identity;
       if (ud) body.ud = ud;
-      var fb = fbIds();
-      body.fbp = fb.fbp;
+      // _fbp/_fbc só quando data-pixel está ativo (não criamos cookies "fantasma" no site do cliente)
+      var fb = PIXEL ? fbIds() : { fbp: null, fbc: null };
+      if (fb.fbp) body.fbp = fb.fbp;
       if (fb.fbc) body.fbc = fb.fbc;
       // Regra do CRM pode mandar com outro nome ao Meta (bf_meta) ou não mandar.
       var pxName = data && data.bf_meta ? (data.bf_meta === "nao_enviar" ? null : data.bf_meta) : name, pxData = null;
@@ -215,9 +239,11 @@
             try { if (typeof touchNow === "function") touchNow(); if (typeof fillHidden === "function") fillHidden(); } catch (e) { /* nunca quebra o site */ }
             var q = queue;
             queue = [];
+            queueClear();
             for (var i = 0; i < q.length; i++) transmit(q[i][0], q[i][1], q[i][2], q[i][3], q[i][4], q[i][5]);
           } else {
             queue = [];
+            queueClear();
             identity = null;
             try { sessionStorage.removeItem("_bfu"); } catch (e) { /* sem armazenamento */ }
             setCookie("_bfc", "0", 365 * 24 * 3600);
@@ -344,10 +370,23 @@
       if (any) setCookie("_bfl", JSON.stringify(o), 365 * 24 * 3600);
     };
     var fillHidden = function () {
-      if (!FIELDS || !consent) return;
+      if (!consent) return;
       try {
-        var first = readJson("_bfa") || {}, last = readJson("_bfl") || first, s = ids();
         var list = d.querySelectorAll('input[type="hidden"][name]');
+        // Página sem campo escondido: para de observar o DOM (o envio do formulário
+        // ainda preenche, se algum aparecer depois).
+        if (!list.length) { if (observer) observer.disconnect(); return; }
+        var first = readJson("_bfa") || {}, last = readJson("_bfl") || first, s = ids();
+        // Sem os cookies de origem (o site não pediu para guardar), usa o que está na URL agora.
+        // A "primeira origem" fica de fora: sem guardar, não sabemos qual foi a primeira.
+        if (!FIELDS) {
+          var p = null;
+          try { p = new URL(location.href).searchParams; } catch (e) { p = null; }
+          var cur = {};
+          if (p) for (var c = 0; c < CAMPAIGN_KEYS.length; c++) { var cv = p.get(CAMPAIGN_KEYS[c]); if (cv) cur[CAMPAIGN_KEYS[c]] = cv.slice(0, 80); }
+          last = cur;
+          first = {};
+        }
         for (var i = 0; i < list.length; i++) {
           var inp = list[i], n = inp.name, v = null;
           if (inp.value) continue;
@@ -359,13 +398,18 @@
         }
       } catch (e) { /* nunca quebra o site */ }
     };
-    if (FIELDS) {
-      var fillTimer = 0;
+    {
+      var fillTimer = 0, observer = null;
       var fillSoon = function () { clearTimeout(fillTimer); fillTimer = setTimeout(fillHidden, 150); };
-      if (consent) touchNow();
+      // Guardar a origem no aparelho é escolha do site (data-fields="on").
+      if (FIELDS && consent) touchNow();
+      // Preencher os campos escondidos é sempre: o site colocou o campo, é só passar o que a URL traz.
       d.addEventListener("submit", fillHidden, true);
       if (d.readyState === "loading") d.addEventListener("DOMContentLoaded", fillSoon); else fillSoon();
-      if (w.MutationObserver) new MutationObserver(fillSoon).observe(d.documentElement, { childList: true, subtree: true });
+      if (w.MutationObserver) {
+        observer = new MutationObserver(fillSoon);
+        observer.observe(d.documentElement, { childList: true, subtree: true });
+      }
     }
 
     // ---- Cliques em botoes e links (T5.2, data-clicks="on"): evento bf_click so no CRM (nunca vai ao Meta).
@@ -537,12 +581,16 @@
         }
       } catch (e) { /* nunca quebra o site */ }
     }, true);
-    // Busca as regras publicadas no CRM (o navegador guarda por 5 min).
+    // Busca as regras publicadas no CRM (o cache é do servidor, no endereço do CRM).
     try {
       fetch(ENDPOINT + "?k=" + KEY, { credentials: "omit" }).then(function (res) { return res.ok ? res.json() : null; }).then(function (cfg) {
         if (cfg && cfg.r && cfg.r.length) { RULES = cfg.r; runPageRules(); }
       }, function () { /* sem regras: segue o automático */ });
     } catch (e) { /* sem regras: segue o automático */ }
+
+    // Fila de espera de uma visita anterior (o consentimento ainda não tinha vindo).
+    // Se o consentimento já foi dado, o que sobrou é lixo antigo e some.
+    if (consent) queueClear(); else queueLoad();
 
     send("PageView");
     for (var i = 0; i < pending.length; i++) api.apply(null, pending[i]);
