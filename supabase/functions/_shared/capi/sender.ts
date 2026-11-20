@@ -8,6 +8,8 @@ interface ItemResult {
   id: number;
   ok: boolean;
   error?: string;
+  /** Token/permissão/Pixel com problema: o evento fica guardado (sem gastar tentativa) até a pessoa corrigir. */
+  auth?: boolean;
 }
 
 /** Uma chamada ao Meta: registra no log (sem token) e devolve o resultado. */
@@ -59,7 +61,7 @@ export async function runSender(db: SupabaseClient, fetchFn: FetchFn = fetch, li
   for (const [destId, list] of byDest) {
     const { data: token } = await db.rpc("tracking_destination_secret_get", { p_destination_id: destId });
     if (typeof token !== "string" || !token) {
-      for (const r of list) results.push({ id: r.id, ok: false, error: "Sem token do Meta configurado." });
+      for (const r of list) results.push({ id: r.id, ok: false, error: "Sem token do Meta configurado.", auth: true });
       continue;
     }
     const { pixel_id: pixelId, test_event_code: testCode } = list[0];
@@ -71,10 +73,10 @@ export async function runSender(db: SupabaseClient, fetchFn: FetchFn = fetch, li
       } else if (res.invalidParameter && part.length > 1) {
         for (let i = 0; i < part.length; i++) {
           const one = await postToMeta(db, fetchFn, destId, pixelId, token, testCode, [events[i]]);
-          results.push(one.ok ? { id: part[i].id, ok: true } : { id: part[i].id, ok: false, error: one.message ?? "Erro no envio." });
+          results.push(one.ok ? { id: part[i].id, ok: true } : { id: part[i].id, ok: false, error: one.message ?? "Erro no envio.", ...(one.authProblem ? { auth: true } : {}) });
         }
       } else {
-        for (const r of part) results.push({ id: r.id, ok: false, error: res.message ?? "Erro no envio." });
+        for (const r of part) results.push({ id: r.id, ok: false, error: res.message ?? "Erro no envio.", ...(res.authProblem ? { auth: true } : {}) });
       }
     }
   }

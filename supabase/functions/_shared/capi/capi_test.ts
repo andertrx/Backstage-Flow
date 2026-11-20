@@ -114,3 +114,18 @@ Deno.test("anúncio de clique para o WhatsApp vai como 'business_messaging' com 
   const semClid = await buildMetaEvent(row({ action_source: "business_messaging", ctwa_clid: null, waba_id: "1" })) as Record<string, any>;
   assertEquals(semClid.action_source, "chat");
 });
+
+Deno.test("token inválido/expirado: o evento fica guardado (auth) em vez de gastar as tentativas", async () => {
+  const { db, calls } = fakeDb([row({ id: 1 }), row({ id: 2, event_id: "evt.2" })]);
+  await runSender(db, () => Promise.resolve(new Response(JSON.stringify({ error: { code: 190, message: "Invalid OAuth access token" } }), { status: 401 })));
+  const res = calls.find((c) => c.fn === "tracking_capi_finish")!.args.p_results;
+  assertEquals(res.map((r: any) => [r.id, r.ok, r.auth]), [[1, false, true], [2, false, true]]);
+  // erro comum (Meta instável) NÃO é de credencial
+  const down = fakeDb([row()]);
+  await runSender(down.db, () => Promise.resolve(new Response("{}", { status: 503 })));
+  assertEquals(down.calls.find((c) => c.fn === "tracking_capi_finish")!.args.p_results[0].auth, undefined);
+  // sem token configurado também é problema de credencial
+  const noToken = fakeDb([row()], null);
+  await runSender(noToken.db, () => Promise.reject(new Error("x")));
+  assertEquals(noToken.calls.find((c) => c.fn === "tracking_capi_finish")!.args.p_results[0].auth, true);
+});
