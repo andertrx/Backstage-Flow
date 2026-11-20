@@ -202,7 +202,9 @@ export function AppLayout() {
               <Menu className="size-6" />
             </button>
           )}
-          <p className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-slate-700" data-testid="header-section">{section}</p>
+          <p className="hidden min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-slate-700 sm:block" data-testid="header-section">{section}</p>
+          {/* No celular não cabe o título ao lado dos ícones (o título da página já aparece logo abaixo): só um espaço. */}
+          <span className="flex-1 sm:hidden" aria-hidden />
           <ThemeToggle />
           {can(profile?.role, "internal.view") && <GlobalSearch />}
           {/* 43.5: três sininhos, um por assunto: Contas, Campanhas e Tarefas */}
