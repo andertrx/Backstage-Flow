@@ -202,7 +202,7 @@ export function EntityDetailPage({ level }: { level: StructureLevel }) {
                 <button key={chip.label} type="button" aria-pressed={table.status === chip.value}
                   onClick={() => setTable({ ...table, status: chip.value, page: 1 })}
                   className={cn("rounded-lg px-3 py-1.5 text-sm ring-1 ring-inset",
-                    table.status === chip.value ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50")}>
+                    table.status === chip.value ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50")}>
                   {chip.label}
                 </button>
               ))}

@@ -151,7 +151,7 @@ export function AccountsHealthPage() {
             onClick={() => setStatus(status === s ? null : s)}
             className={cn(
               "rounded-lg px-3 py-1.5 text-sm ring-1 ring-inset transition-colors",
-              status === s ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50",
+              status === s ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50",
             )}
           >
             {HEALTH_LABELS[s]} <span className="ml-1 font-semibold">{counts[s]}</span>

@@ -305,7 +305,7 @@ export function AlertsPage() {
           <button key={a.id} type="button" role="tab" aria-selected={aba === a.id} data-testid={`alert-tab-${a.id}`}
             onClick={() => updateParams((p) => { if (a.id === "contas") p.delete("aba"); else p.set("aba", a.id); return p; })}
             className={cn("inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold ring-1 ring-inset transition-colors",
-              aba === a.id ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50")}>
+              aba === a.id ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50")}>
             {a.label}
             {counts[a.id] > 0 && <span className="rounded-full bg-red-600 px-1.5 text-[11px] font-bold leading-5 text-white" data-testid={`alert-tab-count-${a.id}`}>{counts[a.id] > 99 ? "99+" : counts[a.id]}</span>}
           </button>

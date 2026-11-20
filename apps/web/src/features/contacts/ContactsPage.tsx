@@ -415,7 +415,7 @@ function ContactModal({ contact: c, profiles, stages, canMark, canArchive, stage
               <button key={s.id} type="button" disabled={!editable || save.isPending} aria-pressed={c.stage_id === s.id}
                 onClick={() => (s.kind === "ganha" ? setSaleStage(s) : mark({ stageId: s.id }))}
                 className={cn("rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset",
-                  c.stage_id === s.id ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-700 ring-slate-200 hover:ring-blue-400 disabled:opacity-60")}>
+                  c.stage_id === s.id ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-200 hover:ring-blue-400 disabled:opacity-60")}>
                 {s.name}{s.meta_event ? " ★" : ""}
               </button>
             ))}
