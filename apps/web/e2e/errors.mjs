@@ -99,14 +99,16 @@ async function waitFor(fn, ms = 5000) {
   seed(db);
   await login(page, "/clientes");
   await page.getByRole("heading", { name: "Clientes", level: 1 }).waitFor();
-  await page.route(/\/assets\/LogsPage-.*\.js$/, (route) => route.abort());
+  // No servidor de desenvolvimento o arquivo não tem o nome /assets/... (é /src/...), então
+  // o padrão vale para os dois: o pedaço da página de Logs não carrega.
+  await page.route(/LogsPage/, (route) => route.abort());
   await page.getByRole("link", { name: "Logs" }).first().click();
   await page.getByTestId("error-fallback").waitFor({ timeout: 8000 });
   const text = clean(await page.getByTestId("error-fallback").innerText());
   check(text.includes("O sistema foi atualizado") && (await page.getByRole("button", { name: "Recarregar a página" }).count()) === 1,
     "página que não carrega: pede para recarregar, sem erro técnico");
   check(await waitFor(() => siteLogs(db, "SITE_VERSION_CHANGED").length === 1), "página que não carrega: fica no log");
-  await page.unroute(/\/assets\/LogsPage-.*\.js$/);
+  await page.unroute(/LogsPage/);
 
   await page.evaluate(() => setTimeout(() => { throw new Error("falha solta token=segredo123"); }, 0));
   check(await waitFor(() => siteLogs(db, "SITE_SCRIPT_ERROR").length === 1), "erro solto no navegador vai para o log");

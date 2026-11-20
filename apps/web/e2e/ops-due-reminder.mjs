@@ -61,7 +61,9 @@ const pushStub = () => {
   await pop.getByRole("button", { name: "Ativar neste aparelho" }).click();
   await pop.getByText("Pronto: este aparelho vai receber o aviso").waitFor();
   const sub = db.pushSubs.find((x) => x.user_id === USER_ID);
-  check(sub?.endpoint.startsWith("https://fcm.googleapis.com/") && /no Linux$/.test(sub.device ?? ""), "aparelho cadastrado (com o nome do navegador e sistema)");
+  // O nome do aparelho é "<navegador> no <sistema>" — o sistema depende da máquina
+  // que rodou o teste (Windows, Linux ou Mac), então conferimos o formato, não um valor fixo.
+  check(sub?.endpoint.startsWith("https://fcm.googleapis.com/") && /^(Edge|Firefox|Chrome|Safari|Navegador) no \S+/.test(sub.device ?? ""), "aparelho cadastrado (com o nome do navegador e sistema)");
   check(db.functionCalls.some((c) => c.fn === "ops-push" && c.action === "public_key"), "pede a chave pública do servidor antes de cadastrar");
 
   // Vi: some e fica registrado
@@ -89,7 +91,7 @@ const pushStub = () => {
   await page.goto(`${BASE}/operacoes/notificacoes`);
   const card = page.getByTestId("ops-push-card");
   await card.getByText("Ativado neste aparelho").waitFor();
-  check((await card.getByTestId("ops-push-devices").innerText()).includes("no Linux"), "lista os aparelhos ativados");
+  check(/no \S+/.test(await card.getByTestId("ops-push-devices").innerText()), "lista os aparelhos ativados");
   await card.getByRole("button", { name: "Enviar teste" }).click();
   await card.getByText("Teste enviado").waitFor();
   check(Boolean(db.pushSubs[0].last_sent_at), "Enviar teste chega ao servidor");

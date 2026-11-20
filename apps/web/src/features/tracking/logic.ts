@@ -2,7 +2,13 @@ import { normalizeDomain } from "@backstage/shared";
 import { formatDataCurta } from "@/lib/format.ts";
 
 /** Endereço público do script (fica no site do CRM, na Vercel). */
-export const TRACKING_SCRIPT_URL = "https://www.backstageflow.com.br/t.js";
+/**
+ * Versão do script do site. Quando o `t.js` mudar, mude este número:
+ * a URL fica com `?v=...` e o navegador/CDN passa a servir o arquivo novo
+ * na hora, em vez de esperar o cache de 1 hora expirar.
+ */
+export const TRACKING_SCRIPT_VERSION = "20261120";
+export const TRACKING_SCRIPT_URL = `https://www.backstageflow.com.br/t.js?v=${TRACKING_SCRIPT_VERSION}`;
 
 export type ContainerStatus = "ativo" | "pausado";
 export type ConsentMode = "nao_exigir" | "aguardar_consentimento";
@@ -26,6 +32,7 @@ export interface ContainerFormValues {
   status: ContainerStatus;
   test_mode: boolean;
   consent_mode: ConsentMode;
+  consent_version: string;
   retention_days: number;
 }
 
@@ -36,6 +43,7 @@ export interface ContainerInput {
   status: ContainerStatus;
   test_mode: boolean;
   consent_mode: ConsentMode;
+  consent_version?: string;
   retention_days: number;
 }
 
@@ -46,6 +54,7 @@ export const emptyContainerForm: ContainerFormValues = {
   status: "ativo",
   test_mode: true,
   consent_mode: "nao_exigir",
+  consent_version: "",
   retention_days: 180,
 };
 
@@ -78,6 +87,7 @@ export function parseContainerForm(v: ContainerFormValues): { data: ContainerInp
       status: v.status,
       test_mode: v.test_mode,
       consent_mode: v.consent_mode,
+      consent_version: v.consent_version || undefined,
       retention_days: v.retention_days,
     },
   };
@@ -91,6 +101,24 @@ export function installSnippet(publicKey: string, consentMode: ConsentMode, scri
 
 export const EVENT_EXAMPLE = `<script>\n  window.bf = window.bf || function () { (window.bf.q = window.bf.q || []).push(arguments); };\n  bf("track", "Lead", { formulario: "contato" });\n</script>`;
 export const CONSENT_EXAMPLE = `bf("consent", true);  // quando a pessoa aceitar os cookies`;
+
+/**
+ * Modelo de aviso de privacidade para o site do cliente (LGPD).
+ * É um texto-base: a agência adapta para o seu nome, domínio e política de privacidade.
+ * Nenhum texto é coletado em texto legível — e-mail, telefone e nome são cifrados no navegador.
+ */
+export const PRIVACY_NOTICE_EXAMPLE = `Usamos cookies e tecnologias semelhantes para medir a effectiveness dos nossos anúncios e entender como as pessoas usam este site. Os dados coletados são usados apenas para medição e melhoria das nossas campanhas. Você pode recusar a qualquer momento pelas configurações de cookies do seu navegador. Leia nossa Política de Privacidade para saber mais.`;
+
+/**
+ * Contrato do banner de cookies: o site chama bf("consent", true) quando a pessoa aceita
+ * e bf("consent", false) quando recusa. Enquanto não houver chamada, nada é coletado.
+ */
+export const CONSENT_BANNER_EXAMPLE = `<script>
+// Banner de cookies do site: chame estas duas linhas.
+// "true" quando a pessoa aceitar; "false" quando recusar.
+bf("consent", true);   //aceitou
+// bf("consent", false); //recusou
+</script>`;
 
 /**
  * Parâmetros de URL para colar nos anúncios. Os IDs do anúncio (bf_c, bf_s,
@@ -147,7 +175,7 @@ export const IDENTIFY_EXAMPLE =
 export function installSnippetWithOptions(
   publicKey: string,
   consentMode: ConsentMode,
-  opts: { forms: boolean; pixelId?: string | null; waCode?: boolean; clicks?: boolean; fields?: boolean },
+  opts: { forms?: boolean; pixelId?: string | null; waCode?: boolean; clicks?: boolean; fields?: boolean; consentVersion?: string },
   scriptUrl = TRACKING_SCRIPT_URL,
 ): string {
   let extra = "";
@@ -156,6 +184,7 @@ export function installSnippetWithOptions(
   if (opts.waCode) extra += ' data-wa-code="1"';
   if (opts.clicks) extra += ' data-clicks="on"';
   if (opts.fields) extra += ' data-fields="on"';
+  if (opts.consentVersion) extra += ` data-consent-version="${opts.consentVersion}"`;
   return installSnippet(publicKey, consentMode, scriptUrl).replace("></script>", `${extra}></script>`);
 }
 

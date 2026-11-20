@@ -3,7 +3,7 @@
  * Admin cria a conexão (desligada, com chave mostrada uma vez), vê o endereço do webhook, liga, e a situação muda quando chega mensagem.
  * Site com WhatsApp oficial não deixa usar o servidor. Operador e visualizador não configuram. Supabase SIMULADO.
  */
-import { check, launch, login, mockSupabase } from "./support.mjs";
+import { BASE, check, launch, login, mockSupabase } from "./support.mjs";
 
 const CLI = "e0000000-0000-4000-8000-000000005301";
 const client = (id, name) => ({ id, name, company: null, cnpj: null, owner_name: null, phone: null, email: null, notes: null, status: "ativo",
@@ -212,10 +212,10 @@ function seed(db, official = false) {
   check(db.whatsappConnections.filter((w) => w.client_id === SO_WA).length === 1 && !db.whatsappConnections.find((w) => w.client_id === SO_WA).excluded_at, "ligar de novo reaproveita o cadastro (sem duplicar) e volta a aparecer");
   await page.getByRole("button", { name: "Fechar", exact: true }).last().click();
   // e também no Painel (aba WhatsApp e aba Conversas) do cliente escolhido
-  await page.goto(`${process.env.E2E_BASE_URL}/tracking?aba=whatsapp&cliente=${SO_WA}`);
+  await page.goto(`${BASE}/tracking?aba=whatsapp&cliente=${SO_WA}`);
   await page.getByTestId("limpar-dados-card").waitFor();
   check(true, "aba WhatsApp do cliente também tem o botão de limpar dados");
-  await page.goto(`${process.env.E2E_BASE_URL}/tracking?secao=config`);
+  await page.goto(`${BASE}/tracking?secao=config`);
   await page.getByTestId("cli-site-whatsapp").waitFor();
 
   // 2) só site: sem WhatsApp

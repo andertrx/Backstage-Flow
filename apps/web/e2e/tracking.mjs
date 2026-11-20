@@ -75,7 +75,9 @@ function seedClients(db) {
   check(JSON.stringify(saved.allowed_domains) === JSON.stringify(["www.excalibur.com.br", "excalibur.com.br"]), "domínios gravados limpos (sem https e caminho)");
   check(saved.client_id === EXC && saved.test_mode === true && saved.consent_mode === "nao_exigir" && !("public_key" in db.rpcCalls.find((c) => c.fn === "tracking_containers.insert")), "a chave pública é gerada pelo banco, não pela tela");
   const blocks = await install.getByTestId("copy-block").allInnerTexts();
-  check(blocks[0] === `<script async src="https://www.backstageflow.com.br/t.js" data-key="${saved.public_key}"></script>`, "código de instalação com a chave pública do container");
+  // A URL leva ?v= para o cache não segurar uma versão velha do script.
+  const INSTALACAO = new RegExp('^<script async src="https://www\\.backstageflow\\.com\\.br/t\\.js\\?v=\\d{8}" data-key="[^"]+"></script>$');
+  check(INSTALACAO.test(blocks[0]), "código de instalação com a chave pública do container (e com a versão do script)");
   check(blocks.some((b) => b.includes("bf_c={{campaign.id}}&bf_s={{adset.id}}&bf_a={{ad.id}}")), "parâmetros de URL do Meta com os IDs do anúncio");
   check(blocks.some((b) => b.startsWith("{lpurl}?utm_source=google")), "modelo de rastreamento do Google Ads");
   check(!blocks.join(" ").match(/service_role|secret|sb_secret|eyJ/), "nenhum segredo no código de instalação");
@@ -84,6 +86,20 @@ function seedClients(db) {
   const withForms = (await install.getByTestId("copy-block").allInnerTexts())[0];
   check(withForms.endsWith(' data-forms="lead"></script>'), "opção de capturar formulários entra no código de instalação");
   check((await install.innerText()).includes('bf("track", "Purchase", { value: 199.90, currency: "BRL", transaction_id:'), "exemplo de compra com valor, moeda e nº do pedido");
+  check((await install.innerText()).includes("não exigir consentimento"), "consentimento: avisa que, sem exigir, a medição começa sem aceite");
+
+  // Simulador: o script de verdade roda e mostra o que ele captura.
+  await install.getByTestId("abrir-simulador").click();
+  const sim = page.getByRole("dialog", { name: "Simulador do script" });
+  await sim.waitFor();
+  await sim.getByTestId("simulador-lista").waitFor({ timeout: 15000 });
+  const capturados = await sim.getByTestId("simulador-evento").allInnerTexts();
+  check(capturados.some((t) => t.includes("PageView")), "simulador: o script de verdade dispara o PageView e a tela mostra");
+  const bruto = await sim.innerText();
+  check(bruto.includes("Origem:") && bruto.includes("Visitante:"), "simulador: mostra a origem, o visitante e o identificador do evento");
+  check(bruto.includes("Ver o que foi enviado"), "simulador: dá para ver o corpo exato que seria enviado");
+  await sim.getByRole("button", { name: "Fechar", exact: true }).click();
+
   await install.getByRole("button", { name: "Fechar", exact: true }).click();
 
   const card = page.getByTestId("container-card");
@@ -493,6 +509,42 @@ const waitSent = async (page, sent, n) => {
 }
 
 {
+  // A fila do consentimento sobrevive ao recarregar a página (guardada no navegador)
+  const { browser, page, errors } = await launch();
+  const sent = [];
+  await site(page, sent, html("", ' data-consent="aguardar"'));
+  await page.goto(`${SITE}/`);
+  await page.waitForTimeout(600);
+  check(sent.length === 0, "antes do aceite: nada é enviado");
+  const guardado = await page.evaluate(() => localStorage.getItem("_bfq"));
+  check(!!guardado, "a fila de espera fica guardada no navegador");
+  // Recarrega: a pessoa ainda não aceitou, mas a fila anterior não pode sumir.
+  await page.goto(`${SITE}/`);
+  await page.waitForTimeout(600);
+  check(sent.length === 0, "recarregar sem aceitar: continua sem enviar");
+  await page.evaluate(() => window.bf("consent", true));
+  await waitSent(page, sent, 4);
+  const naFila = sent.filter((b) => b.n === "ViewContent");
+  check(sent.length >= 4 && naFila.length >= 2, "depois do aceite: sai a fila das duas visitas (nada se perdeu ao recarregar)");
+  check(sent.every((b) => b.c === "concedido"), "tudo que saiu da fila marcada como consentido");
+  check(errors.length === 0, "sem erros com fila guardada");
+  await browser.close();
+}
+
+{
+  // data-consent-version: enviado como cv no payload
+  const { browser, page, errors } = await launch();
+  const sent = [];
+  await site(page, sent, html("", ' data-consent-version="v2"'));
+  await page.goto(`${SITE}/`);
+  await waitSent(page, sent, 2);
+  const pv = sent.find((b) => b.n === "PageView");
+  check(pv.cv === "v2", "consent_version enviado como cv no payload");
+  check(errors.length === 0, "sem erros com consent_version");
+  await browser.close();
+}
+
+{
   // Chave inválida: o script não faz nada (e não quebra o site)
   const { browser, page, errors } = await launch();
   const sent = [];
@@ -709,6 +761,23 @@ const waitSent = async (page, sent, n) => {
   await page.waitForFunction(() => document.querySelector('input[name="utm_source"]').value !== "");
   check((await val("utm_source")) === "google" && (await val("utm_source_first")) === "facebook", "T5.2: visita sem parâmetros mantém as origens guardadas");
   check(errors.length === 0, "T5.2: sem erros (campos escondidos)");
+  await browser.close();
+}
+{
+  // Sem data-fields: os campos escondidos são preenchidos, mas a origem não fica guardada
+  const FORM = `<form onsubmit="event.preventDefault()"><input type="hidden" name="utm_source"><input type="hidden" name="utm_campaign"><input type="hidden" name="utm_source_first"><input type="hidden" name="bf_visitor"></form>`;
+  const { browser, page, errors } = await launch();
+  const sent = [];
+  await site(page, sent, html("", "", FORM));
+  const val = (n) => page.locator(`input[name="${n}"]`).inputValue();
+  await page.goto(`${SITE}/?utm_source=facebook&utm_campaign=Janeiro`);
+  await page.waitForFunction(() => document.querySelector('input[name="utm_source"]').value !== "");
+  check((await val("utm_source")) === "facebook" && (await val("utm_campaign")) === "Janeiro", "T5.2: sem a opção, os campos escondidos recebem a origem da URL");
+  check(/^[A-Za-z0-9_-]{22}$/.test(await val("bf_visitor")), "T5.2: sem a opção, o bf_visitor também é preenchido");
+  check((await val("utm_source_first")) === "", "T5.2: sem a opção, a primeira origem fica vazia (não se sabe qual foi)");
+  const cookies = await page.context().cookies(SITE);
+  check(!cookies.some((c) => c.name === "_bfa" || c.name === "_bfl"), "T5.2: sem a opção, a origem não fica guardada no aparelho");
+  check(errors.length === 0, "T5.2: sem erros (campos escondidos sem a opção)");
   await browser.close();
 }
 {

@@ -13,6 +13,7 @@ export const ALERT_TYPES = [
   "erro_api",
   "campanha_sem_entrega",
   "queda_resultados",
+  "capi_erro",
 ] as const;
 export type AlertType = (typeof ALERT_TYPES)[number];
 
@@ -28,6 +29,7 @@ export const ALERT_TYPE_LABELS: Record<AlertType, string> = {
   erro_api: "Erro na API",
   campanha_sem_entrega: "Campanha sem entrega",
   queda_resultados: "Queda significativa de resultados",
+  capi_erro: "Conversões não estão indo ao Meta",
 };
 
 /** Da mais grave para a menos grave. */

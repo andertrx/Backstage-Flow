@@ -1,5 +1,5 @@
 /** Imagens das telas do Tracking (computador e celular) para conferir a organização visual. Supabase SIMULADO. */
-import { launch, login, mockSupabase, SHOTS } from "./support.mjs";
+import { BASE, launch, login, mockSupabase, SHOTS } from "./support.mjs";
 
 const mk = (i) => `e0000000-0000-4000-8000-${String(i).padStart(12, "0")}`;
 const client = (id, name) => ({ id, name, company: null, cnpj: null, owner_name: null, phone: null, email: null, notes: null, status: "ativo",
@@ -21,7 +21,7 @@ for (const [rotulo, w, h] of [["desktop", 1440, 900], ["celular", 390, 844]]) {
     const el = page.locator(sel).first();
     if (await el.count()) { await el.scrollIntoViewIfNeeded(); await el.screenshot({ path: `${SHOTS}/ux-tracking-${nome}-${rotulo}.png` }); }
   }
-  await page.goto(`${process.env.E2E_BASE_URL}/tracking`);
+  await page.goto(`${BASE}/tracking`);
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${SHOTS}/ux-tracking-painel-${rotulo}.png`, fullPage: false });
   await browser.close();

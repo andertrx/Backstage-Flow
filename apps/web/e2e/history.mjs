@@ -95,8 +95,14 @@ const answer = (page) => page.getByTestId("history-sentence");
   // Um período livre
   await page.getByRole("radio", { name: "Um período" }).click();
   await page.getByLabel("De", { exact: true }).fill(`${TWO}-01`);
+  // A tela reescreve a URL a cada campo: sem esperar, o "Até" é preenchido em cima
+  // de um valor que o app ainda vai trocar (e o período fica de um dia só).
+  await page.waitForURL((u) => u.searchParams.get("de") === `${TWO}-01`);
   await page.getByLabel("Até", { exact: true }).fill(`${TWO}-28`);
-  await page.waitForFunction((d) => document.querySelector("[data-testid=history-sentence]")?.textContent?.includes(d), br(`${TWO}-01`));
+  await page.waitForURL((u) => u.searchParams.get("ate") === `${TWO}-28`);
+  // A frase só troca quando os números do período novo chegam; antes disso ela ainda
+  // mostra o período anterior (e a checagem passaria com a resposta velha).
+  await page.waitForFunction((d) => document.querySelector("[data-testid=history-sentence]")?.textContent?.includes(d), `De ${br(`${TWO}-01`)} a ${br(`${TWO}-28`)}`);
   const s3 = clean(await answer(page).innerText());
   check(s3 === `De ${br(`${TWO}-01`)} a ${br(`${TWO}-28`)}, a conta Excalibur Meta investiu R$ 80,00, teve 4 leads e CPL de R$ 20,00.`, `pergunta por período livre: ${s3}`);
 

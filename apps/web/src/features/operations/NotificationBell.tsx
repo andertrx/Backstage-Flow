@@ -51,7 +51,7 @@ export function NotificationBell() {
         aria-label={count ? `Tarefas e Central (${count} não lidas)` : "Tarefas e Central"} title="Tarefas e Central: atrasadas, menções, reuniões e envios"
         className="relative flex items-center gap-1.5 rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900">
         <ListChecks className="size-5 text-slate-500" aria-hidden />
-        <span className="hidden text-xs font-semibold text-slate-700 xl:inline" aria-hidden>Tarefas</span>
+        <span className="hidden text-xs font-semibold text-slate-700 2xl:inline" aria-hidden>Tarefas</span>
         {count > 0 && (
           <span className="absolute right-0 top-0 grid min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-4 text-white" data-testid="ops-bell-count">
             {count > 99 ? "99+" : count}

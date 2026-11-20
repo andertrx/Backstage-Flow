@@ -86,9 +86,9 @@ await page.screenshot({ path: `${SHOTS}/310-celular-dashboard.png` });
 await page.getByRole("button", { name: "Abrir menu" }).click();
 const drawer = page.getByRole("dialog", { name: "Menu" });
 await drawer.waitFor();
-check(await drawer.getByRole("link", { name: "Campanhas" }).isVisible(), "celular: botão abre o menu com todas as telas");
+check(await drawer.getByRole("link", { name: "Campanhas", exact: true }).isVisible(), "celular: botão abre o menu com todas as telas");
 await page.screenshot({ path: `${SHOTS}/311-celular-menu.png` });
-await drawer.getByRole("link", { name: "Campanhas" }).click();
+await drawer.getByRole("link", { name: "Campanhas", exact: true }).click();
 await page.getByRole("heading", { name: "Campanhas", level: 1 }).waitFor();
 check(await drawer.count() === 0, "celular: ao escolher uma tela o menu fecha sozinho");
 

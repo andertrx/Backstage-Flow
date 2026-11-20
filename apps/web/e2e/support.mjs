@@ -67,4 +67,8 @@ export async function login(page, path = "/") {
   await page.getByLabel("E-mail").fill("ander@teste.local");
   await page.getByLabel("Senha").fill(PASSWORD);
   await page.getByRole("button", { name: "Entrar" }).click();
+  // O login não navega: quem leva o usuário para dentro é o RedirectIfAuthenticated,
+  // quando a sessão chega. Sem esperar, o teste pode recarregar a página e cair
+  // na tela de login de novo (foi o que quebrou o teste de histórico).
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 15000 });
 }

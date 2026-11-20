@@ -3,6 +3,12 @@
 > Lista do que ficou para depois. Eu (Claude) confiro e lembro esta lista nos relatórios.
 > Quando fizer um item, me avise que eu marco como feito.
 
+## Auditoria de 20/11 — o que ainda não foi para o ar
+- [ ] **Aplicar no banco as 4 migrations novas** (`20261119000001_capi_overview_fix`, `20261120120000_tracking_consent_version`, `20261120130000_tracking_limpeza_diaria`, `20261120140000_alerta_capi`): sem elas o painel do CAPI não conta os erros pelo tempo certo, não existe "versão do consentimento" por site, a limpeza automática não roda e o alerta "Conversões não estão indo ao Meta" não aparece.
+- [ ] **Publicar a Edge Function `capi-sender`** (com o descarte imediato de evento com token/Pixel errado).
+- [ ] **Publicar o site** (a parte visual do menu e do cabeçalho entra junto com o resto).
+- [ ] **Rodar os avisos de segurança do Supabase** depois das migrations.
+
 ## Aviso "cliente sem gastar" confirmado pela entrega — T5.36 (15/11/2026)
 - [x] **Migration `20261114120000_wa_sem_gasto_entrega.sql` aplicada no banco** (15/11/2026, registrada no histórico de migrations). A sincronização já está gravando as leituras de entrega das contas.
 - [x] **Teste SQL da fase rodado no banco de verdade** (`supabase/tests/etapa_t536_sem_gasto_entrega.sql`): 8 verificações OK de 8 (tudo desfeito no final).

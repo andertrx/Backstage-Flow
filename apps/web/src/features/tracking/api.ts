@@ -13,6 +13,7 @@ export interface TrackingContainer {
   status: ContainerStatus;
   test_mode: boolean;
   consent_mode: ConsentMode;
+  consent_version: string | null;
   retention_days: number;
   created_at: string;
   /** Versão das regras publicada para o script do site (Tracking T2). */
@@ -70,7 +71,7 @@ export function useTrackingContainers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_containers")
-        .select("id, client_id, name, public_key, allowed_domains, status, test_mode, consent_mode, retention_days, created_at, rules_version, kind, excluded_at, clients(name)")
+        .select("id, client_id, name, public_key, allowed_domains, status, test_mode, consent_mode, consent_version, retention_days, created_at, rules_version, kind, excluded_at, clients(name)")
         .order("created_at", { ascending: true });
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os containers de tracking."));
       return data as unknown as TrackingContainer[];

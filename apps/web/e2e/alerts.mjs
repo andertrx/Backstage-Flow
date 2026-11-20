@@ -98,15 +98,21 @@ const card = (page, type) => page.locator(`[data-testid=alert-card][data-alert-t
   check(await waitCount(page, 2) === 2 && new URL(page.url()).searchParams.get("gravidade") === "critica", "clicar em 🔴 Crítica filtra");
   await page.getByTestId("count-critica").click();
   await page.getByLabel("Cliente").selectOption(LOJA);
+  await page.waitForFunction(() => document.querySelector('[data-testid=alert-card][data-alert-type=erro_api]') !== null, null, { timeout: 5000 }).catch(() => {});
   check(await waitCount(page, 1) === 1 && await card(page, "erro_api").count() === 1, "filtro por cliente");
   await page.getByLabel("Cliente").selectOption("");
   await page.getByLabel("Plataforma").selectOption("google");
+  // A troca do cliente e a da plataforma chegam juntas: esperar só a quantidade pega
+  // o estado antigo (1 cartão do filtro de cliente). Espera o cartão da plataforma.
+  await page.waitForFunction(() => document.querySelector('[data-testid=alert-card][data-alert-type=saldo_baixo]') !== null, null, { timeout: 5000 }).catch(() => {});
   check(await waitCount(page, 1) === 1 && await card(page, "saldo_baixo").count() === 1, "filtro por plataforma");
   await page.getByLabel("Plataforma").selectOption("");
   await page.getByLabel("Tipo").selectOption("campanha_sem_entrega");
+  await page.waitForFunction(() => document.querySelector('[data-testid=alert-card][data-alert-type=campanha_sem_entrega]') !== null, null, { timeout: 5000 }).catch(() => {});
   check(await waitCount(page, 1) === 1, "filtro por tipo");
   await page.getByLabel("Tipo").selectOption("");
   await page.getByLabel("Situação").selectOption("resolvidos");
+  await page.waitForFunction(() => document.querySelector('[data-testid=alert-card][data-alert-type=queda_resultados]') !== null, null, { timeout: 5000 }).catch(() => {});
   check(await waitCount(page, 1) === 1 && clean(await card(page, "queda_resultados").innerText()).includes("Resolvido automaticamente"), "histórico: resolvidos automaticamente");
   check(await card(page, "queda_resultados").getByRole("button").count() === 0, "resolvido não muda mais (sem botões)");
   await page.getByLabel("Situação").selectOption("todos");

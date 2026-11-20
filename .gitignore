@@ -14,3 +14,6 @@ supabase/.branches/
 *.tsbuildinfo
 .vercel
 .env*
+
+# arquivos de sessao do Claude (nao vao para o repositorio)
+.claude/

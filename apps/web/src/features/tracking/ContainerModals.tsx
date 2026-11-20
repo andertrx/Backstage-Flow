@@ -6,7 +6,9 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { type TrackingContainer, useSaveContainer } from "./api.ts";
+import { ScriptSimulator } from "./ScriptSimulator.tsx";
 import {
+  CONSENT_BANNER_EXAMPLE,
   CONSENT_EXAMPLE,
   CONSENT_LABELS,
   type ConsentMode,
@@ -18,6 +20,7 @@ import {
   IDENTIFY_EXAMPLE,
   installSnippetWithOptions,
   META_URL_PARAMS,
+  PRIVACY_NOTICE_EXAMPLE,
   PURCHASE_EXAMPLE,
   parseContainerForm,
   RETENTION_LABELS,
@@ -41,6 +44,7 @@ export function ContainerFormModal({ container, clients, onClose, onSaved }: {
         status: container.status,
         test_mode: container.test_mode,
         consent_mode: container.consent_mode,
+        consent_version: container.consent_version || "",
         retention_days: container.retention_days,
       }
       : { ...emptyContainerForm, client_id: clients.length === 1 ? clients[0].id : "" },
@@ -98,6 +102,11 @@ export function ContainerFormModal({ container, clients, onClose, onSaved }: {
               </Select>
             )}
           </Field>
+          <Field label="Versão do consentimento" hint="Vai no atributo data-consent-version do script.">
+            {(id) => (
+              <input id={id} type="text" value={values.consent_version} onChange={(e) => set("consent_version", e.target.value)} placeholder="ex.: v1, 2026-11" />
+            )}
+          </Field>
           <Field label="Guardar eventos detalhados por" hint="A limpeza automática só será ligada com a sua aprovação.">
             {(id) => (
               <Select id={id} value={values.retention_days} onChange={(e) => set("retention_days", Number(e.target.value))}>
@@ -152,7 +161,15 @@ export function InstallModal({ container, pixelId = null, onClose }: { container
   const [waCode, setWaCode] = useState(false);
   const [clicks, setClicks] = useState(false);
   const [fields, setFields] = useState(false);
-  const snippet = installSnippetWithOptions(container.public_key, container.consent_mode, { forms, pixelId: pixel ? pixelId : null, waCode, clicks, fields });
+  const [simulador, setSimulador] = useState(false);
+  const snippet = installSnippetWithOptions(container.public_key, container.consent_mode, {
+    forms,
+    pixelId: pixel ? pixelId : null,
+    waCode,
+    clicks,
+    fields,
+    consentVersion: container.consent_version ?? undefined,
+  });
   return (
     <Modal title={`Instalar no site — ${container.name}`} open onClose={onClose} size="lg">
       <div className="space-y-5 text-sm text-slate-700">
@@ -223,12 +240,30 @@ export function InstallModal({ container, pixelId = null, onClose }: { container
         <CopyBlock label="Opcional: registrar um evento (ex.: formulário enviado)" text={EVENT_EXAMPLE} />
         <CopyBlock label="Opcional: Lead com dados de contato (cifrados no navegador)" text={IDENTIFY_EXAMPLE} />
         <CopyBlock label="Compra (na página de obrigado do pedido)" text={PURCHASE_EXAMPLE} />
-        {container.consent_mode === "aguardar_consentimento" && (
-          <CopyBlock label="Consentimento: chame quando a pessoa aceitar os cookies" text={CONSENT_EXAMPLE} />
+        {container.consent_mode === "aguardar_consentimento" ? (
+          <>
+            <CopyBlock label="Consentimento: chame quando a pessoa aceitar os cookies" text={CONSENT_EXAMPLE} />
+            <CopyBlock label="Banner de cookies: o site precisa chamar o script (aceitou / recusou)" text={CONSENT_BANNER_EXAMPLE} />
+            <CopyBlock label="Modelo de aviso de privacidade (adaptar ao site do cliente)" text={PRIVACY_NOTICE_EXAMPLE} />
+            <Alert tone="warning">
+              Enquanto o banner do site não chamar <code>bf(&quot;consent&quot;, true)</code>, o script não coleta nada (nem cria cookies).
+              O aviso de privacidade é do site do cliente: adapte o texto acima, link a política de privacidade dele e peça a revisão de um advogado.
+            </Alert>
+          </>
+        ) : (
+          <Alert tone="warning">
+            Este site está em <strong>“não exigir consentimento”</strong>: a medição começa assim que a pessoa abre a página, sem esperar aceite.
+            Para collecting somente depois de a pessoa aceitar, mude o consentimento do site para <strong>“aguardar consentimento”</strong> em Editar container —
+            aí o script passa a esperar o banner do site.
+          </Alert>
         )}
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => setSimulador(true)} data-testid="abrir-simulador">
+            Ver o script funcionando
+          </Button>
           <Button type="button" onClick={onClose}>Fechar</Button>
         </div>
+        {simulador && <ScriptSimulator publicKey={container.public_key} onClose={() => setSimulador(false)} />}
       </div>
     </Modal>
   );

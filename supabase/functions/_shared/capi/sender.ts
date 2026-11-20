@@ -8,6 +8,7 @@ interface ItemResult {
   id: number;
   ok: boolean;
   error?: string;
+  authProblem?: boolean;
 }
 
 /** Uma chamada ao Meta: registra no log (sem token) e devolve o resultado. */
@@ -71,10 +72,13 @@ export async function runSender(db: SupabaseClient, fetchFn: FetchFn = fetch, li
       } else if (res.invalidParameter && part.length > 1) {
         for (let i = 0; i < part.length; i++) {
           const one = await postToMeta(db, fetchFn, destId, pixelId, token, testCode, [events[i]]);
-          results.push(one.ok ? { id: part[i].id, ok: true } : { id: part[i].id, ok: false, error: one.message ?? "Erro no envio." });
+          results.push(one.ok ? { id: part[i].id, ok: true } : { id: part[i].id, ok: false, error: one.message ?? "Erro no envio.", authProblem: one.authProblem });
         }
       } else {
-        for (const r of part) results.push({ id: r.id, ok: false, error: res.message ?? "Erro no envio." });
+        const item = { id: part[0].id, ok: false as const, error: res.message ?? "Erro no envio.", authProblem: res.authProblem };
+        // Erro de credencial (token inválido, Pixel não encontrado): descarta imediatamente
+        if (res.authProblem) item.error = "Problema na configuração do Meta (token ou Pixel). O evento não será reenviado.";
+        for (const r of part) results.push(item);
       }
     }
   }

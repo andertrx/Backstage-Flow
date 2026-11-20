@@ -42,6 +42,19 @@ function seed(db) {
     { id: crypto.randomUUID(), campaign_id: CAMP, ad_account_id: ACC, client_id: CLI, platform_id: "meta", external_id: "130002", name: "Remarketing 7d", status: "ativa" });
 }
 
+// A cópia vai para a área de transferência do Windows, que troca as quebras de linha
+// por CRLF (\r\n). Comparamos sem essa diferença (e com uma pequena espera, porque
+// a gravação é assíncrona).
+async function esperarAreaTransferencia(page, texto) {
+  const normaliza = (s) => s.replace(/\r\n/g, "\n");
+  for (let i = 0; i < 40; i++) {
+    const atual = await page.evaluate(() => navigator.clipboard.readText().catch(() => ""));
+    if (normaliza(atual) === normaliza(texto)) return true;
+    await page.waitForTimeout(100);
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------- Admin no computador
 {
   const { browser, page, errors } = await launch();
@@ -145,7 +158,7 @@ function seed(db) {
     && pedido.includes("WhatsApp — número: (11) 98765-4321") && pedido.includes("(ex.: ADS-01 | Promo | 28-10-2026)")
     && pedido.includes("recursos de IA LIGADOS a pedido: Música automática") && pedido.includes("Crie PRIMEIRO apenas um anúncio"), "pedido gerado no formato, com a IA ligada destacada");
   await page.getByTestId("ads-copiar").click();
-  check((await page.evaluate(() => navigator.clipboard.readText())) === pedido, "botão Copiar copia o pedido");
+  check(await esperarAreaTransferencia(page, pedido), "botão Copiar copia o pedido");
   check(db.adsPedidos.length === 1 && db.adsPedidos[0].campanha === "[MSG] Aurora | Outubro", "pedido guardado no histórico");
   await page.getByTestId("ads-pedido").screenshot({ path: `${SHOTS}/criador-anuncios-pedido.png` });
 
@@ -167,7 +180,7 @@ function seed(db) {
   await page.getByTestId("ads-historico-item").first().waitFor();
   check((await page.getByTestId("ads-historico-item").first().innerText()).includes("[MSG] Aurora | Outubro"), "histórico lista o pedido com data");
   await page.getByRole("button", { name: "Copiar de novo o pedido 1" }).click();
-  check((await page.evaluate(() => navigator.clipboard.readText())) === pedido, "copiar de novo do histórico");
+  check(await esperarAreaTransferencia(page, pedido), "copiar de novo do histórico");
   await page.getByRole("button", { name: "Duplicar o pedido 1" }).click();
   await page.getByText("Duplicado do pedido de").waitFor();
   await page.getByText("2 conjunto(s); os ativos primeiro.").waitFor();

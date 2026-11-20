@@ -155,7 +155,7 @@ const crumbs = async (page) => clean(await page.getByRole("navigation", { name: 
   await page.getByRole("link", { name: "Público Frio" }).click();
   await page.waitForURL(`**/conjuntos/${G1}?periodo=last_30_days`);
   check(true, "o período escolhido vai junto para o conjunto");
-  await page.getByRole("navigation", { name: "Caminho" }).getByRole("link", { name: "Campanhas" }).click();
+  await page.getByRole("navigation", { name: "Caminho" }).getByRole("link", { name: "Campanhas", exact: true }).click();
   await page.waitForURL("**/campanhas?periodo=last_30_days");
   check(true, "e volta junto para a lista de campanhas");
 
