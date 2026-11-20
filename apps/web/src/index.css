@@ -70,8 +70,9 @@ body {
 *::-webkit-scrollbar-track { background: transparent; }
 
 /* Títulos equilibrados e textos corridos sem "viúvas" (só tipografia). */
-h1, h2, h3 { text-wrap: balance; }
-p { text-wrap: pretty; }
+/* Só o ESTILO de quebra (não o modo): assim textos com "truncate" continuam numa linha só. */
+h1, h2, h3 { text-wrap-style: balance; }
+p { text-wrap-style: pretty; }
 
 ::selection {
   @apply bg-brand-100 text-brand-700;
