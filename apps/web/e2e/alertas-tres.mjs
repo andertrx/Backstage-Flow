@@ -56,6 +56,8 @@ function seed(db) {
   await page.getByTestId("alert-tab-campanhas").click();
   await page.waitForURL("**/alertas?aba=campanhas");
   await page.getByTestId("avisos-campanhas").waitFor();
+  // A lista chega depois do desenho da aba: espera as 3 linhas aparecerem.
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=monitor-notification-row]").length === 3, null, { timeout: 8000 }).catch(() => {});
   check(await page.getByTestId("monitor-notification-row").count() === 3, "aba Campanhas lista os 3 avisos do Monitoramento");
   check((await page.getByTestId("alert-tab-count-campanhas").innerText()).trim() === "3", "aba Campanhas mostra o seu número");
   await page.getByTestId("alert-tab-tarefas").click();

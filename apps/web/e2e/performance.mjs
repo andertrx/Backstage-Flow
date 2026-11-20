@@ -45,7 +45,7 @@ check(period.total === 3 && rpc("dashboard_summary") === 2 && rpc("dashboard_tim
 check(rpc("account_balances") === 0 && !calls.some((c) => c.includes("/clients?")), "trocar período não busca de novo clientes nem saldos");
 
 // 3) Ir e voltar: a tela anterior vem do cache, sem chamar o servidor
-await step(() => page.getByRole("link", { name: "Campanhas" }).first().click());
+await step(() => page.getByRole("link", { name: "Campanhas", exact: true }).first().click());
 await page.getByRole("heading", { name: "Campanhas", level: 1 }).waitFor();
 // Tabela de campanhas é paginada (nunca pede tudo de uma vez)
 const tableCall = calls.find((c) => c.includes("/rpc/campaign_table "));

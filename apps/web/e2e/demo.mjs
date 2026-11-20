@@ -48,7 +48,7 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   check((body.match(/\(Demo\)/g) ?? []).length >= 4, "clientes fictícios, todos com (Demo) no nome");
   check(await banner.isVisible(), "faixa continua visível em outras telas");
 
-  await page.getByRole("link", { name: "Campanhas" }).first().click();
+  await page.getByRole("link", { name: "Campanhas", exact: true }).first().click();
   await page.getByRole("heading", { name: "Campanhas", level: 1 }).waitFor();
   await page.getByText("Matrículas - Leads").first().waitFor();
   check(true, "campanhas fictícias na tabela");

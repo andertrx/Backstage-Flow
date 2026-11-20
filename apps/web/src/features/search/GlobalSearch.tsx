@@ -32,7 +32,7 @@ export function GlobalSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-9 min-w-0 items-center gap-2 rounded-lg bg-slate-100 px-3 text-sm text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-200/70 sm:w-72"
+        className="flex h-9 min-w-0 items-center gap-2 rounded-lg bg-slate-100 px-3 text-sm text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-200/70 sm:w-56 xl:w-72"
         aria-label="Busca global" title="Buscar clientes, contas, campanhas e anúncios (Ctrl+K)"
         aria-keyshortcuts="Control+K"
       >

@@ -114,8 +114,14 @@ async function openLevel(page, name, viaTab = true) {
   check(await waitRows(page, 1) === 1, "gravidade Crítico deixa só a crítica");
   check(clean(await page.getByTestId("resumo-normal").innerText()).endsWith("1"), "o resumo continua contando todos os itens");
   await page.getByLabel("Gravidade", { exact: true }).selectOption("normal");
+  await page.waitForURL(/gravidade=normal/);
+  // A troca de filtro redesenha a tabela depois: espera a linha da gravidade pedida
+  // (esperar só a quantidade não serve, porque "crítico" e "normal" dão 1 linha cada).
+  await page.waitForFunction(() => document.querySelector("[data-testid=compare-row]")?.getAttribute("data-severity") === "normal", null, { timeout: 6000 }).catch(() => {});
   check(await waitRows(page, 1) === 1 && (await rowsOf(page).first().getAttribute("data-severity")) === "normal", "gravidade Normal deixa só a normal");
   await page.getByLabel("Gravidade", { exact: true }).selectOption("relevantes");
+  await page.waitForURL(/gravidade=relevantes/);
+  await page.waitForFunction(() => document.querySelector("[data-testid=compare-row]")?.getAttribute("data-severity") === "critico", null, { timeout: 6000 }).catch(() => {});
   check(await waitRows(page, 1) === 1, "crítico ou atenção deixa só a crítica");
   await page.getByLabel("Gravidade", { exact: true }).selectOption("");
   check(await waitRows(page, 3) === 3, "Todas volta às 3");

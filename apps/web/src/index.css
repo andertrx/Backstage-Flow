@@ -210,6 +210,28 @@ body {
 .shell-in-top { animation: shell-in-top 480ms cubic-bezier(0.22, 1, 0.36, 1) 80ms backwards; }
 .bar-grow { transform-origin: left; animation: bar-grow 700ms cubic-bezier(0.22, 1, 0.36, 1) 150ms backwards; }
 
+/* Menu lateral: indicador do item atual — uma barrinha na canaleta à esquerda
+   do item, fora da pílula escura (assim não se perde no canto arredondado).
+   No hover ela aparece meio aceso (mostra onde o cursor está). */
+.nav-link { position: relative; }
+.nav-link::before {
+  content: "";
+  position: absolute;
+  left: -0.5rem;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--color-brand-500), var(--color-accent-400));
+  opacity: 0;
+  transition: height 180ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease;
+}
+.nav-link:hover::before { height: 1.25rem; opacity: 0.5; }
+.nav-link[aria-current="page"]::before { height: 1.5rem; opacity: 1; }
+/* Menu recolhido (só ícones): a barra fica fora de lugar, então não aparece. */
+.nav-link[data-compact="sim"]::before { display: none; }
+
 /* PDF do dashboard do cliente (Etapa 19): A4, cores de fundo mantidas,
    blocos sem quebra no meio. */
 /* Largura útil de uma folha A4 com margem de 12 mm (ver printPdf). */

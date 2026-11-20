@@ -51,9 +51,10 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
             gi > 0 && <div className="mx-2 mb-3 border-t border-slate-200" aria-hidden />
           ) : (
             <button type="button" onClick={() => alternar(group)} aria-expanded={!recolhido} aria-label={`Grupo do menu: ${group}`} data-testid="nav-group-toggle" data-group={group}
-              className="mb-1.5 flex w-full items-center justify-between px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-700">
-              {group}
-              <ChevronDown className={cn("size-3 transition-transform", recolhido && "-rotate-90")} aria-hidden />
+              className="mb-2 flex w-full items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-500 transition-colors hover:text-slate-700">
+              <span className="shrink-0">{group}</span>
+              <span className="h-px flex-1 bg-slate-200" aria-hidden />
+              <ChevronDown className={cn("size-3 shrink-0 transition-transform", recolhido && "-rotate-90")} aria-hidden />
             </button>
           )}
           <ul className={cn("space-y-0.5", recolhido && "hidden")}>
@@ -67,9 +68,10 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
                     onClick={onNavigate}
                     title={collapsed ? label : undefined}
                     aria-label={collapsed ? label : undefined}
+                    data-compact={collapsed ? "sim" : "nao"}
                     className={({ isActive }) =>
                       cn(
-                        "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
+                        "nav-link group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
                         "focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-brand-500",
                         collapsed && "justify-center px-0",
                         isActive ? "nav-pop bg-slate-900 text-white shadow-[0_6px_14px_-6px_rgb(15_23_42/0.55)]" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
@@ -78,7 +80,7 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
                   >
                     {({ isActive }) => (
                       <>
-                                                <Icon className={cn("size-4 shrink-0 transition-colors", isActive ? "text-accent-400" : "text-slate-400 group-hover:text-slate-700")} aria-hidden />
+                        <Icon className={cn("size-4 shrink-0 transition-colors", isActive ? "text-accent-400" : "text-slate-500 group-hover:text-slate-800")} aria-hidden />
                         {!collapsed && label}
                         {badge && (
                           <span
@@ -157,7 +159,7 @@ export function AppLayout() {
         data-testid="sidebar"
         data-collapsed={collapsed}
       >
-        <div className={cn("flex h-16 shrink-0 items-center", collapsed ? "justify-center" : "px-6")}>
+        <div className={cn("flex h-16 shrink-0 items-center border-b border-slate-100", collapsed ? "justify-center" : "px-6")}>
           <Logo compact={collapsed} />
         </div>
         <SidebarNav collapsed={collapsed} />
@@ -183,7 +185,7 @@ export function AppLayout() {
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
           <div className="animate-fade-in absolute inset-0 bg-slate-900/50" onClick={() => setMobileOpen(false)} />
           <aside className="animate-drawer-in relative flex h-full w-72 max-w-[85vw] flex-col bg-white shadow-elevated">
-            <div className="flex h-16 shrink-0 items-center justify-between px-6">
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-6">
               <Logo />
               <IconButton label="Fechar menu" size="sm" onClick={() => setMobileOpen(false)} icon={<X aria-hidden />} />
             </div>
@@ -195,36 +197,48 @@ export function AppLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="shell-in-top sticky top-0 z-30 lg:px-4 lg:pt-4 print:hidden">
         <DemoBanner />
-        <header className="flex h-16 items-center gap-2 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:gap-3 sm:px-6 lg:rounded-full lg:border-b-0 lg:bg-white lg:px-6 lg:shadow-card lg:ring-1 lg:ring-slate-200/60">
+        {/* Celular: uma linha só (64px) — com duas linhas os primeiros números do
+            Dashboard saem da tela sem rolar. O nome da seção fica no título da página.
+            Tablet: duas linhas (título em cima, atalhos embaixo).
+            Computador: uma linha, ao lado do título. */}
+        <header className="flex h-16 flex-wrap items-center gap-x-2 gap-y-1 border-b border-slate-200 bg-white/90 px-4 py-0 backdrop-blur sm:h-auto sm:py-2 lg:h-16 lg:flex-nowrap lg:gap-x-3 lg:gap-y-0 lg:px-6 lg:py-0 lg:rounded-full lg:border-b-0 lg:bg-white lg:shadow-card lg:ring-1 lg:ring-slate-200/60">
           {hasMenu && (
-            <button className="-ml-1 rounded-lg p-1 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
+            <button className="-ml-1 order-1 rounded-lg p-1 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
               <Menu className="size-6" />
             </button>
           )}
-          <p className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-slate-700" data-testid="header-section">{section}</p>
-          <ThemeToggle />
-          {can(profile?.role, "internal.view") && <GlobalSearch />}
-          {/* 43.5: três sininhos, um por assunto: Contas, Campanhas e Tarefas */}
-          {can(profile?.role, "internal.view") && <AlertsBell />}
-          {can(profile?.role, "monitor.view") && <MonitorBell />}
-          {opsCan(opsPermissions, "ops.access") && <NotificationBell />}
-          <Link to="/minha-conta" className="flex items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-slate-100" title="Minha conta">
+          <p className="order-2 hidden min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight text-slate-900 sm:block" data-testid="header-section">{section}</p>
+          {/* Atalhos (tema, busca e os tres sininhos - 43.5): linha de baixo no tablet,
+              na mesma linha do titulo no celular e no computador. */}
+          <div className="order-2 flex w-auto basis-auto items-center justify-between gap-2 sm:order-6 sm:w-full sm:basis-full lg:order-3 lg:w-auto lg:basis-auto">
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              {can(profile?.role, "internal.view") && <GlobalSearch />}
+            </div>
+            <div className="flex items-center gap-0.5 rounded-full bg-slate-100/70 p-0.5 ring-1 ring-inset ring-slate-200/70">
+              {can(profile?.role, "internal.view") && <AlertsBell />}
+              {can(profile?.role, "monitor.view") && <MonitorBell />}
+              {opsCan(opsPermissions, "ops.access") && <NotificationBell />}
+            </div>
+          </div>
+          <Link to="/minha-conta" className="order-3 flex items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-slate-100 lg:order-4" title="Minha conta">
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-accent-500 text-xs font-semibold text-white shadow-sm" aria-hidden>
               {initials(displayName)}
             </span>
-            <span className="hidden text-right sm:block">
+            <span className="hidden text-right xl:block">
               <span className="block max-w-48 truncate text-sm font-medium leading-tight text-slate-900">{displayName}</span>
               <span className="block text-xs text-slate-500">{profile && ROLE_LABELS[profile.role]}</span>
             </span>
-            <span className="sr-only sm:hidden">Minha conta</span>
+            <span className="sr-only xl:hidden">Minha conta</span>
           </Link>
+          <span className="order-4 mx-0.5 hidden h-6 w-px bg-slate-200 lg:order-5 lg:block" aria-hidden />
           <button
             onClick={isDemoMode ? exitDemo : signOut}
-            className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            className="order-5 flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 lg:order-6"
           >
             <LogOut className="size-4" aria-hidden />
-            <span className="hidden sm:inline">Sair</span>
-            <span className="sr-only sm:hidden">Sair</span>
+            <span className="hidden lg:inline">Sair</span>
+            <span className="sr-only lg:hidden">Sair</span>
           </button>
         </header>
         </div>

@@ -69,7 +69,7 @@ async function waitCall(db, pred) {
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
   await login(page, "/");
-  await page.getByRole("link", { name: "Campanhas" }).click();
+  await page.getByRole("link", { name: "Campanhas", exact: true }).click();
   await page.getByRole("heading", { name: "Campanhas", exact: true }).waitFor();
   await rows(page).first().waitFor();
   check(await rows(page).count() === 50, "50 campanhas por página");
