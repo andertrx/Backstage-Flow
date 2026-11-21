@@ -1,5 +1,5 @@
-import { MessageCircle, Search, Sparkles, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowLeft, MessageCircle, Search, Sparkles, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -205,6 +205,11 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
   const list = useWaConversations(id, search, range);
   const people = (list.data?.pages ?? []).flat().filter((p) => (!range.from || p.last_at >= range.from) && (!range.to || p.last_at <= range.to));
   const current = people.find((p) => p.person_id === selected) ?? null;
+  // No celular, ao abrir uma conversa a tela vai direto para ela (sem isso o texto ficava lá embaixo, depois do cabeçalho do Tracking).
+  const chatRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selected !== null && window.matchMedia("(max-width: 1023px)").matches) chatRef.current?.scrollIntoView({ block: "start" });
+  }, [selected]);
 
   return (
     <div className="space-y-4">
@@ -219,7 +224,8 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
       <LimparDadosDoClienteCard clientId={id} />
 
       <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
-        <Card className="space-y-3 p-3" data-testid="wa-conversations">
+        {/* No celular é uma coisa de cada vez: a lista OU a conversa aberta (antes a conversa aparecia embaixo da lista, longe do toque). */}
+        <Card className={`space-y-3 p-3 ${current ? "hidden lg:block" : ""}`} data-testid="wa-conversations">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden />
             <Input aria-label="Buscar por nome ou telefone" placeholder="Buscar por nome ou telefone" className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -272,13 +278,21 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
           )}
         </Card>
 
+        <div ref={chatRef} className={`scroll-mt-3 ${current ? "" : "hidden lg:block"}`}>
         <Card className="p-4">
+          {current && (
+            <button type="button" data-testid="wa-chat-voltar" onClick={() => setSelected(null)}
+              className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline lg:hidden">
+              <ArrowLeft className="size-4" aria-hidden /> Voltar às conversas
+            </button>
+          )}
           {current && id ? (
             <Chat key={current.person_id} clientId={id} person={current} canDelete={profile?.role === "admin"} onDeleted={() => setSelected(null)} />
           ) : (
             <p className="p-6 text-center text-sm text-slate-500" data-testid="wa-chat-empty">Escolha uma conversa na lista para ler.</p>
           )}
         </Card>
+        </div>
       </div>
     </div>
   );

@@ -131,4 +131,26 @@ function seed(db) {
   check(errors.every((e) => /403|permiss/i.test(e)) || errors.length === 0, `sem erros inesperados (${errors.join(" | ")})`);
   await browser.close();
 }
+// Celular (21/11/2026): tocar numa conversa mostra o texto dela na tela, sem precisar rolar até o fim da lista; "Voltar" volta à lista.
+{
+  const { browser, page, errors } = await launch();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const db = await mockSupabase(page, { role: "admin" });
+  seed(db);
+  await login(page, `/tracking?cliente=${CLI}&aba=conversas`);
+  await page.getByTestId("wa-conversations").waitFor();
+  await page.getByTestId("wa-conversation").nth(1).waitFor();
+  check(await page.getByTestId("wa-chat-empty").isHidden(), "celular: sem o espaço vazio da conversa embaixo da lista");
+  await page.getByTestId("wa-conversation").first().click();
+  await page.getByText("Fechado, vou pagar agora").last().waitFor();
+  const msg = page.getByText("Oi, vi o anúncio");
+  await msg.waitFor();
+  check(await msg.isVisible() && (await msg.boundingBox()).y < 844, "celular: a conversa aparece na primeira tela, com o texto");
+  check(await page.getByTestId("wa-conversations").isHidden(), "celular: a lista some enquanto a conversa está aberta");
+  await page.getByTestId("wa-chat-voltar").click();
+  await page.getByTestId("wa-conversations").waitFor();
+  check(await page.getByTestId("wa-conversation").count() === 2, "celular: Voltar às conversas mostra a lista de novo");
+  check(errors.length === 0, `celular: sem erros no console (${errors.join(" | ")})`);
+  await browser.close();
+}
 console.log("conversas-whatsapp: OK");
