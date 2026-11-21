@@ -1,6 +1,6 @@
 -- Teste T5.38 fase C: conferência do WhatsApp de cada cliente. Transação desfeita ("R: N verificações OK").
 do $$
-declare c record; v_adm uuid; r text; n int; v_ok int := 0;
+declare c record; v_adm uuid; v_ges uuid; r text; n int; v_ok int := 0;
 begin
   select * into c from public.tracking_whatsapp_connections limit 1;
   if c.id is null then raise exception 'Sem conexão de WhatsApp para testar'; end if;
@@ -9,6 +9,12 @@ begin
      set mode = 'nao_oficial', enabled = true, instance_name = 'bf-teste-saude', gateway_state = 'conectado', health_since = now() - interval '1 hour', health_alert_sent = false
    where id = c.id;
   delete from public.ops_notifications where kind in ('whatsapp.caiu', 'whatsapp.voltou') and user_id = v_adm;
+  -- um gestor com acesso a este cliente: NÃO pode receber (decisão do Ander, 21/11)
+  select p.id into v_ges from public.profiles p where p.role = 'gestor' and p.active limit 1;
+  if v_ges is not null then
+    insert into public.user_client_access (user_id, client_id) values (v_ges, c.client_id) on conflict do nothing;
+    delete from public.ops_notifications where kind in ('whatsapp.caiu', 'whatsapp.voltou') and user_id = v_ges;
+  end if;
 
   -- 1) a lista inclui a conexão ligada
   if not exists (select 1 from jsonb_array_elements(public.wa_client_health_list()) e where e ->> 'id' = c.id::text) then raise exception 'FALHA 1: conexão ligada fora da lista'; end if;
@@ -31,6 +37,7 @@ begin
   if r <> 'avisou_caiu' then raise exception 'FALHA 4: não avisou (%)', r; end if;
   select count(*) into n from public.ops_notifications where kind = 'whatsapp.caiu' and user_id = v_adm;
   if v_adm is not null and private.ops_member_ok(v_adm) and n <> 1 then raise exception 'FALHA 4b: administrador deveria ter 1 aviso (tem %)', n; end if;
+  if v_ges is not null and exists (select 1 from public.ops_notifications where kind = 'whatsapp.caiu' and user_id = v_ges) then raise exception 'FALHA 4c: o gestor recebeu o aviso'; end if;
   v_ok := v_ok + 1;
 
   -- 5) continua fora: não repete
