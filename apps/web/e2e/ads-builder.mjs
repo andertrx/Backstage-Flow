@@ -124,6 +124,10 @@ function seed(db) {
   // Destino e nome
   await form.getByLabel("Número do WhatsApp (com DDD)").fill("(11) 98765-4321");
   await form.getByLabel("Mensagem pré-preenchida").fill("Olá! Quero saber da promoção");
+  // Opções avançadas vêm recolhidas (e prontas); abrir mostra nome, status, IA e observações
+  const avancado = page.getByTestId("ads-avancado").getByRole("button").first();
+  check(await avancado.getAttribute("aria-expanded") === "false" && await form.getByLabel("Tema").count() === 0, "opções avançadas começam recolhidas");
+  await avancado.click();
   await form.getByLabel("Tema").fill("Promo");
   await form.getByLabel("Data").fill("28-10-2026");
   check((await page.getByTestId("ads-nome-previa").innerText()) === "ADS-01 | Promo | 28-10-2026", "prévia do primeiro nome");

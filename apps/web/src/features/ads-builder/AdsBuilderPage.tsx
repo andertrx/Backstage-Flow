@@ -46,6 +46,28 @@ function Section({ n, title, hint, children }: { n: number; title: string; hint?
   );
 }
 
+/** Campos que quase nunca mudam (nome dos anúncios, status, IA, observações) ficam recolhidos; abrem sozinhos se algo já foi mexido (21/11/2026: Criador mais simples). */
+const CAMPOS_AVANCADOS = ["nome_modelo", "tema", "data", "status", "pausados_origem", "ia_ligados", "observacoes"] as const;
+function Avancado({ form, children }: { form: AdsBuilderForm; children: ReactNode }) {
+  const padrao = useMemo(() => adsBuilderDefaults(), []);
+  const mexido = CAMPOS_AVANCADOS.some((k) => JSON.stringify(form[k]) !== JSON.stringify(padrao[k]));
+  const [aberto, setAberto] = useState(mexido);
+  const resumo = [`Status: ${form.status === "ATIVO" ? "ATIVO" : "pausado"}`, `IA da Meta: ${form.ia_ligados.length ? `${form.ia_ligados.length} ligado(s)` : "desligada"}`, form.observacoes.trim() ? "com observações" : null].filter(Boolean).join(" · ");
+  return (
+    <div className="space-y-4" data-testid="ads-avancado">
+      <button type="button" aria-expanded={aberto} onClick={() => setAberto((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 text-left ring-1 ring-slate-200 hover:ring-blue-300">
+        <span>
+          <span className="block text-sm font-semibold text-slate-900">Opções avançadas {aberto ? "" : "(já vêm prontas)"}</span>
+          <span className={cn("block text-xs", form.status === "ATIVO" ? "font-medium text-amber-700" : "text-slate-500")}>Nome dos anúncios, status, IA da Meta e observações. {resumo}</span>
+        </span>
+        <span className="text-xs font-semibold text-blue-700">{aberto ? "Recolher" : "Abrir"}</span>
+      </button>
+      {aberto && children}
+    </div>
+  );
+}
+
 /** Lista repetível de textos (textos principais, títulos, descrições). */
 function TextList({ label, items, onChange, addLabel, min = 0, multiline, max = 2000 }: {
   label: string; items: string[]; onChange: (v: string[]) => void; addLabel: string; min?: number; multiline?: boolean; max?: number;
@@ -434,6 +456,7 @@ function Formulario({ form, set, origem, onClearOrigem }: {
         )}
       </Section>
 
+      <Avancado form={form}>
       <Section n={5} title="Nome dos anúncios" hint="Variáveis: {nº} (número da faixa), {tema}, {data}, {campanha}, {conjunto}.">
         <div className="grid gap-4 md:grid-cols-3">
           <div className="md:col-span-3">
@@ -483,6 +506,7 @@ function Formulario({ form, set, origem, onClearOrigem }: {
         <Field label="Observações (opcional)">{(id) => <Textarea id={id} rows={3} value={form.observacoes} maxLength={3000} onChange={(e) => set({ observacoes: e.target.value })} />}</Field>
         <p className="text-xs text-slate-500">Não coloque senhas, tokens nem dados de pagamento em nenhum campo.</p>
       </Section>
+      </Avancado>
 
       {errors.length > 0 && <Alert tone="error"><ul className="list-disc space-y-0.5 pl-4" data-testid="ads-erros">{errors.map((m) => <li key={m}>{m}</li>)}</ul></Alert>}
       <div className="sticky bottom-0 z-10 -mx-4 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
@@ -635,7 +659,7 @@ export function AdsBuilderPage() {
         <span className="flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white"><Wand2 className="size-5" aria-hidden /></span>
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold tracking-tight">Criador de Anúncios</h1>
-          <p className="mt-1 text-sm text-slate-500">Preencha uma vez, gere o pedido e cole no Claude, que cria os anúncios no Meta Ads. Esta página não cria nada no Meta.</p>
+          <p className="mt-1 text-sm text-slate-500">Escolha onde criar, preencha mídia, textos e destino, copie o pedido e cole no Claude. Esta página não cria nada no Meta.</p>
         </div>
         <span className="hidden sm:block"><Badge tone="brand">Só anúncios (por enquanto)</Badge></span>
       </div>
