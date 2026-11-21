@@ -21,6 +21,7 @@ function seed(db, consent = "nao_exigir") {
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
   await login(page, `/contatos?cliente=${CLI}`);
+  await page.getByRole("button", { name: "Ajustes", exact: true }).click();
   await page.getByRole("button", { name: "Formulários de outros sistemas" }).click();
   const modal = page.getByTestId("lead-forms");
   await modal.waitFor();
@@ -38,6 +39,7 @@ function seed(db, consent = "nao_exigir") {
   await page.getByRole("button", { name: "Fechar janela" }).click();
 
   // Lista de vendas não mostra o endereço de lead
+  await page.getByRole("button", { name: "Ajustes", exact: true }).click();
   await page.getByRole("button", { name: "Sistemas de venda" }).click();
   const sales = page.getByTestId("sales-systems");
   await sales.waitFor();
@@ -49,6 +51,7 @@ function seed(db, consent = "nao_exigir") {
     last_received_at: new Date().toISOString(), last_result: "teste" });
   db.salesLog.push({ id: 1, webhook_id: w.id, client_id: CLI, received_at: new Date().toISOString(), result: "teste", reason: "Modo teste: conferido e não registrado. Origem lida: utm_source, bf_c.",
     order_id: null, value_micros: null, currency: null, contact_found: null });
+  await page.getByRole("button", { name: "Ajustes", exact: true }).click();
   await page.getByRole("button", { name: "Formulários de outros sistemas" }).click();
   await modal.waitFor();
   check(await page.getByTestId("lead-key").count() === 0 && (await modal.innerText()).includes(`••••${w.key_hint}`), "reaberto: a chave não aparece mais");
@@ -77,6 +80,7 @@ function seed(db, consent = "nao_exigir") {
   const db = await mockSupabase(page, { role: "admin" });
   seed(db, "aguardar_consentimento");
   await login(page, `/contatos?cliente=${CLI}`);
+  await page.getByRole("button", { name: "Ajustes", exact: true }).click();
   await page.getByRole("button", { name: "Formulários de outros sistemas" }).click();
   const modal = page.getByTestId("lead-forms");
   await modal.getByLabel("Nome do formulário").fill("Responde");

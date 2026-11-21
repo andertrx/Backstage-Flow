@@ -1,6 +1,6 @@
 import { can, CHANNEL_LABELS, type Channel, EVIDENCE_LABELS, type Evidence, hashUserData, normalizeLeadPhone } from "@backstage/shared";
-import { Archive, ClipboardList, MessageSquareText, Plus, Search, Settings2, Store } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { Archive, ChevronDown, ClipboardList, type LucideIcon, MessageSquareText, Plus, Search, Settings2, Store } from "lucide-react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -53,6 +53,37 @@ function metaMessage(r: UpdateResult): string | null {
 
 /** Contatos dos clientes (Tracking T3.1): no lugar da planilha. Equipe da agência e vendedor do cliente. */
 /** `fixedClientId`: dentro da ficha do cliente (aba Contatos e vendas) a tela vale só para aquele cliente. */
+/** Os 4 ajustes do módulo (21/11/2026) ficam num botão só, para a lista de contatos ser a protagonista da tela. */
+function AjustesMenu({ items }: { items: { label: string; icon: LucideIcon; onClick: () => void }[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+  return (
+    <div className="relative" ref={ref}>
+      <Button variant="secondary" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)} data-testid="contatos-ajustes">
+        <Settings2 className="size-4" aria-hidden /> Ajustes <ChevronDown className="size-4" aria-hidden />
+      </Button>
+      {open && (
+        <div className="absolute right-0 top-full z-20 mt-1 w-72 rounded-xl bg-white p-1 shadow-xl ring-1 ring-slate-200" data-testid="contatos-ajustes-menu">
+          {items.map(({ label, icon: Icon, onClick }) => (
+            <button key={label} type="button" onClick={() => { setOpen(false); onClick(); }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
+              <Icon className="size-4 text-slate-500" aria-hidden /> {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ContactsPage({ fixedClientId }: { fixedClientId?: string } = {}) {
   const { profile } = useAuth();
   const canMark = can(profile?.role, "contacts.mark");
@@ -139,20 +170,12 @@ export function ContactsPage({ fixedClientId }: { fixedClientId?: string } = {})
           </p>
         </div>
         {canSetup && clientId && (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => setShowPhrases(true)}>
-              <MessageSquareText className="size-4" aria-hidden /> Frases do WhatsApp
-            </Button>
-            <Button variant="secondary" onClick={() => setShowLeadForms(true)}>
-              <ClipboardList className="size-4" aria-hidden /> Formulários de outros sistemas
-            </Button>
-            <Button variant="secondary" onClick={() => setShowSales(true)}>
-              <Store className="size-4" aria-hidden /> Sistemas de venda
-            </Button>
-            <Button variant="secondary" onClick={() => setShowSetup(true)}>
-              <Settings2 className="size-4" aria-hidden /> Perfis e etapas
-            </Button>
-          </div>
+          <AjustesMenu items={[
+            { label: "Frases do WhatsApp", icon: MessageSquareText, onClick: () => setShowPhrases(true) },
+            { label: "Formulários de outros sistemas", icon: ClipboardList, onClick: () => setShowLeadForms(true) },
+            { label: "Sistemas de venda", icon: Store, onClick: () => setShowSales(true) },
+            { label: "Perfis e etapas", icon: Settings2, onClick: () => setShowSetup(true) },
+          ]} />
         )}
       </div>
 

@@ -26,6 +26,7 @@ function seed(db) {
   await page.getByTestId("contact-row").first().waitFor();
   check((await page.getByTestId("contact-row").first().innerText()).includes("Sistema de vendas"), "contato criado pela venda aparece com a origem Sistema de vendas");
 
+  await page.getByRole("button", { name: "Ajustes", exact: true }).click();
   await page.getByRole("button", { name: "Sistemas de venda" }).click();
   const modal = page.getByTestId("sales-systems");
   await modal.waitFor();
@@ -50,6 +51,7 @@ function seed(db) {
     last_received_at: new Date().toISOString(), last_result: "teste" });
   db.salesLog.push({ id: 1, webhook_id: w.id, client_id: CLI, received_at: new Date().toISOString(), result: "teste", reason: "Modo teste: conferido e não registrado.",
     order_id: "1050", value_micros: 297500000, currency: "BRL", contact_found: null });
+  await page.getByRole("button", { name: "Ajustes", exact: true }).click();
   await page.getByRole("button", { name: "Sistemas de venda" }).click();
   await modal.waitFor();
   check(await page.getByTestId("sales-key").count() === 0 && (await modal.innerText()).includes(`••••${w.key_hint}`), "reaberto: a chave não aparece mais, só o final dela");

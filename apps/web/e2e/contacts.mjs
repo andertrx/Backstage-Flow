@@ -108,6 +108,7 @@ function seed(db) {
   await page.getByTestId("contact-row").first().getByText("Arquivado").waitFor();
   check(db.contacts[0].archived_at && db.contactHistory.some((h) => h.kind === "arquivado"), "admin arquiva (fica no histórico, não apaga)");
 
+  await page.getByRole("button", { name: "Ajustes", exact: true }).click();
   await page.getByRole("button", { name: "Perfis e etapas" }).click();
   await page.getByTestId("contacts-setup").waitFor();
   await page.getByLabel("Evento no Meta: Sacoleiro").fill("Lead Sacoleiro");

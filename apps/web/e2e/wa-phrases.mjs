@@ -21,6 +21,7 @@ const text = async (loc) => (await loc.innerText()).replace(/\s/g, " ");
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
   await login(page, `/contatos?cliente=${CLI}`);
+  await page.getByRole("button", { name: "Ajustes", exact: true }).click();
   await page.getByRole("button", { name: "Frases do WhatsApp" }).click();
   const modal = page.getByTestId("wa-phrases");
   await modal.waitFor();
@@ -69,6 +70,7 @@ const text = async (loc) => (await loc.innerText()).replace(/\s/g, " ");
   db.whatsappConnections.push({ id: "00000000-0000-4000-8000-0000000047c1", container_id: "t-cont", client_id: CLI, phone_number_id: "100000000000047",
     waba_id: "100000000000048", enabled: true });
   await page.getByRole("button", { name: "Fechar janela" }).click();
+  await page.getByRole("button", { name: "Ajustes", exact: true }).click();
   await page.getByRole("button", { name: "Frases do WhatsApp" }).click();
   await page.getByTestId("wa-phrase-log-row").first().waitFor();
   const row = await text(page.getByTestId("wa-phrase-log-row").first());
