@@ -134,3 +134,10 @@
 - [ ] **Publicar a função `wa-instance`** (fase A): `supabase.cmd functions deploy wa-instance --remote=dkatllzkmlzpginuzvis --use-api --yes`.
 - [x] (Feito em 16/11/2026) **Account Manager** conecta o WhatsApp dos clientes dele por um cartão na ficha do Onboarding, sem abrir o Tracking. Ele não cadastra o número: isso continua com administrador e gestor.
 - [ ] No primeiro teste real (Acollar): ter o **celular do cliente na mão** para ler o QR Code, e confirmar que o servidor de WhatsApp aceita mais um chip.
+
+## Fase C do WhatsApp por cliente, Criador e limpeza (21/11/2026)
+- [ ] **Rodar o teste SQL da Fase C** (`supabase/tests/wa_saude_clientes.sql`): ele mexe numa conexão real de WhatsApp dentro de uma transação que é desfeita. Depende de **aprovar o pedido na janela do Supabase** (expirou sem resposta nas tentativas de 21/11).
+- [ ] **Aplicar a limpeza técnica do banco** (`docs/etapa-34-tracking/pendente/limpeza_fila_e_log_do_meta.sql`): apaga só dados técnicos com mais de 90 dias (fila e registro de chamadas ao Meta já enviados/descartados; nunca compras, vendas, contatos, conversas, leads nem eventos do site). Aplicar como migração `limpeza_fila_e_log_do_meta` (e então mover o arquivo para `supabase/migrations/`). Se o Ander decidir não aplicar, apagar o arquivo.
+- [ ] Conferir no sino, na próxima vez que o WhatsApp de um cliente cair, se o aviso chega ao administrador e ao Account Manager (a função `wa-health` roda a cada 5 minutos e nunca foi chamada ao vivo daqui).
+- [ ] Decidir o futuro do **Criador de Anúncios** (hoje: opção A, só gera o pedido para o Claude). Próximo passo possível: criar os anúncios direto no Meta pelo CRM (fase própria, com aprovação detalhada).
+- [ ] Conhecido e antigo: o teste `ads-builder.mjs` falha de vez em quando (a busca no Meta é chamada duas vezes ao escolher a conta e a lista de Instagram às vezes vem incompleta no simulador).
