@@ -192,7 +192,7 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
         <>
           {(tab === "resumo" || tab === "origens") && (<Card className="grid gap-3 p-4" role="search" aria-label="Filtros do tracking">
             <label className="text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Período</span>
+              <span className="mb-1 block text-xs font-medium text-slate-500">Período</span>
               <Select value={period} onChange={(e) => set("periodo", e.target.value === "hoje" ? null : e.target.value)}>
                 {(Object.keys(PERIOD_LABELS) as PeriodPreset[]).map((p) => <option key={p} value={p}>{PERIOD_LABELS[p]}</option>)}
               </Select>
