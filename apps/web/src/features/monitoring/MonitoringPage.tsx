@@ -251,7 +251,7 @@ function Overview({ onOpenSettings, onOpenAlerts }: { onOpenSettings: () => void
         )}
         {can(profile?.role, "sync.run") && problems.length > 0 && (
           <p className="text-xs text-slate-500">
-            Para tentar de novo, use <Link className="font-medium text-brand-700 hover:underline" to="/sincronizacao">Sincronização</Link>.
+            Para tentar de novo, use <Link className="font-medium text-brand-700 hover:underline" to="/configuracoes/sincronizacao">Sincronização</Link>.
           </p>
         )}
       </section>

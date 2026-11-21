@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gruposRecolhidosPadrao, menuPorPapel, NAV_ITEMS, navGroupsFor, navItemForPath, navItemsFor } from "./navigation.ts";
+import { gruposRecolhidosPadrao, menuPorPapel, NAV_ITEMS, navGroupsFor, navItemForPath, navItemsFor, settingsTabsFor } from "./navigation.ts";
 
 const labels = (role: Parameters<typeof navItemsFor>[0]) => navItemsFor(role).map((i) => i.label);
 
@@ -8,11 +8,18 @@ describe("menu lateral", () => {
     expect(navItemsFor("admin")).toHaveLength(NAV_ITEMS.filter((i) => !i.hiddenFor?.includes("admin")).length);
   });
 
-  it("somente administrador vê Configurações", () => {
+  it("Configurações (unificada, 21/11): admin vê todas as abas; gestor e operador veem Sincronização (e Logs o gestor); equipe e cliente não veem", () => {
+    const abas = (role: Parameters<typeof navItemsFor>[0], ops?: string[]) => settingsTabsFor(role, ops).map((t) => t.label);
     expect(labels("admin")).toContain("Configurações");
-    for (const role of ["gestor", "operador", "visualizador", "equipe", "cliente"] as const) {
-      expect(labels(role)).not.toContain("Configurações");
-    }
+    expect(abas("admin")).toEqual(["Usuários", "Integrações", "Papéis e permissões", "Central de Operações", "Sincronização", "Logs"]);
+    expect(abas("gestor")).toEqual(["Sincronização", "Logs"]);
+    expect(abas("operador")).toEqual(["Sincronização"]);
+    expect(abas("equipe", ["ops.access"])).toEqual([]);
+    expect(abas("cliente")).toEqual([]);
+    expect(abas("gestor", ["ops.admin"])).toContain("Central de Operações");
+    expect(labels("equipe")).not.toContain("Configurações");
+    expect(labels("cliente")).not.toContain("Configurações");
+    for (const antigo of ["Sincronização", "Logs", "Configurações da Central"]) expect(labels("admin")).not.toContain(antigo);
   });
 
   it("cliente vê apenas o Dashboard", () => {
@@ -56,17 +63,13 @@ describe("menu lateral", () => {
     expect(nomes.indexOf("Criar campanhas")).toBe(nomes.indexOf("Campanhas") + 1);
   });
 
-  it("operador não vê Logs", () => {
-    expect(labels("operador")).not.toContain("Logs");
-    expect(labels("gestor")).toContain("Logs");
-  });
 });
 
 describe("grupos do menu", () => {
   it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36; Monitoramento antes de Alertas na Etapa 37; Inteligência de Resultados depois de Monitoramento na Etapa 39; Criador de Anúncios depois de Campanhas na Etapa 42; Reuniões, Comercial e Envios semanais depois da Central na 43.6/43.7)", () => {
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
-      "Dashboard", "Clientes", "Contas de anúncio", "Painel operacional", "Central de Operações", "Reuniões", "Onboarding", "Comercial", "Contatos", "Envios semanais", "Notificações", "Vendas sugeridas", "Configurações da Central", "Meta Ads", "Google Ads", "Campanhas", "Criar campanhas", "Criador de Anúncios",
-      "Relatórios", "Monitoramento", "Resultados", "Alertas", "Tracking", "Sincronização", "Logs", "Configurações",
+      "Dashboard", "Clientes", "Contas de anúncio", "Painel operacional", "Central de Operações", "Reuniões", "Onboarding", "Comercial", "Contatos", "Envios semanais", "Notificações", "Vendas sugeridas", "Meta Ads", "Google Ads", "Campanhas", "Criar campanhas", "Criador de Anúncios",
+      "Relatórios", "Monitoramento", "Resultados", "Alertas", "Tracking", "Configurações",
     ]);
   });
 
@@ -97,13 +100,12 @@ describe("mapa do menu por papel (43.3)", () => {
     expect(equipe.central).toBe("com_permissao");
     expect(equipe.groups.flatMap((g) => g.items)).toEqual(["Vendas sugeridas"]);
   });
-  it("visualizador não vê Relatórios nem Criador de Anúncios; gestor vê Logs mas não Configurações", () => {
+  it("visualizador não vê Relatórios nem Criador de Anúncios; gestor vê Configurações (só as abas Sincronização e Logs)", () => {
     const vis = menuPorPapel("visualizador").groups.flatMap((g) => g.items);
     expect(vis).not.toContain("Relatórios");
     expect(vis).not.toContain("Criador de Anúncios");
     const gestor = menuPorPapel("gestor").groups.flatMap((g) => g.items);
-    expect(gestor).toContain("Logs");
-    expect(gestor).not.toContain("Configurações");
+    expect(gestor).toContain("Configurações");
   });
   it("vendedor e cliente nunca têm a Central", () => {
     expect(menuPorPapel("vendedor").central).toBe("nunca");

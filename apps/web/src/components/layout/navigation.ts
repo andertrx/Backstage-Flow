@@ -14,8 +14,6 @@ import {
   LayoutDashboard,
   type LucideIcon,
   Radar,
-  RefreshCw,
-  ScrollText,
   Send,
   Settings,
   Target,
@@ -41,6 +39,25 @@ export interface NavItem {
   ops?: boolean;
   /** 43.6: módulo separado da Central (Comercial, Envios semanais): aparece para quem tem esta permissão da Central. */
   opsPermission?: OpsPermission;
+  /** Configurações unificadas: aparece para quem pode abrir pelo menos uma aba. */
+  anySettingsTab?: boolean;
+}
+
+export interface SettingsTab {
+  to: string;
+  label: string;
+}
+
+/** Abas de Configurações que a pessoa pode abrir (cada aba mantém a permissão que a tela já exigia). */
+export function settingsTabsFor(role: Role | null | undefined, opsPermissions?: readonly string[] | null): SettingsTab[] {
+  const tabs: SettingsTab[] = [];
+  if (can(role, "settings.manage")) {
+    tabs.push({ to: "/configuracoes/usuarios", label: "Usuários" }, { to: "/configuracoes/integracoes", label: "Integrações" }, { to: "/configuracoes/permissoes", label: "Papéis e permissões" });
+  }
+  if (role === "admin" || (role !== "cliente" && role !== "vendedor" && opsCan(opsPermissions, "ops.admin"))) tabs.push({ to: "/configuracoes/central", label: "Central de Operações" });
+  if (can(role, "internal.view")) tabs.push({ to: "/configuracoes/sincronizacao", label: "Sincronização" });
+  if (can(role, "logs.view")) tabs.push({ to: "/configuracoes/logs", label: "Logs" });
+  return tabs;
 }
 
 /** Menu lateral, na ordem pedida na Etapa 21. */
@@ -60,7 +77,6 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Notificações", path: "/notificacoes", icon: Bell, group: "Operações", opsPermission: "ops.access" },
   // T5.6: só para quem não tem o Tracking (papel Equipe): as vendas sugeridas dos clientes em que é Account Manager. Os demais veem na aba do Tracking.
   { label: "Vendas sugeridas", path: "/vendas-sugeridas", icon: Handshake, group: "Operações", permission: "tracking.suggestions", hiddenFor: ["admin", "gestor", "operador", "visualizador"] },
-  { label: "Configurações da Central", path: "/config-central", icon: Settings, group: "Operações", opsPermission: "ops.admin" },
   // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...), na ordem do catálogo.
   ...PLATFORMS.map((p): NavItem => ({ label: p.name, path: p.path, icon: platformLook(p.id).icon, group: "Anúncios", permission: "internal.view" })),
   { label: "Campanhas", path: "/campanhas", icon: Target, group: "Anúncios", permission: "internal.view" },
@@ -73,9 +89,9 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Resultados", path: "/inteligencia-resultados", icon: ChartPie, group: "Análise", permission: "results.view" },
   { label: "Alertas", path: "/alertas", icon: Bell, group: "Análise", permission: "internal.view" },
   { label: "Tracking", path: "/tracking", icon: Radar, group: "Análise", permission: "tracking.view" },
-  { label: "Sincronização", path: "/sincronizacao", icon: RefreshCw, group: "Sistema", permission: "internal.view" },
-  { label: "Logs", path: "/logs", icon: ScrollText, group: "Sistema", permission: "logs.view" },
-  { label: "Configurações", path: "/configuracoes", icon: Settings, group: "Sistema", permission: "users.manage" },
+  // 21/11/2026 (aprovado pelo Ander): Configurações unificada. Sincronização, Logs e Configurações da Central viraram abas aqui dentro.
+  // Aparece para quem pode abrir pelo menos uma das abas (ver settingsTabsFor).
+  { label: "Configurações", path: "/configuracoes", icon: Settings, group: "Sistema", anySettingsTab: true },
 ];
 
 /** opsPermissions = permissões da Central (Etapa 36) de quem está logado. */
@@ -84,6 +100,7 @@ export function navItemsFor(role: Role | null | undefined, opsPermissions?: read
     if (role && item.hiddenFor?.includes(role)) return false;
     if (item.ops) return role === "admin" || (role !== "cliente" && role !== "vendedor" && opsCan(opsPermissions, "ops.access"));
     if (item.opsPermission) return role === "admin" || (role !== "cliente" && role !== "vendedor" && opsCan(opsPermissions, item.opsPermission));
+    if (item.anySettingsTab) return settingsTabsFor(role, opsPermissions).length > 0;
     return !item.permission || can(role, item.permission);
   });
 }

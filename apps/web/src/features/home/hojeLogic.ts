@@ -59,7 +59,7 @@ export function buildHojeItems(i: HojeInputs): HojeItem[] {
     out.push({
       id: "sync", tone: "warning", count: i.contasComErroDeSync,
       title: `${i.contasComErroDeSync} ${plural(i.contasComErroDeSync, "conta com erro de sincronização", "contas com erro de sincronização")}`,
-      detail: "Os números dessas contas podem estar desatualizados.", to: "/sincronizacao", cta: "Ver sincronização",
+      detail: "Os números dessas contas podem estar desatualizados.", to: "/configuracoes/sincronizacao", cta: "Ver sincronização",
     });
   }
   if (i.tarefasVencidas) {

@@ -100,7 +100,8 @@ async function waitFor(fn, ms = 5000) {
   await login(page, "/clientes");
   await page.getByRole("heading", { name: "Clientes", level: 1 }).waitFor();
   await page.route(/\/assets\/LogsPage-.*\.js$/, (route) => route.abort());
-  await page.getByRole("link", { name: "Logs" }).first().click();
+  await page.getByRole("link", { name: "Configurações", exact: true }).first().click();
+  await page.getByRole("navigation", { name: "Configurações" }).getByRole("link", { name: "Logs" }).click();
   await page.getByTestId("error-fallback").waitFor({ timeout: 8000 });
   const text = clean(await page.getByTestId("error-fallback").innerText());
   check(text.includes("O sistema foi atualizado") && (await page.getByRole("button", { name: "Recarregar a página" }).count()) === 1,

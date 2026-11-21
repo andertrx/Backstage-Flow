@@ -169,7 +169,7 @@ export function HojePage() {
               {[
                 { label: "Contas ativas", value: balance.total === 0 && !balances.isLoading ? 0 : new Set(balanceRows.map((r) => r.ad_account_id)).size, to: "/contas", hint: "de clientes ativos" },
                 { label: "Saldo em alerta", value: balance.alerts, to: "/contas", hint: `${balance.critical} crítica${balance.critical === 1 ? "" : "s"}`, bad: balance.alerts > 0 },
-                { label: "Com erro de sincronização", value: syncErrors, to: "/sincronizacao", hint: syncErrors ? "dados podem estar velhos" : "tudo sincronizando", bad: syncErrors > 0 },
+                { label: "Com erro de sincronização", value: syncErrors, to: "/configuracoes/sincronizacao", hint: syncErrors ? "dados podem estar velhos" : "tudo sincronizando", bad: syncErrors > 0 },
               ].map((s) => (
                 <Link key={s.label} to={s.to} className="p-4 transition hover:bg-slate-50">
                   <p className="text-sm text-slate-500">{s.label}</p>

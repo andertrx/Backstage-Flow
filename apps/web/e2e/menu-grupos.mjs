@@ -2,7 +2,7 @@
 import { check, launch, login, mockSupabase } from "./support.mjs";
 
 async function sistemaVisivel(page) {
-  return page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Sincronização" }).isVisible();
+  return page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Configurações", exact: true }).isVisible();
 }
 // Gestor: Sistema começa recolhido, mas nada é retirado
 {
@@ -16,15 +16,15 @@ async function sistemaVisivel(page) {
   const grupos = (await nav.locator('[data-testid="nav-group-toggle"]').allInnerTexts()).map((g) => g.trim().toLowerCase());
   check(JSON.stringify(grupos) === JSON.stringify(["visão geral", "operações", "anúncios", "análise", "sistema"]), `ordem dos grupos intacta (${grupos.join(", ")})`);
   await toggle.click();
-  check(await sistemaVisivel(page), "abrir mostra Sincronização e Logs");
+  check(await sistemaVisivel(page), "abrir mostra Configurações (com Sincronização e Logs dentro)");
   await page.reload();
   await nav.getByRole("link", { name: "Clientes" }).waitFor();
   check(await sistemaVisivel(page), "a escolha da pessoa é lembrada depois de recarregar");
   await toggle.click();
   check(!(await sistemaVisivel(page)), "fechar de novo esconde");
   // o grupo da tela aberta nunca fica escondido
-  await page.goto(page.url().replace(/\/$/, "") + "/sincronizacao");
-  await nav.getByRole("link", { name: "Sincronização" }).waitFor();
+  await page.goto(page.url().replace(/\/$/, "") + "/configuracoes/sincronizacao");
+  await nav.getByRole("link", { name: "Configurações", exact: true }).waitFor();
   check(await sistemaVisivel(page), "na tela de Sincronização o grupo Sistema aparece aberto");
   check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);
   await browser.close();

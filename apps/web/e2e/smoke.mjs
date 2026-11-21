@@ -34,7 +34,7 @@ await page.getByRole("link", { name: "Dashboard" }).click();
 await page.getByText("Olá, Ander!").waitFor();
 check(true, "dashboard mostra saudação e papel");
 const menu = await page.getByRole("navigation", { name: "Menu principal" }).first().innerText();
-check(menu.includes("Configurações") && menu.includes("Logs"), "admin vê o menu completo");
+check(menu.includes("Configurações"), "admin vê o menu completo");
 await page.screenshot({ path: `${SP}/03-dashboard.png` });
 
 await page.reload();

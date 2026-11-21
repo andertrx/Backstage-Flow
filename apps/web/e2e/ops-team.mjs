@@ -17,7 +17,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   const nav = page.getByRole("navigation", { name: "Menu principal" }).first();
   const labels = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim().split("\n")[0]);
   // 43.8: grupo Operações em ordem: Comercial, Onboarding, Central de Operações, Reuniões, Envios semanais
-  check(labels.indexOf("Painel operacional") === labels.indexOf("Contas de anúncio") + 1 && labels.indexOf("Central de Operações") === labels.indexOf("Painel operacional") + 1 && labels.indexOf("Reuniões") === labels.indexOf("Central de Operações") + 1 && labels.indexOf("Onboarding") === labels.indexOf("Reuniões") + 1 && labels.indexOf("Comercial") === labels.indexOf("Onboarding") + 1 && labels.indexOf("Contatos") === labels.indexOf("Comercial") + 1 && labels.indexOf("Envios semanais") === labels.indexOf("Contatos") + 1 && labels.indexOf("Notificações") === labels.indexOf("Envios semanais") + 1 && labels.indexOf("Configurações da Central") === labels.indexOf("Notificações") + 1, "grupo Operações na ordem do dia a dia (21/11)");
+  check(labels.indexOf("Painel operacional") === labels.indexOf("Contas de anúncio") + 1 && labels.indexOf("Central de Operações") === labels.indexOf("Painel operacional") + 1 && labels.indexOf("Reuniões") === labels.indexOf("Central de Operações") + 1 && labels.indexOf("Onboarding") === labels.indexOf("Reuniões") + 1 && labels.indexOf("Comercial") === labels.indexOf("Onboarding") + 1 && labels.indexOf("Contatos") === labels.indexOf("Comercial") + 1 && labels.indexOf("Envios semanais") === labels.indexOf("Contatos") + 1 && labels.indexOf("Notificações") === labels.indexOf("Envios semanais") + 1, "grupo Operações na ordem do dia a dia (21/11)");
   check((await nav.innerText()).includes("OPERAÇÕES") || (await nav.innerText()).includes("Operações"), "grupo Operações no menu");
 
   await nav.getByRole("link", { name: "Central de Operações" }).click();
@@ -30,7 +30,8 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   check(await page.getByRole("heading", { name: "Central de Operações", level: 1 }).count() === 1, "abre a Central em Minhas tarefas");
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
   check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Arquivados e excluídos"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
-  await page.getByRole("link", { name: "Configurações da Central" }).click(); // 50.7: Equipe fica dentro das configurações da Central
+  await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Configurações", exact: true }).click();
+  await page.getByRole("navigation", { name: "Configurações" }).getByRole("link", { name: "Central de Operações" }).click(); // 50.7: Equipe fica dentro das configurações da Central
   await page.getByTestId("ops-team").waitFor();
   // Espera a lista carregar antes de ler o texto (sem isso, às vezes lia a tela ainda vazia).
   await page.getByTestId("ops-team").getByText("Maria Gestora").first().waitFor();

@@ -7,7 +7,7 @@ import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/featu
 import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
 import { PLATFORM_VIEW_LIST } from "@/features/platforms/logic.ts";
-import { SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
+import { SettingsIndex, SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
 import { ClientHomeOr, RequireReportAccess } from "@/features/client-report/ClientHome.tsx";
 import { RouteError } from "./RouteError.tsx";
 import { can } from "@backstage/shared";
@@ -256,8 +256,8 @@ export const router = createBrowserRouter([
           { path: "clientes", element: <RedirectKeep to="/onboarding" /> },
           // 38.2: as Filas ficam dentro de Operação (links antigos continuam funcionando).
           { path: "filas", element: <Navigate to="/onboarding?ver=filas" replace /> },
-          { path: "equipe", element: <RedirectKeep to="/config-central?ver=equipe" /> },
-          { path: "configuracoes", element: <RedirectKeep to="/config-central" /> },
+          { path: "equipe", element: <RedirectKeep to="/configuracoes/central?ver=equipe" /> },
+          { path: "configuracoes", element: <RedirectKeep to="/configuracoes/central" /> },
         ],
       },
       // 43.6: módulos separados da Central de Operações (mesmas telas e permissões).
@@ -277,14 +277,9 @@ export const router = createBrowserRouter([
           </OpsStandalone>
         ),
       },
-      {
-        path: "config-central",
-        element: (
-          <OpsStandalone title="Configurações da Central" description="Setores, status, etapas do onboarding, tarefas padrão, filas e tipos de reunião. Separado da Central de Operações.">
-            <OpsSettingsPage />
-          </OpsStandalone>
-        ),
-      },
+      { path: "config-central", element: <RedirectKeep to="/configuracoes/central" /> },
+      { path: "sincronizacao", element: <RedirectKeep to="/configuracoes/sincronizacao" /> },
+      { path: "logs", element: <RedirectKeep to="/configuracoes/logs" /> },
       {
         path: "onboarding",
         element: (
@@ -352,26 +347,10 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "sincronizacao",
-        element: (
-          <RequirePermission permission="internal.view">
-            <SyncPage />
-          </RequirePermission>
-        ),
-      },
-      {
         path: "relatorios",
         element: (
           <RequirePermission permission="reports.generate">
             <ReportsPage />
-          </RequirePermission>
-        ),
-      },
-      {
-        path: "logs",
-        element: (
-          <RequirePermission permission="logs.view">
-            <LogsPage />
           </RequirePermission>
         ),
       },
@@ -386,16 +365,24 @@ export const router = createBrowserRouter([
       {
         path: "configuracoes",
         element: (
-          <RequirePermission permission="settings.manage">
-            <SettingsLayout />
-          </RequirePermission>
+          <SettingsLayout />
         ),
         children: [
-          { index: true, element: <Navigate to="/configuracoes/usuarios" replace /> },
-          { path: "usuarios", element: <UsersPage /> },
-          { path: "integracoes", element: <IntegrationsPage /> },
-          { path: "integracoes/google/callback", element: <GoogleCallbackPage /> },
-          { path: "permissoes", element: <PermissionsPage /> },
+          { index: true, element: <SettingsIndex /> },
+          { path: "usuarios", element: <RequirePermission permission="settings.manage"><UsersPage /></RequirePermission> },
+          { path: "integracoes", element: <RequirePermission permission="settings.manage"><IntegrationsPage /></RequirePermission> },
+          { path: "integracoes/google/callback", element: <RequirePermission permission="settings.manage"><GoogleCallbackPage /></RequirePermission> },
+          { path: "permissoes", element: <RequirePermission permission="settings.manage"><PermissionsPage /></RequirePermission> },
+          {
+            path: "central",
+            element: (
+              <OpsStandalone title="Configurações da Central" description="Setores, status, etapas do onboarding, tarefas padrão, filas e tipos de reunião.">
+                <OpsSettingsPage />
+              </OpsStandalone>
+            ),
+          },
+          { path: "sincronizacao", element: <RequirePermission permission="internal.view"><SyncPage /></RequirePermission> },
+          { path: "logs", element: <RequirePermission permission="logs.view"><LogsPage /></RequirePermission> },
         ],
       },
       { path: "*", element: <Navigate to="/" replace /> },

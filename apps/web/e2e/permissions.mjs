@@ -52,9 +52,9 @@ const ROUTES = [
   ["/relatorios", "Relatórios", ["admin", "gestor", "operador"]],
   ["/alertas", "Alertas", ["admin", "gestor", "operador", "visualizador"]],
   ["/tracking", "Tracking", ["admin", "gestor", "operador", "visualizador"]],
-  ["/sincronizacao", "Sincronização", ["admin", "gestor", "operador", "visualizador"]],
-  ["/logs", "Logs", ["admin", "gestor"]],
-  ["/configuracoes/usuarios", "Configurações", ["admin"]],
+  ["/configuracoes/sincronizacao", null, ["admin", "gestor", "operador", "visualizador"]],
+  ["/configuracoes/logs", null, ["admin", "gestor"]],
+  ["/configuracoes/usuarios", null, ["admin"]],
   ["/configuracoes/permissoes", null, ["admin"]],
 ];
 

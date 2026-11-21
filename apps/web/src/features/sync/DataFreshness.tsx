@@ -72,7 +72,7 @@ export function DataFreshness({ clientId = null, platform = null, accountId = nu
       <>
         {stale.length} {stale.length === 1 ? "conta está" : "contas estão"} com dados antigos ({never ? `${never} nunca sincronizada${never === 1 ? "" : "s"}` : age})
         {canRun ? (run.error ? ": não conseguimos atualizar agora, mostramos o que está guardado." : ".") : ": a atualização automática está atrasada."}{" "}
-        <Link to="/sincronizacao" className="font-medium underline">Ver sincronização</Link>
+        <Link to="/configuracoes/sincronizacao" className="font-medium underline">Ver sincronização</Link>
       </>
     );
   } else {

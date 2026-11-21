@@ -165,7 +165,8 @@ async function dragTo(page, card, column) {
   await page.screenshot({ path: `${SHOTS}/ops-minhas-tarefas.png`, fullPage: true });
 
   // Equipe: contagens
-  await page.getByRole("link", { name: "Configurações da Central" }).click(); // 50.7: Equipe dentro das configurações
+  await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Configurações", exact: true }).click();
+  await page.getByRole("navigation", { name: "Configurações" }).getByRole("link", { name: "Central de Operações" }).click(); // 50.7: Equipe dentro das configurações
   await page.getByTestId("ops-team").waitFor();
   const maria = page.getByTestId("ops-team-row").filter({ hasText: "Maria Gestora" });
   await maria.getByText("1 abertas").waitFor();
