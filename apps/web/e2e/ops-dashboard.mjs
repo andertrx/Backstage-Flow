@@ -59,7 +59,7 @@ function seed(db) {
   await page.waitForURL("**/painel");
   await page.getByTestId("ops-dash-cards").waitFor();
   check(await page.getByRole("navigation", { name: "Central de Operações" }).count() === 0, "07/11: o Painel tem menu próprio, fora da Central");
-  check(await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Painel" }).count() === 1, "Painel no menu lateral");
+  check(await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Painel operacional" }).count() === 1, "Painel operacional no menu lateral");
 
   const card = async (id) => (await page.getByTestId(id).locator("p").nth(1).innerText()).trim();
   check(await card("ops-dash-abertas") === "4" && await card("ops-dash-atrasadas") === "1" && await card("ops-dash-hoje") === "1"
@@ -153,7 +153,7 @@ function seed(db) {
     permissions: ["ops.access", "ops.tasks.create"] };
   await login(page, "/operacoes/painel");
   await page.waitForURL("**/operacoes/minhas-tarefas");
-  check(await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Painel", exact: true }).count() === 0, "sem o item Painel no menu (sem a permissão)");
+  check(await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Painel operacional", exact: true }).count() === 0, "sem o item Painel operacional no menu (sem a permissão)");
   const search = page.getByRole("combobox", { name: "Buscar na Central" });
   await search.fill("parado");
   await page.getByTestId("ops-search-empty").waitFor();

@@ -67,7 +67,7 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   await card.screenshot({ path: `${SHOTS}/39.1-integracao.png` });
 
   // Menu e página
-  await page.getByRole("link", { name: "Inteligência de Resultados" }).click();
+  await page.getByRole("link", { name: "Resultados", exact: true }).click();
   await page.getByRole("heading", { name: "Inteligência de Resultados" }).waitFor();
   check(page.url().endsWith("/inteligencia-resultados"), "item no menu abre o módulo");
   await page.getByLabel("Cliente", { exact: true }).selectOption({ label: "Excalibur Moda" });
@@ -169,7 +169,7 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   const db = await mockSupabase(page, { role: "cliente" });
   seed(db, { withKey: true, withSource: true });
   await login(page, "/");
-  check(await page.getByRole("link", { name: "Inteligência de Resultados" }).count() === 0, "cliente não vê o item no menu");
+  check(await page.getByRole("link", { name: "Resultados", exact: true }).count() === 0, "cliente não vê o item no menu");
   await browser.close();
 }
 

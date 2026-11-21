@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarDays,
   ChartPie,
+  ContactRound,
   Handshake,
   FileBarChart,
   FilePlus2,
@@ -46,18 +47,19 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard, group: "Visão geral", hiddenFor: ["equipe", "vendedor"] },
   { label: "Clientes", path: "/clientes", icon: Building2, group: "Visão geral", permission: "clients.view" },
-  { label: "Contas", path: "/contas", icon: Wallet, group: "Visão geral", permission: "internal.view" },
-  // 43.6/43.7/43.8: Comercial, Onboarding, Reuniões e Envios semanais saíram de dentro da Central e têm menu próprio
-  // (as telas e as permissões são as mesmas). Ordem pedida pelo Ander: Painel → Comercial → Onboarding → Central de Operações → Notificações → Reuniões → Envios semanais → Configurações da Central (11/11: Envios e Configurações trocaram de lugar).
-  { label: "Painel", path: "/painel", icon: Gauge, group: "Operações", opsPermission: "ops.dashboard.view" },
-  { label: "Comercial", path: "/comercial", icon: Handshake, group: "Operações", opsPermission: "ops.commercial" },
-  { label: "Onboarding", path: "/onboarding", icon: UserRoundCheck, group: "Operações", opsPermission: "ops.access" },
+  { label: "Contas de anúncio", path: "/contas", icon: Wallet, group: "Visão geral", permission: "internal.view" },
+  // 21/11/2026 (aprovado pelo Ander): Operações na ordem do dia a dia; "Painel" virou "Painel operacional" (não confundir com o Dashboard de anúncios);
+  // Contatos ganhou item próprio (antes só se achava dentro do Tracking). O Vendedor continua sem menu (entra direto nos Contatos).
+  { label: "Painel operacional", path: "/painel", icon: Gauge, group: "Operações", opsPermission: "ops.dashboard.view" },
   { label: "Central de Operações", path: "/operacoes", icon: KanbanSquare, group: "Operações", ops: true },
-  { label: "Notificações", path: "/notificacoes", icon: Bell, group: "Operações", opsPermission: "ops.access" },
   { label: "Reuniões", path: "/reunioes", icon: CalendarDays, group: "Operações", opsPermission: "ops.access" },
+  { label: "Onboarding", path: "/onboarding", icon: UserRoundCheck, group: "Operações", opsPermission: "ops.access" },
+  { label: "Comercial", path: "/comercial", icon: Handshake, group: "Operações", opsPermission: "ops.commercial" },
+  { label: "Contatos", path: "/contatos", icon: ContactRound, group: "Operações", permission: "contacts.view", hiddenFor: ["vendedor"] },
+  { label: "Envios semanais", path: "/envios", icon: Send, group: "Operações", opsPermission: "ops.envios" },
+  { label: "Notificações", path: "/notificacoes", icon: Bell, group: "Operações", opsPermission: "ops.access" },
   // T5.6: só para quem não tem o Tracking (papel Equipe): as vendas sugeridas dos clientes em que é Account Manager. Os demais veem na aba do Tracking.
   { label: "Vendas sugeridas", path: "/vendas-sugeridas", icon: Handshake, group: "Operações", permission: "tracking.suggestions", hiddenFor: ["admin", "gestor", "operador", "visualizador"] },
-  { label: "Envios semanais", path: "/envios", icon: Send, group: "Operações", opsPermission: "ops.envios" },
   { label: "Configurações da Central", path: "/config-central", icon: Settings, group: "Operações", opsPermission: "ops.admin" },
   // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...), na ordem do catálogo.
   ...PLATFORMS.map((p): NavItem => ({ label: p.name, path: p.path, icon: platformLook(p.id).icon, group: "Anúncios", permission: "internal.view" })),
@@ -68,7 +70,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Criador de Anúncios", path: "/criador-de-anuncios", icon: Wand2, group: "Anúncios", permission: "ads.builder" },
   { label: "Relatórios", path: "/relatorios", icon: FileBarChart, group: "Análise", permission: "reports.generate" },
   { label: "Monitoramento", path: "/monitoramento", icon: Activity, group: "Análise", permission: "monitor.view" },
-  { label: "Inteligência de Resultados", path: "/inteligencia-resultados", icon: ChartPie, group: "Análise", permission: "results.view" },
+  { label: "Resultados", path: "/inteligencia-resultados", icon: ChartPie, group: "Análise", permission: "results.view" },
   { label: "Alertas", path: "/alertas", icon: Bell, group: "Análise", permission: "internal.view" },
   { label: "Tracking", path: "/tracking", icon: Radar, group: "Análise", permission: "tracking.view" },
   { label: "Sincronização", path: "/sincronizacao", icon: RefreshCw, group: "Sistema", permission: "internal.view" },

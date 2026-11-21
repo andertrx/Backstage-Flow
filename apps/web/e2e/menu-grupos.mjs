@@ -14,7 +14,7 @@ async function sistemaVisivel(page) {
   const toggle = nav.locator('[data-testid="nav-group-toggle"][data-group="Sistema"]');
   check(await toggle.getAttribute("aria-expanded") === "false" && !(await sistemaVisivel(page)), "gestor: grupo Sistema começa recolhido");
   const grupos = (await nav.locator('[data-testid="nav-group-toggle"]').allInnerTexts()).map((g) => g.trim().toLowerCase());
-  check(JSON.stringify(grupos) === JSON.stringify(["visão geral", "anúncios", "análise", "sistema"]), `ordem dos grupos intacta (${grupos.join(", ")})`);
+  check(JSON.stringify(grupos) === JSON.stringify(["visão geral", "operações", "anúncios", "análise", "sistema"]), `ordem dos grupos intacta (${grupos.join(", ")})`);
   await toggle.click();
   check(await sistemaVisivel(page), "abrir mostra Sincronização e Logs");
   await page.reload();

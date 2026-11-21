@@ -29,13 +29,19 @@ describe("menu lateral", () => {
 
   it("papel Equipe vê só Onboarding, Central de Operações, Notificações, Reuniões e (T5.6) Vendas sugeridas", () => {
     expect(labels("equipe")).toEqual(["Vendas sugeridas"]);
-    expect(navItemsFor("equipe", ["ops.access"]).map((i) => i.label)).toEqual(["Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas"]);
+    expect(navItemsFor("equipe", ["ops.access"]).map((i) => i.label)).toEqual(["Central de Operações", "Reuniões", "Onboarding", "Notificações", "Vendas sugeridas"]);
     for (const r of ["admin", "gestor", "operador", "visualizador"] as const) expect(labels(r)).not.toContain("Vendas sugeridas"); // esses veem na aba do Tracking
   });
 
   it("papel Vendedor (T3.1) não vê nenhum item do menu: só a tela de Contatos, que abre sozinha", () => {
     expect(labels("vendedor")).toEqual([]);
     expect(navItemsFor("vendedor", ["ops.access"]).map((i) => i.label)).toEqual([]);
+  });
+
+  it("Contatos no menu (21/11): admin, gestor, operador e visualizador; o Vendedor continua sem menu (abre direto nos Contatos)", () => {
+    for (const r of ["admin", "gestor", "operador", "visualizador"] as const) expect(labels(r)).toContain("Contatos");
+    for (const r of ["equipe", "vendedor", "cliente"] as const) expect(labels(r)).not.toContain("Contatos");
+    expect(navItemForPath("/contatos")?.label).toBe("Contatos");
   });
 
   it("Criador de Anúncios: administrador, gestor e operador (Etapa 42)", () => {
@@ -59,8 +65,8 @@ describe("menu lateral", () => {
 describe("grupos do menu", () => {
   it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36; Monitoramento antes de Alertas na Etapa 37; Inteligência de Resultados depois de Monitoramento na Etapa 39; Criador de Anúncios depois de Campanhas na Etapa 42; Reuniões, Comercial e Envios semanais depois da Central na 43.6/43.7)", () => {
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
-      "Dashboard", "Clientes", "Contas", "Painel", "Comercial", "Onboarding", "Central de Operações", "Notificações", "Reuniões", "Vendas sugeridas", "Envios semanais", "Configurações da Central", "Meta Ads", "Google Ads", "Campanhas", "Criar campanhas", "Criador de Anúncios",
-      "Relatórios", "Monitoramento", "Inteligência de Resultados", "Alertas", "Tracking", "Sincronização", "Logs", "Configurações",
+      "Dashboard", "Clientes", "Contas de anúncio", "Painel operacional", "Central de Operações", "Reuniões", "Onboarding", "Comercial", "Contatos", "Envios semanais", "Notificações", "Vendas sugeridas", "Configurações da Central", "Meta Ads", "Google Ads", "Campanhas", "Criar campanhas", "Criador de Anúncios",
+      "Relatórios", "Monitoramento", "Resultados", "Alertas", "Tracking", "Sincronização", "Logs", "Configurações",
     ]);
   });
 
@@ -105,7 +111,7 @@ describe("mapa do menu por papel (43.3)", () => {
   });
   it("a ordem dos grupos do menu continua a mesma", () => {
     const grupos = menuPorPapel("admin").groups.map((g) => g.group);
-    expect(grupos).toEqual(["Visão geral", "Anúncios", "Análise", "Sistema"]);
+    expect(grupos).toEqual(["Visão geral", "Operações", "Anúncios", "Análise", "Sistema"]); // Operações aparece porque Contatos (21/11) não depende da permissão da Central
   });
 });
 

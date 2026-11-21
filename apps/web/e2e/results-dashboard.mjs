@@ -171,7 +171,7 @@ const rankNames = async (page) => (await page.getByTestId("ri-ranking-row").allI
   seed(db);
   db.access.push({ user_id: USER_ID, client_id: EXC, created_at: "" });
   await login(page, "/");
-  check(await page.getByRole("link", { name: "Inteligência de Resultados" }).count() === 0, "cliente não vê o módulo");
+  check(await page.getByRole("link", { name: "Resultados", exact: true }).count() === 0, "cliente não vê o módulo");
   await browser.close();
 }
 

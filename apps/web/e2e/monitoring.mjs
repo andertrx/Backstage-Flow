@@ -42,7 +42,7 @@ const cardValue = async (page, s) => clean(await page.getByTestId(`coleta-${s}`)
   const nav = await page.locator("nav a").evaluateAll((els) => els.map((e) => e.textContent.trim()));
   const iMon = nav.findIndex((t) => t.startsWith("Monitoramento"));
   const iAlerts = nav.findIndex((t) => t.startsWith("Alertas"));
-  check(iMon >= 0 && nav[iMon + 1]?.startsWith("Inteligência de Resultados") && iAlerts === iMon + 2, `menu: Monitoramento, Inteligência de Resultados e Alertas (${nav.join(" | ")})`);
+  check(iMon >= 0 && nav[iMon + 1]?.startsWith("Resultados") && iAlerts === iMon + 2, `menu: Monitoramento, Resultados e Alertas (${nav.join(" | ")})`);
 
   check(await page.getByRole("link", { name: /^Monitoramento/ }).first().getAttribute("aria-current") === "page", "item do menu marcado como página atual");
   const tabs = await page.getByRole("tab").allInnerTexts();

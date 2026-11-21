@@ -46,7 +46,7 @@ const clean = (s) => s.replace(/ /g, " ");
   seed(db);
   // Entra direto em Contas: o Dashboard sincroniza sozinho as contas atrasadas ao abrir (Etapa 24) e mudaria os status no meio do teste.
   await login(page, "/contas");
-  await page.getByRole("link", { name: "Contas" }).click();
+  await page.getByRole("link", { name: "Contas de anúncio" }).click();
   await page.getByRole("heading", { name: "Saúde das contas" }).waitFor();
   await page.getByTestId("health-row").first().waitFor();
   check(page.url().endsWith("/contas"), "menu Contas abre a Saúde das contas (não é mais 'em construção')");
