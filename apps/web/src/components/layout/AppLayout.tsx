@@ -26,7 +26,7 @@ import { Logo } from "./Logo.tsx";
 import { gruposRecolhidosPadrao, navGroupsFor, navItemForPath } from "./navigation.ts";
 
 const APP_NAME = "Backstage Flow";
-const EXTRA_TITLES: Record<string, string> = { "/minha-conta": "Minha conta", "/comparar": "Comparar períodos", "/historico": "Histórico" };
+const EXTRA_TITLES: Record<string, string> = { "/minha-conta": "Minha conta", "/comparar": "Comparar períodos", "/historico": "Histórico", "/contatos": "Contatos", "/executivo": "Visão executiva", "/hoje": "Hoje" };
 
 function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const { profile } = useAuth();

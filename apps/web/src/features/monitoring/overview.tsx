@@ -69,7 +69,7 @@ export function MonitorShortcut({ clientId = null, platform = null }: { clientId
 }
 
 function TopList({ items, clientId }: { items: MonitorSummary["top"]; clientId?: string | null }) {
-  if (!items.length) return <p className="text-sm text-slate-500">Nenhum alerta aberto.</p>;
+  if (!items.length) return <p className="py-3 text-sm text-slate-500">Nenhum alerta aberto.</p>;
   return (
     <ul className="divide-y divide-slate-100" data-testid="mais-urgentes">
       {items.map((a) => (
