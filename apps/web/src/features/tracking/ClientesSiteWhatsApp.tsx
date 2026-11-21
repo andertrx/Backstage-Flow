@@ -18,7 +18,7 @@ import { WA_QR_LABEL, WaQrModal } from "./WaQrSection.tsx";
 
 type Tone = "neutral" | "brand" | "success" | "warning" | "danger";
 type Estado = "nenhum" | "conectado" | "aguardando" | "desligado" | "atencao";
-type Filtro = "todos" | "conectados" | "atencao" | "sem-whatsapp" | "sem-site";
+type Filtro = "todos" | "conectados" | "atencao" | "sem-whatsapp" | "sem-site" | "pixel-erro";
 
 const POR_PAGINA = 30;
 const FILTROS: { id: Filtro; label: string }[] = [
@@ -27,7 +27,16 @@ const FILTROS: { id: Filtro; label: string }[] = [
   { id: "atencao", label: "Precisam de atenção" },
   { id: "sem-whatsapp", label: "Sem WhatsApp" },
   { id: "sem-site", label: "Sem site" },
+  { id: "pixel-erro", label: "Pixel com erro" },
 ];
+
+/** O envio ao Meta deste pixel está falhando: o último erro é mais novo que o último sucesso (e recente, até 7 dias). */
+export function pixelComErro(d: Destination | undefined, agora = Date.now()): boolean {
+  if (!d || !d.enabled || !d.has_token || !d.last_error_at) return false;
+  const erro = Date.parse(d.last_error_at);
+  if (!Number.isFinite(erro) || agora - erro > 7 * 24 * 3600_000) return false;
+  return !d.last_success_at || erro > Date.parse(d.last_success_at);
+}
 
 /** (81) 99506-7876 a partir de 5581995067876; número de fora do Brasil fica como veio. */
 export function formatTelefone(raw: string | null | undefined): string {
@@ -153,7 +162,7 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
   // Situação de cada cliente, calculada uma vez (a busca e os filtros usam isto).
   const linhas = useMemo(() => clients.map((cl) => {
     const dados = conexoesDe(cl.id);
-    return { cl, ...dados, est: estadoDe(dados.servidor.connection), estOficial: estadoDe(dados.oficial.connection) };
+    return { cl, ...dados, est: estadoDe(dados.servidor.connection), estOficial: estadoDe(dados.oficial.connection), pxErro: pixelComErro(pixelDe(cl.id).destination) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [clients, containers, connectionOf]);
 
@@ -164,6 +173,7 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
     if (filtro === "atencao") return l.est.estado === "atencao" || l.estOficial.estado === "atencao" || l.est.estado === "aguardando";
     if (filtro === "sem-whatsapp") return l.est.estado === "nenhum" && l.estOficial.estado === "nenhum";
     if (filtro === "sem-site") return l.sites.length === 0;
+    if (filtro === "pixel-erro") return l.pxErro;
     return true;
   });
   const visiveis = filtradas.slice(0, mostrar);
@@ -171,7 +181,7 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
     f === "conectados" ? l.est.estado === "conectado" || l.estOficial.estado === "conectado"
     : f === "atencao" ? l.est.estado === "atencao" || l.estOficial.estado === "atencao" || l.est.estado === "aguardando"
     : f === "sem-whatsapp" ? l.est.estado === "nenhum" && l.estOficial.estado === "nenhum"
-    : f === "sem-site" ? l.sites.length === 0 : true).length;
+    : f === "sem-site" ? l.sites.length === 0 : f === "pixel-erro" ? l.pxErro : true).length;
 
   return (
     <Card className="@container space-y-4 p-3 sm:p-4" data-testid="cli-site-whatsapp">
@@ -265,6 +275,7 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 @[64rem]:flex-nowrap @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:pl-4" data-testid="cli-pixel-coluna">
                       <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">Pixel</span>
                       {!px.destination ? <span className="whitespace-nowrap text-xs text-slate-400">Sem pixel</span>
+                        : pronto && pixelComErro(px.destination) ? <Badge tone="danger" title={px.destination.last_error_message ?? "O último envio ao Meta falhou"}><span className="whitespace-nowrap">Com erro no envio</span></Badge>
                         : pronto ? <Badge tone="success" title={`Pixel ${px.destination.pixel_id}`}><span className="whitespace-nowrap">Ligado ···{px.destination.pixel_id.slice(-4)}</span></Badge>
                         : <Badge tone="warning" title="Falta o token ou o envio está desligado"><span className="whitespace-nowrap">Incompleto</span></Badge>}
                       {podeGerenciar && (px.destination

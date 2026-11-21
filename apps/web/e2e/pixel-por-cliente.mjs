@@ -41,6 +41,26 @@ check(await linha.getByRole("button", { name: "Configurar pixel de Acollar" }).c
 check(db.trackingDestinations.length === 1 && db.trackingDestinations[0].container_id === "t-acollar", "o pixel ficou no recipiente do cliente");
 await page.screenshot({ path: `${SHOTS}/pixel-por-cliente-lista.png`, fullPage: false });
 
+// Aviso de envio parado: o último erro do Meta é mais novo que o último sucesso → "Com erro no envio" e filtro "Pixel com erro"
+check(await lista.getByRole("button", { name: /^Pixel com erro/ }).innerText().then((t) => t.trim().endsWith("0")), "sem erro: o filtro Pixel com erro mostra 0");
+db.trackingDestinations[0].last_success_at = new Date(Date.now() - 3 * 3600_000).toISOString();
+db.trackingDestinations[0].last_error_at = new Date(Date.now() - 10 * 60_000).toISOString();
+db.trackingDestinations[0].last_error_message = "Token inválido ou expirado. Gere um novo token e cole no CRM.";
+await page.reload();
+await lista.waitFor();
+const colErro = lista.getByTestId("cli-site-whatsapp-row").filter({ hasText: "Acollar" }).getByTestId("cli-pixel-coluna");
+await colErro.getByText("Com erro no envio").waitFor();
+check(await colErro.locator('[title="Token inválido ou expirado. Gere um novo token e cole no CRM."]').count() === 1, "o aviso mostra o motivo do erro");
+await lista.getByRole("button", { name: /^Pixel com erro/ }).click();
+check(await lista.getByTestId("cli-site-whatsapp-row").count() === 1, "o filtro Pixel com erro mostra o cliente com problema");
+await lista.getByRole("button", { name: /^Todos/ }).click();
+// Voltou a funcionar (sucesso mais novo que o erro): o aviso some
+db.trackingDestinations[0].last_success_at = new Date().toISOString();
+await page.reload();
+await lista.waitFor();
+await lista.getByTestId("cli-site-whatsapp-row").filter({ hasText: "Acollar" }).getByTestId("cli-pixel-coluna").getByText(/Ligado/).waitFor();
+check(true, "depois de um envio com sucesso o aviso de erro some");
+
 // Celular: a coluna vira uma linha "Pixel" no cartão do cliente
 await page.setViewportSize({ width: 390, height: 844 });
 await page.reload();
