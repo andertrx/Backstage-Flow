@@ -46,7 +46,8 @@ const answer = (page) => page.getByTestId("history-sentence");
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
   await login(page, "/");
-  await page.getByRole("heading", { level: 1 }).first().waitFor();
+  await page.waitForURL((u) => u.pathname === "/", { timeout: 8000 });
+  await page.getByRole("navigation", { name: "Menu principal" }).first().waitFor(); // só com a sessão pronta (a tela de login também tem um h1)
 
   // Entrada pelo Dashboard, levando o cliente escolhido
   await page.goto(`${BASE}/?cliente=${EXC}`);
@@ -125,7 +126,8 @@ for (const [role, allowed] of [["visualizador", true], ["cliente", false]]) {
   const db = await mockSupabase(page, { role });
   seed(db);
   await login(page, "/");
-  await page.getByRole("heading", { level: 1 }).first().waitFor();
+  await page.waitForURL((u) => u.pathname === "/", { timeout: 8000 });
+  await page.getByRole("navigation", { name: "Menu principal" }).first().waitFor(); // só com a sessão pronta (a tela de login também tem um h1)
   await page.goto(`${BASE}/historico`);
   await page.waitForFunction(() => location.pathname !== "/historico" || document.querySelector("h1")?.textContent === "Histórico", null, { timeout: 5000 }).catch(() => {});
   const at = new URL(page.url()).pathname;

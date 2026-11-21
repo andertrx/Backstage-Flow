@@ -95,6 +95,7 @@ function seed(db) {
   await form.getByLabel("Página do Facebook").selectOption({ label: "Loja Aurora" });
   check(await form.getByLabel("Perfil do Instagram").locator("option:checked").innerText() === "@lojaaurora", "escolher a página já escolhe o Instagram ligado a ela");
   check(db.adAccountCalls.some((c) => c.action === "refresh_assets" && c.adAccountId === ACC), "ao escolher a conta, busca na hora no Meta");
+  await form.getByLabel("Perfil do Instagram").locator("option", { hasText: "@aurora.kids" }).waitFor({ state: "attached" }); // a lista recarrega depois da busca no Meta
   check((await form.getByLabel("Perfil do Instagram").locator("option").allInnerTexts()).includes("@aurora.kids"), "traz o Instagram ligado direto na conta (não só o da página)");
   await page.getByRole("button", { name: "Atualizar do Meta" }).click();
   await page.getByText("Páginas e Instagram desta conta, direto do Meta.").waitFor();
