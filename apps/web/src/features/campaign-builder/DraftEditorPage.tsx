@@ -298,7 +298,7 @@ export function DraftEditorPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link to="/criar-campanhas" className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900"><ArrowLeft className="size-4" aria-hidden /> Rascunhos</Link>
+        <Link to="/criar/campanhas" className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900"><ArrowLeft className="size-4" aria-hidden /> Rascunhos</Link>
         <div className="flex items-center gap-3">
           <span className="text-xs text-slate-500" data-testid="cb-estado" role="status">{canEdit ? stateText[state] : stateText["somente-leitura"]}</span>
           {canEdit && <Button variant="secondary" onClick={() => void flush()} disabled={state === "salvando" || state === "salvo" || state === "conflito"}>Salvar agora</Button>}

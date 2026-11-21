@@ -51,16 +51,14 @@ describe("menu lateral", () => {
     expect(navItemForPath("/contatos")?.label).toBe("Contatos");
   });
 
-  it("Criador de Anúncios: administrador, gestor e operador (Etapa 42)", () => {
-    for (const r of ["admin", "gestor", "operador"] as const) expect(labels(r)).toContain("Criador de Anúncios");
-    for (const r of ["visualizador", "equipe", "vendedor", "cliente"] as const) expect(labels(r)).not.toContain("Criador de Anúncios");
-  });
-
-  it("Criar campanhas (Fase 35.2): mesmos papéis do Criador de Anúncios, logo depois de Campanhas", () => {
-    for (const r of ["admin", "gestor", "operador"] as const) expect(labels(r)).toContain("Criar campanhas");
-    for (const r of ["visualizador", "equipe", "vendedor", "cliente"] as const) expect(labels(r)).not.toContain("Criar campanhas");
+  it("Criar (21/11): junta os rascunhos de campanha e o Criador de Anúncios; administrador, gestor e operador; logo depois de Campanhas", () => {
+    for (const r of ["admin", "gestor", "operador"] as const) expect(labels(r)).toContain("Criar");
+    for (const r of ["visualizador", "equipe", "vendedor", "cliente"] as const) expect(labels(r)).not.toContain("Criar");
+    for (const antigo of ["Criar campanhas", "Criador de Anúncios"]) expect(labels("admin")).not.toContain(antigo);
     const nomes = NAV_ITEMS.map((i) => i.label);
-    expect(nomes.indexOf("Criar campanhas")).toBe(nomes.indexOf("Campanhas") + 1);
+    expect(nomes.indexOf("Criar")).toBe(nomes.indexOf("Campanhas") + 1);
+    expect(navItemForPath("/criar/anuncios")?.label).toBe("Criar");
+    expect(navItemForPath("/criar/campanhas/123")?.label).toBe("Criar");
   });
 
 });
@@ -68,7 +66,7 @@ describe("menu lateral", () => {
 describe("grupos do menu", () => {
   it("a ordem do menu é a da Etapa 21 (Tracking entrou depois de Alertas na Etapa 34; Central de Operações depois de Visão geral na Etapa 36; Monitoramento antes de Alertas na Etapa 37; Inteligência de Resultados depois de Monitoramento na Etapa 39; Criador de Anúncios depois de Campanhas na Etapa 42; Reuniões, Comercial e Envios semanais depois da Central na 43.6/43.7)", () => {
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
-      "Dashboard", "Clientes", "Contas de anúncio", "Painel operacional", "Central de Operações", "Reuniões", "Onboarding", "Comercial", "Contatos", "Envios semanais", "Notificações", "Vendas sugeridas", "Meta Ads", "Google Ads", "Campanhas", "Criar campanhas", "Criador de Anúncios",
+      "Dashboard", "Clientes", "Contas de anúncio", "Painel operacional", "Central de Operações", "Reuniões", "Onboarding", "Comercial", "Contatos", "Envios semanais", "Notificações", "Vendas sugeridas", "Meta Ads", "Google Ads", "Campanhas", "Criar",
       "Relatórios", "Monitoramento", "Resultados", "Alertas", "Tracking", "Configurações",
     ]);
   });
@@ -100,10 +98,10 @@ describe("mapa do menu por papel (43.3)", () => {
     expect(equipe.central).toBe("com_permissao");
     expect(equipe.groups.flatMap((g) => g.items)).toEqual(["Vendas sugeridas"]);
   });
-  it("visualizador não vê Relatórios nem Criador de Anúncios; gestor vê Configurações (só as abas Sincronização e Logs)", () => {
+  it("visualizador não vê Relatórios nem Criar; gestor vê Configurações (só as abas Sincronização e Logs)", () => {
     const vis = menuPorPapel("visualizador").groups.flatMap((g) => g.items);
     expect(vis).not.toContain("Relatórios");
-    expect(vis).not.toContain("Criador de Anúncios");
+    expect(vis).not.toContain("Criar");
     const gestor = menuPorPapel("gestor").groups.flatMap((g) => g.items);
     expect(gestor).toContain("Configurações");
   });

@@ -7,6 +7,7 @@ import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/featu
 import { LoginPage } from "@/features/auth/LoginPage.tsx";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage.tsx";
 import { PLATFORM_VIEW_LIST } from "@/features/platforms/logic.ts";
+import { CreateLayout } from "@/features/create/CreateLayout.tsx";
 import { SettingsIndex, SettingsLayout } from "@/features/settings/SettingsLayout.tsx";
 import { ClientHomeOr, RequireReportAccess } from "@/features/client-report/ClientHome.tsx";
 import { RouteError } from "./RouteError.tsx";
@@ -19,6 +20,12 @@ function ClientConversationsRoute() {
   const { profile } = useAuth();
   if (can(profile?.role, "tracking.manage")) return <Navigate to={`/tracking?cliente=${id}&aba=conversas`} replace />;
   return <ClientConversationsStandalone clientId={id ?? ""} />;
+}
+
+/** Endereço antigo de um rascunho de campanha (/criar-campanhas/:id) → endereço novo. */
+function RedirectDraft() {
+  const { id } = useParams();
+  return <Navigate to={`/criar/campanhas/${id}`} replace />;
 }
 
 /** Cada página só é baixada quando for aberta (o site abre mais rápido). */
@@ -169,29 +176,23 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "criar-campanhas",
+        // 21/11/2026: "Criar" = rascunhos de campanha + Criador de Anúncios, em abas (mesmas telas e mesma permissão de antes).
+        path: "criar",
         element: (
           <RequirePermission permission="ads.builder">
-            <CampaignBuilderPage />
+            <CreateLayout />
           </RequirePermission>
         ),
+        children: [
+          { index: true, element: <Navigate to="/criar/campanhas" replace /> },
+          { path: "campanhas", element: <CampaignBuilderPage /> },
+          { path: "campanhas/:id", element: <DraftEditorPage /> },
+          { path: "anuncios", element: <AdsBuilderPage /> },
+        ],
       },
-      {
-        path: "criar-campanhas/:id",
-        element: (
-          <RequirePermission permission="ads.builder">
-            <DraftEditorPage />
-          </RequirePermission>
-        ),
-      },
-      {
-        path: "criador-de-anuncios",
-        element: (
-          <RequirePermission permission="ads.builder">
-            <AdsBuilderPage />
-          </RequirePermission>
-        ),
-      },
+      { path: "criar-campanhas", element: <RedirectKeep to="/criar/campanhas" /> },
+      { path: "criar-campanhas/:id", element: <RedirectDraft /> },
+      { path: "criador-de-anuncios", element: <RedirectKeep to="/criar/anuncios" /> },
       ...(["campaign", "ad_group", "ad"] as const).map((level) => ({
         path: `${{ campaign: "campanhas", ad_group: "conjuntos", ad: "anuncios" }[level]}/:id`,
         element: (

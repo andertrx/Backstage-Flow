@@ -58,9 +58,9 @@ describe("arquitetura preparada para novas plataformas", () => {
     }
   });
 
-  it("a ordem do menu só mudou com aprovação do Ander (43.6; 11/11: Envios semanais e Configurações da Central trocaram de lugar; 16/11: Criar campanhas entrou depois de Campanhas, aprovado pelo Ander; 21/11: nomes mais claros, Contatos no menu e Operações na ordem do dia a dia, aprovados pelo Ander; 21/11: Sincronização, Logs e Configurações da Central viraram abas de Configurações)", () => {
+  it("a ordem do menu só mudou com aprovação do Ander (43.6; 11/11: Envios semanais e Configurações da Central trocaram de lugar; 16/11: Criar campanhas entrou depois de Campanhas, aprovado pelo Ander; 21/11: nomes mais claros, Contatos no menu e Operações na ordem do dia a dia, aprovados pelo Ander; 21/11: Sincronização, Logs e Configurações da Central viraram abas de Configurações; Criar campanhas e Criador de Anúncios viraram o item Criar)", () => {
     expect(NAV_ITEMS.map((n) => n.label)).toEqual([
-      "Dashboard", "Clientes", "Contas de anúncio", "Painel operacional", "Central de Operações", "Reuniões", "Onboarding", "Comercial", "Contatos", "Envios semanais", "Notificações", "Vendas sugeridas", "Meta Ads", "Google Ads", "Campanhas", "Criar campanhas", "Criador de Anúncios",
+      "Dashboard", "Clientes", "Contas de anúncio", "Painel operacional", "Central de Operações", "Reuniões", "Onboarding", "Comercial", "Contatos", "Envios semanais", "Notificações", "Vendas sugeridas", "Meta Ads", "Google Ads", "Campanhas", "Criar",
       "Relatórios", "Monitoramento", "Resultados", "Alertas", "Tracking", "Configurações",
     ]);
   });

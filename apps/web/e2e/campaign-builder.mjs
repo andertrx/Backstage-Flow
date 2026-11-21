@@ -19,8 +19,8 @@ const GESTORA = "22222222-2222-2222-2222-222222222222";
 
   await login(page, "/criar-campanhas");
   await page.getByRole("heading", { name: "Criar campanhas", exact: true }).waitFor();
-  const menu = page.getByRole("link", { name: "Criar campanhas" });
-  check(await menu.isVisible(), "item de menu 'Criar campanhas' aparece para o administrador");
+  const menu = page.getByRole("link", { name: "Criar", exact: true });
+  check(await menu.isVisible(), "item de menu 'Criar' aparece para o administrador");
   check(await page.getByText("Nenhum rascunho ainda.").isVisible(), "começa sem rascunhos");
   check(await page.getByText("hoje nada é criado no Meta", { exact: false }).isVisible(), "diz claramente que nada é criado no Meta");
 
@@ -32,7 +32,7 @@ const GESTORA = "22222222-2222-2222-2222-222222222222";
   await dlg.getByLabel("Nome do rascunho").fill("Black Friday — Cadastros");
   await dlg.getByLabel("Conta de anúncio (Meta)").selectOption({ label: "Excalibur Fitness — Excalibur - Principal" });
   await create.click();
-  await page.waitForURL("**/criar-campanhas/*");
+  await page.waitForURL("**/criar/campanhas/*");
   await page.getByRole("heading", { name: "Campanha", exact: true }).waitFor();
   check(true, "criar o rascunho abre o editor");
   await page.getByRole("link", { name: "Rascunhos" }).click();
@@ -92,7 +92,7 @@ const GESTORA = "22222222-2222-2222-2222-222222222222";
   const { browser, page } = await launch();
   await mockSupabase(page, { role: "visualizador" });
   await login(page, "/");
-  check((await page.getByRole("link", { name: "Criar campanhas" }).count()) === 0, "visualizador não vê o item no menu");
+  check((await page.getByRole("link", { name: "Criar", exact: true }).count()) === 0, "visualizador não vê o item no menu");
   await browser.close();
 }
 console.log("OK: campaign-builder");

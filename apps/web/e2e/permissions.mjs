@@ -48,7 +48,7 @@ const ROUTES = [
   ["/meta-ads", "Meta Ads", ["admin", "gestor", "operador", "visualizador"]],
   ["/google-ads", "Google Ads", ["admin", "gestor", "operador", "visualizador"]],
   ["/campanhas", "Campanhas", ["admin", "gestor", "operador", "visualizador"]],
-  ["/criador-de-anuncios", "Criador de Anúncios", ["admin", "gestor", "operador"]],
+  ["/criar/anuncios", "Criar", ["admin", "gestor", "operador"]],
   ["/relatorios", "Relatórios", ["admin", "gestor", "operador"]],
   ["/alertas", "Alertas", ["admin", "gestor", "operador", "visualizador"]],
   ["/tracking", "Tracking", ["admin", "gestor", "operador", "visualizador"]],

@@ -32,7 +32,7 @@ function NewDraftModal({ open, onClose }: { open: boolean; onClose: () => void }
       setName("");
       setAccountId("");
       onClose();
-      navigate(`/criar-campanhas/${r.id}`);
+      navigate(`/criar/campanhas/${r.id}`);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -172,7 +172,7 @@ export function CampaignBuilderPage() {
           {drafts.data?.map((d) => (
             <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
               <div className="min-w-0">
-                <Link to={`/criar-campanhas/${d.id}`} className="font-medium text-brand-700 hover:underline">{d.name}</Link>
+                <Link to={`/criar/campanhas/${d.id}`} className="font-medium text-brand-700 hover:underline">{d.name}</Link>
                 <p className="text-xs text-slate-500">
                   {d.client_name} · {d.ad_account_name ?? "sem conta"} · atualizado {formatDateTime(d.updated_at)}
                   {d.updated_by_name ? ` por ${d.updated_by_name}` : ""}

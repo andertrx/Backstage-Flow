@@ -5,10 +5,10 @@
  */
 import { BASE, check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
 
-const MENU = ["Dashboard", "Clientes", "Contas de anúncio", "Painel operacional", "Central de Operações", "Reuniões", "Onboarding", "Comercial", "Contatos", "Envios semanais", "Notificações", "Meta Ads", "Google Ads", "Campanhas", "Criar campanhas", "Criador de Anúncios", "Relatórios", "Monitoramento", "Resultados", "Alertas", "Tracking", "Configurações"];
+const MENU = ["Dashboard", "Clientes", "Contas de anúncio", "Painel operacional", "Central de Operações", "Reuniões", "Onboarding", "Comercial", "Contatos", "Envios semanais", "Notificações", "Meta Ads", "Google Ads", "Campanhas", "Criar", "Relatórios", "Monitoramento", "Resultados", "Alertas", "Tracking", "Configurações"];
 const PAGES = [
   ["/", "Dashboard"], ["/clientes", "Clientes"], ["/contas", "Contas"], ["/operacoes/equipe", "Central de Operações"], ["/meta-ads", "Meta Ads"], ["/google-ads", "Google Ads"],
-  ["/campanhas", "Campanhas"], ["/criador-de-anuncios", "Criador de Anúncios"], ["/relatorios", "Relatórios"], ["/monitoramento", "Monitoramento"], ["/inteligencia-resultados", "Inteligência de Resultados"], ["/alertas", "Alertas"], ["/tracking", "Tracking"], ["/sincronizacao", "Sincronização"],
+  ["/campanhas", "Campanhas"], ["/criar/anuncios", "Criador de Anúncios"], ["/relatorios", "Relatórios"], ["/monitoramento", "Monitoramento"], ["/inteligencia-resultados", "Inteligência de Resultados"], ["/alertas", "Alertas"], ["/tracking", "Tracking"], ["/sincronizacao", "Sincronização"],
   ["/logs", "Logs"], ["/configuracoes/usuarios", "Configurações"],
 ];
 const sidebar = (page) => page.getByTestId("sidebar");

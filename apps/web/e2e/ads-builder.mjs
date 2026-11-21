@@ -50,7 +50,7 @@ function seed(db) {
   seed(db);
   await login(page, "/criador-de-anuncios");
   await page.getByTestId("ads-builder").waitFor();
-  check((await page.getByRole("navigation", { name: "Menu principal" }).first().innerText()).includes("Criador de Anúncios"), "item Criador de Anúncios no menu (Anúncios)");
+  check((await page.getByRole("navigation", { name: "Menu principal" }).first().innerText()).includes("Criar"), "item Criar no menu (Anúncios), com o Criador de Anúncios dentro");
   await page.evaluate(() => localStorage.removeItem("adsBuilder.rascunho"));
   await page.reload();
   const form = page.getByTestId("ads-form");
@@ -210,7 +210,7 @@ function seed(db) {
   await mockSupabase(page, { role: "visualizador" });
   await login(page, "/");
   await page.getByRole("navigation", { name: "Menu principal" }).first().waitFor();
-  check(!(await page.getByRole("navigation", { name: "Menu principal" }).first().innerText()).includes("Criador de Anúncios"), "visualizador não vê o item no menu");
+  check(!(await page.getByRole("link", { name: "Criar", exact: true }).count()), "visualizador não vê o item no menu");
   await page.goto(`${BASE}/criador-de-anuncios`);
   await page.waitForTimeout(800);
   check(await page.getByTestId("ads-builder").count() === 0, "visualizador não entra pela URL");

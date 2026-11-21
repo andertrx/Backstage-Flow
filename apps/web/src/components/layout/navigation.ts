@@ -19,7 +19,6 @@ import {
   Target,
   UserRoundCheck,
   Wallet,
-  Wand2,
 } from "lucide-react";
 import { platformLook } from "@/features/platforms/look.ts";
 
@@ -80,10 +79,8 @@ export const NAV_ITEMS: NavItem[] = [
   // Uma tela por plataforma do catálogo (Meta Ads, Google Ads...), na ordem do catálogo.
   ...PLATFORMS.map((p): NavItem => ({ label: p.name, path: p.path, icon: platformLook(p.id).icon, group: "Anúncios", permission: "internal.view" })),
   { label: "Campanhas", path: "/campanhas", icon: Target, group: "Anúncios", permission: "internal.view" },
-  // Fase 35.2: rascunhos de campanha do Campaign Builder (aprovado pelo Ander em 16/11/2026: logo depois de Campanhas). Nada é criado no Meta aqui.
-  { label: "Criar campanhas", path: "/criar-campanhas", icon: FilePlus2, group: "Anúncios", permission: "ads.builder" },
-  // Etapa 42: monta o pedido em texto para o Claude criar anúncios no Meta (a página não cria nada no Meta).
-  { label: "Criador de Anúncios", path: "/criador-de-anuncios", icon: Wand2, group: "Anúncios", permission: "ads.builder" },
+  // 21/11/2026 (aprovado pelo Ander): "Criar campanhas" (rascunhos, Fase 35.2) e "Criador de Anúncios" (Etapa 42) viraram um item só, com duas abas. Nada é criado no Meta por aqui.
+  { label: "Criar", path: "/criar", icon: FilePlus2, group: "Anúncios", permission: "ads.builder" },
   { label: "Relatórios", path: "/relatorios", icon: FileBarChart, group: "Análise", permission: "reports.generate" },
   { label: "Monitoramento", path: "/monitoramento", icon: Activity, group: "Análise", permission: "monitor.view" },
   { label: "Resultados", path: "/inteligencia-resultados", icon: ChartPie, group: "Análise", permission: "results.view" },
