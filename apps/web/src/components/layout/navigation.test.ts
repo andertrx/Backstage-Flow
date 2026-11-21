@@ -11,12 +11,12 @@ describe("menu lateral", () => {
   it("Configurações (unificada, 21/11): admin vê todas as abas; gestor e operador veem Sincronização (e Logs o gestor); equipe e cliente não veem", () => {
     const abas = (role: Parameters<typeof navItemsFor>[0], ops?: string[]) => settingsTabsFor(role, ops).map((t) => t.label);
     expect(labels("admin")).toContain("Configurações");
-    expect(abas("admin")).toEqual(["Usuários", "Integrações", "Papéis e permissões", "Central de Operações", "Sincronização", "Logs"]);
+    expect(abas("admin")).toEqual(["Usuários", "Integrações", "Papéis e permissões", "Central", "Sincronização", "Logs"]);
     expect(abas("gestor")).toEqual(["Sincronização", "Logs"]);
     expect(abas("operador")).toEqual(["Sincronização"]);
     expect(abas("equipe", ["ops.access"])).toEqual([]);
     expect(abas("cliente")).toEqual([]);
-    expect(abas("gestor", ["ops.admin"])).toContain("Central de Operações");
+    expect(abas("gestor", ["ops.admin"])).toContain("Central");
     expect(labels("equipe")).not.toContain("Configurações");
     expect(labels("cliente")).not.toContain("Configurações");
     for (const antigo of ["Sincronização", "Logs", "Configurações da Central"]) expect(labels("admin")).not.toContain(antigo);

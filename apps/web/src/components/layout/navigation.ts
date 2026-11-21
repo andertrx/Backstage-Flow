@@ -53,7 +53,7 @@ export function settingsTabsFor(role: Role | null | undefined, opsPermissions?: 
   if (can(role, "settings.manage")) {
     tabs.push({ to: "/configuracoes/usuarios", label: "Usuários" }, { to: "/configuracoes/integracoes", label: "Integrações" }, { to: "/configuracoes/permissoes", label: "Papéis e permissões" });
   }
-  if (role === "admin" || (role !== "cliente" && role !== "vendedor" && opsCan(opsPermissions, "ops.admin"))) tabs.push({ to: "/configuracoes/central", label: "Central de Operações" });
+  if (role === "admin" || (role !== "cliente" && role !== "vendedor" && opsCan(opsPermissions, "ops.admin"))) tabs.push({ to: "/configuracoes/central", label: "Central" });
   if (can(role, "internal.view")) tabs.push({ to: "/configuracoes/sincronizacao", label: "Sincronização" });
   if (can(role, "logs.view")) tabs.push({ to: "/configuracoes/logs", label: "Logs" });
   return tabs;

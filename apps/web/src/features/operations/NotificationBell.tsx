@@ -53,7 +53,7 @@ export function NotificationBell() {
         <ListChecks className="size-5 text-slate-500" aria-hidden />
         <span className="hidden text-xs font-semibold text-slate-700 xl:inline" aria-hidden>Tarefas</span>
         {count > 0 && (
-          <span className="absolute right-0 top-0 grid min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-4 text-white" data-testid="ops-bell-count">
+          <span className="absolute left-5 top-0 grid min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-4 text-white" data-testid="ops-bell-count">
             {count > 99 ? "99+" : count}
           </span>
         )}

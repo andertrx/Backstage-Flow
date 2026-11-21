@@ -31,7 +31,7 @@ const sectorId = (db, name) => db.opsSectors.find((s) => s.name === name).id;
   const tabs = await page.getByRole("navigation", { name: "Central de Operações" }).getByRole("link").allInnerTexts();
   check(JSON.stringify(tabs) === JSON.stringify(["Tarefas", "Minhas tarefas", "Arquivados e excluídos"]), `só as abas prontas aparecem (${tabs.join(", ")})`);
   await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Configurações", exact: true }).click();
-  await page.getByRole("navigation", { name: "Configurações" }).getByRole("link", { name: "Central de Operações" }).click(); // 50.7: Equipe fica dentro das configurações da Central
+  await page.getByRole("navigation", { name: "Configurações" }).getByRole("link", { name: "Central", exact: true }).click(); // 50.7: Equipe fica dentro das configurações da Central
   await page.getByTestId("ops-team").waitFor();
   // Espera a lista carregar antes de ler o texto (sem isso, às vezes lia a tela ainda vazia).
   await page.getByTestId("ops-team").getByText("Maria Gestora").first().waitFor();

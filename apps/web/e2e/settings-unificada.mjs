@@ -18,8 +18,8 @@ const abas = async (page, esperado) => {
   await login(page, "/");
   await page.getByRole("navigation", { name: "Menu principal" }).first().getByRole("link", { name: "Configurações", exact: true }).click();
   await page.waitForURL("**/configuracoes/usuarios");
-  await page.getByRole("navigation", { name: "Configurações" }).getByRole("link", { name: "Central de Operações" }).waitFor();
-  check(JSON.stringify(await abas(page, ["Usuários", "Integrações", "Papéis e permissões", "Central de Operações", "Sincronização", "Logs"])) === JSON.stringify(["Usuários", "Integrações", "Papéis e permissões", "Central de Operações", "Sincronização", "Logs"]), "admin: seis abas em Configurações");
+  await page.getByRole("navigation", { name: "Configurações" }).getByRole("link", { name: "Central", exact: true }).waitFor();
+  check(JSON.stringify(await abas(page, ["Usuários", "Integrações", "Papéis e permissões", "Central", "Sincronização", "Logs"])) === JSON.stringify(["Usuários", "Integrações", "Papéis e permissões", "Central", "Sincronização", "Logs"]), "admin: seis abas em Configurações");
   await page.getByRole("navigation", { name: "Configurações" }).getByRole("link", { name: "Logs" }).click();
   await page.getByRole("heading", { name: "Logs", level: 1 }).waitFor();
   const menu = await page.getByRole("navigation", { name: "Menu principal" }).first().innerText();

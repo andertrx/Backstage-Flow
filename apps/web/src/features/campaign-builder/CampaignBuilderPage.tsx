@@ -148,7 +148,7 @@ export function CampaignBuilderPage() {
           <span className="rounded-lg bg-brand-50 p-2 text-brand-600"><Megaphone className="size-5" aria-hidden /></span>
           <div>
             <h1 className="text-xl font-semibold">Criar campanhas</h1>
-            <p className="text-sm text-slate-500">Rascunhos de campanha. O editor completo e a publicação chegam nas próximas fases; hoje nada é criado no Meta.</p>
+            <p className="text-sm text-slate-500">Monte e guarde rascunhos de campanha. Nada é criado no Meta por aqui.</p>
           </div>
         </div>
         {perms.data?.criar && (
