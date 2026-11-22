@@ -271,9 +271,9 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
         </Alert>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
         {/* No celular é uma coisa de cada vez: a lista OU a conversa aberta (antes a conversa aparecia embaixo da lista, longe do toque). */}
-        <Card className={`space-y-3 p-3 ${current ? "hidden lg:block" : ""}`} data-testid="wa-conversations">
+        <Card className={`min-w-0 space-y-3 p-3 ${current ? "hidden lg:block" : ""}`} data-testid="wa-conversations">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden />
             <Input aria-label="Buscar por nome ou telefone" placeholder="Buscar por nome ou telefone" className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -305,12 +305,12 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
                   <li key={p.person_id}>
                     <button type="button" data-testid="wa-conversation" aria-current={p.person_id === selected}
                       onClick={() => setSelected(p.person_id)}
-                      className={`w-full space-y-1 rounded-lg px-3 py-2 text-left hover:bg-slate-50 ${p.person_id === selected ? "bg-blue-50" : ""}`}>
+                      className={`w-full min-w-0 space-y-1 rounded-lg px-3 py-2 text-left hover:bg-slate-50 ${p.person_id === selected ? "bg-blue-50" : ""}`}>
                       <span className="flex items-center justify-between gap-2">
                         <span className="truncate text-sm font-medium text-slate-900">{p.push_name ?? formatWaPhone(p.phone, p.phone_tail)}</span>
                         <span className="shrink-0 text-xs text-slate-500">{formatRelative(p.last_at)}</span>
                       </span>
-                      <span className="block truncate text-xs text-slate-600">{p.last_direction === "enviada" ? "Você: " : ""}{p.last_preview}</span>
+                      <span className="block max-w-full truncate text-xs text-slate-600">{p.last_direction === "enviada" ? "Você: " : ""}{p.last_preview}</span>
                       <span className="flex flex-wrap gap-1">
                         <Badge tone={p.from_ad ? "success" : "neutral"}>{p.from_ad ? "Anúncio" : p.origin === "site" ? "Site" : "Sem origem identificada"}</Badge>
                         {p.suggestion_id && <Badge tone="warning">IA sugere venda</Badge>}
@@ -326,7 +326,7 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
           )}
         </Card>
 
-        <div ref={chatRef} className={`scroll-mt-3 ${current ? "" : "hidden lg:block"}`}>
+        <div ref={chatRef} className={`min-w-0 scroll-mt-3 ${current ? "" : "hidden lg:block"}`}>
         <Card className="p-4">
           {current && (
             <button type="button" data-testid="wa-chat-voltar" onClick={() => setSelected(null)}

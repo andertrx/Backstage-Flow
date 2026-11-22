@@ -141,6 +141,24 @@ function seed(db) {
   await login(page, `/tracking?cliente=${CLI}&aba=conversas`);
   await page.getByTestId("wa-conversations").waitFor();
   await page.getByTestId("wa-conversation").nth(1).waitFor();
+  // Prévia com endereço comprido e sem espaço (como o link do catálogo): não pode alargar a tela nem cortar a lista (relato do Ander, 22/11)
+  db.waPeople.push({ id: 9, client_id: CLI, wa_hash: "d".repeat(64), phone: "5581934948830", push_name: null, last_at: ago(900), last_direction: "enviada",
+    last_preview: "Você: https://catalogo.aceleraatacado.com/c/prataeperola/produtos?utm_source=whatsapp&utm_campaign=lancamento_de_verao_2026_colecao_nova", messages: 1,
+    origin: "desconhecida", from_ad: false, ad_id: null });
+  await page.reload();
+  await page.getByTestId("wa-conversations").waitFor();
+  await page.getByTestId("wa-conversation").nth(2).waitFor();
+  const folga = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth - window.innerWidth, lista: Math.round(document.querySelector("[data-testid=wa-conversations]").getBoundingClientRect().right - window.innerWidth) }));
+  check(folga.doc <= 1 && folga.lista <= 0, `celular: a lista de conversas cabe na tela, mesmo com endereço comprido (sobra ${folga.doc}px na página, ${folga.lista}px na lista)`);
+  // e a conversa aberta, com o mesmo endereço comprido dentro das mensagens
+  db.waMessages.push({ id: 90, person_id: 9, direction: "enviada", at: ago(900), body: "https://catalogo.aceleraatacado.com/c/prataeperola/produtos?utm_source=whatsapp&utm_campaign=lancamento_de_verao_2026_colecao_nova" });
+  await page.getByTestId("wa-conversation").nth(2).click();
+  await page.getByTestId("wa-chat").waitFor();
+  await page.getByText("catalogo.aceleraatacado.com").last().waitFor();
+  const folga2 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  check(folga2 <= 1, `celular: a conversa aberta também cabe na tela (sobra ${folga2}px)`);
+  await page.getByTestId("wa-chat-voltar").click();
+  await page.getByTestId("wa-conversations").waitFor();
   check(await page.getByTestId("wa-chat-empty").isHidden(), "celular: sem o espaço vazio da conversa embaixo da lista");
   await page.getByTestId("wa-conversation").first().click();
   await page.getByText("Fechado, vou pagar agora").last().waitFor();
@@ -150,7 +168,7 @@ function seed(db) {
   check(await page.getByTestId("wa-conversations").isHidden(), "celular: a lista some enquanto a conversa está aberta");
   await page.getByTestId("wa-chat-voltar").click();
   await page.getByTestId("wa-conversations").waitFor();
-  check(await page.getByTestId("wa-conversation").count() === 2, "celular: Voltar às conversas mostra a lista de novo");
+  check(await page.getByTestId("wa-conversation").count() === 3, "celular: Voltar às conversas mostra a lista de novo");
   check(errors.length === 0, `celular: sem erros no console (${errors.join(" | ")})`);
   await browser.close();
 }
