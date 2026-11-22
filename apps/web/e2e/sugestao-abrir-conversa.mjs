@@ -118,6 +118,20 @@ function seed(db) {
   check(!db.contactQueue.some((q) => q.event_name === "Purchase"), "nenhuma Compra foi enviada");
   check(db.waSuggestions.find((x) => x.id === "p1").status === "pendente", "a sugestão da IA continua pendente (venda ainda não marcada)");
   check(db.contactHistory.some((h) => h.contact_id === k.id && h.kind === "etapa" && h.meta_event === "LeadQualificado"), "o histórico do contato mostra o LeadQualificado enviado");
+  // A tela passa a mostrar a situação real da pessoa (era sempre "Marcar venda", sem dizer que já estava qualificada)
+  await page.getByTestId("wa-chat-qualificado").waitFor();
+  check((await page.getByTestId("wa-chat-qualificado").innerText()).includes("Qualificado"), "selo no topo da conversa: Qualificado — enviado ao Meta (sem venda)");
+  check((await page.getByTestId("wa-mark-sale").innerText()).trim() === "Marcar venda", "já qualificada e sem venda: o botão diz 'Marcar venda'");
+  await page.getByTestId("wa-mark-sale").click();
+  await page.getByTestId("mark-sale-ja-qualificada").waitFor();
+  const btn2 = page.getByTestId("mark-sale").getByTestId("mark-sale-submit");
+  check(await btn2.isDisabled() && (await btn2.innerText()).includes("Informe o valor"), "já qualificada: 'só qualificar' não é mais oferecido (não faria nada); pede o valor");
+  await page.getByTestId("mark-sale").getByLabel("Valor da venda").fill("150");
+  await page.getByTestId("mark-sale").getByRole("button", { name: "Marcar venda" }).click();
+  await page.waitForFunction(() => document.body.textContent.includes("Venda registrada"));
+  await page.getByText("1 venda(s) marcada(s)").first().waitFor();
+  check((await page.getByTestId("wa-mark-sale").innerText()).trim() === "Marcar outra venda", "com venda marcada: o botão vira 'Marcar outra venda'");
+  check(db.contactQueue.filter((q) => q.event_name === "LeadQualificado").length === 1 && db.contactQueue.some((q) => q.event_name === "Purchase" && q.value === 150), "a Compra saiu e o LeadQualificado NÃO foi enviado de novo");
   check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);
   await browser.close();
 }

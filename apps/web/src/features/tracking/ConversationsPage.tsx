@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
-import { useContactSetup } from "@/features/contacts/api.ts";
+import { useContactHistory, useContactSetup } from "@/features/contacts/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatRelative } from "@/lib/format.ts";
 import {
@@ -30,9 +30,11 @@ import { confirmar } from "@/lib/confirmStore.ts";
 
 const CONFIDENCE: Record<string, string> = { alta: "alta", media: "média", baixa: "baixa" };
 
-function MarkSaleModal({ clientId, person, onClose, onDone }: {
+function MarkSaleModal({ clientId, person, jaQualificada = false, onClose, onDone }: {
   clientId: string;
   person: WaConversation;
+  /** A pessoa já foi enviada ao Meta como lead qualificado: "só qualificar" não teria efeito. */
+  jaQualificada?: boolean;
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
@@ -53,7 +55,7 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
   const semValor = value.trim() === "";
   const validVenda = Boolean(chosen) && Number.isFinite(amount) && amount >= 0 && !semValor && validOrder;
   // Só qualificar: sem valor, existe a etapa Qualificado, e a pessoa ainda não tem venda (senão a etapa "voltaria" de Venda para Qualificado).
-  const validQualificar = semValor && Boolean(qualStage) && already === 0;
+  const validQualificar = semValor && Boolean(qualStage) && already === 0 && !jaQualificada;
   const valid = semValor ? validQualificar : validVenda;
 
   async function submit() {
@@ -83,7 +85,7 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
   }
 
   return (
-    <Modal title={`Marcar venda — ${person.push_name ?? formatWaPhone(person.phone, person.phone_tail)}`} open onClose={onClose}>
+    <Modal title={`${jaQualificada ? "Marcar venda" : "Qualificar ou marcar venda"} — ${person.push_name ?? formatWaPhone(person.phone, person.phone_tail)}`} open onClose={onClose}>
       <div className="space-y-4 text-sm text-slate-700" data-testid="mark-sale">
         <p>
           Registra a venda no Contato desta pessoa e a envia ao Meta pela API de Conversões. Vale também para quem veio <strong>sem anúncio identificado</strong>:
@@ -115,12 +117,13 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
             </div>
           </div>
         )}
+        {semValor && jaQualificada && already === 0 && <p className="text-xs text-blue-700" data-testid="mark-sale-ja-qualificada">Esta pessoa já foi enviada ao Meta como lead qualificado. Para marcar a venda, informe o valor e a moeda.</p>}
         {semValor && !qualStage && !setup.isPending && <p className="text-xs text-amber-700" data-testid="mark-sale-sem-qualificado">Este cliente não tem a etapa “Qualificado” com evento. Informe o valor para marcar a venda, ou cadastre a etapa em Contatos → Etapas.</p>}
         {semValor && qualStage && already > 0 && <p className="text-xs text-amber-700">Esta pessoa já tem venda: para marcar outra, informe o valor. Sem valor não há o que qualificar.</p>}
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button disabled={!valid || (!semValor && stages.length === 0)} loading={mark.isPending} onClick={() => void submit()} data-testid="mark-sale-submit">
-            {semValor ? "Só qualificar (sem venda)" : "Marcar venda"}
+            {semValor ? (jaQualificada ? "Informe o valor da venda" : "Só qualificar (sem venda)") : "Marcar venda"}
           </Button>
         </div>
       </div>
@@ -144,6 +147,10 @@ function Chat({ clientId, person, canDelete, onDeleted, startMarking = false }: 
   const messages = useWaMessages(person.person_id);
   const del = useWaConversationDelete();
   const discard = useWaSuggestionDiscard();
+  // Situação real da pessoa (22/11/2026): o botão e o selo dizem o que já está marcado (antes dizia sempre "Marcar venda").
+  const historico = useContactHistory(person.contact_id).data;
+  const qualificada = Boolean(historico?.some((h) => h.meta_event === "LeadQualificado" || h.kind === "venda"));
+  const vendas = person.contact_sales ?? 0;
   const [marking, setMarking] = useState(startMarking);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -159,11 +166,14 @@ function Chat({ clientId, person, canDelete, onDeleted, startMarking = false }: 
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <Badge tone={person.from_ad ? "success" : "neutral"}>{WA_ORIGIN_LABEL[person.origin]}</Badge>
             {person.ad_id && <span className="text-xs text-slate-500">Anúncio {person.ad_id}</span>}
-            {(person.contact_sales ?? 0) > 0 && <Badge tone="success">{person.contact_sales} venda(s) marcada(s)</Badge>}
+            {vendas > 0 ? <Badge tone="success">{vendas} venda(s) marcada(s)</Badge>
+              : qualificada ? <Badge tone="brand" data-testid="wa-chat-qualificado">Qualificado — enviado ao Meta (sem venda)</Badge> : null}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => { setNotice(null); setMarking(true); }} data-testid="wa-mark-sale">Marcar venda</Button>
+          <Button onClick={() => { setNotice(null); setMarking(true); }} data-testid="wa-mark-sale" variant={vendas > 0 ? "secondary" : "primary"}>
+            {vendas > 0 ? "Marcar outra venda" : qualificada ? "Marcar venda" : "Qualificar ou marcar venda"}
+          </Button>
           {person.contact_id != null && (
             <Link to={`/clientes/${clientId}?aba=contatos`} className="inline-flex items-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:text-blue-700">Ver em Contatos</Link>
           )}
@@ -207,7 +217,7 @@ function Chat({ clientId, person, canDelete, onDeleted, startMarking = false }: 
       </div>
 
       {marking && (
-        <MarkSaleModal clientId={clientId} person={person} onClose={() => setMarking(false)}
+        <MarkSaleModal clientId={clientId} person={person} jaQualificada={qualificada} onClose={() => setMarking(false)}
           onDone={(message) => { setMarking(false); setNotice(message); }} />
       )}
     </div>
