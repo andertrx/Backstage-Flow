@@ -17,6 +17,7 @@ import { MAX_CAMPAIGNS, useReportCampaigns } from "./api.ts";
 import { reportCsvRows, reportPdf, reportXlsx } from "./export.ts";
 import { buildReport, EMPTY_NOTE, formatCell, reportFileName, type ReportTable } from "./model.ts";
 import { DataFreshness } from "@/features/sync/DataFreshness.tsx";
+import { ListSkeleton } from "@/components/ui/skeleton.tsx";
 
 /** Linhas mostradas na tela por tabela (o arquivo baixado tem todas). */
 const PREVIEW_ROWS = 15;
@@ -141,7 +142,7 @@ export function ReportsPage() {
       )}
 
       {loading ? (
-        <div className="h-40 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+        <ListSkeleton label="Carregando" />
       ) : empty ? (
         <Card className="p-10 text-center" data-testid="report-empty">
           <p className="font-medium text-slate-900">Sem dados para estes filtros no período.</p>

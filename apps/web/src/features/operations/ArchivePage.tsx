@@ -12,6 +12,7 @@ import { useArchiveLead, useDeleteLead, useRestoreLead } from "./commercialApi.t
 import { DeleteCardButton } from "./DeleteCardButton.tsx";
 import { type OpsArchiveRow, useArchiveTask, useDeleteTask, useOpsArchiveList, useRestoreTask } from "./tasksApi.ts";
 import { TaskDetailHost, useOpenTask, useTasksContext } from "./tasksContext.tsx";
+import { ListSkeleton } from "@/components/ui/skeleton.tsx";
 
 type Kind = "tarefas" | "leads";
 type State = "arquivados" | "excluidos";
@@ -99,7 +100,7 @@ export function ArchivePage() {
           : "Cartões excluídos não aparecem em nenhuma outra tela. Você vê os que criou ou excluiu; só o administrador restaura (volta como arquivado)."}
       </p>
       {(error || list.error) && <Alert tone="error">{error ?? errorMessage(list.error)}</Alert>}
-      {list.isLoading || ctx.loading ? <div className="h-40 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+      {list.isLoading || ctx.loading ? <ListSkeleton label="Carregando" />
         : rows.length === 0 ? (
           <Card className="space-y-2 p-8 text-center" data-testid="ops-archive-empty">
             {state === "arquivados" ? <Archive className="mx-auto size-8 text-slate-300" aria-hidden /> : <Trash2 className="mx-auto size-8 text-slate-300" aria-hidden />}

@@ -104,8 +104,8 @@ function seed(db, official = false) {
   await page.waitForFunction(() => document.body.textContent.includes("Apagado: 3 mensagem(ns)"));
   check(db.waMessages.length === 0 && db.waPeople.length === 0 && db.waLimpezas.length === 1, "confirmando duas vezes, apaga");
   const old = w.inbound_key;
-  page.once("dialog", (d) => d.accept());
   await modal.getByRole("button", { name: "Gerar nova chave" }).click();
+  await page.getByTestId("confirm-ok").click();
   await page.getByTestId("wa-server-key").waitFor();
   check(w.inbound_key !== old, "gerar nova chave troca a chave");
   check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);

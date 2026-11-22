@@ -24,6 +24,8 @@ import {
   type WaConversation,
 } from "./conversationsApi.ts";
 import { LimparDadosDoClienteCard } from "./WhatsAppServerModal.tsx";
+import { ChatSkeleton, ListSkeleton } from "@/components/ui/skeleton.tsx";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 const CONFIDENCE: Record<string, string> = { alta: "alta", media: "média", baixa: "baixa" };
 
@@ -144,8 +146,8 @@ function Chat({ clientId, person, canDelete, onDeleted }: { clientId: string; pe
           )}
           {canDelete && (
             <Button variant="danger" loading={del.isPending} aria-label="Apagar esta conversa"
-              onClick={() => {
-                if (!window.confirm("Apagar esta conversa do CRM? As mensagens e o telefone guardados somem para sempre. Isso fica no histórico, sem o texto.")) return;
+              onClick={async () => {
+                if (!(await confirmar("Apagar esta conversa do CRM? As mensagens e o telefone guardados somem para sempre. Isso fica no histórico, sem o texto."))) return;
                 setError(null);
                 del.mutate(person.person_id, { onSuccess: onDeleted, onError: (e) => setError(errorMessage(e)) });
               }}>
@@ -175,7 +177,7 @@ function Chat({ clientId, person, canDelete, onDeleted }: { clientId: string; pe
             <Button variant="ghost" className="text-xs" loading={messages.isFetchingNextPage} onClick={() => void messages.fetchNextPage()}>Carregar mensagens mais antigas</Button>
           </div>
         )}
-        {messages.isPending ? <p className="p-4 text-sm text-slate-500">Carregando a conversa…</p>
+        {messages.isPending ? <ChatSkeleton />
           : messages.error ? <Alert tone="error">{errorMessage(messages.error)}</Alert>
           : ordered.length === 0 ? <p className="p-4 text-sm text-slate-500">Nenhuma mensagem guardada.</p>
           : ordered.map((m) => <Bubble key={m.id} direction={m.direction} at={m.at} body={m.body} />)}
@@ -246,7 +248,7 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
             )}
           </div>
           {list.error ? <Alert tone="error">{errorMessage(list.error)}</Alert>
-            : list.isPending ? <p className="p-3 text-sm text-slate-500">Carregando…</p>
+            : list.isPending ? <ListSkeleton label="Carregando as conversas" card={false} rows={4} />
             : people.length === 0 ? (
               <p className="p-3 text-sm text-slate-500" data-testid="wa-conversations-empty">
                 {search || preset !== "tudo" ? "Nenhuma conversa encontrada neste filtro." : "Ainda não há conversas guardadas. Ligue “Guardar as conversas” na aba WhatsApp deste cliente; as mensagens aparecem aqui daí para a frente."}

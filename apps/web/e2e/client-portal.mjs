@@ -92,8 +92,8 @@ let savedLink;
   // Religar e trocar o link: o antigo para, o novo funciona
   await linkSwitch.click();
   await page.waitForFunction(() => document.querySelector("[role=switch][aria-label='Link secreto']")?.getAttribute("aria-checked") === "true");
-  page.once("dialog", (d) => d.accept());
   await card.getByRole("button", { name: "Gerar novo link" }).click();
+  await page.getByTestId("confirm-ok").click();
   await card.getByTestId("portal-fresh-link").waitFor();
   const newLink = await card.getByLabel("Link do cliente").inputValue();
   check(newLink !== savedLink, "novo link diferente do anterior");

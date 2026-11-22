@@ -55,8 +55,8 @@ async function openModal(page) {
   await page.getByRole("dialog").first().screenshot({ path: `${SHOTS}/t538-qr-conectado.png` });
 
   // Desconectar
-  page.once("dialog", (d) => d.accept());
   await qr.getByRole("button", { name: /Desconectar/ }).click();
+  await page.getByTestId("confirm-ok").click();
   await qr.getByText("Desconectado", { exact: true }).waitFor();
   check(c.enabled === false, "desconectar desliga a conexão");
 
@@ -94,8 +94,8 @@ async function openModal(page) {
   check(true, "dá para gerar o QR Code de novo");
 
   // Desconectar apaga a conexão do servidor e mantém o cadastro do número
-  page.once("dialog", (d) => d.accept());
   await qr.getByRole("button", { name: /Desconectar/ }).click();
+  await page.getByTestId("confirm-ok").click();
   await qr.getByText("Conexão apagada no servidor", { exact: false }).waitFor();
   check(c.instance_name === null && db.whatsappConnections.length === 1, "desconectar limpa a instância e mantém o cadastro do número");
   check(errors.length === 0, "sem erros no navegador");

@@ -21,6 +21,7 @@ import { isOnboardingStage, MeetingSeal, OnboardingMeetingActions } from "./Onbo
 import { QueuesPage } from "./QueuesPage.tsx";
 import { type TaskView, ViewToggle } from "./TasksPage.tsx";
 import { TaskDetailHost, type TasksContext, useTasksContext } from "./tasksContext.tsx";
+import { ListSkeleton } from "@/components/ui/skeleton.tsx";
 
 /** Etapa 51.2/52: seta no canto do cartão que abre o menu "Mover para…" (mesmas regras do arrastar). */
 function MoveMenu({ c, targets, onMoveTo }: { c: OpsBoardClient; targets: { id: string; name: string }[]; onMoveTo: (to: string) => void }) {
@@ -198,7 +199,7 @@ export function ClientsPage() {
       </div>
       {ctx.error || board.error || stages.error ? <Alert tone="error">{errorMessage(ctx.error ?? board.error ?? stages.error)}</Alert> : null}
       {ctx.loading || board.isLoading || stages.isLoading ? (
-        <div className="h-64 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+        <ListSkeleton label="Carregando" rows={6} />
       ) : clients.length === 0 ? (
         <Card className="space-y-2 p-8 text-center" data-testid="ops-clients-empty">
           <Building2 className="mx-auto size-8 text-slate-300" aria-hidden />

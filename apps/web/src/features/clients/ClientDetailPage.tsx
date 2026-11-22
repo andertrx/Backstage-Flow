@@ -2,7 +2,6 @@ import { can, formatCnpj, formatPhone, opsCan, PLATFORMS } from "@backstage/shar
 import { ArrowLeft, CalendarDays, ClipboardList, History, Info as InfoIcon, LayoutDashboard, Pencil, Power, PowerOff, Radar, Trash2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
-import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
@@ -27,6 +26,8 @@ import { ClientMonitorCard } from "@/features/monitoring/overview.tsx";
 import { cn } from "@/lib/cn.ts";
 import { ConfigSection, SectionIndex } from "@/components/ui/section.tsx";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
+import { PageSkeleton } from "@/components/ui/skeleton.tsx";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 type ClientTab = "dados" | "tarefas" | "historico" | "reunioes";
 
@@ -117,7 +118,7 @@ export function ClientDetailPage() {
   const setTab = (t: ClientTab) => update((p) => { if (t === "dados") p.delete("aba"); else p.set("aba", t); return p; });
 
   if (movedTab && can(profile?.role, "tracking.view")) return <Navigate to={`/tracking?cliente=${id}&aba=${movedTab}`} replace />;
-  if (isLoading) return <FullPageSpinner />;
+  if (isLoading) return <PageSkeleton label="Carregando o cliente" />;
   if (error) return <Alert tone="error">{errorMessage(error)}</Alert>;
   if (!client) {
     // O RLS devolve "nada" tanto para cliente inexistente quanto sem permissão.
@@ -178,8 +179,8 @@ export function ClientDetailPage() {
             </>
           ) : (
             <Button variant="danger" loading={setActive.isPending} data-testid="client-deactivate"
-              onClick={() => {
-                if (window.confirm(`Desativar ${client.name}?\n\nO CRM para de sincronizar as contas, monitorar, ler a planilha, mandar o e-mail semanal, receber o tracking do site e enviar eventos ao Meta. O cliente SOME da Central (cartão, tarefas, reuniões), dos envios e do Tracking, e o acesso dele (login e link) fica bloqueado.\n\nNada é apagado e dá para reativar depois.`)) {
+              onClick={async () => {
+                if ((await confirmar(`Desativar ${client.name}?\n\nO CRM para de sincronizar as contas, monitorar, ler a planilha, mandar o e-mail semanal, receber o tracking do site e enviar eventos ao Meta. O cliente SOME da Central (cartão, tarefas, reuniões), dos envios e do Tracking, e o acesso dele (login e link) fica bloqueado.\n\nNada é apagado e dá para reativar depois.`))) {
                   setActive.mutate({ id: client.id, active: false });
                 }
               }}>

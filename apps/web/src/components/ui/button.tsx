@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react";
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, Ref } from "react";
 import { cn } from "@/lib/cn.ts";
 
 type Variant = "primary" | "secondary" | "subtle" | "ghost" | "danger";
@@ -25,6 +25,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
   loading?: boolean;
+  /** React 19: a referência passa como propriedade comum (ex.: dar foco no botão). */
+  ref?: Ref<HTMLButtonElement>;
 }
 
 /**

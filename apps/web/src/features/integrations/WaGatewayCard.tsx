@@ -9,6 +9,7 @@ import { Field, Input } from "@/components/ui/field.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { useSaveWaGateway, useSetWaEnabled, useWaConnect, useWaGateway, useWaLogout, useWaStatus, type WaConnectResult, type WaGatewaySettings, type WaState } from "./waGatewayApi.ts";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 const STATE: Record<WaState, { label: string; tone: "success" | "neutral" | "warning" | "danger" }> = {
   conectado: { label: "WhatsApp conectado", tone: "success" },
@@ -178,7 +179,7 @@ export function WaGatewayCard() {
           </Button>
           {state === "conectado" && (
             <Button type="button" variant="ghost" loading={logout.isPending}
-              onClick={() => window.confirm("Desconectar o WhatsApp? Os envios automáticos desligam.") && void run(async () => { await logout.mutateAsync(); return "WhatsApp desconectado."; })}>
+              onClick={async () => (await confirmar("Desconectar o WhatsApp? Os envios automáticos desligam.")) && void run(async () => { await logout.mutateAsync(); return "WhatsApp desconectado."; })}>
               <Unplug className="size-4" aria-hidden /> Desconectar
             </Button>
           )}

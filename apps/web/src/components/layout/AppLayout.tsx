@@ -6,7 +6,6 @@ import { Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-rou
 import { IconButton } from "@/components/ui/icon-button.tsx";
 import { ErrorBoundary } from "@/components/feedback/ErrorBoundary.tsx";
 import { DemoBanner } from "@/components/feedback/DemoBanner.tsx";
-import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { AlertsBell } from "@/features/alerts/AlertsBell.tsx";
 import { useUnseenAlertsCount } from "@/features/alerts/api.ts";
 import { useMonitorNotifications } from "@/features/monitoring/notifyApi.ts";
@@ -24,6 +23,7 @@ import { usePersistentState } from "@/lib/usePersistentState.ts";
 import { setTheme, useTheme } from "@/lib/theme.ts";
 import { Logo } from "./Logo.tsx";
 import { gruposRecolhidosPadrao, navGroupsFor, navItemForPath } from "./navigation.ts";
+import { PageSkeleton } from "@/components/ui/skeleton.tsx";
 
 const APP_NAME = "Backstage Flow";
 const EXTRA_TITLES: Record<string, string> = { "/minha-conta": "Minha conta", "/comparar": "Comparar períodos", "/historico": "Histórico", "/contatos": "Contatos", "/executivo": "Visão executiva", "/hoje": "Hoje" };
@@ -235,7 +235,7 @@ export function AppLayout() {
         <main id="conteudo" tabIndex={-1} className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">
           {/* Uma tela com erro não derruba o resto (o menu continua funcionando). */}
           <ErrorBoundary key={pathname} onReset={() => queryClient.removeQueries()}>
-            <Suspense fallback={<FullPageSpinner label="Abrindo a página..." />}>
+            <Suspense fallback={<PageSkeleton />}>
               {/* 52.2: troca de tela com fade curto (desligado em "reduzir movimento" e na impressão). */}
               <div key={pathname} className="animate-page-in page-stagger print:animate-none">
                 <Outlet />

@@ -7,6 +7,7 @@ import { Field, Textarea } from "@/components/ui/field.tsx";
 import { useRemoveSheetsKey, useSaveSheetsKey, useSheetsSettings, useTestSheets } from "@/features/results/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 /**
  * Etapa 39.1 — conta de serviço do Google para ler as planilhas (só admin).
@@ -104,7 +105,7 @@ export function GoogleSheetsCard() {
           </Button>
           {s?.has_key && (
             <Button type="button" variant="ghost" loading={remove.isPending}
-              onClick={() => window.confirm("Remover a chave? O CRM para de ler as planilhas até você colar uma chave nova.") &&
+              onClick={async () => (await confirmar("Remover a chave? O CRM para de ler as planilhas até você colar uma chave nova.")) &&
                 run(async () => { await remove.mutateAsync(); return "Chave removida. Nenhuma planilha será lida até cadastrar outra."; })}>
               <Trash2 className="size-4" aria-hidden /> Remover chave
             </Button>

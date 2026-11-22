@@ -103,8 +103,8 @@ function seed(db) {
   await page.getByLabel("Código da mensagem ou telefone").fill("K7Q2M9");
   await page.getByRole("button", { name: "Buscar" }).click();
   await page.getByTestId("contact-modal").waitFor();
-  page.once("dialog", (d) => d.accept());
   await page.getByTestId("contact-modal").getByRole("button", { name: /Arquivar/ }).click();
+  await page.getByTestId("confirm-ok").click();
   await page.getByTestId("contact-row").first().getByText("Arquivado").waitFor();
   check(db.contacts[0].archived_at && db.contactHistory.some((h) => h.kind === "arquivado"), "admin arquiva (fica no histórico, não apaga)");
 

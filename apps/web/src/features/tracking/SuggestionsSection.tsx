@@ -9,6 +9,7 @@ import { Field, Input } from "@/components/ui/field.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatRelative } from "@/lib/format.ts";
 import { useWaAiRemoveKey, useWaAiSave, useWaAiSettings, useWaSuggestionDecide, type WaSuggestion } from "./api.ts";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 const CONF: Record<WaSuggestion["confidence"], { label: string; tone: "success" | "warning" | "neutral" }> = {
   alta: { label: "Confiança alta", tone: "success" },
@@ -57,7 +58,7 @@ export function WaAiCard() {
         </Button>
         {s?.has_key && (
           <Button variant="secondary" loading={removeKey.isPending}
-            onClick={() => { if (window.confirm("Remover a chave? A IA para de rodar.")) void run(() => removeKey.mutateAsync()); }}>
+            onClick={async () => { if ((await confirmar("Remover a chave? A IA para de rodar."))) void run(() => removeKey.mutateAsync()); }}>
             Remover chave
           </Button>
         )}

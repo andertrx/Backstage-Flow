@@ -16,6 +16,7 @@ import { DueLabel, ParentTag, PeopleStack, PriorityBadge, StatusPill, SubtaskBad
 import { TaskFormModal } from "./TaskFormModal.tsx";
 import { type OpsTaskFilters, type OpsTaskRow, useOpsTasks } from "./tasksApi.ts";
 import { TaskDetailHost, type TasksContext, useOpenTask, useTasksContext } from "./tasksContext.tsx";
+import { ListSkeleton } from "@/components/ui/skeleton.tsx";
 
 export type TaskView = "lista" | "kanban";
 
@@ -175,7 +176,7 @@ export function TasksPage() {
 
       {ctx.error || tasks.error ? <Alert tone="error">{errorMessage(ctx.error ?? tasks.error)}</Alert> : null}
       {ctx.loading || tasks.isLoading ? (
-        <div className="h-64 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+        <ListSkeleton label="Carregando" rows={6} />
       ) : view === "kanban" ? (
         <KanbanBoard tasks={tasks.data ?? []} statuses={ctx.statuses} sectors={ctx.sectors} today={today}
           canMove={ctx.can("ops.cards.move") || ctx.can("ops.tasks.edit")} onOpen={open} />

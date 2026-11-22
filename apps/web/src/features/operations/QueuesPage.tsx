@@ -11,6 +11,7 @@ import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { TaskCard } from "./TaskBits.tsx";
 import { useOpsTasks } from "./tasksApi.ts";
 import { TaskDetailHost, useOpenTask, useTasksContext } from "./tasksContext.tsx";
+import { ListSkeleton } from "@/components/ui/skeleton.tsx";
 
 /** Filas por setor: o trabalho de cada setor nas colunas dele (ex.: Design → Criativos pendentes). */
 export function QueuesPage() {
@@ -49,7 +50,7 @@ export function QueuesPage() {
       </div>
       {ctx.error || tasks.error || columnsQ.error ? <Alert tone="error">{errorMessage(ctx.error ?? tasks.error ?? columnsQ.error)}</Alert> : null}
       {ctx.loading || tasks.isLoading || columnsQ.isLoading ? (
-        <div className="h-64 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+        <ListSkeleton label="Carregando" rows={6} />
       ) : !sectorId ? (
         <Card className="p-8 text-center text-sm text-slate-500">Nenhum setor ativo.</Card>
       ) : cols.length === 0 ? (

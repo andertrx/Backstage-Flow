@@ -11,6 +11,7 @@ import { AccountStatusBadge } from "./AccountStatusBadge.tsx";
 import { useAccountAction, useClientAdAccounts } from "./api.ts";
 import { LinkAccountModal } from "./LinkAccountModal.tsx";
 import type { AdAccount } from "./types.ts";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 const NOT_AVAILABLE = "Informação não disponível pela API.";
 
@@ -21,7 +22,7 @@ function AccountRow({ account, canManage, clientId }: { account: AdAccount; canM
   const instagram = account.assets.filter((a) => a.asset_type === "instagram");
 
   async function run(kind: "refresh" | "unlink") {
-    if (kind === "unlink" && !window.confirm(`Desvincular "${account.name}" deste cliente? O histórico já salvo é mantido.`)) return;
+    if (kind === "unlink" && !(await confirmar(`Desvincular "${account.name}" deste cliente? O histórico já salvo é mantido.`))) return;
     setFeedback(null);
     try {
       const result = await action.mutateAsync({ action: kind, adAccountId: account.id });

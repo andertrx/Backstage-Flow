@@ -12,6 +12,7 @@ import { type OpsDashboard, type OpsDashboardFilters, type OpsDashboardTaskRef, 
 import { RequireOps } from "./OpsLayout.tsx";
 import { SavedViews } from "./SavedViews.tsx";
 import { TaskDetailHost, useOpenTask, useTasksContext } from "./tasksContext.tsx";
+import { ListSkeleton } from "@/components/ui/skeleton.tsx";
 
 const VIEW_KEYS = ["sector_id", "client_id", "person_id", "period"] as const;
 
@@ -268,7 +269,7 @@ export function DashboardPage() {
 
       {dash.error || ctx.error ? <Alert tone="error">{errorMessage(dash.error ?? ctx.error)}</Alert> : null}
       {dash.isLoading ? (
-        <div className="h-64 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+        <ListSkeleton label="Carregando" rows={6} />
       ) : dash.data ? (
         <DashboardBody d={dash.data} f={f} onOpen={open} />
       ) : null}

@@ -24,6 +24,7 @@ import { useActiveClients } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { type MonitorRuleRow, useArchiveMonitorRule, useMonitorRules, useSaveMonitorRule, useScopeOptions } from "./api.ts";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 const pct = (n: number) => `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(n)}%`;
 
@@ -150,8 +151,8 @@ export function RulesSettings() {
                       className="px-2 py-1 text-red-700 hover:text-red-800"
                       aria-label="Remover regra"
                       loading={archive.isPending && archive.variables === r.id}
-                      onClick={() => {
-                        if (window.confirm("Remover esta regra? Volta a valer o limite mais geral. Ela continua no histórico.")) archive.mutate(r.id);
+                      onClick={async () => {
+                        if ((await confirmar("Remover esta regra? Volta a valer o limite mais geral. Ela continua no histórico."))) archive.mutate(r.id);
                       }}
                     >
                       <Trash2 className="size-4" aria-hidden />

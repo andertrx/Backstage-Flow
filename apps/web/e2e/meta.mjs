@@ -85,8 +85,8 @@ const CLIENT = {
   await page.getByRole("region", { name: "Contas Meta Ads" }).getByRole("button", { name: "Atualizar" }).click();
   await page.waitForTimeout(200);
   check(db.adAccountCalls.at(-1).action === "refresh", "botão Atualizar chama o servidor");
-  page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Desvincular Excalibur - Principal" }).click();
+  await page.getByTestId("confirm-ok").click();
   await page.getByText("Nenhuma conta vinculada.").first().waitFor();
   check(db.adAccounts[0].unlinked_at !== null, "desvincular preserva o registro (só marca a data)");
 

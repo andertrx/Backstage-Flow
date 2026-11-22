@@ -1,7 +1,6 @@
 import { ROLE_LABELS } from "@backstage/shared";
 import { Pencil, UserPlus } from "lucide-react";
 import { useState } from "react";
-import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { StatusBadge } from "@/components/ui/status-badge.tsx";
@@ -13,6 +12,8 @@ import { errorMessage } from "@/lib/errors.ts";
 import { useOpsSectors, useOpsTeam } from "@/features/operations/api.ts";
 import { useAdminUsers, useUsers } from "./api.ts";
 import { UserFormModal } from "./UserFormModal.tsx";
+import { TableSkeleton } from "@/components/ui/skeleton.tsx";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Sao_Paulo" });
 
@@ -23,7 +24,7 @@ function StatusToggle({ user }: { user: Profile }) {
 
   async function toggle() {
     const verb = user.active ? "desativar" : "reativar";
-    if (!window.confirm(`Deseja ${verb} ${user.full_name || user.email}?`)) return;
+    if (!(await confirmar(`Deseja ${verb} ${user.full_name || user.email}?`))) return;
     try {
       await mutation.mutateAsync({ action: "update", userId: user.id, active: !user.active });
     } catch (err) {
@@ -71,7 +72,7 @@ export function UsersPage() {
 
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       {isLoading ? (
-        <FullPageSpinner />
+        <TableSkeleton label="Carregando usuários" cols={6} rows={4} />
       ) : (
         <Card className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">

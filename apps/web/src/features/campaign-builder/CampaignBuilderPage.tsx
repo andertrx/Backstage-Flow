@@ -10,6 +10,7 @@ import { useMetaAccounts } from "@/features/ads-builder/api.ts";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
+import { confirmar } from "@/lib/confirmStore.ts";
 import {
   type BuilderPersonPermission, useArchiveDraft, useBuilderDrafts, useBuilderPeople, useBuilderPermissions, useCreateDraft, useSaveBuilderPermission,
 } from "./api.ts";
@@ -132,7 +133,7 @@ export function CampaignBuilderPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function doArchive(id: string, name: string) {
-    if (!window.confirm(`Arquivar o rascunho "${name}"? Ele sai da lista, mas continua guardado.`)) return;
+    if (!(await confirmar(`Arquivar o rascunho "${name}"? Ele sai da lista, mas continua guardado.`))) return;
     setError(null);
     try {
       await archive.mutateAsync(id);

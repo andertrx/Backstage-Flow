@@ -34,6 +34,7 @@ import { useMyOpsPermissions } from "@/features/operations/api.ts";
 import { useUnreadNotifications } from "@/features/operations/notificationsApi.ts";
 import { AvisosCampanhas, AvisosTarefas } from "./AvisosAbas.tsx";
 import { type AlertRow, type AlertSituation, type RefreshAlertsResult, useAlerts, useMarkAllAlertsSeen, useRefreshAlerts, useSetAlertStatus, useUnseenAlertsCount } from "./api.ts";
+import { ListSkeleton } from "@/components/ui/skeleton.tsx";
 
 const SITUATIONS: { value: AlertSituation; label: string }[] = [
   { value: "abertos", label: "Abertos" },
@@ -180,7 +181,7 @@ function AlertasContas() {
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
 
       {isLoading ? (
-        <div className="h-32 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+        <ListSkeleton label="Carregando" />
       ) : alerts.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center" data-testid="alerts-empty">
           <BellOff className="size-8 text-slate-300" aria-hidden />

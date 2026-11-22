@@ -29,6 +29,7 @@ import { GrupoDoClienteAcoes, LigarGrupoModal } from "./WaGrupoLigar.tsx";
 import { WaGruposCard } from "./WaGruposCard.tsx";
 import { WhatsAppPreview } from "./WhatsAppPreview.tsx";
 import { type TasksContext, useTasksContext } from "./tasksContext.tsx";
+import { ListSkeleton } from "@/components/ui/skeleton.tsx";
 
 const STATUS_TONE: Record<EnvioStatus, "success" | "danger" | "neutral"> = { enviado: "success", falhou: "danger", pulado: "neutral" };
 
@@ -132,7 +133,7 @@ function EnvioFormModal({ envio, onClose }: { envio: OpsEnvio | null; onClose: (
             <Button type="button" variant="secondary" onClick={() => setTodos(true)} disabled={linhas.length === 0}>Selecionar todos</Button>
             <Button type="button" variant="secondary" onClick={() => setTodos(false)} disabled={ligados === 0}>Tirar todos</Button>
           </div>
-          {padroes.isLoading ? <div className="h-32 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" /> : (
+          {padroes.isLoading ? <ListSkeleton label="Carregando" /> : (
             <ul className="max-h-[28rem] divide-y divide-slate-100 overflow-y-auto rounded-xl ring-1 ring-slate-200">
               {shown.map((c) => {
                 const on = Boolean(ligado[c.cliente_id]);
@@ -239,7 +240,7 @@ function HistoricoView({ envios, ctx }: { envios: OpsEnvio[]; ctx: TasksContext 
         <Input aria-label="Até" type="date" className="w-auto" value={f.ate ?? ""} onChange={(e) => set("ate", e.target.value)} />
       </div>
       {hist.error ? <Alert tone="error">{errorMessage(hist.error)}</Alert> : null}
-      {hist.isLoading ? <div className="h-40 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+      {hist.isLoading ? <ListSkeleton label="Carregando" />
         : (hist.data ?? []).length === 0 ? (
           <Card className="space-y-1 p-8 text-center">
             <History className="mx-auto size-8 text-slate-300" aria-hidden />
@@ -341,7 +342,7 @@ function ClientesView({ ctx }: { ctx: TasksContext }) {
       </div>
       {rows.length > 0 && <WaGruposCard padroes={rows} />}
       {list.error ? <Alert tone="error">{errorMessage(list.error)}</Alert> : null}
-      {list.isLoading ? <div className="h-40 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+      {list.isLoading ? <ListSkeleton label="Carregando" />
         : shown.length === 0 ? (
           <Card className="space-y-1 p-8 text-center">
             <Users className="mx-auto size-8 text-slate-300" aria-hidden />
@@ -397,7 +398,7 @@ export function EnviosPage() {
       {list.error ? <Alert tone="error">{errorMessage(list.error)}</Alert> : null}
       {view === "historico" ? <HistoricoView envios={envios} ctx={ctx} />
         : view === "padroes" ? <ClientesView ctx={ctx} />
-        : list.isLoading ? <div className="h-48 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+        : list.isLoading ? <ListSkeleton label="Carregando" />
         : envios.length === 0 ? (
           <Card className="space-y-2 p-8 text-center" data-testid="envios-empty">
             <Send className="mx-auto size-8 text-slate-300" aria-hidden />

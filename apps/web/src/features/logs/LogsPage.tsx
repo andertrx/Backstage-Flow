@@ -16,6 +16,7 @@ import { formatDateTime } from "@/lib/format.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { type AuditRow, type ErrorLogRow, useAuditLog, useErrorLog, useSyncLog } from "./api.ts";
 import { actorLabel, auditCsvRows, downloadCsv, errorCsvRows, errorWhere, LOG_PERIODS, type LogPeriod, periodStart } from "./logic.ts";
+import { TableSkeleton } from "@/components/ui/skeleton.tsx";
 
 type Tab = "acoes" | "sincronizacoes" | "erros";
 
@@ -135,7 +136,7 @@ function AuditTab({ period, params, set }: TabProps) {
       </div>
 
       {log.isLoading ? (
-        <div className="h-32 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+        <TableSkeleton label="Carregando" cols={5} rows={8} />
       ) : rows.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center" data-testid="audit-empty">
           <ScrollText className="size-8 text-slate-300" aria-hidden />
@@ -281,7 +282,7 @@ function ErrorsTab({ period, params, set }: TabProps) {
       </div>
 
       {log.isLoading ? (
-        <div className="h-32 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+        <TableSkeleton label="Carregando" cols={5} rows={8} />
       ) : rows.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center" data-testid="errors-empty">
           <Bug className="size-8 text-slate-300" aria-hidden />

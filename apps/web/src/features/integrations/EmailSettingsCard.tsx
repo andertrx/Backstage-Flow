@@ -7,6 +7,7 @@ import { Field, Input } from "@/components/ui/field.tsx";
 import { type EmailSettings, isEmail, useEmailSettings, useRemoveEmailKey, useSaveEmailSettings, useTestEmailSettings } from "@/features/client-report/emailApi.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 /**
  * Etapa 19.4 — envio de e-mails do relatório pelo Resend (só admin).
@@ -106,7 +107,7 @@ export function EmailSettingsCard() {
           </Button>
           {s?.has_key && (
             <Button type="button" variant="ghost" loading={remove.isPending}
-              onClick={() => window.confirm("Remover a chave? Os e-mails semanais param até você colar uma chave nova.") &&
+              onClick={async () => (await confirmar("Remover a chave? Os e-mails semanais param até você colar uma chave nova.")) &&
                 run(async () => { await remove.mutateAsync(); return "Chave removida. Nenhum e-mail será enviado até cadastrar outra."; })}>
               <Trash2 className="size-4" aria-hidden /> Remover chave
             </Button>

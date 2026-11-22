@@ -20,6 +20,7 @@ import {
   useUpdateSalesWebhook,
 } from "./api.ts";
 import { CopyLine } from "./SalesSystemsModal.tsx";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 const RESULT_LABELS: Record<SalesLogRow["result"], { label: string; tone: "success" | "neutral" | "warning" | "danger" | "brand" }> = {
   aceito: { label: "Lead registrado", tone: "success" },
@@ -149,7 +150,7 @@ function LeadDetails({ hook, siteName, siteConsent, revealedKey, onKey, onProble
     if (await run({ mapping: clean })) setSaved(true);
   };
   const changeKey = async () => {
-    if (!window.confirm("Trocar a chave? A chave atual para de valer na hora: será preciso colar a nova no formulário.")) return;
+    if (!(await confirmar("Trocar a chave? A chave atual para de valer na hora: será preciso colar a nova no formulário."))) return;
     onProblem(null);
     try {
       onKey(await newKey.mutateAsync(hook.id));
@@ -268,8 +269,8 @@ function LeadDetails({ hook, siteName, siteConsent, revealedKey, onKey, onProble
       </section>
 
       <div className="flex justify-end">
-        <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={() => {
-          if (window.confirm(`Arquivar "${hook.name}"? O endereço para de receber avisos. Os leads já registrados continuam.`)) run({ archived_at: new Date().toISOString() });
+        <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={async () => {
+          if ((await confirmar(`Arquivar "${hook.name}"? O endereço para de receber avisos. Os leads já registrados continuam.`))) run({ archived_at: new Date().toISOString() });
         }}>
           <Archive className="size-3.5" aria-hidden /> Arquivar
         </Button>

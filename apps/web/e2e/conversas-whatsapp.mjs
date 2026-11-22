@@ -109,8 +109,8 @@ function seed(db) {
   check(db.contactHistory.some((h) => h.contact_id === kb.id && h.kind === "venda" && /^ct\d+-1$/.test(h.order_id)), "sem nº digitado, o CRM cria o nº sozinho");
 
   // Apagar (admin)
-  page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Apagar esta conversa" }).click();
+  await page.getByTestId("confirm-ok").click();
   await page.waitForFunction(() => document.querySelectorAll('[data-testid="wa-conversation"]').length === 1);
   check(db.waPeople.length === 1 && db.waMessages.every((m) => m.person_id === 1), "apagar tira a conversa e as mensagens");
   check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);

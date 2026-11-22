@@ -23,6 +23,7 @@ import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatRelative } from "@/lib/format.ts";
 import { type TrackingContainer, type TrackingRule, useRuleAction, useRuleVersions, useTrackingRules } from "./api.ts";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 const CURRENCIES = ["BRL", "USD", "EUR"];
 const CUSTOM = "__personalizado__";
@@ -102,8 +103,8 @@ export function RulesModal({ container, canManage, onClose }: { container: Track
             {unpublished && <span className="ml-2"><Badge tone="warning">Mudanças não publicadas</Badge></span>}
           </div>
           {canManage && (
-            <Button loading={act.isPending} disabled={!unpublished} data-testid="rules-publish" onClick={() => {
-              if (window.confirm("Publicar as regras? O site passa a usar esta versão em até 5 minutos.")) act.mutate({ action: "publish" });
+            <Button loading={act.isPending} disabled={!unpublished} data-testid="rules-publish" onClick={async () => {
+              if ((await confirmar("Publicar as regras? O site passa a usar esta versão em até 5 minutos."))) act.mutate({ action: "publish" });
             }}>
               <Rocket className="size-4" aria-hidden /> Publicar
             </Button>
@@ -139,8 +140,8 @@ export function RulesModal({ container, canManage, onClose }: { container: Track
                     <Button variant="ghost" className="px-2 py-1 text-xs" aria-label={`Editar ${r.name}`} onClick={() => setEditing(r)}>
                       <Pencil className="size-3.5" aria-hidden />
                     </Button>
-                    <Button variant="ghost" className="px-2 py-1 text-xs" aria-label={`Arquivar ${r.name}`} onClick={() => {
-                      if (window.confirm(`Arquivar a regra "${r.name}"? Ela sai da lista (as versões já publicadas continuam guardadas).`)) act.mutate({ action: "archive", id: r.id });
+                    <Button variant="ghost" className="px-2 py-1 text-xs" aria-label={`Arquivar ${r.name}`} onClick={async () => {
+                      if ((await confirmar(`Arquivar a regra "${r.name}"? Ela sai da lista (as versões já publicadas continuam guardadas).`))) act.mutate({ action: "archive", id: r.id });
                     }}>
                       <Archive className="size-3.5" aria-hidden />
                     </Button>
@@ -177,8 +178,8 @@ export function RulesModal({ container, canManage, onClose }: { container: Track
                     {v.version === current?.version && <span className="ml-2"><Badge tone="success">No ar</Badge></span>}
                   </span>
                   {canManage && v.version !== current?.version && (
-                    <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => {
-                      if (window.confirm(`Voltar para a versão ${v.version}? As regras atuais vão para o arquivo e a versão ${v.version} é publicada de novo.`)) {
+                    <Button variant="ghost" className="px-2 py-1 text-xs" onClick={async () => {
+                      if ((await confirmar(`Voltar para a versão ${v.version}? As regras atuais vão para o arquivo e a versão ${v.version} é publicada de novo.`))) {
                         act.mutate({ action: "restore", version: v.version });
                       }
                     }}>

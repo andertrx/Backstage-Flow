@@ -22,6 +22,7 @@ import { RequireOps } from "./OpsLayout.tsx";
 import { Avatar, PriorityBadge } from "./TaskBits.tsx";
 import { type TaskView, ViewToggle } from "./TasksPage.tsx";
 import { useTasksContext } from "./tasksContext.tsx";
+import { ListSkeleton } from "@/components/ui/skeleton.tsx";
 
 const totalsText = (items: OpsLeadCard[]) =>
   Object.entries(opsSumByCurrency(items)).map(([cur, v]) => formatMoney(v, cur)).join(" · ");
@@ -249,7 +250,7 @@ export function CommercialPage() {
       {lossError && <Alert tone="error">{lossError}</Alert>}
       {board.error || stages.error ? <Alert tone="error">{errorMessage(board.error ?? stages.error)}</Alert> : null}
       {board.isLoading || stages.isLoading ? (
-        <div className="h-64 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+        <ListSkeleton label="Carregando" rows={6} />
       ) : sub === "resultados" ? (
         <ResultsList leads={allLeads} stageOf={categoryOf} onOpen={open} />
       ) : leads.length === 0 ? (

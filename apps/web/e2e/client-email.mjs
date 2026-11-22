@@ -144,8 +144,8 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
   check(db.emailsSent.at(-1).to === "ander@teste.local" && db.emailsSent.at(-1).subject.startsWith("[Teste]"), "teste vai só para quem pediu, marcado [Teste]");
   // Enviar agora
   const before = db.emailsSent.length;
-  page.once("dialog", (d) => d.accept());
   await ec.getByRole("button", { name: "Enviar agora" }).click();
+  await page.getByTestId("confirm-ok").click();
   await ec.getByText("Enviado: 2 enviado(s).").waitFor();
   check(db.emailsSent.slice(before).map((e) => e.to).join(",") === "dono@excalibur.com.br,financeiro@excalibur.com.br", "um e-mail para cada destinatário");
   const log = ec.getByTestId("email-log");
@@ -189,8 +189,8 @@ const clean = (s) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
 
   // Remover a chave → aviso no card do cliente
   await page.goto(`${BASE}/configuracoes/integracoes`);
-  page.once("dialog", (d) => d.accept());
   await sc.getByRole("button", { name: "Remover chave" }).click();
+  await page.getByTestId("confirm-ok").click();
   await sc.getByText("Chave removida").waitFor();
   check(db.emailKey === null && !db.emailSettings.has_key, "chave removida");
   await page.goto(`${BASE}/clientes/${EXC}`);

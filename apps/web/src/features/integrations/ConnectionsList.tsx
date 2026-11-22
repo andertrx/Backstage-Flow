@@ -8,6 +8,7 @@ import { errorMessage } from "@/lib/errors.ts";
 import { ConnectionAccountsModal } from "./ConnectionAccountsModal.tsx";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge.tsx";
 import { MetaPermissionsPanel } from "./MetaPermissionsPanel.tsx";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 const dateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR") : "—");
 
@@ -21,7 +22,7 @@ export function ConnectionsList({ platform, emptyText, canCheckPermissions = fal
   const [checking, setChecking] = useState<string | null>(null);
 
   async function disconnect(id: string, label: string) {
-    if (!window.confirm(`Desconectar "${label}"? A credencial será apagada do cofre e as contas vinculadas param de atualizar.`)) return;
+    if (!(await confirmar(`Desconectar "${label}"? A credencial será apagada do cofre e as contas vinculadas param de atualizar.`))) return;
     try {
       await action.mutateAsync({ action: "disconnect", connectionId: id });
     } catch (err) {

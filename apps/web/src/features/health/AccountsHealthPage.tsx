@@ -16,6 +16,7 @@ import { formatDateTime, formatMoney, formatRelative } from "@/lib/format.ts";
 import { useAccountHealth } from "./api.ts";
 import { HealthBadge } from "./HealthBadge.tsx";
 import { buildHealthItems, countByStatus, filterHealthItems, type HealthItem } from "./rows.ts";
+import { ListSkeleton } from "@/components/ui/skeleton.tsx";
 
 const NOT_AVAILABLE = "Informação não disponível pela API.";
 
@@ -185,7 +186,7 @@ export function AccountsHealthPage() {
       )}
 
       {isLoading ? (
-        <div className="h-40 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando contas" />
+        <ListSkeleton label="Carregando contas" />
       ) : items.length === 0 ? (
         <Alert tone="info">{off ? "Nenhuma conta de cliente desativado." : "Nenhuma conta de anúncio vinculada ainda. Vincule contas na página de cada cliente."}</Alert>
       ) : visible.length === 0 ? (

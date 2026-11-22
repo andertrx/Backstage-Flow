@@ -63,8 +63,8 @@ const GESTORA = "22222222-2222-2222-2222-222222222222";
   await page.screenshot({ path: `${SHOTS}/35-2-criar-campanhas-admin.png`, fullPage: true });
 
   // Arquivar não apaga
-  page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Arquivar Black Friday — Cadastros" }).click();
+  await page.getByTestId("confirm-ok").click();
   await page.getByText("Nenhum rascunho ainda.").waitFor();
   check(db.builderDrafts.length === 1 && db.builderDrafts[0].archived_at, "arquivar tira da lista mas guarda o rascunho");
 

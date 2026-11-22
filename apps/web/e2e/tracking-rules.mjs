@@ -72,8 +72,8 @@ let published = null;
   check((await page.getByTestId("rules-status").innerText()).includes("Mudanças não publicadas"), "aviso de mudanças não publicadas");
 
   // Publicar
-  page.once("dialog", (d) => d.accept());
   await page.getByTestId("rules-publish").click();
+  await page.getByTestId("confirm-ok").click();
   await page.getByText("Versão publicada: 1").waitFor();
   const v1 = db.trackingRuleVersions.find((v) => v.version === 1);
   check(v1.rules.map((r) => r.name).join(",") === "Lead lojista,Outros tipos,Compra da loja" && v1.rules[0].field_values[0] === "Lojista"
@@ -97,15 +97,15 @@ let published = null;
   await page.waitForFunction(() => document.querySelectorAll("[data-testid=rule-row]")[0]?.textContent.includes("Lead lojista"));
   await page.getByTestId("rule-row").filter({ hasText: "Compra da loja" }).getByRole("button", { name: "Desligar" }).click();
   await page.getByTestId("rule-row").filter({ hasText: "Compra da loja" }).getByText("Desligada").waitFor();
-  page.once("dialog", (d) => d.accept());
   await page.getByTestId("rules-publish").click();
+  await page.getByTestId("confirm-ok").click();
   await page.getByText("Versão publicada: 2").waitFor();
   check(db.trackingRuleVersions.find((v) => v.version === 2).rules.length === 2, "regra desligada fica fora da versão 2");
 
   // Voltar para a versão 1 → versão 3
   await page.getByText("Versões publicadas").click();
-  page.once("dialog", (d) => d.accept());
   await page.getByTestId("rule-versions").getByRole("listitem").filter({ hasText: "Versão 1 ·" }).getByRole("button", { name: /Voltar para esta/ }).click();
+  await page.getByTestId("confirm-ok").click();
   await page.getByText("Versão publicada: 3").waitFor();
   const v3 = db.trackingRuleVersions.find((v) => v.version === 3);
   check(v3.restored_from === 1 && v3.rules.length === 3 && db.trackingRules.filter((r) => r.archived_at).length === 3,

@@ -72,8 +72,8 @@ const KEY = "chave-do-servidor-1234567890";
   // Desconectar desliga a trava
   await card.getByRole("button", { name: "Ligar" }).click();
   await card.getByTestId("wa-switch").getByText("LIGADOS", { exact: true }).waitFor();
-  page.once("dialog", (d) => d.accept());
   await card.getByRole("button", { name: /Desconectar/ }).click();
+  await page.getByTestId("confirm-ok").click();
   await card.getByTestId("wa-switch").getByText("DESLIGADOS", { exact: true }).waitFor();
   check(db.waGw.connection_state === "desconectado" && db.waGw.enabled === false, "desconectar desliga a trava sozinho");
 

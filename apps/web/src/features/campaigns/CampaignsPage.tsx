@@ -17,6 +17,7 @@ import { parseTable, type TableState, writeTable } from "./table.ts";
 import { periodQueryString } from "./links.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { DataFreshness } from "@/features/sync/DataFreshness.tsx";
+import { TableSkeleton } from "@/components/ui/skeleton.tsx";
 
 const STATUS_CHIPS: { value: CampaignStatusFilter | null; label: string }[] = [
   { value: null, label: "Todas" },
@@ -99,7 +100,7 @@ export function CampaignsPage() {
       )}
 
       {isLoading ? (
-        <div className="h-48 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando campanhas" />
+        <TableSkeleton label="Carregando campanhas" cols={7} rows={8} />
       ) : rows.length === 0 && !error ? (
         <Alert tone="info">
           {table.search || table.status

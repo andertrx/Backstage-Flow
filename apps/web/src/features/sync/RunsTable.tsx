@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card.tsx";
 import { formatDateTime } from "@/lib/format.ts";
 import type { SyncRunRow } from "./api.ts";
 import { formatDuration } from "./logic.ts";
+import { TableSkeleton } from "@/components/ui/skeleton.tsx";
 
 export const RUN_TONE = { sucesso: "success", erro: "danger", executando: "brand" } as const;
 export const RUN_LABEL = { sucesso: "Sucesso", erro: "Erro", executando: "Sincronizando…" } as const;
@@ -11,7 +12,7 @@ export const TRIGGER_LABEL = { agendada: "Automática", manual: "Manual", histor
 
 /** Histórico de sincronizações (tela Sincronização e tela Logs). */
 export function RunsTable({ runs, loading, emptyText = "Nenhuma sincronização registrada ainda." }: { runs: SyncRunRow[]; loading: boolean; emptyText?: string }) {
-  if (loading) return <div className="h-24 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />;
+  if (loading) return <TableSkeleton label="Carregando" cols={5} rows={4} />;
   if (!runs.length) {
     return (
       <Card className="p-6 text-center text-sm text-slate-500" data-testid="sync-log-empty">

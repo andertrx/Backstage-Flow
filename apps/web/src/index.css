@@ -169,6 +169,7 @@ p { text-wrap-style: pretty; }
   --shadow-elevated: 0 24px 60px -18px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(255 255 255 / 0.06);
 }
 [data-theme="dark"] .bg-white { background-color: #0f1013; }
+[data-theme="dark"] .skeleton { background: linear-gradient(90deg, #1b1d22 25%, #262930 50%, #1b1d22 75%); background-size: 200% 100%; }
 [data-theme="dark"] .bg-white\/90 { background-color: rgb(15 16 19 / 0.9); }
 [data-theme="dark"] .bg-emerald-50 { background-color: rgb(16 185 129 / 0.14); }
 [data-theme="dark"] .bg-amber-50 { background-color: rgb(245 158 11 / 0.14); }

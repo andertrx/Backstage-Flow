@@ -8,6 +8,7 @@ import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatMoney } from "@/lib/format.ts";
+import { confirmar } from "@/lib/confirmStore.ts";
 import {
   type SalesLogRow,
   type SalesWebhook,
@@ -129,7 +130,7 @@ function WebhookDetails({ hook, revealedKey, onKey, onProblem }: {
     if (await run({ mapping: clean })) setSaved(true);
   };
   const changeKey = async () => {
-    if (!window.confirm("Trocar a chave? A chave atual para de valer na hora: será preciso colar a nova no sistema de vendas.")) return;
+    if (!(await confirmar("Trocar a chave? A chave atual para de valer na hora: será preciso colar a nova no sistema de vendas."))) return;
     onProblem(null);
     try {
       onKey(await newKey.mutateAsync(hook.id));
@@ -257,8 +258,8 @@ function WebhookDetails({ hook, revealedKey, onKey, onProblem }: {
       </section>
 
       <div className="flex justify-end">
-        <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={() => {
-          if (window.confirm(`Arquivar "${hook.name}"? O endereço para de receber avisos. O histórico das vendas continua.`)) run({ archived_at: new Date().toISOString() });
+        <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={async () => {
+          if ((await confirmar(`Arquivar "${hook.name}"? O endereço para de receber avisos. O histórico das vendas continua.`))) run({ archived_at: new Date().toISOString() });
         }}>
           <Archive className="size-3.5" aria-hidden /> Arquivar
         </Button>

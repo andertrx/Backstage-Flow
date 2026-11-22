@@ -67,8 +67,8 @@ await dialog.waitFor({ state: "detached" });
 const last = functionCalls.at(-1);
 check(last.action === "create" && last.role === "operador" && last.email === "joao@agencia.com", "criação envia os dados certos ao servidor");
 
-page.once("dialog", (d) => d.accept());
 await page.getByRole("row", { name: /Excalibur/ }).getByRole("button", { name: "Reativar" }).click();
+await page.getByTestId("confirm-ok").click();
 await page.waitForTimeout(300);
 check(functionCalls.at(-1).action === "update" && functionCalls.at(-1).active === true, "reativar envia update active=true");
 const selfBtn = page.getByRole("row", { name: /Ander Rodrigues/ }).getByRole("button", { name: "Desativar" });

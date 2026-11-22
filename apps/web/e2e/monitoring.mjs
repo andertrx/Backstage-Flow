@@ -33,7 +33,6 @@ const cardValue = async (page, s) => clean(await page.getByTestId(`coleta-${s}`)
   const { browser, page, errors } = await launch();
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
-  page.on("dialog", (d) => d.accept());
   // Entra direto no monitoramento: o Dashboard sincroniza sozinho as contas atrasadas ao abrir (Etapa 24).
   await login(page, "/monitoramento");
   await page.getByRole("heading", { name: "Monitoramento de Desempenho", level: 1 }).waitFor();
@@ -127,6 +126,7 @@ const cardValue = async (page, s) => clean(await page.getByTestId(`coleta-${s}`)
 
   // Remover a específica: volta a valer a geral e fica no histórico
   await page.getByRole("button", { name: "Remover regra" }).click();
+  await page.getByTestId("confirm-ok").click();
   await page.getByText("Nenhuma regra específica").waitFor();
   check(true, "regra específica removida");
   await page.getByRole("button", { name: "Mostrar" }).click();

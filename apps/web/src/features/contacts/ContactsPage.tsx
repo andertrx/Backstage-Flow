@@ -32,6 +32,8 @@ import { LeadFormsModal } from "./LeadFormsModal.tsx";
 import { SalesSystemsModal } from "./SalesSystemsModal.tsx";
 import { WhatsAppPhrasesModal } from "./WhatsAppPhrasesModal.tsx";
 import { SetupModal } from "./SetupModal.tsx";
+import { ListSkeleton } from "@/components/ui/skeleton.tsx";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 const ORIGIN_LABELS: Record<ContactRow["origin"], string> = { site: "Site", whatsapp: "WhatsApp", manual: "Manual", sistema: "Sistema de vendas" };
 const STAGE_TONE: Record<ContactStage["kind"], "neutral" | "success" | "danger"> = { aberta: "neutral", ganha: "success", perdida: "danger" };
@@ -240,7 +242,7 @@ export function ContactsPage({ fixedClientId }: { fixedClientId?: string } = {})
 
           {list.error && <Alert tone="error">{errorMessage(list.error)}</Alert>}
           {list.isLoading ? (
-            <div className="h-32 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando contatos" />
+            <ListSkeleton label="Carregando contatos" />
           ) : rows.length === 0 && !found ? (
             <Alert tone="info">Nenhum contato ainda. Eles chegam sozinhos pelo site e pelo WhatsApp com código, ou busque um código/telefone acima.</Alert>
           ) : (
@@ -489,8 +491,8 @@ function ContactModal({ contact: c, profiles, stages, canMark, canArchive, stage
 
         {canArchive && !c.archived && (
           <div className="flex justify-end">
-            <Button variant="ghost" className="text-xs" loading={archive.isPending} onClick={() => {
-              if (window.confirm("Arquivar este contato? Ele sai da lista de trabalho, mas o histórico continua guardado.")) archive.mutate(c.id, { onSuccess: onClose });
+            <Button variant="ghost" className="text-xs" loading={archive.isPending} onClick={async () => {
+              if ((await confirmar("Arquivar este contato? Ele sai da lista de trabalho, mas o histórico continua guardado."))) archive.mutate(c.id, { onSuccess: onClose });
             }}>
               <Archive className="size-3.5" aria-hidden /> Arquivar
             </Button>

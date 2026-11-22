@@ -2,7 +2,6 @@ import { can, CLIENT_STATUS_LABELS, type ClientStatus, formatPhone } from "@back
 import { Building2, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
@@ -15,6 +14,7 @@ import { searchable } from "@/lib/text.ts";
 import { useClients } from "./api.ts";
 import { ClientFormModal } from "./ClientFormModal.tsx";
 import { ClientStatusBadge } from "./StatusBadge.tsx";
+import { TableSkeleton } from "@/components/ui/skeleton.tsx";
 
 const PAGE_SIZE = 25;
 type Filter = ClientStatus | "todos";
@@ -96,7 +96,7 @@ export function ClientsPage() {
 
       {error && <Alert tone="error">{errorMessage(error)}</Alert>}
       {isLoading ? (
-        <FullPageSpinner />
+        <TableSkeleton label="Carregando clientes" cols={5} />
       ) : filtered.length === 0 ? (
         <Card>
           <EmptyState

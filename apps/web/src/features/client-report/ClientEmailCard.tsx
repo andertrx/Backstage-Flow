@@ -10,6 +10,7 @@ import { errorMessage, FriendlyError } from "@/lib/errors.ts";
 import { formatDate, formatDateTime } from "@/lib/format.ts";
 import { useClientPortal } from "./api.ts";
 import { Switch } from "./ClientPortalCard.tsx";
+import { confirmar } from "@/lib/confirmStore.ts";
 import {
   type ClientEmail, type EmailButton, parseRecipients, useClientEmail, useClientEmailLog, useEmailLinkStatus, useEmailSettings,
   useSaveClientEmail, useSendClientEmail, useSetEmailLink, WEEKDAYS,
@@ -91,7 +92,7 @@ function EmailForm({ clientId, timezone, row }: { clientId: string; timezone: st
     return "E-mail semanal salvo.";
   });
   const sendNow = (action: "test" | "send_now") => run(async () => {
-    if (action === "send_now" && !window.confirm("Enviar o e-mail desta semana agora para os destinatários salvos?")) return;
+    if (action === "send_now" && !(await confirmar("Enviar o e-mail desta semana agora para os destinatários salvos?"))) return;
     const r = await send.mutateAsync(action);
     return r.status === "pulado" ? `Nada foi enviado: ${r.detail}` : action === "test" ? `Teste enviado para ${profile?.email}.` : `Enviado: ${r.detail}`;
   });

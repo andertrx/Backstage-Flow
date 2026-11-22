@@ -19,6 +19,7 @@ import { type OpsMeetingFilters, type OpsMeetingRow, useMeetingCategories, useMe
 import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { RequireOps } from "./OpsLayout.tsx";
 import { useTasksContext } from "./tasksContext.tsx";
+import { ListSkeleton } from "@/components/ui/skeleton.tsx";
 
 export function useOpenMeeting() {
   const [params, update] = useSearchParamsUpdater();
@@ -148,7 +149,7 @@ export function MeetingsPage() {
 
       {list.error ? <Alert tone="error">{errorMessage(list.error)}</Alert> : null}
       {list.isLoading ? (
-        <div className="h-48 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+        <ListSkeleton label="Carregando" />
       ) : meetings.length === 0 ? (
         <Card className="space-y-2 p-8 text-center" data-testid="ops-meetings-empty">
           <CalendarDays className="mx-auto size-8 text-slate-300" aria-hidden />
@@ -189,7 +190,7 @@ export function MeetingsRoute() {
 /** Aba "Reuniões" na ficha do cliente: reuniões ligadas ao cliente que a pessoa pode ver. */
 export function ClientMeetingsList({ clientId }: { clientId: string }) {
   const list = useMeetingList({ client_id: clientId, order: "desc" });
-  if (list.isLoading) return <div className="h-32 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />;
+  if (list.isLoading) return <ListSkeleton label="Carregando" />;
   if (list.error) return <Alert tone="error">{errorMessage(list.error)}</Alert>;
   const meetings = list.data?.meetings ?? [];
   return (

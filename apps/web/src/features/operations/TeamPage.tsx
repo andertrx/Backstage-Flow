@@ -13,6 +13,7 @@ import { type OpsSector, type OpsTeamMember, useMyOpsPermissions, useOpsSectors,
 import { type MemberDraft, memberDraftFrom, MemberFields } from "./MemberFields.tsx";
 import { OpsModuleHeader } from "./OpsHeader.tsx";
 import { type OpsTeamCount, useOpsTeamCounts } from "./tasksApi.ts";
+import { TableSkeleton } from "@/components/ui/skeleton.tsx";
 
 export function SectorChip({ sector, muted }: { sector: OpsSector | undefined; muted?: boolean }) {
   if (!sector) return null;
@@ -118,7 +119,7 @@ export function TeamPage() {
 
       {error ? <Alert tone="error">{errorMessage(error)}</Alert> : null}
       {team.isLoading || sectors.isLoading ? (
-        <div className="h-40 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+        <TableSkeleton label="Carregando" cols={5} />
       ) : rows.length === 0 ? (
         <Card className="space-y-2 p-8 text-center" data-testid="ops-team-empty">
           <Users className="mx-auto size-8 text-slate-300" aria-hidden />

@@ -9,6 +9,7 @@ import { useClientAccess } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { useClientPortal, useNewClientLink, useSetClientPortal } from "./api.ts";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 export { Switch };
 
@@ -43,7 +44,7 @@ export function ClientPortalCard({ clientId }: { clientId: string }) {
     try { await fn(); } catch (e) { setError(errorMessage(e)); }
   }
   async function generate() {
-    if (p?.link_created_at && !window.confirm("Gerar um link novo? O link atual para de funcionar na hora.")) return;
+    if (p?.link_created_at && !(await confirmar("Gerar um link novo? O link atual para de funcionar na hora."))) return;
     await run(async () => {
       const token = await newLink.mutateAsync(validity ? Number(validity) : null);
       setFreshLink(`${window.location.origin}/r/${token}`);

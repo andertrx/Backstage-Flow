@@ -12,6 +12,7 @@ import { formatDateTime, formatRelative } from "@/lib/format.ts";
 import { RUN_LABEL, RunsTable } from "./RunsTable.tsx";
 import { type SyncOverviewRow, useRunSync, useSyncOverview, useSyncRuns } from "./api.ts";
 import { type AccountSyncState, accountState, describeRun, formatDuration, formatNext, isScheduled, STATE_LABELS, summarize } from "./logic.ts";
+import { TableSkeleton } from "@/components/ui/skeleton.tsx";
 
 const STATE_TONE: Record<AccountSyncState, "success" | "danger" | "brand" | "neutral" | "warning"> = {
   sucesso: "success",
@@ -92,7 +93,7 @@ export function SyncPage() {
       <section className="space-y-3" aria-labelledby="sync-accounts-title">
         <h2 id="sync-accounts-title" className="text-lg font-semibold">Contas</h2>
         {overview.isLoading ? (
-          <div className="h-32 animate-pulse rounded-xl bg-slate-100" aria-label="Carregando" />
+          <TableSkeleton label="Carregando" cols={5} />
         ) : rows.length === 0 ? (
           <Card className="flex flex-col items-center gap-2 p-10 text-center" data-testid="sync-empty">
             <CloudOff className="size-8 text-slate-300" aria-hidden />

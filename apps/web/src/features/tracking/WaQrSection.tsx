@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { useWaInstanceConnect, useWaInstanceLogout, useWaInstanceStatus, type WaInstanceState, type WhatsAppConnection } from "./api.ts";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 /** Só mostra imagem que venha como PNG/JPEG/WebP em base64 (nunca um endereço qualquer). */
 const SAFE_IMAGE = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
@@ -144,7 +145,7 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
   }, [waiting, paused, connection.id, checkStatus, askQr]);
 
   async function doLogout() {
-    if (!window.confirm("Desconectar o WhatsApp deste cliente e apagar a conexão no servidor? A próxima conexão (de qualquer número) começa do zero. Contatos e conversas já guardados continuam no CRM.")) return;
+    if (!(await confirmar("Desconectar o WhatsApp deste cliente e apagar a conexão no servidor? A próxima conexão (de qualquer número) começa do zero. Contatos e conversas já guardados continuam no CRM."))) return;
     setError(null);
     try {
       await logout.mutateAsync(connection.id);

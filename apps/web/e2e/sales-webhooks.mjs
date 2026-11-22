@@ -73,13 +73,13 @@ function seed(db) {
   check(w.test_mode === false, "desligar o modo teste passa a registrar as vendas");
 
   const oldKey = w.key;
-  page.once("dialog", (d) => d.accept());
   await modal.getByRole("button", { name: "Gerar nova chave" }).click();
+  await page.getByTestId("confirm-ok").click();
   await page.getByTestId("sales-key").waitFor();
   check(w.key !== oldKey && (await page.getByTestId("sales-key").innerText()).includes(w.key), "nova chave aparece uma vez e a antiga é trocada");
 
-  page.once("dialog", (d) => d.accept());
   await modal.getByRole("button", { name: "Arquivar" }).click();
+  await page.getByTestId("confirm-ok").click();
   await modal.getByText("Nenhum sistema de venda").waitFor();
   check(Boolean(w.archived_at) && db.salesWebhooks.length === 1, "arquivar tira da lista sem apagar");
   check(errors.length === 0, `sem erros no navegador ${errors.join(" | ")}`);

@@ -28,6 +28,7 @@ import {
 } from "./api.ts";
 import { waConnectionStatus } from "./logic.ts";
 import { WaQrSection } from "./WaQrSection.tsx";
+import { confirmar } from "@/lib/confirmStore.ts";
 
 /** Texto de aviso que o cliente coloca no site, no botão de WhatsApp ou na primeira mensagem (Tracking T5.7). */
 export const WA_PRIVACY_NOTICE =
@@ -168,8 +169,8 @@ export function WhatsAppServerModal({ container, connection, canManage, onClose 
             <p className="text-xs text-slate-500">No servidor, ligue só o evento de <strong>mensagens</strong> (<code>MESSAGES_UPSERT</code>), inclusive as enviadas por você (para achar as frases de venda).</p>
             {canManage && (
               <Button variant="secondary" className="px-3 py-1.5 text-xs" loading={newKey.isPending}
-                onClick={() => {
-                  if (!window.confirm("Trocar a chave? A chave atual para de valer na hora: será preciso colar a nova no servidor de WhatsApp.")) return;
+                onClick={async () => {
+                  if (!(await confirmar("Trocar a chave? A chave atual para de valer na hora: será preciso colar a nova no servidor de WhatsApp."))) return;
                   void run(() => newKey.mutateAsync(mine.id), (key) => setRevealed({ id: mine.id, key }));
                 }}>
                 <KeyRound className="size-3.5" aria-hidden /> Gerar nova chave
