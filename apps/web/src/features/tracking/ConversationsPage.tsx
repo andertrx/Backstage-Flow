@@ -1,6 +1,6 @@
 import { ArrowLeft, MessageCircle, Search, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -25,6 +25,7 @@ import {
 } from "./conversationsApi.ts";
 import { LimparDadosDoClienteCard } from "./WhatsAppServerModal.tsx";
 import { ChatSkeleton, ListSkeleton } from "@/components/ui/skeleton.tsx";
+import { findTargetConversation, targetFromParams } from "./conversationTarget.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
 
 const CONFIDENCE: Record<string, string> = { alta: "alta", media: "média", baixa: "baixa" };
@@ -198,7 +199,12 @@ function Chat({ clientId, person, canDelete, onDeleted }: { clientId: string; pe
 export function ConversationsPanel({ clientId }: { clientId: string }) {
   const id = clientId;
   const { profile } = useAuth();
-  const [search, setSearch] = useState("");
+  // Vindo de "Abrir a conversa e marcar a venda" (sugestão da IA): o endereço traz quem é; a lista já filtra por essa pessoa e a conversa abre sozinha.
+  const [qs] = useSearchParams();
+  const alvo = useMemo(() => targetFromParams((k) => qs.get(k)), [qs]);
+  const [search, setSearch] = useState(alvo?.final ?? alvo?.nome ?? "");
+  const [veioDaSugestao, setVeioDaSugestao] = useState(Boolean(alvo));
+  const [alvoFeito, setAlvoFeito] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [preset, setPreset] = useState<PeriodPreset>("tudo");
   const [dayFrom, setDayFrom] = useState("");
@@ -207,6 +213,12 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
   const list = useWaConversations(id, search, range);
   const people = (list.data?.pages ?? []).flat().filter((p) => (!range.from || p.last_at >= range.from) && (!range.to || p.last_at <= range.to));
   const current = people.find((p) => p.person_id === selected) ?? null;
+  useEffect(() => {
+    if (!alvo || alvoFeito || list.isPending) return;
+    const achou = findTargetConversation(people, alvo);
+    if (achou) { setAlvoFeito(true); setSelected(achou.person_id); }
+    else if (!list.hasNextPage) setAlvoFeito(true); // procurou em tudo: não achou, a tela avisa
+  }, [alvo, alvoFeito, people, list.isPending, list.hasNextPage]);
   // No celular, ao abrir uma conversa a tela vai direto para ela (sem isso o texto ficava lá embaixo, depois do cabeçalho do Tracking).
   const chatRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -224,6 +236,15 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
       </div>
 
       <LimparDadosDoClienteCard clientId={id} />
+
+      {veioDaSugestao && (
+        <Alert tone="info">
+          <div className="flex flex-wrap items-center gap-2" data-testid="wa-from-suggestion">
+            <span>{current ? "Conversa da sugestão da IA aberta." : "Procurando a conversa da sugestão da IA…"}{!current && alvoFeito && !list.isPending ? " Não achamos essa conversa na lista (o telefone ou o nome podem ter mudado)." : ""}</span>
+            <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => { setVeioDaSugestao(false); setSearch(""); }}>Ver todas as conversas</Button>
+          </div>
+        </Alert>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
         {/* No celular é uma coisa de cada vez: a lista OU a conversa aberta (antes a conversa aparecia embaixo da lista, longe do toque). */}

@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { FullPageSpinner } from "@/components/feedback/FullPageSpinner.tsx";
-import { createBrowserRouter, Navigate, useParams } from "react-router";
+import { createBrowserRouter, Navigate, useLocation, useParams } from "react-router";
 import { AppLayout } from "@/components/layout/AppLayout.tsx";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage.tsx";
 import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from "@/features/auth/guards.tsx";
@@ -18,7 +18,9 @@ import { useAuth } from "@/features/auth/AuthProvider.tsx";
 function ClientConversationsRoute() {
   const { id } = useParams();
   const { profile } = useAuth();
-  if (can(profile?.role, "tracking.manage")) return <Navigate to={`/tracking?cliente=${id}&aba=conversas`} replace />;
+  const { search } = useLocation();
+  // Leva junto ?contato=&final=&nome= (a conversa da pessoa da sugestão da IA).
+  if (can(profile?.role, "tracking.manage")) return <Navigate to={`/tracking?cliente=${id}&aba=conversas${search.replace(/^\?/, "&")}`} replace />;
   return <ClientConversationsStandalone clientId={id ?? ""} />;
 }
 

@@ -11,6 +11,7 @@ import { formatDateTime, formatRelative } from "@/lib/format.ts";
 import { useWaAiRemoveKey, useWaAiSave, useWaAiSettings, useWaSuggestionDecide, type WaSuggestion } from "./api.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
 import { toast } from "@/lib/toastStore.ts";
+import { conversationLink } from "./conversationTarget.ts";
 
 const CONF: Record<WaSuggestion["confidence"], { label: string; tone: "success" | "warning" | "neutral" }> = {
   alta: { label: "Confiança alta", tone: "success" },
@@ -110,7 +111,7 @@ function Row({ s, client, onDecide, busy, pending }: {
             <span className="text-xs text-slate-500">{s.expires_at ? `Some sozinha ${formatRelative(s.expires_at)}.` : ""}</span>
           </>
         )}
-        <Link to={`/clientes/${s.client_id}/conversas`} className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:underline" data-testid="wa-suggestion-open">
+        <Link to={conversationLink(s.client_id, s)} className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:underline" data-testid="wa-suggestion-open">
           <ExternalLink className="size-3.5" aria-hidden /> Abrir a conversa e marcar a venda
         </Link>
       </div>
