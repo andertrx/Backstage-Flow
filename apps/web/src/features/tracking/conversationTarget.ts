@@ -39,8 +39,9 @@ export function findTargetConversation(people: readonly WaConversation[], t: Con
 }
 
 /** Endereço para abrir a conversa de uma pessoa da sugestão. */
-export function conversationLink(clientId: string, s: { contact_id: number | null; phone_tail: string | null; push_name: string | null }): string {
+export function conversationLink(clientId: string, s: { contact_id: number | null; phone_tail: string | null; push_name: string | null }, opts: { marcar?: boolean } = {}): string {
   const q = new URLSearchParams();
+  if (opts.marcar) q.set("marcar", "1"); // abre a conversa já com a janela "Marcar venda"
   if (s.contact_id) q.set("contato", String(s.contact_id));
   if (s.phone_tail) q.set("final", s.phone_tail);
   if (s.push_name) q.set("nome", s.push_name);

@@ -52,10 +52,14 @@ function seed(db) {
   // Decidir (de volta ao Painel)
   await page.getByTestId("tracking-section-painel").click();
   await page.getByTestId("tracking-panel-tab-sugestoes").click();
-  await page.getByTestId("wa-suggestion").filter({ hasText: "João" }).getByRole("button", { name: "Houve venda" }).click();
+  // 22/11/2026: o botão "Houve venda" saiu (só anotava a decisão e a venda não ia ao Pixel). Agora é "Marcar a venda" (abre a conversa) ou "Descartar".
+  check(await page.getByRole("button", { name: "Houve venda" }).count() === 0, "não existe mais o botão 'Houve venda' (era enganoso)");
+  const marcar = page.getByTestId("wa-suggestion").filter({ hasText: "João" }).getByTestId("wa-suggestion-mark");
+  check((await marcar.getAttribute("href")).includes("marcar=1") && (await marcar.innerText()).includes("Marcar a venda"), "o botão 'Marcar a venda' leva à conversa com a marcação aberta");
+  await page.getByTestId("wa-suggestion").filter({ hasText: "João" }).getByRole("button", { name: "Descartar" }).click();
   await page.getByText("Já decididas (1)").waitFor();
   const s1 = db.waSuggestions.find((x) => x.id === "s1");
-  check(s1 && s1.status === "confirmada" && s1.expires_at, "'Houve venda' guarda a decisão com prazo de 30 dias");
+  check(s1 && s1.status === "descartada" && s1.expires_at, "'Descartar' guarda a decisão com prazo de 30 dias");
   check(await page.getByTestId("wa-suggestion").count() === 2, "a decidida passa para a lista de decididas");
   await page.getByTestId("wa-suggestion").filter({ hasText: "Ana" }).getByRole("button", { name: "Descartar" }).click();
   await page.getByText("Já decididas (2)").waitFor();

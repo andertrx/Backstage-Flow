@@ -118,11 +118,11 @@ function Bubble({ direction, at, body }: { direction: "recebida" | "enviada"; at
   );
 }
 
-function Chat({ clientId, person, canDelete, onDeleted }: { clientId: string; person: WaConversation; canDelete: boolean; onDeleted: () => void }) {
+function Chat({ clientId, person, canDelete, onDeleted, startMarking = false }: { clientId: string; person: WaConversation; canDelete: boolean; onDeleted: () => void; startMarking?: boolean }) {
   const messages = useWaMessages(person.person_id);
   const del = useWaConversationDelete();
   const discard = useWaSuggestionDiscard();
-  const [marking, setMarking] = useState(false);
+  const [marking, setMarking] = useState(startMarking);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Cada página vem das mais novas para as mais antigas; a tela mostra em ordem de leitura.
@@ -205,6 +205,9 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
   const [search, setSearch] = useState(alvo?.final ?? alvo?.nome ?? "");
   const [veioDaSugestao, setVeioDaSugestao] = useState(Boolean(alvo));
   const [alvoFeito, setAlvoFeito] = useState(false);
+  const abrirMarcar = qs.get("marcar") === "1";
+  const [alvoPessoa, setAlvoPessoa] = useState<number | null>(null);
+  const [vendasNaChegada, setVendasNaChegada] = useState(0); // vendas já marcadas quando a pessoa foi aberta (a lista atualiza depois de marcar)
   const [selected, setSelected] = useState<number | null>(null);
   const [preset, setPreset] = useState<PeriodPreset>("tudo");
   const [dayFrom, setDayFrom] = useState("");
@@ -216,7 +219,7 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
   useEffect(() => {
     if (!alvo || alvoFeito || list.isPending) return;
     const achou = findTargetConversation(people, alvo);
-    if (achou) { setAlvoFeito(true); setSelected(achou.person_id); }
+    if (achou) { setAlvoFeito(true); setSelected(achou.person_id); setAlvoPessoa(achou.person_id); setVendasNaChegada(achou.contact_sales ?? 0); }
     else if (!list.hasNextPage) setAlvoFeito(true); // procurou em tudo: não achou, a tela avisa
   }, [alvo, alvoFeito, people, list.isPending, list.hasNextPage]);
   // No celular, ao abrir uma conversa a tela vai direto para ela (sem isso o texto ficava lá embaixo, depois do cabeçalho do Tracking).
@@ -310,7 +313,13 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
             </button>
           )}
           {current && id ? (
-            <Chat key={current.person_id} clientId={id} person={current} canDelete={profile?.role === "admin"} onDeleted={() => setSelected(null)} />
+            <>
+              {abrirMarcar && alvoPessoa === current.person_id && vendasNaChegada > 0 && (
+                <Alert tone="info">Esta pessoa já tinha venda marcada ({vendasNaChegada}). Não abri a marcação para não enviar a compra duas vezes ao Meta; se for outra venda, use “Marcar venda” abaixo.</Alert>
+              )}
+              <Chat key={current.person_id} clientId={id} person={current} canDelete={profile?.role === "admin"} onDeleted={() => setSelected(null)}
+                startMarking={abrirMarcar && alvoPessoa === current.person_id && vendasNaChegada === 0} />
+            </>
           ) : (
             <p className="p-6 text-center text-sm text-slate-500" data-testid="wa-chat-empty">Escolha uma conversa na lista para ler.</p>
           )}

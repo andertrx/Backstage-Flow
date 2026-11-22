@@ -102,17 +102,26 @@ function Row({ s, client, onDecide, busy, pending }: {
       <div className="flex flex-wrap items-center gap-2">
         {pending ? (
           <>
-            <Button className="px-3 py-1.5 text-xs" loading={busy} onClick={() => onDecide("confirmada")}>Houve venda</Button>
+            {/* "Houve venda" saiu (22/11/2026): só anotava a decisão e a venda não ia ao Pixel. Marcar a venda na conversa já confirma a sugestão. */}
+            <Link to={conversationLink(s.client_id, s, { marcar: true })} data-testid="wa-suggestion-mark"
+              className="inline-flex items-center justify-center rounded-full bg-brand-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-brand-700">
+              Marcar a venda
+            </Link>
             <Button variant="secondary" className="px-3 py-1.5 text-xs" loading={busy} onClick={() => onDecide("descartada")}>Descartar</Button>
           </>
         ) : (
           <>
             <Button variant="ghost" className="px-3 py-1.5 text-xs" loading={busy} onClick={() => onDecide("pendente")}>Voltar para pendente</Button>
             <span className="text-xs text-slate-500">{s.expires_at ? `Some sozinha ${formatRelative(s.expires_at)}.` : ""}</span>
+            {s.status === "confirmada" && (
+              <Link to={conversationLink(s.client_id, s, { marcar: true })} data-testid="wa-suggestion-mark-again" className="text-xs font-medium text-brand-700 hover:underline">
+                Conferir se a venda foi marcada
+              </Link>
+            )}
           </>
         )}
         <Link to={conversationLink(s.client_id, s)} className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:underline" data-testid="wa-suggestion-open">
-          <ExternalLink className="size-3.5" aria-hidden /> Abrir a conversa e marcar a venda
+          <ExternalLink className="size-3.5" aria-hidden /> Só abrir a conversa
         </Link>
       </div>
     </li>
@@ -121,7 +130,7 @@ function Row({ s, client, onDecide, busy, pending }: {
 
 /**
  * Vendas sugeridas pela IA (Tracking T5.6). A IA lê as conversas do dia e SUGERE; quem decide é a pessoa, depois de conferir
- * a conversa (T5.7: dentro do CRM). "Houve venda" só anota a decisão — a venda em si é marcada na conversa ou no Contato (que alimenta a API de Conversões).
+ * a conversa (T5.7: dentro do CRM). A venda é marcada na conversa ("Marcar a venda"), e só essa marcação alimenta a API de Conversões; marcar já confirma a sugestão.
  * Decidida, a sugestão some sozinha em 30 dias.
  */
 export function SuggestionsSection({ suggestions, clientName }: {
@@ -152,7 +161,7 @@ export function SuggestionsSection({ suggestions, clientName }: {
       <Card className="overflow-hidden">
         <div className="border-b border-slate-100 p-4">
           <h3 className="font-medium text-slate-900">Para conferir ({pending.length})</h3>
-          <p className="text-sm text-slate-600">Abra a conversa (“Abrir a conversa e marcar a venda”). Se houve venda, marque a venda na própria conversa.</p>
+          <p className="text-sm text-slate-600">Toque em “Marcar a venda” se houve venda: a conversa abre e você informa o valor. É essa marcação que envia a venda ao Pixel do Meta. Se não houve, descarte.</p>
         </div>
         {pending.length === 0 ? (
           <p className="p-4 text-sm text-slate-500" data-testid="wa-suggestions-empty">Nenhuma sugestão pendente. A IA roda uma vez por dia, de madrugada.</p>

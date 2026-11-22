@@ -30,6 +30,9 @@ function seed(db) {
   const sug = (id, nome, tail) => ({ id, client_id: CLI, contact_id: null, push_name: nome, phone_tail: tail, day: today, reason: "Entrega confirmada.",
     confidence: "media", status: "confirmada", decided_at: new Date().toISOString(), expires_at: new Date(Date.now() + 30 * 86400000).toISOString(), created_at: new Date().toISOString() });
   db.waSuggestions.push(sug("d1", "Gabriela Miranda", "1925"), sug("d2", "Josefa", "8022"));
+  // pendente da Gabriela Souza (pessoa 1): "Marcar a venda" abre a conversa com a janela de marcar venda
+  db.waSuggestions.push({ id: "p1", client_id: CLI, wa_hash: "a".repeat(64), contact_id: null, push_name: "Gabriela Souza", phone_tail: "1925", day: today, reason: "Cliente disse que vai pagar.",
+    confidence: "alta", status: "pendente", decided_at: null, expires_at: null, created_at: new Date().toISOString() });
 }
 
 {
@@ -55,6 +58,42 @@ function seed(db) {
   await page.getByTestId("wa-conversation").nth(2).waitFor();
   check(await page.getByTestId("wa-conversation").count() === 3, "'Ver todas as conversas' limpa o filtro");
   check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);
+  await browser.close();
+}
+{
+  // "Marcar a venda" numa sugestão pendente: abre a conversa JÁ com a janela de marcar venda; marcar confirma a sugestão e manda a Compra ao Meta
+  const { browser, page, errors } = await launch();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const db = await mockSupabase(page, { role: "admin" });
+  seed(db);
+  await login(page, `/tracking?cliente=${CLI}&aba=sugestoes`);
+  await page.getByTestId("wa-suggestions").waitFor();
+  check(await page.getByRole("button", { name: "Houve venda" }).count() === 0, "sem o botão enganoso 'Houve venda'");
+  await page.getByTestId("wa-suggestion").filter({ hasText: "Gabriela Souza" }).getByTestId("wa-suggestion-mark").click();
+  const sale = page.getByTestId("mark-sale");
+  await sale.waitFor();
+  check(true, "a janela 'Marcar venda' abre sozinha na conversa certa");
+  await sale.getByLabel("Valor da venda").fill("150");
+  await sale.getByRole("button", { name: "Marcar venda" }).click();
+  await page.waitForFunction(() => document.body.textContent.includes("Venda registrada"));
+  check(db.waSuggestions.find((x) => x.id === "p1").status === "confirmada", "marcar a venda confirma a sugestão");
+  check(db.contactQueue.some((q) => q.event_name === "Purchase" && q.value === 150), "e a Compra entra na fila de envio ao Meta");
+  check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);
+  await browser.close();
+}
+{
+  // "Conferir se a venda foi marcada" (sugestão já confirmada, pessoa sem venda): abre com a marcação; com venda já marcada, NÃO abre (evita compra dobrada)
+  const { browser, page } = await launch();
+  const db = await mockSupabase(page, { role: "admin" });
+  seed(db);
+  db.waPeople.find((x) => x.id === 2).conversation_sales = 1;
+  db.contacts.push({ id: 900, client_id: CLI, wa_hash: "b".repeat(64), ph_hash: "b".repeat(64), sales: 1, archived_at: null, stage_id: null, profile_id: null });
+  await login(page, `/tracking?cliente=${CLI}&aba=sugestoes`);
+  await page.getByTestId("wa-suggestions").waitFor();
+  await page.getByTestId("wa-suggestion").filter({ hasText: "Gabriela Miranda" }).getByTestId("wa-suggestion-mark-again").click();
+  await page.getByText("A entrega chegou na portaria, obrigada!").waitFor();
+  check(await page.getByTestId("mark-sale").count() === 0, "pessoa que já tem venda: a marcação NÃO abre sozinha (não duplica a compra)");
+  check((await page.getByText("já tinha venda marcada").count()) === 1, "avisa que já tinha venda marcada");
   await browser.close();
 }
 {
