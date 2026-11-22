@@ -1,7 +1,7 @@
 import { can, opsCan, ROLE_LABELS } from "@backstage/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronsLeft, ChevronsRight, LogOut, Menu, Moon, Sun, X } from "lucide-react";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-router";
 import { IconButton } from "@/components/ui/icon-button.tsx";
 import { ErrorBoundary } from "@/components/feedback/ErrorBoundary.tsx";
@@ -72,7 +72,7 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
                         "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
                         "focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-brand-500",
                         collapsed && "justify-center px-0",
-                        isActive ? "nav-pop bg-brand-50 font-semibold text-brand-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                        isActive ? "bg-brand-50 font-semibold text-brand-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                       )
                     }
                   >
@@ -126,6 +126,12 @@ export function AppLayout() {
   const { profile, signOut } = useAuth();
   const { data: opsPermissions } = useMyOpsPermissions();
   const { pathname } = useLocation();
+  // Animação de entrada (22/11/2026): a cascata completa só na PRIMEIRA tela depois de abrir o sistema ("vitrine");
+  // nas trocas seguintes é só um fade curto, para a pessoa que usa o dia todo ver o conteúdo logo.
+  const lastPath = useRef(pathname);
+  const trocas = useRef(0);
+  if (lastPath.current !== pathname) { lastPath.current = pathname; trocas.current += 1; }
+  const vitrine = trocas.current === 0;
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = usePersistentState("menu-recolhido", false);
@@ -237,7 +243,7 @@ export function AppLayout() {
           <ErrorBoundary key={pathname} onReset={() => queryClient.removeQueries()}>
             <Suspense fallback={<PageSkeleton />}>
               {/* 52.2: troca de tela com fade curto (desligado em "reduzir movimento" e na impressão). */}
-              <div key={pathname} className="animate-page-in page-stagger print:animate-none">
+              <div key={pathname} className={vitrine ? "animate-page-in page-stagger print:animate-none" : "animate-page-fast print:animate-none"}>
                 <Outlet />
               </div>
             </Suspense>
