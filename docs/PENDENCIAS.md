@@ -141,3 +141,4 @@
 - [ ] Conferir no sino, na próxima vez que o WhatsApp de um cliente cair, se o aviso chega ao administrador e ao Account Manager (a função `wa-health` roda a cada 5 minutos e nunca foi chamada ao vivo daqui).
 - [ ] Decidir o futuro do **Criador de Anúncios** (hoje: opção A, só gera o pedido para o Claude). Próximo passo possível: criar os anúncios direto no Meta pelo CRM (fase própria, com aprovação detalhada).
 - [ ] Conhecido e antigo: o teste `ads-builder.mjs` falha de vez em quando (a busca no Meta é chamada duas vezes ao escolher a conta e a lista de Instagram às vezes vem incompleta no simulador).
+- [ ] **"Desfazer" ao arquivar** (Etapa 54.1): precisa de funções novas no banco para desarquivar contato, rascunho de campanha e regra de monitoramento (hoje só há "arquivar"). Depende da aprovação do Supabase funcionar. Depois disso, o aviso de retorno já existente ganha o botão "Desfazer".

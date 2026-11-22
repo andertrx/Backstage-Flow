@@ -67,6 +67,7 @@ const GESTORA = "22222222-2222-2222-2222-222222222222";
   await page.getByTestId("confirm-ok").click();
   await page.getByText("Nenhum rascunho ainda.").waitFor();
   check(db.builderDrafts.length === 1 && db.builderDrafts[0].archived_at, "arquivar tira da lista mas guarda o rascunho");
+  check(await page.getByTestId("toast").filter({ hasText: "Rascunho arquivado" }).count() === 1, "aviso de retorno: Rascunho arquivado");
 
   check(errors.length === 0, "sem erros no navegador");
   await browser.close();

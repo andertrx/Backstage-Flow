@@ -21,6 +21,7 @@ import {
 } from "./api.ts";
 import { CopyLine } from "./SalesSystemsModal.tsx";
 import { confirmar } from "@/lib/confirmStore.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 const RESULT_LABELS: Record<SalesLogRow["result"], { label: string; tone: "success" | "neutral" | "warning" | "danger" | "brand" }> = {
   aceito: { label: "Lead registrado", tone: "success" },
@@ -270,7 +271,7 @@ function LeadDetails({ hook, siteName, siteConsent, revealedKey, onKey, onProble
 
       <div className="flex justify-end">
         <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={async () => {
-          if ((await confirmar(`Arquivar "${hook.name}"? O endereço para de receber avisos. Os leads já registrados continuam.`))) run({ archived_at: new Date().toISOString() });
+          if ((await confirmar(`Arquivar "${hook.name}"? O endereço para de receber avisos. Os leads já registrados continuam.`))) { if (await run({ archived_at: new Date().toISOString() })) toast.success("Formulário arquivado. Os leads já registrados continuam."); }
         }}>
           <Archive className="size-3.5" aria-hidden /> Arquivar
         </Button>

@@ -14,6 +14,7 @@ import { useAccountAssets } from "@/features/ads-builder/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { saveDraftData, useBuilderDraft, useBuilderPermissions, useDraftAccount } from "./api.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 type SaveState = "salvo" | "salvando" | "pendente" | "erro" | "conflito" | "somente-leitura";
 
@@ -389,7 +390,7 @@ export function DraftEditorPage() {
                 currency={currency}
                 onChange={(n) => change({ ...draft, adSets: draft.adSets.map((x) => (x.id === n.id ? n : x)) })}
                 onDuplicate={() => change(duplicateAdSet(draft, s.id))}
-                onRemove={async () => { if ((await confirmar("Remover este conjunto e os anúncios dele do rascunho?"))) change(removeAdSet(draft, s.id)); }}
+                onRemove={async () => { if ((await confirmar("Remover este conjunto e os anúncios dele do rascunho?"))) { change(removeAdSet(draft, s.id)); toast.success("Conjunto removido do rascunho."); } }}
                 onAddAd={() => change({ ...draft, ads: [...draft.ads, newAd(s.id, { pageId: pages[0]?.id ?? "" })] })}
                 onAdChange={(a) => change({ ...draft, ads: draft.ads.map((x) => (x.id === a.id ? a : x)) })}
                 onAdRemove={(adId) => change({ ...draft, ads: draft.ads.filter((x) => x.id !== adId) })}

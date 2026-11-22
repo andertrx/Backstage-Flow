@@ -14,6 +14,7 @@ import { useAdminUsers, useUsers } from "./api.ts";
 import { UserFormModal } from "./UserFormModal.tsx";
 import { TableSkeleton } from "@/components/ui/skeleton.tsx";
 import { confirmar } from "@/lib/confirmStore.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Sao_Paulo" });
 
@@ -27,8 +28,9 @@ function StatusToggle({ user }: { user: Profile }) {
     if (!(await confirmar(`Deseja ${verb} ${user.full_name || user.email}?`))) return;
     try {
       await mutation.mutateAsync({ action: "update", userId: user.id, active: !user.active });
+      toast.success(user.active ? "Usuário desativado." : "Usuário reativado.");
     } catch (err) {
-      window.alert(errorMessage(err));
+      toast.error(errorMessage(err));
     }
   }
 

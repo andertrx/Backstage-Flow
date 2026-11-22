@@ -24,6 +24,7 @@ import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatRelative } from "@/lib/format.ts";
 import { type TrackingContainer, type TrackingRule, useRuleAction, useRuleVersions, useTrackingRules } from "./api.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 const CURRENCIES = ["BRL", "USD", "EUR"];
 const CUSTOM = "__personalizado__";
@@ -104,7 +105,7 @@ export function RulesModal({ container, canManage, onClose }: { container: Track
           </div>
           {canManage && (
             <Button loading={act.isPending} disabled={!unpublished} data-testid="rules-publish" onClick={async () => {
-              if ((await confirmar("Publicar as regras? O site passa a usar esta versão em até 5 minutos."))) act.mutate({ action: "publish" });
+              if ((await confirmar("Publicar as regras? O site passa a usar esta versão em até 5 minutos."))) act.mutate({ action: "publish" }, { onSuccess: () => toast.success("Regras publicadas. O site passa a usar esta versão em até 5 minutos.") });
             }}>
               <Rocket className="size-4" aria-hidden /> Publicar
             </Button>
@@ -141,7 +142,7 @@ export function RulesModal({ container, canManage, onClose }: { container: Track
                       <Pencil className="size-3.5" aria-hidden />
                     </Button>
                     <Button variant="ghost" className="px-2 py-1 text-xs" aria-label={`Arquivar ${r.name}`} onClick={async () => {
-                      if ((await confirmar(`Arquivar a regra "${r.name}"? Ela sai da lista (as versões já publicadas continuam guardadas).`))) act.mutate({ action: "archive", id: r.id });
+                      if ((await confirmar(`Arquivar a regra "${r.name}"? Ela sai da lista (as versões já publicadas continuam guardadas).`))) act.mutate({ action: "archive", id: r.id }, { onSuccess: () => toast.success("Regra arquivada. As versões já publicadas continuam guardadas.") });
                     }}>
                       <Archive className="size-3.5" aria-hidden />
                     </Button>
@@ -180,7 +181,7 @@ export function RulesModal({ container, canManage, onClose }: { container: Track
                   {canManage && v.version !== current?.version && (
                     <Button variant="ghost" className="px-2 py-1 text-xs" onClick={async () => {
                       if ((await confirmar(`Voltar para a versão ${v.version}? As regras atuais vão para o arquivo e a versão ${v.version} é publicada de novo.`))) {
-                        act.mutate({ action: "restore", version: v.version });
+                        act.mutate({ action: "restore", version: v.version }, { onSuccess: () => toast.success(`Voltamos para a versão ${v.version}.`) });
                       }
                     }}>
                       <RotateCcw className="size-3.5" aria-hidden /> Voltar para esta

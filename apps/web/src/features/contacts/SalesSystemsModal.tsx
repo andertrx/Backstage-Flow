@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/modal.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatMoney } from "@/lib/format.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
+import { toast } from "@/lib/toastStore.ts";
 import {
   type SalesLogRow,
   type SalesWebhook,
@@ -259,7 +260,7 @@ function WebhookDetails({ hook, revealedKey, onKey, onProblem }: {
 
       <div className="flex justify-end">
         <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={async () => {
-          if ((await confirmar(`Arquivar "${hook.name}"? O endereço para de receber avisos. O histórico das vendas continua.`))) run({ archived_at: new Date().toISOString() });
+          if ((await confirmar(`Arquivar "${hook.name}"? O endereço para de receber avisos. O histórico das vendas continua.`))) { if (await run({ archived_at: new Date().toISOString() })) toast.success("Sistema de venda arquivado. O histórico das vendas continua."); }
         }}>
           <Archive className="size-3.5" aria-hidden /> Arquivar
         </Button>

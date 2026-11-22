@@ -25,6 +25,7 @@ import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { type MonitorRuleRow, useArchiveMonitorRule, useMonitorRules, useSaveMonitorRule, useScopeOptions } from "./api.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 const pct = (n: number) => `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(n)}%`;
 
@@ -152,7 +153,7 @@ export function RulesSettings() {
                       aria-label="Remover regra"
                       loading={archive.isPending && archive.variables === r.id}
                       onClick={async () => {
-                        if ((await confirmar("Remover esta regra? Volta a valer o limite mais geral. Ela continua no histórico."))) archive.mutate(r.id);
+                        if ((await confirmar("Remover esta regra? Volta a valer o limite mais geral. Ela continua no histórico."))) archive.mutate(r.id, { onSuccess: () => toast.success("Regra removida. Ela continua no histórico.") });
                       }}
                     >
                       <Trash2 className="size-4" aria-hidden />

@@ -87,6 +87,7 @@ const text = async (loc) => (await loc.innerText()).replace(/\s/g, " ");
   await page.getByTestId("confirm-ok").click();
   await page.waitForFunction(() => document.querySelectorAll("[data-testid=wa-phrase]").length === 1);
   check(Boolean(loja.archived_at) && db.waTriggers.length === 2, "arquivar tira da lista sem apagar");
+  check(await page.getByTestId("toast").filter({ hasText: "Frase arquivada" }).count() === 1, "aviso de retorno: Frase arquivada");
   check(errors.length === 0, `sem erros no navegador ${errors.join(" | ")}`);
   await browser.close();
 }

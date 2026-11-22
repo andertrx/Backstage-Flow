@@ -10,6 +10,7 @@ import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatMoney } from "@/lib/format.ts";
 import { type ContactProfile, type ContactStage, useSaveWaTrigger, useWaTriggers, type WaTriggerLogRow, type WaTriggerRow } from "./api.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 const RESULT: Record<WaTriggerLogRow["result"], { label: string; tone: "success" | "neutral" | "warning" }> = {
   aplicado: { label: "Marcado", tone: "success" },
@@ -186,7 +187,7 @@ function PhraseRow({ trigger: t, kind, label, onSave }: {
       <Button variant="secondary" className="px-3 py-1.5 text-xs" disabled={!dirty || phrase.trim().length < 3 || !valueOk}
         onClick={() => onSave({ phrase: phrase.trim(), ...(kind === "venda" ? { default_value: parsed } : {}) })}>Salvar</Button>
       <Button variant="ghost" className="px-2 py-1.5 text-xs" aria-label={`Arquivar ${t.phrase}`}
-        onClick={async () => { if ((await confirmar(`Arquivar a frase “${t.phrase}”? O que já foi marcado continua.`))) onSave({ archived_at: new Date().toISOString() }); }}>
+        onClick={async () => { if ((await confirmar(`Arquivar a frase “${t.phrase}”? O que já foi marcado continua.`))) if (await onSave({ archived_at: new Date().toISOString() })) toast.success("Frase arquivada. O que já foi marcado continua."); }}>
         <Archive className="size-3.5" aria-hidden />
       </Button>
     </li>

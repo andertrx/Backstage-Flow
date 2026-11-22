@@ -11,6 +11,7 @@ import { errorMessage } from "@/lib/errors.ts";
 import { AccountStatusBadge } from "./AccountStatusBadge.tsx";
 import { useAccountAction, useAvailableAccounts, useConnections } from "./api.ts";
 import { ListFreshness } from "./ListFreshness.tsx";
+import { toast } from "@/lib/toastStore.ts";
 
 interface Props {
   clientId: string;
@@ -35,7 +36,7 @@ export function LinkAccountModal({ clientId, platform, onClose }: Props) {
     setLinking(externalId);
     try {
       const result = await action.mutateAsync({ action: "link", connectionId: selectedConnection, externalId, clientId, managerCustomerId });
-      if (result.warning) window.alert(result.warning);
+      if (result.warning) toast.info(result.warning);
       onClose();
     } catch (err) {
       setError(errorMessage(err));

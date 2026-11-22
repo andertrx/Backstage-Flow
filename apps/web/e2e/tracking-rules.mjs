@@ -100,6 +100,7 @@ let published = null;
   await page.getByTestId("rules-publish").click();
   await page.getByTestId("confirm-ok").click();
   await page.getByText("Versão publicada: 2").waitFor();
+  check(await page.getByTestId("toast").filter({ hasText: "Regras publicadas" }).count() === 1, "aviso de retorno: Regras publicadas");
   check(db.trackingRuleVersions.find((v) => v.version === 2).rules.length === 2, "regra desligada fica fora da versão 2");
 
   // Voltar para a versão 1 → versão 3

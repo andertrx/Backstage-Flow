@@ -113,6 +113,7 @@ function seed(db) {
   await page.getByTestId("confirm-ok").click();
   await page.waitForFunction(() => document.querySelectorAll('[data-testid="wa-conversation"]').length === 1);
   check(db.waPeople.length === 1 && db.waMessages.every((m) => m.person_id === 1), "apagar tira a conversa e as mensagens");
+  check(await page.getByTestId("toast").filter({ hasText: "Conversa apagada" }).count() === 1, "aviso de retorno: Conversa apagada");
   check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
   await browser.close();
 }

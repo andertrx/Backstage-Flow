@@ -9,6 +9,7 @@ import { ConnectionAccountsModal } from "./ConnectionAccountsModal.tsx";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge.tsx";
 import { MetaPermissionsPanel } from "./MetaPermissionsPanel.tsx";
 import { confirmar } from "@/lib/confirmStore.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 const dateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR") : "—");
 
@@ -25,8 +26,9 @@ export function ConnectionsList({ platform, emptyText, canCheckPermissions = fal
     if (!(await confirmar(`Desconectar "${label}"? A credencial será apagada do cofre e as contas vinculadas param de atualizar.`))) return;
     try {
       await action.mutateAsync({ action: "disconnect", connectionId: id });
+      toast.success("Conexão desconectada. A credencial foi apagada do cofre.");
     } catch (err) {
-      window.alert(errorMessage(err));
+      toast.error(errorMessage(err));
     }
   }
 

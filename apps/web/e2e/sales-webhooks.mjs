@@ -82,6 +82,7 @@ function seed(db) {
   await page.getByTestId("confirm-ok").click();
   await modal.getByText("Nenhum sistema de venda").waitFor();
   check(Boolean(w.archived_at) && db.salesWebhooks.length === 1, "arquivar tira da lista sem apagar");
+  check(await page.getByTestId("toast").filter({ hasText: "Sistema de venda arquivado" }).count() === 1, "aviso de retorno: Sistema de venda arquivado");
   check(errors.length === 0, `sem erros no navegador ${errors.join(" | ")}`);
   await browser.close();
 }

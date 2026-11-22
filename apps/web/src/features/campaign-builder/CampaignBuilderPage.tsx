@@ -11,6 +11,7 @@ import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
+import { toast } from "@/lib/toastStore.ts";
 import {
   type BuilderPersonPermission, useArchiveDraft, useBuilderDrafts, useBuilderPeople, useBuilderPermissions, useCreateDraft, useSaveBuilderPermission,
 } from "./api.ts";
@@ -137,6 +138,7 @@ export function CampaignBuilderPage() {
     setError(null);
     try {
       await archive.mutateAsync(id);
+      toast.success("Rascunho arquivado. Ele continua guardado.");
     } catch (err) {
       setError(errorMessage(err));
     }

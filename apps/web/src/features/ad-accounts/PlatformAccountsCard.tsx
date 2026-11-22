@@ -12,6 +12,7 @@ import { useAccountAction, useClientAdAccounts } from "./api.ts";
 import { LinkAccountModal } from "./LinkAccountModal.tsx";
 import type { AdAccount } from "./types.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 const NOT_AVAILABLE = "Informação não disponível pela API.";
 
@@ -27,6 +28,7 @@ function AccountRow({ account, canManage, clientId }: { account: AdAccount; canM
     try {
       const result = await action.mutateAsync({ action: kind, adAccountId: account.id });
       if (result.warning) setFeedback({ tone: "info", text: result.warning });
+      if (kind === "unlink") toast.success("Conta desvinculada. O histórico já salvo foi mantido.");
     } catch (err) {
       setFeedback({ tone: "error", text: errorMessage(err) });
     }

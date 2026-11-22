@@ -34,6 +34,7 @@ import { WhatsAppPhrasesModal } from "./WhatsAppPhrasesModal.tsx";
 import { SetupModal } from "./SetupModal.tsx";
 import { ListSkeleton } from "@/components/ui/skeleton.tsx";
 import { confirmar } from "@/lib/confirmStore.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 const ORIGIN_LABELS: Record<ContactRow["origin"], string> = { site: "Site", whatsapp: "WhatsApp", manual: "Manual", sistema: "Sistema de vendas" };
 const STAGE_TONE: Record<ContactStage["kind"], "neutral" | "success" | "danger"> = { aberta: "neutral", ganha: "success", perdida: "danger" };
@@ -492,7 +493,7 @@ function ContactModal({ contact: c, profiles, stages, canMark, canArchive, stage
         {canArchive && !c.archived && (
           <div className="flex justify-end">
             <Button variant="ghost" className="text-xs" loading={archive.isPending} onClick={async () => {
-              if ((await confirmar("Arquivar este contato? Ele sai da lista de trabalho, mas o histórico continua guardado."))) archive.mutate(c.id, { onSuccess: onClose });
+              if ((await confirmar("Arquivar este contato? Ele sai da lista de trabalho, mas o histórico continua guardado."))) archive.mutate(c.id, { onSuccess: () => { toast.success("Contato arquivado. O histórico continua guardado."); onClose(); } });
             }}>
               <Archive className="size-3.5" aria-hidden /> Arquivar
             </Button>

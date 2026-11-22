@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 /**
  * Conversas do WhatsApp na palma da mão (Tracking T5.7). O banco confere quem lê (administrador, gestor do cliente e
@@ -98,7 +99,8 @@ export function useWaConversationDelete() {
       const { error } = await supabase.rpc("wa_conversation_delete", { p_person: personId });
       if (error) throw ruleError(error, "Não conseguimos apagar a conversa.");
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+    // O aviso fica aqui (e não na tela): ao apagar, a conversa sai da lista e a tela dela deixa de existir antes da resposta voltar.
+    onSuccess: () => { toast.success("Conversa apagada do CRM."); return queryClient.invalidateQueries({ queryKey: KEY }); },
   });
 }
 
