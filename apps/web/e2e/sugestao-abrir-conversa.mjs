@@ -97,6 +97,31 @@ function seed(db) {
   await browser.close();
 }
 {
+  // 22/11/2026 — sem valor: em vez de bloquear, marca só "Qualificado" e envia apenas o LeadQualificado (sem Compra, sem venda)
+  const { browser, page, errors } = await launch();
+  const db = await mockSupabase(page, { role: "admin" });
+  seed(db);
+  await login(page, `/clientes/${CLI}/conversas?final=1925&nome=Gabriela+Souza&marcar=1`);
+  await page.waitForURL("**aba=conversas**");
+  const sale = page.getByTestId("mark-sale");
+  await sale.waitFor();
+  const botao = sale.getByTestId("mark-sale-submit");
+  check((await botao.innerText()).includes("Só qualificar") && await botao.isEnabled(), "sem valor: o botão deixa de bloquear e vira 'Só qualificar (sem venda)'");
+  await sale.getByLabel("Valor da venda").fill("150");
+  check((await botao.innerText()).includes("Marcar venda"), "com valor: volta a ser 'Marcar venda'");
+  await sale.getByLabel("Valor da venda").fill("");
+  await botao.click();
+  await page.waitForFunction(() => document.body.textContent.includes("Marcado como Qualificado"));
+  const k = db.contacts.find((c) => c.client_id === CLI && c.wa_hash === "a".repeat(64));
+  check(k && k.sales === 0, "não registrou venda (0 vendas)");
+  check(db.contactQueue.some((q) => q.contact_id === k.id && q.event_name === "LeadQualificado"), "o LeadQualificado entrou na fila de envio ao Meta");
+  check(!db.contactQueue.some((q) => q.event_name === "Purchase"), "nenhuma Compra foi enviada");
+  check(db.waSuggestions.find((x) => x.id === "p1").status === "pendente", "a sugestão da IA continua pendente (venda ainda não marcada)");
+  check(db.contactHistory.some((h) => h.contact_id === k.id && h.kind === "etapa" && h.meta_event === "LeadQualificado"), "o histórico do contato mostra o LeadQualificado enviado");
+  check(errors.length === 0, `sem erros no console (${errors.join(" | ")})`);
+  await browser.close();
+}
+{
   // Pessoa que não está mais na lista: avisa, sem quebrar
   const { browser, page } = await launch();
   const db = await mockSupabase(page, { role: "admin" });

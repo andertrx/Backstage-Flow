@@ -1705,8 +1705,8 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           contactLog(k, { kind: "venda", stage_id: st.id, value_micros: Math.round(p.p_value * 1e6), currency: p.p_currency, order_id: order,
             meta_event: st.meta_event && r !== "sem_site" ? st.meta_event : null });
         } else {
-          if (st.meta_event && !k.meta_sent.includes(st.meta_event)) { const q = send(st.meta_event); if (q !== "sem_site") k.meta_sent.push(st.meta_event); }
-          contactLog(k, { kind: "etapa", stage_id: st.id });
+          if (st.meta_event && !k.meta_sent.includes(st.meta_event)) { r = send(st.meta_event); if (r !== "sem_site") k.meta_sent.push(st.meta_event); }
+          contactLog(k, { kind: "etapa", stage_id: st.id, meta_event: r && r !== "sem_site" ? st.meta_event : null });
         }
         k.stage_id = st.id;
         Object.assign(out, { etapa: st.name, venda_meta: r });

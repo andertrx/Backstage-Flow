@@ -40,6 +40,8 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
   const mark = useWaMarkSale();
   const already = useWaPersonSales(person.person_id).data ?? 0;
   const stages = (setup.data?.stages ?? []).filter((s) => s.kind === "ganha" && !s.archived_at);
+  // Sem valor (22/11/2026): em vez de bloquear, marca só "Qualificado" e envia apenas o LeadQualificado (mesma regra do banco: etapa aberta, com evento, nome "Qualificad…").
+  const qualStage = (setup.data?.stages ?? []).find((s) => s.kind === "aberta" && !s.archived_at && s.meta_event && /^qualificad/i.test(s.name));
   const [stageId, setStageId] = useState("");
   const [value, setValue] = useState("");
   const [currency, setCurrency] = useState("BRL");
@@ -48,11 +50,27 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
   const chosen = stageId || stages[0]?.id || "";
   const amount = Number(value.replace(",", "."));
   const validOrder = order.trim() === "" || /^[A-Za-z0-9_.:/#-]{1,100}$/.test(order.trim());
-  const valid = Boolean(chosen) && Number.isFinite(amount) && amount >= 0 && value.trim() !== "" && validOrder;
+  const semValor = value.trim() === "";
+  const validVenda = Boolean(chosen) && Number.isFinite(amount) && amount >= 0 && !semValor && validOrder;
+  // Só qualificar: sem valor, existe a etapa Qualificado, e a pessoa ainda não tem venda (senão a etapa "voltaria" de Venda para Qualificado).
+  const validQualificar = semValor && Boolean(qualStage) && already === 0;
+  const valid = semValor ? validQualificar : validVenda;
 
   async function submit() {
     setError(null);
     try {
+      if (semValor && qualStage) {
+        // Só LeadQualificado, sem venda. A sugestão da IA continua pendente (venda ainda não marcada).
+        const q = await mark.mutateAsync({ personId: person.person_id, stageId: qualStage.id, value: null, currency, order: null, suggestionId: null });
+        onDone(
+          !q.etapa ? "Esta pessoa já estava como Qualificado; nada novo foi enviado."
+            : q.venda_meta === "sem_site" ? "Marcado como Qualificado. Não foi enviado ao Meta: o cliente não tem site no Tracking."
+              : q.pixel_ok === false ? "Marcado como Qualificado. Atenção: este cliente ainda não tem pixel do Meta ligado, então NÃO foi enviado ao Meta. Ligue o pixel em Tracking → Clientes."
+                : q.venda_meta == null ? "Marcado como Qualificado. Esta pessoa já tinha sido enviada como lead qualificado antes, então não foi enviada de novo."
+                  : "Marcado como Qualificado, sem venda. O lead qualificado entra na fila da API de Conversões do Meta.",
+        );
+        return;
+      }
       const r = await mark.mutateAsync({ personId: person.person_id, stageId: chosen, value: amount, currency, order, suggestionId: person.suggestion_id });
       onDone(
         r.venda_meta === "sem_site" ? "Venda registrada. Não foi enviada ao Meta: o cliente não tem site no Tracking."
@@ -84,7 +102,7 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
             <Field label="Etapa">
               {(id) => <Select id={id} value={chosen} onChange={(e) => setStageId(e.target.value)}>{stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select>}
             </Field>
-            <Field label="Valor da venda">
+            <Field label="Valor da venda" hint="Sem valor? Deixe vazio: marca só “Qualificado” e envia o LeadQualificado ao Meta, sem registrar venda.">
               {(id) => <Input id={id} inputMode="decimal" value={value} placeholder="297,00" onChange={(e) => setValue(e.target.value)} />}
             </Field>
             <Field label="Moeda">
@@ -97,9 +115,13 @@ function MarkSaleModal({ clientId, person, onClose, onDone }: {
             </div>
           </div>
         )}
+        {semValor && !qualStage && !setup.isPending && <p className="text-xs text-amber-700" data-testid="mark-sale-sem-qualificado">Este cliente não tem a etapa “Qualificado” com evento. Informe o valor para marcar a venda, ou cadastre a etapa em Contatos → Etapas.</p>}
+        {semValor && qualStage && already > 0 && <p className="text-xs text-amber-700">Esta pessoa já tem venda: para marcar outra, informe o valor. Sem valor não há o que qualificar.</p>}
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button disabled={!valid || stages.length === 0} loading={mark.isPending} onClick={() => void submit()}>Marcar venda</Button>
+          <Button disabled={!valid || (!semValor && stages.length === 0)} loading={mark.isPending} onClick={() => void submit()} data-testid="mark-sale-submit">
+            {semValor ? "Só qualificar (sem venda)" : "Marcar venda"}
+          </Button>
         </div>
       </div>
     </Modal>
