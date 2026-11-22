@@ -24,6 +24,7 @@ function seed(db) {
 }
 
 async function dragTo(page, card, column) {
+  await column.scrollIntoViewIfNeeded();
   const a = await card.boundingBox();
   const b = await column.boundingBox();
   await page.mouse.move(a.x + a.width / 2, a.y + 20);
@@ -41,6 +42,9 @@ const waitFor = async (page, fn, what) => {
 // ---------------------------------------------------------------- Admin
 {
   const { browser, page, errors } = await launch();
+  // As 5 colunas da fila (~1650 px) não cabem na janela padrão (1366): o alvo do arrasto ficava FORA da tela e o quadro rolava de lado
+  // durante o arrasto, o que dava sorte ou azar (falhava 4 de 10). Janela larga = alvo sempre à vista.
+  await page.setViewportSize({ width: 1800, height: 900 });
   const db = await mockSupabase(page, { role: "admin" });
   seed(db);
   await login(page, "/operacoes/clientes");

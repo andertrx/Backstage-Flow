@@ -21,6 +21,7 @@ export function QueuesPage() {
   const move = useMoveQueue();
   const [picked, setPicked] = useState<string | null>(null);
   const activeSectors = ctx.sectors.filter((s) => s.status === "ativo");
+  // O quadro usa key={sectorId}: ao trocar de setor ele volta ao começo (senão ficava rolado e as primeiras colunas, com os cartões, sumiam à esquerda).
   const sectorId = picked ?? ctx.mySector ?? activeSectors[0]?.id ?? "";
   const tasks = useOpsTasks({ sector_id: sectorId }, Boolean(sectorId) && !ctx.loading);
   const today = opsToday();
@@ -54,9 +55,9 @@ export function QueuesPage() {
       ) : !sectorId ? (
         <Card className="p-8 text-center text-sm text-slate-500">Nenhum setor ativo.</Card>
       ) : cols.length === 0 ? (
-        <KanbanBoard tasks={list} statuses={ctx.statuses} sectors={ctx.sectors} today={today} canMove={canMove} onOpen={open} />
+        <KanbanBoard key={sectorId} tasks={list} statuses={ctx.statuses} sectors={ctx.sectors} today={today} canMove={canMove} onOpen={open} />
       ) : (
-        <DndBoard items={list} columns={boardColumns} getId={(t) => t.id} getLabel={(t) => `#${t.number}`} columnOf={columnOf}
+        <DndBoard key={sectorId} items={list} columns={boardColumns} getId={(t) => t.id} getLabel={(t) => `#${t.number}`} columnOf={columnOf}
           canDrag={() => canMove}
           onMove={async (t, to) => {
             const column = cols.find((c) => c.id === to);
