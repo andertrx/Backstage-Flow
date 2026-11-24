@@ -50,6 +50,19 @@ export function handleWaGateway({ db, url, parse, role, res, opsPerms = [] }) {
       if (p.p_on) db.waAuto.push(p.p_envio);
       return res(204);
     }
+    if (url.includes("/rpc/wa_envio_pausar")) {
+      const e = db.opsEnvios.find((x) => x.id === p.p_envio && !x.arquivado_em);
+      if (!e) return bad("Envio não encontrado ou arquivado.");
+      const pausar = p.p_pausar !== false;
+      e.ativo = !pausar;
+      let n = 0;
+      if (pausar) {
+        for (const d of db.waDisparos.filter((x) => x.envio_id === p.p_envio && x.status === "pendente")) {
+          d.status = "pulado"; d.detalhe = "Cortado: o envio foi pausado antes de sair."; n++;
+        }
+      }
+      return res(200, { pausado: pausar, cortados: n, saindo_agora: db.waDisparos.filter((x) => x.envio_id === p.p_envio && x.status === "enviando").length });
+    }
     if (url.includes("/rpc/wa_envio_reenviar")) {
       const ap = db.opsEnvioAprovacoes.find((a) => a.envio_id === p.p_envio && a.decisao === "aprovado");
       if (!db.waAuto.includes(p.p_envio)) return bad("Este envio não é automático.");

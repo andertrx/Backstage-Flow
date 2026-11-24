@@ -59,6 +59,22 @@ export function useSetAutomatico() {
   });
 }
 
+/**
+ * "Pausar envio" (24/11/2026): deixa o envio pausado (o agendador para) e CORTA o que ainda estava na fila (vira "pulado").
+ * O que já foi enviado não volta. "Retomar" só reabre o envio; quem foi cortado não volta sozinho para a fila.
+ */
+export function usePausarEnvio() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { envio: string; pausar: boolean }) => {
+      const { data, error } = await supabase.rpc("wa_envio_pausar", { p_envio: v.envio, p_pausar: v.pausar });
+      if (error) throw new FriendlyError(dbError(error, v.pausar ? "Não conseguimos pausar o envio." : "Não conseguimos retomar o envio."));
+      return data as { pausado: boolean; cortados: number; saindo_agora: number };
+    },
+    onSettled: () => { void qc.invalidateQueries({ queryKey: KEY }); void qc.invalidateQueries({ queryKey: ["ops", "envios"] }); },
+  });
+}
+
 /** T5.22 Fase 3: reenviar um envio já aprovado na semana: "faltantes" (só quem não recebeu) ou "todos". */
 export function useReenviar() {
   const qc = useQueryClient();

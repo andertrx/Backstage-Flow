@@ -1,7 +1,7 @@
 import {
   ENVIO_LIMITS, ENVIO_STATUS_LABELS, ENVIO_STATUSES, ENVIO_WEEKDAYS, type EnvioClienteInput, type EnvioStatus, validateEnvio,
 } from "@backstage/shared";
-import { Archive, ArchiveRestore, History, Pencil, Plus, Search, Send, Users } from "lucide-react";
+import { Archive, ArchiveRestore, History, Pause, Pencil, Play, Plus, Search, Send, Users } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -24,12 +24,14 @@ import { RequireOps } from "./OpsLayout.tsx";
 import { EnvioApprovalModal, ReenvioModal } from "./EnvioApproval.tsx";
 import { originLabel } from "./origin.ts";
 import { ClientesStatus, WaEnvioPanel } from "./WaDisparos.tsx";
-import { useWaAutomaticos } from "./waDisparosApi.ts";
+import { usePausarEnvio, useWaAutomaticos } from "./waDisparosApi.ts";
 import { GrupoDoClienteAcoes, LigarGrupoModal } from "./WaGrupoLigar.tsx";
 import { WaGruposCard } from "./WaGruposCard.tsx";
 import { WhatsAppPreview } from "./WhatsAppPreview.tsx";
 import { type TasksContext, useTasksContext } from "./tasksContext.tsx";
 import { ListSkeleton } from "@/components/ui/skeleton.tsx";
+import { confirmar } from "@/lib/confirmStore.ts";
+import { toast } from "@/lib/toastStore.ts";
 
 const STATUS_TONE: Record<EnvioStatus, "success" | "danger" | "neutral"> = { enviado: "success", falhou: "danger", pulado: "neutral" };
 
@@ -174,6 +176,24 @@ function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const ativos = envio.clientes.filter((c) => c.ativo);
   const arquivado = Boolean(envio.arquivado_em);
+  const pausar = usePausarEnvio();
+  async function pausarOuRetomar() {
+    setError(null);
+    if (envio.ativo) {
+      const ok = await confirmar({
+        title: `Pausar o envio "${envio.nome}"?`,
+        message: "O envio fica pausado e o que ainda está na fila é cortado agora. O que já foi enviado não volta, e a mensagem que estiver saindo neste instante pode sair. Nada é apagado.",
+        confirmLabel: "Pausar envio", tone: "danger",
+      });
+      if (!ok) return;
+    }
+    try {
+      const r = await pausar.mutateAsync({ envio: envio.id, pausar: envio.ativo });
+      toast.success(r.pausado
+        ? `Envio pausado. ${r.cortados} mensagem(ns) cortada(s) da fila${r.saindo_agora ? `; ${r.saindo_agora} estava saindo neste instante e pode ter saído` : ""}.`
+        : "Envio retomado. Quem foi cortado não volta sozinho para a fila: use “Reenviar” se quiser mandar.");
+    } catch (err) { setError(errorMessage(err)); }
+  }
   async function toggleArchive() {
     setError(null);
     try { await archive.mutateAsync({ id: envio.id, arquivar: !arquivado }); } catch (err) { setError(errorMessage(err)); }
@@ -195,6 +215,12 @@ function EnvioCard({ envio, onEdit }: { envio: OpsEnvio; onEdit: () => void }) {
           {!arquivado && podeDecidir && (
             <Button className="px-3 py-1.5 text-xs" variant={tardia || envio.situacao_hoje === "aguardando_aprovacao" ? "primary" : "secondary"} onClick={() => setReviewing(true)}
               aria-label={`Revisar e aprovar ${envio.nome}`}>{tardia ? "Aprovar e enviar agora" : "Revisar e aprovar"}</Button>
+          )}
+          {!arquivado && (
+            <Button variant={envio.ativo ? "danger" : "secondary"} className="px-3 py-1.5 text-xs" loading={pausar.isPending} onClick={() => void pausarOuRetomar()}
+              aria-label={`${envio.ativo ? "Pausar" : "Retomar"} ${envio.nome}`} data-testid="envio-pausar">
+              {envio.ativo ? <><Pause className="size-3.5" aria-hidden /> Pausar envio</> : <><Play className="size-3.5" aria-hidden /> Retomar envio</>}
+            </Button>
           )}
           {!arquivado && envio.ativo && automatico && (
             <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setReenviando(true)} aria-label={`Reenviar ${envio.nome}`} data-testid="envio-reenviar-botao">
