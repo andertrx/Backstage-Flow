@@ -258,3 +258,24 @@ Deno.test("altBrNumber: forma com e sem o 9; ignora número de fora do Brasil", 
   assertEquals(altBrNumber("5541322112345"), null);
   assertEquals(altBrNumber("14155550123"), null);
 });
+
+Deno.test("código: logo depois de apagar, o servidor recusa criar (403, nome ainda em uso) → espera e tenta de novo, sem mostrar erro de chave", async () => {
+  const f = fake({
+    "DELETE /instance/delete/{instance}": [{ status: 200 }],
+    "POST /instance/create": [{ status: 403 }, { status: 403 }, { status: 201, body: { qrcode: { pairingCode: "QRST9012", base64: "data:image/png;base64,DDDD" } } }],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  const r = await connect(f.d, "81 98398-8622");
+  assertEquals(r.pairingCode, "QRST9012");
+  assertEquals(f.calls.filter((c) => c.path === "/instance/create").length, 3);
+  assertEquals(f.calls.filter((c) => c.path === "/instance/delete/{instance}").length, 1);
+});
+
+Deno.test("código: se continuar recusando depois de 3 novas tentativas, mostra o erro", async () => {
+  const f = fake({
+    "DELETE /instance/delete/{instance}": [{ status: 200 }],
+    "POST /instance/create": [{ status: 403 }],
+  });
+  await assertRejects(() => connect(f.d, "81 98398-8622"), GatewayFailure, "erro 403");
+  assertEquals(f.calls.filter((c) => c.path === "/instance/create").length, 4);
+});

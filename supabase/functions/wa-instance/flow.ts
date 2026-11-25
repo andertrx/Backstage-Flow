@@ -89,9 +89,17 @@ export async function connect(d: Deps, numberRaw?: string): Promise<ConnectResul
     // no passo seguinte (criar), com a mensagem certa. Só erro do próprio servidor (5xx) para aqui.
     const del = await d.gw(instance, "DELETE", "/instance/delete/{instance}");
     if (del.status >= 500) throw new GatewayFailure(502, d.problem(del.status));
-    r = await d.gw(instance, "POST", "/instance/create", {
+    const criar = () => d.gw(instance, "POST", "/instance/create", {
       body: { instanceName: instance, integration: "WHATSAPP-BAILEYS", qrcode: true, number },
     });
+    r = await criar();
+    // 25/11/2026: logo depois de apagar, o servidor ainda termina de remover a conexão antiga e recusa criar com o mesmo nome
+    // (responde 403/401, que parecia "chave recusada"). Quando a conexão antiga EXISTIA (apagar deu certo), espera e tenta de novo, até 3 vezes.
+    for (let i = 0; i < 3 && del.status < 400 && (r.status === 401 || r.status === 403); i++) {
+      logStep("criar_de_novo", { tentativa: i + 2 });
+      await d.wait(2000);
+      r = await criar();
+    }
   } else {
     // QR: uma chamada só; se a conexão ainda não existe (404), cria.
     r = await d.gw(instance, "GET", "/instance/connect/{instance}");
