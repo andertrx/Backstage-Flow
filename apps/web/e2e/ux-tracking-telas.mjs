@@ -17,7 +17,7 @@ for (const [rotulo, w, h] of [["desktop", 1440, 900], ["celular", 390, 844]]) {
   }
   await login(page, "/tracking?secao=config");
   await page.getByTestId("cli-site-whatsapp").waitFor();
-  for (const [nome, sel] of [["detalhes", "#cfg-detalhes"], ["ferramentas", "#cfg-link"]]) {
+  for (const [nome, sel] of [["clientes", "#cfg-clientes"], ["ferramentas", "#cfg-link"]]) {
     const el = page.locator(sel).first();
     if (await el.count()) { await el.scrollIntoViewIfNeeded(); await el.screenshot({ path: `${SHOTS}/ux-tracking-${nome}-${rotulo}.png` }); }
   }

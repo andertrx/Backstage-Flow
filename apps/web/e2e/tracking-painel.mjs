@@ -44,8 +44,9 @@ function seed(db) {
 
   // Endereços antigos levam ao Tracking do cliente
   await page.goto(page.url().split("/tracking")[0] + `/clientes/${A}?aba=whatsapp`);
-  await page.getByTestId("wa-status-strip").waitFor();
-  check(page.url().includes("/tracking") && page.url().includes("aba=whatsapp"), "?aba=whatsapp da ficha leva ao Painel do Tracking");
+  await page.waitForURL(/sub=whatsapp/);
+  await page.getByTestId("wa-click-channels").waitFor();
+  check(page.url().includes("/tracking") && page.url().includes("aba=site"), "?aba=whatsapp (endereço antigo) leva ao Painel → Site e origem → Cliques no WhatsApp");
   await page.goto(page.url().split("/tracking")[0] + `/clientes/${A}/conversas`);
   await page.getByTestId("wa-conversations").waitFor();
   check(page.url().includes("aba=conversas") && page.url().includes(`cliente=${A}`), "o endereço antigo das conversas leva ao Painel → Conversas do cliente");
@@ -54,7 +55,8 @@ function seed(db) {
   await page.goto(page.url().split("/tracking")[0] + "/tracking");
   await page.getByTestId("tracking-tabs").waitFor();
   const t = (await page.getByTestId("tracking-tabs").getByRole("button").allInnerTexts()).map((x) => x.trim());
-  check(["Conversas", "Contatos e vendas", "Site e origem", "WhatsApp"].every((x) => t.includes(x)) && t.some((x) => x.startsWith("Vendas sugeridas")), `abas do Painel (${t.join(", ")})`);
+  check(["Conversas", "Contatos e vendas", "Marketing", "Site e origem"].every((x) => t.includes(x)) && !t.includes("WhatsApp") && !t.some((x) => x.startsWith("Vendas sugeridas")),
+    `abas do Painel: 4, sem WhatsApp nem Vendas sugeridas (${t.join(", ")})`);
   check(await page.getByTestId("tracking-section-painel").count() === 1 && await page.getByTestId("tracking-section-config").count() === 1, "Painel e Configurações no topo");
   await page.getByTestId("tracking-panel-tab-conversas").click();
   await page.getByTestId("tracking-pick-client").waitFor();
@@ -65,8 +67,8 @@ function seed(db) {
   // Site e origem
   await page.getByTestId("tracking-panel-tab-site").click();
   await page.getByTestId("tracking-tab-origens").waitFor();
-  check(await page.getByTestId("tracking-tab-resumo").count() === 1 && await page.getByTestId("tracking-tab-leads").count() === 1 && await page.getByTestId("tracking-tab-saude").count() === 1 && await page.getByTestId("tracking-tab-whatsapp").count() === 0,
-    "Site e origem: Resumo, Origem e jornada, Leads recebidos e Saúde");
+  check(await page.getByTestId("tracking-tab-resumo").count() === 1 && await page.getByTestId("tracking-tab-leads").count() === 1 && await page.getByTestId("tracking-tab-saude").count() === 1 && await page.getByTestId("tracking-tab-whatsapp").count() === 1,
+    "Site e origem: Resumo, Origem e jornada, Leads recebidos, Cliques no WhatsApp e Saúde");
   check(await page.getByTestId("container-card").count() === 0, "o Painel não repete os cartões de site (ficam em Configurações)");
   await page.getByTestId("tracking-client").selectOption(A);
   await page.waitForURL(new RegExp(`cliente=${A}`));
@@ -88,35 +90,29 @@ function seed(db) {
   await page.getByRole("heading", { name: "Contatos e vendas" }).waitFor();
   check(await page.getByLabel("Cliente", { exact: true }).count() === 1, "Contatos e vendas: sem segundo seletor de cliente (vale o do topo)");
 
-  // WhatsApp
-  await page.getByTestId("tracking-panel-tab-whatsapp").click();
-  await page.getByTestId("wa-status-strip").waitFor();
-  const wa = await page.getByTestId("wa-status-strip").innerText();
-  check(wa.includes("atacado.com.br") && !wa.includes("varejo.com.br"), "WhatsApp (Painel): só a situação do cliente escolhido");
-  check(await page.getByRole("button", { name: /WhatsApp pelo servidor|WhatsApp API oficial/ }).count() === 0, "WhatsApp (Painel): sem botões de ligar (ficam em Configurações)");
-  check((await page.getByTestId("wa-mark-moved").innerText()).includes("aba Conversas"), "WhatsApp: avisa que a venda se marca em Conversas");
-  check(await page.getByRole("button", { name: /Marcar como Venda|Marcar como Lead/ }).count() === 0, "WhatsApp: não há botão de marcar venda aqui");
-  check(await page.getByLabel("Código da conversa").count() === 0, "WhatsApp: sem o antigo campo de código da conversa");
-  await page.getByTestId("wa-go-config").click();
-  await page.getByTestId("cli-site-whatsapp").waitFor();
-  check(page.url().includes("secao=config"), "o link leva às Configurações → lista de clientes (WhatsApp)");
-  const wc = await page.getByTestId("cli-site-whatsapp").innerText();
-  check(wc.includes("Loja Atacado") && !wc.includes("Loja Varejo"), "Configurações → WhatsApp: só o cliente escolhido");
-  check(await page.getByRole("button", { name: /Ligar WhatsApp de Loja Atacado|Configurar WhatsApp de Loja Atacado/ }).count() === 1, "Configurações → WhatsApp: botão do servidor próprio na linha do cliente");
-  check(await page.getByTestId("section-index").count() === 1, "Configurações tem o índice de seções");
-  await page.getByTestId("tracking-section-painel").click();
+  // Cliques no WhatsApp: agora dentro de Site e origem (sem aviso de "use a aba Conversas" e sem botões de ligar)
+  await page.getByTestId("tracking-panel-tab-site").click();
+  await page.getByTestId("tracking-tab-whatsapp").click();
+  await page.getByTestId("wa-click-channels").waitFor();
+  check(await page.getByTestId("wa-mark-moved").count() === 0 && await page.getByTestId("wa-status-strip").count() === 0, "Cliques no WhatsApp: sem o aviso e sem a faixa de situação antigos");
+  check(await page.getByRole("button", { name: /Marcar como Venda|Marcar como Lead|WhatsApp pelo servidor|WhatsApp API oficial/ }).count() === 0, "Cliques no WhatsApp: só leitura");
 
-  // Vendas sugeridas
-  await page.getByTestId("tracking-panel-tab-sugestoes").click();
+  // Vendas sugeridas: dentro de Conversas (só as do cliente escolhido)
+  await page.getByTestId("tracking-panel-tab-conversas").click();
+  await page.getByTestId("conversas-sugestoes").waitFor();
+  if (!(await page.getByTestId("wa-suggestions").isVisible())) await page.getByTestId("tracking-panel-tab-sugestoes").click();
   await page.getByTestId("wa-suggestions").waitFor();
   const sug = await page.getByTestId("wa-suggestions").innerText();
-  check(sug.includes("João Atacado") && !sug.includes("Maria Varejo"), "Vendas sugeridas: só as do cliente escolhido");
+  check(sug.includes("João Atacado") && !sug.includes("Maria Varejo"), "Vendas sugeridas (dentro de Conversas): só as do cliente escolhido");
   check(await page.getByTestId("wa-ai-card").count() === 0, "a chave da IA não fica no Painel");
 
   // Configurações
   await page.getByTestId("tracking-section-config").click();
   await page.getByTestId("tracking-config").waitFor();
+  // um cliente só na lista: os sites dele já vêm abertos na própria linha
   await page.getByTestId("container-card").first().waitFor();
+  check(await page.getByTestId("cli-site-whatsapp").getByTestId("cliente-detalhe").count() === 1, "Configurações: os sites abrem dentro da linha do cliente");
+  check(!(await page.getByTestId("tracking-config").innerText()).includes("Detalhes dos sites de cada cliente"), "Configurações: sem a seção separada de detalhes");
   const cfg = await page.getByTestId("tracking-config").innerText();
   check(cfg.includes("atacado.com.br") && !cfg.includes("varejo.com.br"), "Configurações: sites do cliente escolhido");
   check(await page.getByRole("button", { name: "Código de instalação: atacado.com.br" }).count() + await page.getByRole("button", { name: /Código de instalação/ }).count() >= 1, "Configurações: código de instalação");
@@ -140,7 +136,7 @@ function seed(db) {
   check(!t.includes("Conversas") && t.includes("Site e origem"), `visualizador não vê Conversas (${t.join(", ")})`);
   await page.getByTestId("tracking-section-config").click();
   // com vários clientes, os detalhes de cada um ficam recolhidos: abre o primeiro
-  await page.getByTestId("cliente-detalhe").first().locator("summary").click();
+  await page.getByTestId("cliente-detalhe").first().waitFor();
   await page.getByTestId("container-card").first().waitFor();
   check(await page.getByRole("button", { name: "Novo site" }).count() === 0 && await page.getByTestId("wa-ai-card").count() === 0, "visualizador não cria site nem vê a chave da IA");
   await browser.close();

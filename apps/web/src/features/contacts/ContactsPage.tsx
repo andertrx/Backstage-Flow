@@ -1,6 +1,7 @@
 import { can, CHANNEL_LABELS, type Channel, EVIDENCE_LABELS, type Evidence, hashUserData, normalizeLeadPhone } from "@backstage/shared";
-import { Archive, ChevronDown, ClipboardList, type LucideIcon, MessageSquareText, Plus, Search, Settings2, Store } from "lucide-react";
+import { Archive, ChevronDown, ClipboardList, type LucideIcon, MessageCircle, MessageSquareText, Plus, Search, Settings2, Store } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -9,6 +10,7 @@ import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { Modal } from "@/components/ui/modal.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { normalizeWaCode, parseMoneyInput } from "@/features/tracking/logic.ts";
+import { conversationLink } from "@/features/tracking/conversationTarget.ts";
 import { cn } from "@/lib/cn.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime, formatMoney, formatRelative } from "@/lib/format.ts";
@@ -23,6 +25,7 @@ import {
   useContactHistory,
   useContactRastreio,
   useContacts,
+  useContactsWaPeople,
   useContactSetup,
   useCreateContact,
   type UpdateResult,
@@ -99,6 +102,7 @@ export function ContactsPage({ fixedClientId }: { fixedClientId?: string } = {})
   const setup = useContactSetup(clientId);
   const [stageFilter, setStageFilter] = useState<string | null>(null);
   const list = useContacts(clientId, { stageId: stageFilter });
+  const waPeople = useContactsWaPeople(clientId);
   const create = useCreateContact();
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<ContactRow[] | null>(null);
@@ -208,16 +212,28 @@ export function ContactsPage({ fixedClientId }: { fixedClientId?: string } = {})
             </Alert>
           )}
 
-          <Card className="space-y-3 p-4">
-            <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onSearch}>
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden />
-                <Input aria-label="Código da mensagem ou telefone" className="pl-9" placeholder="Código da mensagem (ref. K7Q2M9) ou telefone"
-                  value={query} onChange={(e) => { setQuery(e.target.value); if (!e.target.value) { setFound(null); setCreatingPhone(null); } }} />
+          {/* 25/11/2026: busca e filtros de etapa numa barra só, logo acima da lista */}
+          <Card className="space-y-3 p-3 sm:p-4" data-testid="contatos-barra">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <form className="flex min-w-0 flex-1 gap-2" onSubmit={onSearch}>
+                <div className="relative min-w-0 flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden />
+                  <Input aria-label="Código da mensagem ou telefone" className="pl-9" placeholder="Código da mensagem (ref. K7Q2M9) ou telefone"
+                    value={query} onChange={(e) => { setQuery(e.target.value); if (!e.target.value) { setFound(null); setCreatingPhone(null); } }} />
+                </div>
+                <Button type="submit" loading={create.isPending}>Buscar</Button>
+              </form>
+              <div className="-mx-1 flex gap-1 overflow-x-auto px-1" role="tablist" aria-label="Etapa">
+                {[{ id: null as string | null, name: "Todos" }, ...stages].map((s) => (
+                  <button key={s.id ?? "todos"} type="button" role="tab" aria-selected={stageFilter === s.id}
+                    onClick={() => { setStageFilter(s.id); setFound(null); }}
+                    className={cn("shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium", stageFilter === s.id ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100")}>
+                    {s.name}
+                  </button>
+                ))}
               </div>
-              <Button type="submit" loading={create.isPending}>Buscar</Button>
-            </form>
-            <p className="text-xs text-slate-500">O telefone é cifrado aqui mesmo, antes de sair do aparelho. Nome e conversa nunca são guardados.</p>
+            </div>
+            <p className="text-xs text-slate-500">O telefone digitado é cifrado aqui mesmo, antes de sair do aparelho.</p>
             {searchError && <Alert tone="error">{searchError}</Alert>}
             {found && found.length === 0 && (
               <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700" data-testid="contact-not-found">
@@ -231,16 +247,6 @@ export function ContactsPage({ fixedClientId }: { fixedClientId?: string } = {})
             )}
           </Card>
 
-          <div className="flex flex-wrap gap-1" role="tablist" aria-label="Etapa">
-            {[{ id: null as string | null, name: "Todos" }, ...stages].map((s) => (
-              <button key={s.id ?? "todos"} type="button" role="tab" aria-selected={stageFilter === s.id}
-                onClick={() => { setStageFilter(s.id); setFound(null); }}
-                className={cn("rounded-lg px-3 py-1.5 text-sm font-medium", stageFilter === s.id ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100")}>
-                {s.name}
-              </button>
-            ))}
-          </div>
-
           {list.error && <Alert tone="error">{errorMessage(list.error)}</Alert>}
           {list.isLoading ? (
             <ListSkeleton label="Carregando contatos" />
@@ -251,13 +257,15 @@ export function ContactsPage({ fixedClientId }: { fixedClientId?: string } = {})
               {rows.map((r) => {
                 const st = stageOf(r.stage_id);
                 const pf = profileOf(r.profile_id);
+                const pessoa = waPeople.data?.get(r.id);
                 return (
-                  <li key={r.id}>
+                  <li key={r.id} className="relative">
                     <button type="button" onClick={() => setOpenId(r.id)} data-testid="contact-row"
-                      className="w-full rounded-xl bg-white p-3 text-left text-sm shadow-sm ring-1 ring-slate-200 hover:ring-brand-400">
+                      className={cn("w-full rounded-xl bg-white p-3 text-left text-sm shadow-sm ring-1 ring-slate-200 hover:ring-brand-400", pessoa && clientId && "pb-10 sm:pb-3 sm:pr-40")}>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-medium text-slate-900">
-                          Contato #{r.id} · {ORIGIN_LABELS[r.origin]}{r.ref_code ? ` (ref. ${r.ref_code})` : ""}
+                          {pessoa?.push_name ? <><span data-testid="contact-name">{pessoa.push_name}</span> <span className="font-normal text-slate-500">· Contato #{r.id}</span></> : <>Contato #{r.id}</>}
+                          {" · "}{ORIGIN_LABELS[r.origin]}{r.ref_code ? ` (ref. ${r.ref_code})` : ""}
                         </span>
                         <span className="flex flex-wrap gap-1">
                           {pf && <Badge tone="brand">{pf.name}</Badge>}
@@ -271,6 +279,12 @@ export function ContactsPage({ fixedClientId }: { fixedClientId?: string } = {})
                         {r.sales > 0 ? ` · ${r.sales} venda${r.sales === 1 ? "" : "s"}` : ""}
                       </p>
                     </button>
+                    {pessoa && clientId && (
+                      <Link to={conversationLink(clientId, { contact_id: r.id, phone_tail: null, push_name: pessoa.push_name })} data-testid="contact-open-conversation"
+                        className="absolute bottom-2 left-3 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50 sm:bottom-auto sm:left-auto sm:right-3 sm:top-1/2 sm:-translate-y-1/2">
+                        <MessageCircle className="size-3.5" aria-hidden /> Abrir conversa
+                      </Link>
+                    )}
                   </li>
                 );
               })}

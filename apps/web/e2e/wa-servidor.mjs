@@ -129,7 +129,7 @@ function seed(db, official = false) {
     const db = await mockSupabase(page, { role });
     seed(db);
     await login(page, "/tracking?secao=config");
-    await page.getByText("Detalhes dos sites de cada cliente").waitFor();
+    await page.getByText("Sites de cada cliente").waitFor();
     await page.waitForTimeout(500);
     check(await page.getByTestId("cli-site-whatsapp").count() === 0 && await page.getByRole("button", { name: /Ligar WhatsApp de|Configurar WhatsApp de/ }).count() === 0, `${role} não configura o WhatsApp pelo servidor`);
     await browser.close();
@@ -211,10 +211,10 @@ function seed(db, official = false) {
   await page.getByTestId("wa-qr").waitFor();
   check(db.whatsappConnections.filter((w) => w.client_id === SO_WA).length === 1 && !db.whatsappConnections.find((w) => w.client_id === SO_WA).excluded_at, "ligar de novo reaproveita o cadastro (sem duplicar) e volta a aparecer");
   await page.getByRole("button", { name: "Fechar", exact: true }).last().click();
-  // e também no Painel (aba WhatsApp e aba Conversas) do cliente escolhido
-  await page.goto(`${process.env.E2E_BASE_URL}/tracking?aba=whatsapp&cliente=${SO_WA}`);
+  // 25/11/2026: a aba WhatsApp saiu do Painel; o "limpar dados" continua nas Conversas do cliente (e na janela do WhatsApp em Configurações)
+  await page.goto(`${process.env.E2E_BASE_URL}/tracking?aba=conversas&cliente=${SO_WA}`);
   await page.getByTestId("limpar-dados-card").waitFor();
-  check(true, "aba WhatsApp do cliente também tem o botão de limpar dados");
+  check(true, "Conversas do cliente têm o botão de limpar dados");
   await page.goto(`${process.env.E2E_BASE_URL}/tracking?secao=config`);
   await page.getByTestId("cli-site-whatsapp").waitFor();
 

@@ -10,7 +10,8 @@ import { BASE, check, launch, login, mockSupabase, SHOTS } from "./support.mjs";
 const aba = async (page, id) => {
   if (id === "sites") return page.getByTestId("tracking-section-config").click();
   await page.getByTestId("tracking-section-painel").click();
-  if (id === "whatsapp" || id === "sugestoes") return page.getByTestId(`tracking-panel-tab-${id}`).click();
+  // 25/11/2026: "Cliques no WhatsApp" virou uma parte de Site e origem; as vendas sugeridas ficam dentro de Conversas.
+  if (id === "sugestoes") return page.getByTestId(`tracking-panel-tab-${id}`).click();
   await page.getByTestId("tracking-panel-tab-site").click();
   await page.getByTestId(`tracking-tab-${id}`).click();
 };
@@ -245,7 +246,7 @@ function seedClients(db) {
   await meta.getByText("Falta o token").waitFor();
   check(true, "apagar token desliga o envio");
   await meta.getByRole("button", { name: "Fechar", exact: true }).last().click();
-  check((await card.innerText()).includes("Meta CAPI · Falta o token"), "card do site mostra a situação do Meta");
+  check((await card.innerText()).includes("Pixel do Meta · Falta o token"), "card do site mostra a situação do Meta");
 
   // 34.5-W2: WhatsApp pela API oficial
   await aba(page, "sites");

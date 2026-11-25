@@ -138,6 +138,22 @@ export async function findContacts(clientId: string, by: { code?: string; phHash
   return (data ?? []) as ContactRow[];
 }
 
+/**
+ * 25/11/2026: nome da conversa do WhatsApp de cada contato (para "Abrir conversa" em Contatos e vendas).
+ * O banco só devolve para admin, gestor e Account Manager do cliente, nos clientes que guardam conversas; para os demais vem vazio.
+ */
+export function useContactsWaPeople(clientId: string | null) {
+  return useQuery({
+    queryKey: [...KEY, "wa-people", clientId],
+    enabled: Boolean(clientId),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("contacts_wa_people", { p_client: clientId! });
+      if (error) return new Map<number, { person_id: number; push_name: string | null }>(); // sem o nome a tela continua funcionando
+      return new Map(((data ?? []) as { contact_id: number; person_id: number; push_name: string | null }[]).map((r) => [r.contact_id, { person_id: r.person_id, push_name: r.push_name }]));
+    },
+  });
+}
+
 /** T5.35: ficha de rastreio do contato (de onde veio). Traz o que o tracker.ads mostra, com os dados do CRM. */
 export function useContactRastreio(contactId: number | null) {
   return useQuery({

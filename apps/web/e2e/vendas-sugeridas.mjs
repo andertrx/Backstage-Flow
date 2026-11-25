@@ -24,7 +24,7 @@ function seed(db) {
   seed(db);
   await login(page, "/tracking?aba=sugestoes");
   await page.getByTestId("wa-suggestions").waitFor();
-  check((await page.getByTestId("tracking-panel-tab-sugestoes").innerText()).includes("(2)"), "a aba mostra quantas sugestões esperam");
+  check((await page.getByTestId("tracking-panel-tab-sugestoes").innerText()).includes("(2)") && page.url().includes("aba=conversas"), "?aba=sugestoes leva a Conversas, e o bloco mostra quantas sugestões esperam");
   check(await page.getByTestId("wa-suggestion").count() === 2, "lista as 2 sugestões pendentes");
   const txt = await page.getByTestId("wa-suggestions").innerText();
   check(txt.includes("João") && txt.includes("final 8888") && txt.includes("Loja Atacado") && txt.includes("comprovante do PIX") && txt.includes("Confiança alta"),
@@ -51,7 +51,10 @@ function seed(db) {
 
   // Decidir (de volta ao Painel)
   await page.getByTestId("tracking-section-painel").click();
-  await page.getByTestId("tracking-panel-tab-sugestoes").click();
+  // 25/11/2026: as sugestões ficam dentro de Conversas (bloco que abre e fecha)
+  await page.getByTestId("conversas-sugestoes").waitFor();
+  if (!(await page.getByTestId("wa-suggestions").isVisible())) await page.getByTestId("tracking-panel-tab-sugestoes").click();
+  await page.getByTestId("wa-suggestions").waitFor();
   // 22/11/2026: o botão "Houve venda" saiu (só anotava a decisão e a venda não ia ao Pixel). Agora é "Marcar a venda" (abre a conversa) ou "Descartar".
   check(await page.getByRole("button", { name: "Houve venda" }).count() === 0, "não existe mais o botão 'Houve venda' (era enganoso)");
   const marcar = page.getByTestId("wa-suggestion").filter({ hasText: "João" }).getByTestId("wa-suggestion-mark");

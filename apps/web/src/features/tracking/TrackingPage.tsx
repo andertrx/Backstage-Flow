@@ -7,9 +7,8 @@ import {
   EVIDENCE_LABELS,
   eventLabel,
 } from "@backstage/shared";
-import { ChevronDown, Code2, ListChecks, MousePointerClick, Pencil, Radar, Trash2, Undo2 } from "lucide-react";
+import { Code2, ListChecks, MousePointerClick, Pencil, Radar, Trash2, Undo2 } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
-import { Link } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -40,7 +39,6 @@ import {
   useWaConversationSales,
   useAttribution,
   useTrackingQuality,
-  type WhatsAppConnection,
   useRecentEvents,
   useRecentLeads,
   useRecentTouchpoints,
@@ -54,13 +52,13 @@ import { ConfigSection } from "@/components/ui/section.tsx";
 import { ContainerFormModal, InstallModal } from "./ContainerModals.tsx";
 import { LeadsSection } from "./LeadsSection.tsx";
 import { ReadinessSection, type SiteReadiness } from "./ReadinessSection.tsx";
-import { capiStatus, PERIOD_LABELS, siteReadiness, type PeriodPreset, periodRange, siteRecemCriado, summarizeConversions, usoRecente, waConnectionStatus } from "./logic.ts";
+import { capiStatus, PERIOD_LABELS, siteReadiness, type PeriodPreset, periodRange, siteRecemCriado, summarizeConversions, usoRecente } from "./logic.ts";
 import { MetaCapiModal } from "./MetaCapiModal.tsx";
 import { SuggestionsSection } from "./SuggestionsSection.tsx";
 import { RulesModal } from "./RulesModal.tsx";
 import { WhatsAppApiModal } from "./WhatsAppApiModal.tsx";
 import { ClienteSiteWhatsApp } from "./ClientesSiteWhatsApp.tsx";
-import { LimparDadosDoClienteCard, WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
+import { WhatsAppServerModal } from "./WhatsAppServerModal.tsx";
 import { WhatsAppSection } from "./WhatsAppSection.tsx";
 
 const EVIDENCE_TONE: Record<Evidence, "success" | "warning" | "neutral"> = {
@@ -77,7 +75,7 @@ const TABS: { id: TrackingTab; label: string }[] = [
   { id: "leads", label: "Leads recebidos" },
   { id: "saude", label: "Saúde" },
   { id: "sites", label: "Sites" },
-  { id: "whatsapp", label: "WhatsApp" },
+  { id: "whatsapp", label: "Cliques no WhatsApp" },
   { id: "sugestoes", label: "Vendas sugeridas" },
 ];
 
@@ -131,8 +129,6 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
 
   const [editing, setEditing] = useState<TrackingContainer | "new" | null>(null);
   const [excluding, setExcluding] = useState<TrackingContainer | null>(null);
-  const [detBusca, setDetBusca] = useState("");
-  const [detMostrar, setDetMostrar] = useState(15);
   const [newSiteClient, setNewSiteClient] = useState<string | null>(null);
   const [installing, setInstalling] = useState<TrackingContainer | null>(null);
   const [rulesFor, setRulesFor] = useState<TrackingContainer | null>(null);
@@ -164,6 +160,35 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
     });
     return { id: c.id, name: c.name, client: c.clients?.name ?? "—", summary: r.summary, items: r.items };
   });
+
+  /**
+   * 25/11/2026: o pixel do Meta é um por cliente (pode estar no site ou no WhatsApp). O cartão do site mostra o pixel do cliente,
+   * para não dizer "desligado" no site quando o pixel está ligado no WhatsApp do mesmo cliente.
+   */
+  const pixelDoCliente = (c: TrackingContainer) => {
+    const proprio = destOf(c.id);
+    if (proprio) return { container: c, destination: proprio };
+    const outro = containers.find((x) => x.client_id === c.client_id && destOf(x.id));
+    return outro ? { container: outro, destination: destOf(outro.id) } : { container: c, destination: undefined };
+  };
+  /** Os cartões dos sites de um cliente (abrem na linha do cliente em Configurações). */
+  const sitesDoCliente = (cid: string) => {
+    const mineSites = visible.filter((c) => c.client_id === cid && c.kind !== "whatsapp" && !c.excluded_at);
+    if (mineSites.length === 0) return null;
+    return (
+      <ul className="grid gap-3 lg:grid-cols-2">
+        {mineSites.map((c) => {
+          const px = pixelDoCliente(c);
+          return (
+            <ContainerCard key={c.id} container={c} stats={stats.get(c.id)} canManage={canManage}
+              onEdit={() => setEditing(c)} onInstall={() => setInstalling(c)}
+              destination={px.destination} capi={capiOf(px.destination)} onMeta={() => setMetaFor(px.container)}
+              onRules={() => setRulesFor(c)} onExclude={() => setExcluding(c)} />
+          );
+        })}
+      </ul>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -244,64 +269,25 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
               {canManage && (
                 <ConfigSection id="cfg-clientes" title="Clientes: site e/ou WhatsApp" description="Escolha, cliente por cliente, se ele tem site, WhatsApp ou os dois. Um não depende do outro.">
                   <ClienteSiteWhatsApp clients={clients.filter((c) => !clientId || c.id === clientId)} containers={containers} connectionOf={waConnOf} destinationOf={destOf}
-                    onAddSite={(id) => { setNewSiteClient(id); setEditing("new"); }} onWhatsApp={setWaServerFor} onWhatsAppApi={setWaApiFor} onPixel={setMetaFor} />
+                    onAddSite={(id) => { setNewSiteClient(id); setEditing("new"); }} onWhatsApp={setWaServerFor} onWhatsAppApi={setWaApiFor} onPixel={setMetaFor}
+                    renderDetail={sitesDoCliente} />
+                  <span id="cfg-detalhes" /><span id="cfg-sites" /><span id="cfg-whatsapp" />
                 </ConfigSection>
               )}
-              <ConfigSection id="cfg-detalhes" title="Detalhes dos sites de cada cliente" description="Código de instalação, Meta (API de Conversões) e regras de eventos de cada site. O WhatsApp do cliente fica na lista acima, em “Clientes: site e/ou WhatsApp”.">
-                <span id="cfg-sites" /><span id="cfg-whatsapp" />
-                <div className="space-y-5">
-                  {!visible.some((c) => c.kind !== "whatsapp" && !c.excluded_at) && <p className="text-sm text-slate-500">Nenhum site cadastrado ainda. Use "Adicionar site" na lista acima.</p>}
-                  {(() => { const todos = [...new Set(visible.map((c) => c.client_id))].filter((cid) => visible.some((c) => c.client_id === cid && c.kind !== "whatsapp" && !c.excluded_at));
-                    const termo = detBusca.trim().toLowerCase();
-                    const ids = todos.filter((cid) => !termo || (visible.find((c) => c.client_id === cid)?.clients?.name ?? "").toLowerCase().includes(termo));
-                    const mostrados = ids.slice(0, detMostrar);
-                    return (<>
-                    {todos.length > 6 && <Input aria-label="Buscar cliente nos detalhes" placeholder="Buscar cliente" value={detBusca} onChange={(e) => { setDetBusca(e.target.value); setDetMostrar(15); }} />}
-                    {mostrados.map((cid) => {
-                    const mine = visible.filter((c) => c.client_id === cid);
-                    const mineSites = mine.filter((c) => c.kind !== "whatsapp" && !c.excluded_at);
-                    if (mineSites.length === 0) return null;
-                    return (
-                      <details key={cid} open={ids.length === 1 || Boolean(clientId) || undefined} className="group space-y-2 rounded-xl ring-1 ring-slate-200 p-3" data-testid="cliente-detalhe">
-                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg text-sm font-semibold text-slate-900 hover:text-brand-700">
-                          <span className="min-w-0 truncate">{mine[0]?.clients?.name ?? "Cliente"}</span>
-                          <span className="flex shrink-0 items-center gap-2 text-xs font-normal text-slate-500">
-                            <Badge>{mineSites.length} site{mineSites.length > 1 ? "s" : ""}</Badge>
-                            <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden />
-                          </span>
-                        </summary>
-                        {mineSites.length > 0 && (
-                          <ul className="grid gap-3 lg:grid-cols-2">
-                            {mineSites.map((c) => (
-                              <ContainerCard
-                                key={c.id}
-                                container={c}
-                                stats={stats.get(c.id)}
-                                canManage={canManage}
-                                onEdit={() => setEditing(c)}
-                                onInstall={() => setInstalling(c)}
-                                destination={destOf(c.id)}
-                                capi={capiOf(destOf(c.id))}
-                                onMeta={() => setMetaFor(c)}
-                                onRules={() => setRulesFor(c)}
-                                onExclude={() => setExcluding(c)}
-                              />
-                            ))}
-                          </ul>
-                        )}
-                      </details>
-                    );
-                    })}
-                    {ids.length === 0 && <p className="text-sm text-slate-500">Nenhum cliente encontrado.</p>}
-                    {mostrados.length < ids.length && (
-                      <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
-                        <span>Mostrando {mostrados.length} de {ids.length} cliente(s)</span>
-                        <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setDetMostrar((n) => n + 15)}>Mostrar mais 15</Button>
+              {!canManage && (
+                <ConfigSection id="cfg-detalhes" title="Sites de cada cliente" description="Código de instalação, pixel do Meta e regras de eventos de cada site.">
+                  <span id="cfg-sites" /><span id="cfg-whatsapp" />
+                  <div className="space-y-5">
+                    {!visible.some((c) => c.kind !== "whatsapp" && !c.excluded_at) && <p className="text-sm text-slate-500">Nenhum site cadastrado ainda.</p>}
+                    {[...new Set(visible.filter((c) => c.kind !== "whatsapp" && !c.excluded_at).map((c) => c.client_id))].map((cid) => (
+                      <div key={cid} className="space-y-2 rounded-xl p-3 ring-1 ring-slate-200" data-testid="cliente-detalhe">
+                        <p className="text-sm font-semibold text-slate-900">{visible.find((c) => c.client_id === cid)?.clients?.name ?? "Cliente"}</p>
+                        {sitesDoCliente(cid)}
                       </div>
-                    )}
-                    </>); })()}
-                </div>
-              </ConfigSection>
+                    ))}
+                  </div>
+                </ConfigSection>
+              )}
               <ConfigSection id="cfg-link" title="Ferramentas" description="Conferir como um link de anúncio seria entendido pelo tracking. Nada é gravado.">
                 <LinkTester />
               </ConfigSection>
@@ -389,11 +375,6 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
 
           {tab === "whatsapp" && (
           <>
-          <WhatsAppStatusStrip sites={visible} connectionOf={waConnOf} clientId={clientId} />
-          <LimparDadosDoClienteCard clientId={clientId} />
-          <Alert tone="info">
-            <span data-testid="wa-mark-moved">Para <strong>marcar venda</strong>, use a aba <strong>Conversas</strong> deste painel. Lá você lê a conversa antes de marcar.</span>
-          </Alert>
           <Card className="space-y-2 p-4" data-testid="wa-click-channels">
             <p className="text-sm font-semibold text-slate-900">Cliques no WhatsApp <span className="font-normal text-slate-500">(últimos 30 dias)</span></p>
             {(() => {
@@ -487,54 +468,6 @@ export function TrackingPage({ clientId, tabs }: { clientId: string | null; tabs
   );
 }
 
-/** No Painel: só a situação de cada conexão, separada por tipo (ligar e configurar fica em Configurações → WhatsApp). */
-function WhatsAppStatusStrip({ sites, connectionOf, clientId }: { sites: TrackingContainer[]; connectionOf: (containerId: string) => WhatsAppConnection | undefined; clientId: string | null }) {
-  const comServidor = sites.filter((c) => connectionOf(c.id)?.mode === "nao_oficial");
-  const comOficial = sites.filter((c) => { const cn = connectionOf(c.id); return cn && cn.mode !== "nao_oficial"; });
-  const semConexao = sites.filter((c) => !connectionOf(c.id));
-  const lista = (cs: TrackingContainer[], tipo: "servidor" | "oficial" | "nenhum") => (
-    <ul className="flex flex-wrap items-center gap-x-6 gap-y-2">
-      {cs.map((c) => {
-        const st = waConnectionStatus(connectionOf(c.id));
-        return (
-          <li key={c.id} className="flex flex-wrap items-center gap-2 text-sm" data-testid="wa-status-row">
-            <span className="font-medium text-slate-900">{c.clients?.name ? `${c.clients.name} · ` : ""}{c.kind === "whatsapp" ? "Só WhatsApp" : c.name}</span>
-            <Badge tone={st.tone}>{tipo === "servidor" ? st.label.replace(/^Servidor:\s*/, "") : st.label}</Badge>
-          </li>
-        );
-      })}
-    </ul>
-  );
-  return (
-    <Card className="flex flex-wrap items-center justify-between gap-3 p-4" data-testid="wa-status-strip">
-      <div className="space-y-2">
-        {sites.length === 0 && <p className="text-sm text-slate-500">Nenhum site cadastrado.</p>}
-        {comServidor.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Servidor próprio (API não oficial)</p>
-            {lista(comServidor, "servidor")}
-          </div>
-        )}
-        {comOficial.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">API oficial (Meta)</p>
-            {lista(comOficial, "oficial")}
-          </div>
-        )}
-        {semConexao.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Sem WhatsApp ligado</p>
-            {lista(semConexao, "nenhum")}
-          </div>
-        )}
-      </div>
-      <Link to={`/tracking?secao=config${clientId ? `&cliente=${clientId}` : ""}#cfg-clientes`} className="text-sm font-medium text-brand-700 hover:underline" data-testid="wa-go-config">
-        Ligar ou configurar o WhatsApp →
-      </Link>
-    </Card>
-  );
-}
-
 /** Abre as instruções assim que o container recém-criado aparece na lista. */
 function InstallModalLoader({ id, containers, destinations, onClose }: { id: string; containers: TrackingContainer[]; destinations: Destination[]; onClose: () => void }) {
   const container = containers.find((c) => c.id === id);
@@ -601,7 +534,7 @@ function ContainerCard({ container: c, stats, canManage, onEdit, onInstall, dest
         </dl>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onMeta} aria-label={`Meta API de Conversões: ${c.name}`}>
-            Meta CAPI · {meta.label}
+            Pixel do Meta · {meta.label}
           </Button>
           <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={onRules} aria-label={`Regras do site: ${c.name}`}>
             <ListChecks className="size-3.5" aria-hidden /> Regras · {c.rules_version ? `versão ${c.rules_version}` : "nenhuma publicada"}

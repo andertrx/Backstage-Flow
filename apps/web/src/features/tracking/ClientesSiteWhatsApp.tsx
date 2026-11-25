@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { MessageSquareText, Plus, QrCode, Settings2, Sparkles } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronDown, MessageSquareText, Plus, QrCode, Settings2, Sparkles } from "lucide-react";
+import { type ReactNode, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -70,7 +70,7 @@ function estadoDe(conn: WhatsAppConnection | undefined): { estado: Estado; tone:
  * Computador: uma linha por cliente, em colunas (Cliente · Site · WhatsApp · API oficial). Celular: um cartão por cliente.
  * Feita para lista grande: busca, filtros e "mostrar mais" (30 por vez), sem rolagem dentro de rolagem.
  */
-export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destinationOf, onAddSite, onWhatsApp, onWhatsAppApi, onPixel }: {
+export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destinationOf, onAddSite, onWhatsApp, onWhatsAppApi, onPixel, renderDetail }: {
   clients: { id: string; name: string }[];
   containers: TrackingContainer[];
   connectionOf: (containerId: string) => WhatsAppConnection | undefined;
@@ -81,6 +81,8 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
   destinationOf: (containerId: string) => Destination | undefined;
   /** Abre a configuração do pixel do cliente naquele recipiente. */
   onPixel: (c: TrackingContainer) => void;
+  /** 25/11/2026: os sites do cliente (números, código, regras) abrem na própria linha, em vez de uma seção separada. */
+  renderDetail?: (clientId: string) => ReactNode;
 }) {
   const semSite = useWaSemSiteContainer();
   const excluidos = new Set(useExcludedWhatsAppContainers(true).data ?? []);
@@ -92,6 +94,8 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [mostrar, setMostrar] = useState(POR_PAGINA);
+  const [abertos, setAbertos] = useState<Set<string>>(new Set());
+  const alternar = (id: string) => setAbertos((a) => { const n = new Set(a); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const [avisos, setAvisos] = useState<Record<string, { tone: "success" | "error"; text: string } | null>>({});
 
   /** As conexões do cliente, separadas por tipo: servidor próprio (não oficial) e API oficial. */
@@ -211,10 +215,20 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
             const uso = usoRecente(cn?.last_webhook_at ?? null, Date.now());
             const usoOficial = usoRecente(oficial.connection?.last_webhook_at ?? null, Date.now());
             const guardando = Boolean(cn && cn.mode === "nao_oficial" && cn.store_messages && cn.store_ack_at);
+            const aberto = Boolean(renderDetail && sites.length > 0 && (abertos.has(cl.id) !== (filtradas.length === 1)));
             return (
               <li key={cl.id} className="grid gap-x-4 gap-y-3 px-3 py-3 sm:px-4 @[64rem]:grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(8.5rem,0.7fr)_minmax(10rem,0.8fr)] @[64rem]:items-center @[64rem]:py-2.5" data-testid="cli-site-whatsapp-row">
-                {/* Cliente */}
-                <p className="truncate text-sm font-semibold text-slate-900" title={cl.name}>{cl.name}</p>
+                {/* Cliente: com site, o nome abre os detalhes dos sites logo abaixo da linha */}
+                {renderDetail && sites.length > 0 ? (
+                  <button type="button" onClick={() => alternar(cl.id)} aria-expanded={aberto} data-testid="cli-abrir-detalhe"
+                    aria-label={`${aberto ? "Fechar" : "Ver"} os sites de ${cl.name}`}
+                    className="flex min-w-0 items-center gap-1.5 text-left text-sm font-semibold text-slate-900 hover:text-brand-700">
+                    <ChevronDown className={`size-4 shrink-0 text-slate-400 transition-transform ${aberto ? "rotate-180 text-brand-600" : "-rotate-90"}`} aria-hidden />
+                    <span className="truncate" title={cl.name}>{cl.name}</span>
+                  </button>
+                ) : (
+                  <p className="truncate text-sm font-semibold text-slate-900" title={cl.name}>{cl.name}</p>
+                )}
 
                 {/* Site */}
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5" data-testid="cli-site-coluna">
@@ -285,6 +299,10 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                     </div>
                   );
                 })()}
+
+                {aberto && (
+                  <div className="@[64rem]:col-span-5 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200" data-testid="cliente-detalhe">{renderDetail!(cl.id)}</div>
+                )}
 
                 {avisos[cl.id] && (
                   <div className="@[64rem]:col-span-5"><Alert tone={avisos[cl.id]!.tone}>{avisos[cl.id]!.text}</Alert></div>

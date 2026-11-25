@@ -1,5 +1,5 @@
 import { can } from "@backstage/shared";
-import { MessageCircle, Radar, Settings2, Sparkles, Target, Wallet } from "lucide-react";
+import { ChevronDown, MessageCircle, Radar, Settings2, Sparkles, Target, Wallet } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -14,12 +14,14 @@ import { useWaSuggestions } from "./api.ts";
 import { ConfigSection, SectionIndex } from "@/components/ui/section.tsx";
 import { ConversationsPanel } from "./ConversationsPage.tsx";
 import { MarketingView } from "./MarketingView.tsx";
-import { WaAiCard } from "./SuggestionsSection.tsx";
+import { SuggestionsSection, WaAiCard } from "./SuggestionsSection.tsx";
 import { TrackingPage, type TrackingTab } from "./TrackingPage.tsx";
+import { WaQuedaAlerta } from "./WaQuedaAlerta.tsx";
 
-type PainelTab = "conversas" | "contatos" | "marketing" | "site" | "whatsapp" | "sugestoes";
+type PainelTab = "conversas" | "contatos" | "marketing" | "site" | "sugestoes";
 
-const SITE_PARTS: TrackingTab[] = ["resumo", "origens", "leads", "saude"];
+// 25/11/2026: os cliques e as conversas do WhatsApp viraram uma parte de "Site e origem" (a aba WhatsApp saiu do Painel).
+const SITE_PARTS: TrackingTab[] = ["resumo", "origens", "leads", "whatsapp", "saude"];
 
 /**
  * Tracking (T5.10): duas partes.
@@ -46,14 +48,21 @@ export function TrackingHub() {
     { id: "contatos", label: "Contatos e vendas", icon: Wallet, show: can(role, "contacts.view") },
     { id: "marketing", label: "Marketing", icon: Target, show: true },
     { id: "site", label: "Site e origem", icon: Radar, show: true },
-    { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, show: true },
-    { id: "sugestoes", label: pending > 0 ? `Vendas sugeridas (${pending})` : "Vendas sugeridas", icon: Sparkles, show: can(role, "tracking.suggestions") },
+    // 25/11/2026: quem lê as conversas vê as vendas sugeridas dentro de Conversas; a aba própria fica só para quem não lê conversas.
+    { id: "sugestoes", label: pending > 0 ? `Vendas sugeridas (${pending})` : "Vendas sugeridas", icon: Sparkles, show: can(role, "tracking.suggestions") && !canConversations },
   ];
   const shown = tabs.filter((t) => t.show);
   const asked = params.get("aba");
   // Compatibilidade com endereços antigos (?aba=sites|origens|saude|leads vira Site e origem).
   const legacy = ["sites", "origens", "saude", "leads"].includes(asked ?? "") ? "site" : asked;
   const tab = shown.find((t) => t.id === legacy)?.id ?? shown.find((t) => t.id === "site")!.id;
+  const sugestoesNasConversas = canConversations && can(role, "tracking.suggestions");
+
+  // 25/11/2026: endereços antigos das abas que saíram (?aba=whatsapp, ?aba=sugestoes) levam ao lugar novo.
+  useEffect(() => {
+    if (asked === "whatsapp") update((p) => { p.set("aba", "site"); p.set("sub", "whatsapp"); return p; });
+    else if (asked === "sugestoes" && canConversations) update((p) => { p.set("aba", "conversas"); p.set("sugestoes", "1"); return p; });
+  }, [asked, canConversations, update]);
 
   const set = (changes: Record<string, string | null>) =>
     update((p) => {
@@ -109,7 +118,6 @@ export function TrackingHub() {
         <div className="space-y-8" data-testid="tracking-config">
           <SectionIndex items={[
             { id: "cfg-clientes", label: "Site e/ou WhatsApp" },
-            { id: "cfg-detalhes", label: "Detalhes por cliente" },
             { id: "cfg-link", label: "Ferramentas" },
             ...(profile?.role === "admin" ? [{ id: "cfg-ia", label: "IA de vendas" }] : []),
           ]} />
@@ -122,6 +130,7 @@ export function TrackingHub() {
         </div>
       ) : (
         <>
+          <WaQuedaAlerta clientId={clientId} />
           <nav className="flex flex-wrap gap-2" aria-label="Abas do painel" data-testid="tracking-tabs">
             {shown.map(({ id, label, icon: Icon }) => (
               <button key={id} type="button" onClick={() => set({ aba: id === "site" ? null : id, sub: null })} aria-pressed={tab === id} data-testid={`tracking-panel-tab-${id}`}
@@ -132,6 +141,20 @@ export function TrackingHub() {
               </button>
             ))}
           </nav>
+
+          {tab === "conversas" && sugestoesNasConversas && (suggestions.data ?? []).some((x) => !clientId || x.client_id === clientId) && (
+            <details open={pending > 0 || params.get("sugestoes") === "1" || undefined} className="group rounded-xl bg-white ring-1 ring-slate-200" data-testid="conversas-sugestoes">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-3 text-sm font-semibold text-slate-900 hover:text-brand-700" data-testid="tracking-panel-tab-sugestoes">
+                <span className="flex items-center gap-2"><Sparkles className="size-4 text-brand-600" aria-hidden />
+                  Vendas sugeridas pela IA{(() => { const n = (suggestions.data ?? []).filter((x) => x.status === "pendente" && (!clientId || x.client_id === clientId)).length; return n > 0 ? ` (${n})` : ""; })()}
+                </span>
+                <ChevronDown className="size-4 text-slate-400 transition-transform group-open:rotate-180" aria-hidden />
+              </summary>
+              <div className="border-t border-slate-100 p-3">
+                <SuggestionsSection suggestions={(suggestions.data ?? []).filter((x) => !clientId || x.client_id === clientId)} clientName={(id) => clients.find((c) => c.id === id)?.name ?? "Cliente"} />
+              </div>
+            </details>
+          )}
 
           {needsClient && !clientId ? (
             <Card className="p-6 text-sm text-slate-600" data-testid="tracking-pick-client">
@@ -146,7 +169,6 @@ export function TrackingHub() {
               {tab === "contatos" && clientId && <ContactsPage fixedClientId={clientId} />}
               {tab === "marketing" && <MarketingView clientId={clientId} />}
               {tab === "site" && <TrackingPage clientId={clientId} tabs={SITE_PARTS} />}
-              {tab === "whatsapp" && <TrackingPage clientId={clientId} tabs={["whatsapp"]} />}
               {tab === "sugestoes" && <TrackingPage clientId={clientId} tabs={["sugestoes"]} />}
             </>
           )}

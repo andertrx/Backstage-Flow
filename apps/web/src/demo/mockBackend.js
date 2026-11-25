@@ -2067,6 +2067,17 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       w.ai_suggest = Boolean(p.p_on);
       return res(204);
     }
+    // 25/11/2026: nome da conversa de cada contato (mesma regra de leitura das conversas; sem permissão, vazio).
+    if (url.includes("/rest/v1/rpc/contacts_wa_people")) {
+      const p = parse();
+      if (!canManageClient(p.p_client)) return res(200, []);
+      const out = [];
+      for (const k of db.contacts.filter((c) => c.client_id === p.p_client && !c.archived_at)) {
+        const w = db.waPeople.filter((x) => x.client_id === k.client_id && x.wa_hash && x.wa_hash === k.wa_hash).sort((a, b) => b.last_at.localeCompare(a.last_at))[0];
+        if (w) out.push({ contact_id: k.id, person_id: w.id, push_name: w.push_name });
+      }
+      return res(200, out);
+    }
     if (url.includes("/rest/v1/rpc/wa_conversations_list")) {
       const p = parse();
       if (!canManageClient(p.p_client)) return res(403, { code: "42501", message: "Sem permissão para ver as conversas deste cliente." });

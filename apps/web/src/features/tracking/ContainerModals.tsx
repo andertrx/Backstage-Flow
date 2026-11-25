@@ -202,7 +202,7 @@ export function InstallModal({ container, pixelId = null, onClose }: { container
             <span className="block text-xs text-slate-500">
               {pixelId
                 ? "Recomendado se o site ainda NÃO tem o Pixel. Usa o mesmo código de evento do servidor: o Meta conta uma vez só. Se o site já tem o Pixel instalado, deixe desmarcado."
-                : "Configure o Pixel em “Meta CAPI” para usar esta opção."}
+                : "Configure o Pixel do Meta do cliente para usar esta opção."}
             </span>
           </span>
         </label>

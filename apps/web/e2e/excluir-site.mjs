@@ -55,9 +55,10 @@ function seed(db) {
   seed(db);
   await login(page, "/tracking?secao=config");
   await page.getByTestId("cli-site-whatsapp").waitFor();
-  const detalhesBrisa = page.getByTestId("cliente-detalhe").filter({ hasText: "Loja Brisa" });
-  await detalhesBrisa.locator("summary").click();
-  await detalhesBrisa.getByRole("button", { name: "Excluir site: brisa.com.br" }).click();
+  // 25/11/2026: os sites abrem na própria linha do cliente
+  const linhaBrisa = page.getByTestId("cli-site-whatsapp-row").filter({ hasText: "Loja Brisa" });
+  await linhaBrisa.getByTestId("cli-abrir-detalhe").click();
+  await linhaBrisa.getByTestId("cliente-detalhe").getByRole("button", { name: "Excluir site: brisa.com.br" }).click();
   const modal = page.getByRole("dialog").last();
   await modal.waitFor();
   const confirmar = modal.getByTestId("container-exclude-confirm");
@@ -91,7 +92,7 @@ function seed(db) {
   const db = await mockSupabase(page, { role: "operador" });
   seed(db);
   await login(page, "/tracking?secao=config");
-  await page.getByRole("heading", { name: "Detalhes dos sites de cada cliente" }).waitFor();
+  await page.getByRole("heading", { name: "Sites de cada cliente" }).waitFor();
   check(await page.getByRole("button", { name: /Excluir site:/ }).count() === 0, "operador não exclui site");
   check(await page.getByTestId("excluded-sites").count() === 0, "operador não vê a lista de sites excluídos");
   await browser.close();

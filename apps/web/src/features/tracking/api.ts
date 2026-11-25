@@ -477,6 +477,8 @@ export interface WhatsAppConnection {
   /** T5.38: instância deste cliente no servidor de WhatsApp e o último estado conhecido (QR Code por cliente). */
   instance_name?: string | null;
   gateway_state?: "conectado" | "desconectado" | "aguardando_leitura" | "erro" | "desconhecido" | null;
+  /** T5.38 fase C: desde quando está no estado atual (conectado ou não). */
+  health_since?: string | null;
 }
 
 export function useWhatsAppConnections(enabled: boolean) {
@@ -487,7 +489,7 @@ export function useWhatsAppConnections(enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracking_whatsapp_connections")
-        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint, store_messages, store_ack_at, ai_suggest, history_days, instance_name, gateway_state")
+        .select("id, container_id, phone_number_id, waba_id, has_app_secret, enabled, last_webhook_at, last_error_at, last_error_message, mode, display_phone, verified_name, has_inbound_key, inbound_key_hint, store_messages, store_ack_at, ai_suggest, history_days, instance_name, gateway_state, health_since")
         .is("excluded_at", null); // conexão excluída não aparece em lugar nenhum
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as conexões do WhatsApp."));
       return data as WhatsAppConnection[];
