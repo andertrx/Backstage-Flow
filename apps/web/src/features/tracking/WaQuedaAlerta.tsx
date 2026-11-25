@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useActiveClients } from "@/features/clients/api.ts";
 import { useTrackingContainers, useWhatsAppConnections } from "./api.ts";
+import { formatTelefone } from "./ClientesSiteWhatsApp.tsx";
 import { WaQrModal } from "./WaQrSection.tsx";
 
 const FORA = new Set(["desconectado", "aguardando_leitura", "erro"]);
@@ -49,13 +50,13 @@ export function WaQuedaAlerta({ clientId }: { clientId: string | null }) {
           <p className="flex min-w-0 items-start gap-2 text-sm text-red-800">
             <WifiOff className="mt-0.5 size-4 shrink-0" aria-hidden />
             <span>
-              <strong>WhatsApp de {nomeDe.get(cliente)} sem conexão</strong>
+              <strong>WhatsApp de {nomeDe.get(cliente)}{w.display_phone ? ` · ${formatTelefone(w.display_phone)}` : ""} sem conexão</strong>
               {tempoFora(w.health_since) ? ` ${tempoFora(w.health_since)}` : ""}. Enquanto isso, as mensagens e as vendas desse cliente não chegam ao CRM.
               {!podeReconectar && " Peça a um administrador ou gestor para reconectar."}
             </span>
           </p>
           {podeReconectar && (
-            <Button className="px-3 py-1.5 text-xs" onClick={() => setQr(w.id)} aria-label={`Reconectar o WhatsApp de ${nomeDe.get(cliente)}`}>
+            <Button className="px-3 py-1.5 text-xs" onClick={() => setQr(w.id)} aria-label={`Reconectar o WhatsApp de ${nomeDe.get(cliente)}${w.display_phone ? ` ${formatTelefone(w.display_phone)}` : ""}`}>
               <QrCode className="size-3.5" aria-hidden /> Reconectar
             </Button>
           )}

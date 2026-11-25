@@ -45,9 +45,9 @@ function seed(db) {
   // 1) faixa de WhatsApp caído
   await page.getByTestId("wa-queda-alerta").waitFor();
   const faixa = await page.getByTestId("wa-queda-alerta").innerText();
-  check(faixa.includes("WhatsApp de Prata e Pérola sem conexão") && faixa.includes("há 1 dia e 2 h") && !faixa.includes("Loja Brisa"), `faixa: só o cliente caído, com o tempo fora (${faixa.replace(/\n/g, " ")})`);
+  check(faixa.includes("WhatsApp de Prata e Pérola · (81) 99888-8622 sem conexão") && faixa.includes("há 1 dia e 2 h") && !faixa.includes("Loja Brisa"), `faixa: só o cliente caído, com o tempo fora (${faixa.replace(/\n/g, " ")})`);
   await page.screenshot({ path: `${SHOTS}/tracking-faixa-whatsapp-caido.png` });
-  await page.getByRole("button", { name: "Reconectar o WhatsApp de Prata e Pérola" }).click();
+  await page.getByRole("button", { name: "Reconectar o WhatsApp de Prata e Pérola (81) 99888-8622" }).click();
   await page.getByTestId("wa-qr-modal").waitFor();
   check(true, "“Reconectar” abre o QR Code ali mesmo");
   await page.getByRole("button", { name: "Fechar", exact: true }).last().click();
@@ -112,6 +112,46 @@ function seed(db) {
   const largura = await page.evaluate(() => document.documentElement.scrollWidth);
   check(largura <= 390, `no celular nada passa da largura da tela (${largura}px)`);
   await page.screenshot({ path: `${SHOTS}/tracking-celular-faixa-e-barra.png` });
+  await browser.close();
+}
+{
+  // Vários números de WhatsApp no mesmo cliente
+  const { browser, page, errors } = await launch();
+  await page.setViewportSize({ width: 1440, height: 950 });
+  const db = await mockSupabase(page, { role: "admin" });
+  seed(db);
+  db.waPeople[0].connection_id = "c0000000-0000-4000-8000-000000007101";
+  // 2º número já ligado, com uma conversa
+  db.trackingContainers.push({ id: "t-wa2", client_id: CLI, name: "WhatsApp (número 2)", public_key: "bf_0123456789abcdef01234567", allowed_domains: [], status: "ativo",
+    test_mode: false, consent_mode: "nao_exigir", retention_days: 180, created_at: "2026-11-25T00:00:00Z", rules_version: null, kind: "whatsapp" });
+  db.whatsappConnections.push({ ...db.whatsappConnections[0], id: "c0000000-0000-4000-8000-000000007103", container_id: "t-wa2", display_phone: "5581977770000",
+    instance_name: "inst-2", gateway_state: "conectado", health_since: ago(60) });
+  db.waPeople.push({ id: 72, client_id: CLI, connection_id: "c0000000-0000-4000-8000-000000007103", wa_hash: "f".repeat(64), phone: "5581966662222", push_name: "Josefa",
+    last_at: ago(10), last_direction: "recebida", last_preview: "Quero o catálogo", messages: 1, origin: "desconhecida", from_ad: false, ad_id: null });
+  db.waMessages.push({ id: 72, person_id: 72, direction: "recebida", at: ago(10), body: "Quero o catálogo" });
+
+  await login(page, `/tracking?secao=config&cliente=${CLI}`);
+  const linha = page.getByTestId("cli-site-whatsapp-row").filter({ hasText: "Prata e Pérola" });
+  await linha.getByTestId("cli-whatsapp-numero").nth(1).waitFor();
+  const nums = await linha.getByTestId("cli-whatsapp-numero").allInnerTexts();
+  check(nums.length === 2 && nums[0].includes("(81) 99888-8622") && nums[1].includes("(81) 97777-0000"), `os dois números aparecem na linha do cliente (${nums.map((x) => x.replace(/\n/g, " ")).join(" | ")})`);
+  check(await linha.getByTestId("wa-novo-numero").count() === 1, "um “+” só, no fim, para adicionar outro número");
+  await page.screenshot({ path: `${SHOTS}/tracking-varios-numeros.png` });
+  await linha.getByTestId("wa-novo-numero").click();
+  await page.getByTestId("wa-server").waitFor();
+  check(db.trackingContainers.filter((t) => t.client_id === CLI && t.kind === "whatsapp").length === 3, "o “+” cria o lugar do 3º número e abre o cadastro dele");
+  await page.keyboard.press("Escape");
+
+  // Conversas: filtro "Número" e o número em cada conversa
+  await page.goto(page.url().split("/").slice(0, 3).join("/") + `/tracking?cliente=${CLI}&aba=conversas`);
+  await page.getByTestId("wa-conversations-numero").waitFor();
+  await page.getByTestId("wa-conversation-numero").first().waitFor();
+  check(await page.getByTestId("wa-conversation").count() === 2, "“Todos os números”: as conversas dos dois números juntas");
+  await page.getByLabel("Número do WhatsApp").selectOption("c0000000-0000-4000-8000-000000007103");
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid="wa-conversation"]').length === 1);
+  check((await page.getByTestId("wa-conversations").innerText()).includes("Josefa") && !(await page.getByTestId("wa-conversations").innerText()).includes("Gabriela"), "filtrar por número mostra só as conversas daquele número");
+  await page.screenshot({ path: `${SHOTS}/tracking-conversas-por-numero.png` });
+  check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
   await browser.close();
 }
 console.log("tracking-unificado: OK");

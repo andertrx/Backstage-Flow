@@ -11,7 +11,7 @@ import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { can } from "@backstage/shared";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDataCurta } from "@/lib/format.ts";
-import { type Destination, type TrackingContainer, useExcludedWhatsAppContainers, useWaSemSiteContainer, type WhatsAppConnection } from "./api.ts";
+import { type Destination, type TrackingContainer, useExcludedWhatsAppContainers, useWaNovoNumeroContainer, useWaSemSiteContainer, type WhatsAppConnection } from "./api.ts";
 import { ExcluirWhatsApp } from "./ExcluirWhatsApp.tsx";
 import { usoRecente, waConnectionStatus } from "./logic.ts";
 import { WA_QR_LABEL, WaQrModal } from "./WaQrSection.tsx";
@@ -85,10 +85,11 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
   renderDetail?: (clientId: string) => ReactNode;
 }) {
   const semSite = useWaSemSiteContainer();
+  const novoNumeroWa = useWaNovoNumeroContainer();
   const excluidos = new Set(useExcludedWhatsAppContainers(true).data ?? []);
   const podeGerenciar = can(useAuth().profile?.role, "tracking.manage");
   const queryClient = useQueryClient();
-  const [qrDe, setQrDe] = useState<{ clienteId: string; nome: string } | null>(null);
+  const [qrDe, setQrDe] = useState<{ conexaoId: string; nome: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
@@ -108,7 +109,12 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
       });
       return { container, connection: container ? connectionOf(container.id) : undefined };
     };
-    return { mine, sites: mine.filter((c) => c.kind !== "whatsapp" && !c.excluded_at), servidor: porModo(true), oficial: porModo(false) };
+    // 25/11/2026: um cliente pode ter vários números pelo servidor próprio (um recipiente técnico por número).
+    const servidores = mine
+      .map((c) => ({ container: c, connection: connectionOf(c.id) }))
+      .filter((x): x is { container: TrackingContainer; connection: WhatsAppConnection } => x.connection?.mode === "nao_oficial")
+      .sort((a, b) => a.container.created_at.localeCompare(b.container.created_at));
+    return { mine, sites: mine.filter((c) => c.kind !== "whatsapp" && !c.excluded_at), servidor: servidores[0] ?? porModo(true), servidores, oficial: porModo(false) };
   }
 
   /**
@@ -139,6 +145,18 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
     } catch (e) { setErro(errorMessage(e)); } finally { setBusy(null); }
   }
 
+  /** 25/11/2026: outro número de WhatsApp do mesmo cliente: cria um recipiente técnico novo e abre o cadastro do número. */
+  async function novoNumero(clientId: string) {
+    setErro(null);
+    setBusy(clientId);
+    try {
+      const id = await novoNumeroWa.mutateAsync(clientId);
+      await queryClient.refetchQueries({ queryKey: ["tracking", "containers"] });
+      const c = (queryClient.getQueryData<TrackingContainer[]>(["tracking", "containers"]) ?? []).find((x) => x.id === id);
+      if (c) onWhatsApp(c);
+    } catch (e) { setErro(errorMessage(e)); } finally { setBusy(null); }
+  }
+
   /** Um pixel por cliente: o que estiver ligado em qualquer recipiente dele (site ou WhatsApp). */
   function pixelDe(clientId: string) {
     const mine = containers.filter((c) => c.client_id === clientId && !c.excluded_at);
@@ -166,7 +184,8 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
   // Situação de cada cliente, calculada uma vez (a busca e os filtros usam isto).
   const linhas = useMemo(() => clients.map((cl) => {
     const dados = conexoesDe(cl.id);
-    return { cl, ...dados, est: estadoDe(dados.servidor.connection), estOficial: estadoDe(dados.oficial.connection), pxErro: pixelComErro(pixelDe(cl.id).destination) };
+    const pior = dados.servidores.find((x) => estadoDe(x.connection).estado !== "conectado") ?? dados.servidores[0];
+    return { cl, ...dados, est: estadoDe(pior?.connection ?? dados.servidor.connection), estOficial: estadoDe(dados.oficial.connection), pxErro: pixelComErro(pixelDe(cl.id).destination) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [clients, containers, connectionOf]);
 
@@ -210,11 +229,8 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
           <span>Cliente</span><span>Site</span><span className="@[64rem]:pl-4">WhatsApp (servidor próprio)</span><span className="@[64rem]:pl-4">API oficial</span><span className="@[64rem]:pl-4">Pixel do Meta</span>
         </div>
         <ul className="divide-y divide-slate-100">
-          {visiveis.map(({ cl, sites, servidor, oficial, est, estOficial }) => {
-            const cn = servidor.connection;
-            const uso = usoRecente(cn?.last_webhook_at ?? null, Date.now());
+          {visiveis.map(({ cl, sites, servidores, oficial, estOficial }) => {
             const usoOficial = usoRecente(oficial.connection?.last_webhook_at ?? null, Date.now());
-            const guardando = Boolean(cn && cn.mode === "nao_oficial" && cn.store_messages && cn.store_ack_at);
             const aberto = Boolean(renderDetail && sites.length > 0 && (abertos.has(cl.id) !== (filtradas.length === 1)));
             return (
               <li key={cl.id} className="grid gap-x-4 gap-y-3 px-3 py-3 sm:px-4 @[64rem]:grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(8.5rem,0.7fr)_minmax(10rem,0.8fr)] @[64rem]:items-center @[64rem]:py-2.5" data-testid="cli-site-whatsapp-row">
@@ -245,29 +261,45 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                   <IconButton size="sm" label={`${sites.length ? "Adicionar outro site" : "Adicionar site"} de ${cl.name}`} icon={<Plus />} onClick={() => onAddSite(cl.id)} />
                 </div>
 
-                {/* WhatsApp do servidor próprio: situação + ações, numa linha */}
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 @[64rem]:flex-nowrap @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:pl-4" data-testid="cli-whatsapp-coluna">
-                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">WhatsApp</span>
-                  {est.estado === "nenhum" ? <span className="whitespace-nowrap text-xs text-slate-400">Não ligado</span> : <Badge tone={est.tone} title={est.detalhe}><span className="whitespace-nowrap">{est.label}</span></Badge>}
-                  {cn?.display_phone && <span className="whitespace-nowrap text-xs tabular-nums text-slate-500">{formatTelefone(cn.display_phone)}</span>}
-                  {guardando && <span title="Guardando as conversas deste WhatsApp" className="text-slate-400"><MessageSquareText className="size-4" aria-label="Guardando as conversas" role="img" /></span>}
-                  {guardando && cn?.ai_suggest && <span title="IA sugerindo vendas" className="text-brand-600"><Sparkles className="size-4" aria-label="IA sugerindo vendas" role="img" /></span>}
-                  {uso.level === "atencao" && <Badge tone="warning" data-testid="wa-sem-uso">Sem uso desde {formatDataCurta(cn!.last_webhook_at!)}</Badge>}
-                  <span className="flex items-center gap-1" data-testid="wa-detalhe-servidor">
-                    {cn?.mode === "nao_oficial" && podeGerenciar && (
-                      <Button className="px-3 py-1 text-xs" variant={est.estado === "conectado" ? "secondary" : "primary"} onClick={() => setQrDe({ clienteId: cl.id, nome: cl.name })} aria-label={`Conectar o WhatsApp de ${cl.name}`}>
-                        <QrCode className="size-3.5" aria-hidden /> {est.estado === "conectado" ? "Reconectar" : "Conectar"}
-                      </Button>
-                    )}
-                    {cn ? (
-                      <IconButton size="sm" label={`Configurar WhatsApp de ${cl.name}`} icon={<Settings2 />} onClick={() => void ligarWhatsApp(cl.id, "servidor")} />
-                    ) : (
+                {/* WhatsApp do servidor próprio: um número por linha; o "+" adiciona outro número do mesmo cliente */}
+                <div className="flex min-w-0 flex-col gap-2 @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:pl-4" data-testid="cli-whatsapp-coluna">
+                  {servidores.length === 0 && (
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
+                      <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">WhatsApp</span>
+                      <span className="whitespace-nowrap text-xs text-slate-400">Não ligado</span>
                       <Button variant="ghost" className="px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50" loading={busy === cl.id} onClick={() => void ligarWhatsApp(cl.id, "servidor")} aria-label={`Ligar WhatsApp de ${cl.name}`}>Ligar</Button>
-                    )}
-                    {cn?.mode === "nao_oficial" && podeGerenciar && (
-                      <ExcluirWhatsApp connectionId={cn.id} instanceName={cn.instance_name} clientName={cl.name} onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
-                    )}
-                  </span>
+                    </div>
+                  )}
+                  {servidores.map(({ container: ct, connection: cn }, i) => {
+                    const e = estadoDe(cn);
+                    const uso = usoRecente(cn.last_webhook_at ?? null, Date.now());
+                    const guardando = Boolean(cn.store_messages && cn.store_ack_at);
+                    const de = i === 0 ? cl.name : `${cl.name} ${formatTelefone(cn.display_phone) || `(número ${i + 1})`}`;
+                    return (
+                      <div key={cn.id} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 @[64rem]:flex-nowrap" data-testid="cli-whatsapp-numero">
+                        <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">{i === 0 ? "WhatsApp" : ""}</span>
+                        <Badge tone={e.tone} title={e.detalhe}><span className="whitespace-nowrap">{e.label}</span></Badge>
+                        {cn.display_phone && <span className="whitespace-nowrap text-xs tabular-nums text-slate-500">{formatTelefone(cn.display_phone)}</span>}
+                        {guardando && <span title="Guardando as conversas deste WhatsApp" className="text-slate-400"><MessageSquareText className="size-4" aria-label="Guardando as conversas" role="img" /></span>}
+                        {guardando && cn.ai_suggest && <span title="IA sugerindo vendas" className="text-brand-600"><Sparkles className="size-4" aria-label="IA sugerindo vendas" role="img" /></span>}
+                        {uso.level === "atencao" && <Badge tone="warning" data-testid="wa-sem-uso">Sem uso desde {formatDataCurta(cn.last_webhook_at!)}</Badge>}
+                        <span className="flex items-center gap-1" data-testid="wa-detalhe-servidor">
+                          {podeGerenciar && (
+                            <Button className="px-3 py-1 text-xs" variant={e.estado === "conectado" ? "secondary" : "primary"} onClick={() => setQrDe({ conexaoId: cn.id, nome: cl.name })} aria-label={`Conectar o WhatsApp de ${de}`}>
+                              <QrCode className="size-3.5" aria-hidden /> {e.estado === "conectado" ? "Reconectar" : "Conectar"}
+                            </Button>
+                          )}
+                          <IconButton size="sm" label={`Configurar WhatsApp de ${de}`} icon={<Settings2 />} onClick={() => onWhatsApp(ct)} />
+                          {podeGerenciar && (
+                            <ExcluirWhatsApp connectionId={cn.id} instanceName={cn.instance_name} clientName={de} onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
+                          )}
+                          {podeGerenciar && i === servidores.length - 1 && (
+                            <IconButton size="sm" label={`Adicionar outro número de WhatsApp de ${cl.name}`} icon={<Plus />} onClick={() => void novoNumero(cl.id)} data-testid="wa-novo-numero" />
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* API oficial */}
@@ -325,7 +357,7 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
       )}
 
       {qrDe && (() => {
-        const conn = conexoesDe(qrDe.clienteId).servidor.connection;
+        const conn = containers.map((c) => connectionOf(c.id)).find((w) => w?.id === qrDe.conexaoId);
         return conn ? <WaQrModal clientName={qrDe.nome} connection={conn} onClose={() => setQrDe(null)} /> : null;
       })()}
     </Card>

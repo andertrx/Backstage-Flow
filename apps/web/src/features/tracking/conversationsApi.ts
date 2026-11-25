@@ -43,6 +43,19 @@ const ruleError = (error: { code?: string; message: string }, fallback: string) 
 /** Período do filtro: "de" e "até" em ISO (já com início e fim do dia). Vazio = sem limite. */
 export interface ConversationRange { from: string | null; to: string | null }
 
+/** 25/11/2026: de qual número do cliente é cada pessoa (person_id → connection_id). Sem permissão: vazio. */
+export function useWaPeopleConnections(clientId: string | undefined) {
+  return useQuery({
+    queryKey: [...KEY, "people-connections", clientId],
+    enabled: Boolean(clientId),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("wa_people_connections", { p_client: clientId! });
+      if (error) return new Map<number, string>();
+      return new Map(((data ?? []) as { person_id: number; connection_id: string }[]).map((r) => [r.person_id, r.connection_id]));
+    },
+  });
+}
+
 export function useWaConversations(clientId: string | undefined, search: string, range: ConversationRange = { from: null, to: null }) {
   return useInfiniteQuery({
     queryKey: [...KEY, "list", clientId, search, range.from, range.to],

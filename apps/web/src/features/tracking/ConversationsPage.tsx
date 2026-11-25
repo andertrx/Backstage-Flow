@@ -16,6 +16,7 @@ import {
   useWaConversationDelete,
   type ConversationRange,
   useWaConversations,
+  useWaPeopleConnections,
   useWaMarkSale,
   useWaMessages,
   useWaPersonSales,
@@ -24,6 +25,8 @@ import {
   type WaConversation,
 } from "./conversationsApi.ts";
 import { LimparDadosDoClienteCard } from "./WhatsAppServerModal.tsx";
+import { useTrackingContainers, useWhatsAppConnections } from "./api.ts";
+import { formatTelefone } from "./ClientesSiteWhatsApp.tsx";
 import { ChatSkeleton, ListSkeleton } from "@/components/ui/skeleton.tsx";
 import { findTargetConversation, targetFromParams } from "./conversationTarget.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
@@ -246,7 +249,17 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
   const [dayTo, setDayTo] = useState("");
   const range = useMemo(() => conversationRange(preset, dayFrom, dayTo, new Date()), [preset, dayFrom, dayTo]);
   const list = useWaConversations(id, search, range);
-  const people = (list.data?.pages ?? []).flat().filter((p) => (!range.from || p.last_at >= range.from) && (!range.to || p.last_at <= range.to));
+  // 25/11/2026: cliente com mais de um número: filtro "Número" e o número em cada conversa
+  const containersQ = useTrackingContainers();
+  const conexoesQ = useWhatsAppConnections(true);
+  const meusRecipientes = new Set((containersQ.data ?? []).filter((c) => c.client_id === id).map((c) => c.id));
+  const numeros = (conexoesQ.data ?? []).filter((w) => meusRecipientes.has(w.container_id));
+  const variosNumeros = numeros.length > 1;
+  const pessoaNumero = useWaPeopleConnections(variosNumeros ? id : undefined);
+  const [numero, setNumero] = useState<string>("");
+  const numeroDe = (personId: number) => { const cid = pessoaNumero.data?.get(personId); const w = numeros.find((x) => x.id === cid); return w ? formatTelefone(w.display_phone) || w.verified_name || "outro número" : null; };
+  const people = (list.data?.pages ?? []).flat().filter((p) => (!range.from || p.last_at >= range.from) && (!range.to || p.last_at <= range.to)
+    && (!variosNumeros || !numero || pessoaNumero.data?.get(p.person_id) === numero));
   const current = people.find((p) => p.person_id === selected) ?? null;
   useEffect(() => {
     if (!alvo || alvoFeito || list.isPending) return;
@@ -288,6 +301,15 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
             <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden />
             <Input aria-label="Buscar por nome ou telefone" placeholder="Buscar por nome ou telefone" className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
+          {variosNumeros && (
+            <label className="flex items-center gap-2 text-xs text-slate-600" data-testid="wa-conversations-numero">
+              <span className="shrink-0 font-medium">Número:</span>
+              <select className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm" aria-label="Número do WhatsApp" value={numero} onChange={(e) => setNumero(e.target.value)}>
+                <option value="">Todos os números ({numeros.length})</option>
+                {numeros.map((w) => <option key={w.id} value={w.id}>{formatTelefone(w.display_phone) || w.verified_name || "Número sem cadastro"}</option>)}
+              </select>
+            </label>
+          )}
           <div className="space-y-2" data-testid="wa-conversations-period">
             <label className="flex items-center gap-2 text-xs text-slate-600">
               <span className="shrink-0 font-medium">Período:</span>
@@ -323,6 +345,7 @@ export function ConversationsPanel({ clientId }: { clientId: string }) {
                       <span className="block max-w-full truncate text-xs text-slate-600">{p.last_direction === "enviada" ? "Você: " : ""}{p.last_preview}</span>
                       <span className="flex flex-wrap gap-1">
                         <Badge tone={p.from_ad ? "success" : "neutral"}>{p.from_ad ? "Anúncio" : p.origin === "site" ? "Site" : "Sem origem identificada"}</Badge>
+                        {variosNumeros && numeroDe(p.person_id) && <Badge data-testid="wa-conversation-numero">{numeroDe(p.person_id)}</Badge>}
                         {p.suggestion_id && <Badge tone="warning">IA sugere venda</Badge>}
                         {(p.contact_sales ?? 0) > 0 && <Badge tone="success">Venda marcada</Badge>}
                       </span>

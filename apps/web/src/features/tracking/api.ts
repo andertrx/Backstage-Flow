@@ -91,6 +91,19 @@ export function useWaSemSiteContainer() {
   });
 }
 
+/** 25/11/2026: mais um número de WhatsApp para o mesmo cliente (um recipiente técnico novo por número). */
+export function useWaNovoNumeroContainer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (clientId: string) => {
+      const { data, error } = await supabase.rpc("wa_novo_numero_container", { p_client: clientId });
+      if (error) throw new FriendlyError(readableDbError(error, "Não conseguimos preparar o novo número deste cliente."));
+      return data as string;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
 export function useTrackingOverview(from: string, to: string, enabled: boolean) {
   return useQuery({
     queryKey: [...KEY, "overview", from.slice(0, 13), to.slice(0, 13)],

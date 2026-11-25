@@ -1967,6 +1967,19 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       db.rpcCalls.push({ fn: url.includes("restore") ? "tracking_container_restore" : "tracking_container_exclude", id: k.id });
       return res(200, null);
     }
+    // 25/11/2026: mais um número de WhatsApp para o mesmo cliente (mesma regra do banco)
+    if (url.includes("/rest/v1/rpc/wa_novo_numero_container")) {
+      const p = parse();
+      if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor ligam o WhatsApp de um cliente." });
+      const tecnicos = db.trackingContainers.filter((t) => t.client_id === p.p_client && t.kind === "whatsapp");
+      const livre = tecnicos.find((t) => !db.whatsappConnections.some((w) => w.container_id === t.id));
+      if (livre) return res(200, livre.id);
+      if (tecnicos.length >= 10) return res(400, { code: "22023", message: "Limite de 10 números de WhatsApp por cliente." });
+      const k = { id: crypto.randomUUID(), client_id: p.p_client, name: `WhatsApp (número ${tecnicos.length + 1})`, public_key: "bf_" + "0".repeat(24), allowed_domains: [], status: "ativo",
+        test_mode: false, consent_mode: "nao_exigir", retention_days: 180, created_at: new Date().toISOString(), rules_version: null, kind: "whatsapp" };
+      db.trackingContainers.push(k);
+      return res(200, k.id);
+    }
     if (url.includes("/rest/v1/rpc/wa_sem_site_container")) {
       const p = parse();
       if (!["admin", "gestor"].includes(role)) return res(403, { code: "42501", message: "Só administrador e gestor ligam o WhatsApp de um cliente." });
@@ -2077,6 +2090,12 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
         if (w) out.push({ contact_id: k.id, person_id: w.id, push_name: w.push_name });
       }
       return res(200, out);
+    }
+    // 25/11/2026: de qual número é cada pessoa (filtro "Número" nas Conversas)
+    if (url.includes("/rest/v1/rpc/wa_people_connections")) {
+      const p = parse();
+      if (!canManageClient(p.p_client)) return res(200, []);
+      return res(200, db.waPeople.filter((x) => x.client_id === p.p_client && x.connection_id).map((x) => ({ person_id: x.id, connection_id: x.connection_id })));
     }
     if (url.includes("/rest/v1/rpc/wa_conversations_list")) {
       const p = parse();
