@@ -225,44 +225,47 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
 
       <div className="overflow-hidden rounded-xl ring-1 ring-slate-200">
         {/* Cabeçalho das colunas (só no computador) */}
-        <div className="hidden grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(8.5rem,0.7fr)_minmax(10rem,0.8fr)] items-center gap-4 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 @[64rem]:grid" aria-hidden>
-          <span>Cliente</span><span>Site</span><span className="@[64rem]:pl-4">WhatsApp (servidor próprio)</span><span className="@[64rem]:pl-4">API oficial</span><span className="@[64rem]:pl-4">Pixel do Meta</span>
+        <div className="hidden grid-cols-[minmax(8rem,1fr)_minmax(9rem,1.1fr)_minmax(24rem,2.4fr)_minmax(7.5rem,0.9fr)_minmax(8rem,0.9fr)] items-stretch border-b border-slate-200 bg-slate-50 px-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500 @[64rem]:grid" aria-hidden>
+          <span className="py-2 pr-4">Cliente</span>
+          <span className="border-l border-slate-200 px-4 py-2">Site</span>
+          <span className="border-l border-slate-200 px-4 py-2">WhatsApp (servidor próprio)</span>
+          <span className="border-l border-slate-200 px-4 py-2">API oficial</span>
+          <span className="border-l border-slate-200 py-2 pl-4">Pixel do Meta</span>
         </div>
         <ul className="divide-y divide-slate-100">
           {visiveis.map(({ cl, sites, servidores, oficial, estOficial }) => {
             const usoOficial = usoRecente(oficial.connection?.last_webhook_at ?? null, Date.now());
             const aberto = Boolean(renderDetail && sites.length > 0 && (abertos.has(cl.id) !== (filtradas.length === 1)));
             return (
-              <li key={cl.id} className="grid gap-x-4 gap-y-3 px-3 py-3 sm:px-4 @[64rem]:grid-cols-[minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(26rem,2.6fr)_minmax(8.5rem,0.7fr)_minmax(10rem,0.8fr)] @[64rem]:items-center @[64rem]:py-2.5" data-testid="cli-site-whatsapp-row">
+              <li key={cl.id} className="grid gap-y-3 px-3 py-3 sm:px-4 @[64rem]:grid-cols-[minmax(8rem,1fr)_minmax(9rem,1.1fr)_minmax(24rem,2.4fr)_minmax(7.5rem,0.9fr)_minmax(8rem,0.9fr)] @[64rem]:items-stretch @[64rem]:gap-y-0 @[64rem]:py-0" data-testid="cli-site-whatsapp-row">
                 {/* Cliente: com site, o nome abre os detalhes dos sites logo abaixo da linha */}
                 {renderDetail && sites.length > 0 ? (
                   <button type="button" onClick={() => alternar(cl.id)} aria-expanded={aberto} data-testid="cli-abrir-detalhe"
                     aria-label={`${aberto ? "Fechar" : "Ver"} os sites de ${cl.name}`}
-                    className="flex min-w-0 items-center gap-1.5 text-left text-sm font-semibold text-slate-900 hover:text-brand-700">
+                    className="flex min-w-0 items-center gap-1.5 text-left text-sm font-semibold text-slate-900 hover:text-brand-700 @[64rem]:py-3 @[64rem]:pr-4">
                     <ChevronDown className={`size-4 shrink-0 text-slate-400 transition-transform ${aberto ? "rotate-180 text-brand-600" : "-rotate-90"}`} aria-hidden />
-                    <span className="truncate" title={cl.name}>{cl.name}</span>
+                    <span className="line-clamp-2 break-words" title={cl.name}>{cl.name}</span>
                   </button>
                 ) : (
-                  <p className="truncate text-sm font-semibold text-slate-900" title={cl.name}>{cl.name}</p>
+                  <p className="line-clamp-2 break-words text-sm font-semibold text-slate-900 @[64rem]:self-center @[64rem]:py-3 @[64rem]:pr-4" title={cl.name}>{cl.name}</p>
                 )}
 
-                {/* Site */}
-                <div className="flex min-w-0 flex-wrap items-center gap-1.5" data-testid="cli-site-coluna">
+                {/* Site: o primeiro site (o texto longo é cortado) e o "+" na mesma linha */}
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5 @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:px-4 @[64rem]:py-3 @[64rem]:flex-nowrap" data-testid="cli-site-coluna">
                   <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">Site</span>
                   {sites.length === 0 && <span className="text-xs text-slate-400">sem site</span>}
-                  {sites.slice(0, 2).map((s) => (
-                    <Badge key={s.id} tone={s.status === "ativo" ? "success" : "neutral"} title={s.status === "ativo" ? undefined : "Site pausado"}>
-                      <span className="block max-w-[10rem] truncate">{s.allowed_domains[0] ?? s.name}</span>
+                  {sites.slice(0, 1).map((s) => (
+                    <Badge key={s.id} className="min-w-0 max-w-full" tone={s.status === "ativo" ? "success" : "neutral"} title={[s.allowed_domains.join(", ") || s.name, s.status === "ativo" ? "" : "Site pausado"].filter(Boolean).join(" · ")}>
+                      <span className="block min-w-0 truncate">{s.allowed_domains[0] ?? s.name}</span>
                     </Badge>
                   ))}
-                  {sites.length > 2 && <span className="text-xs text-slate-500">+{sites.length - 2}</span>}
-                  {sites.length === 1 && sites[0]!.allowed_domains.length > 1 && <span className="text-xs text-slate-500">+{sites[0]!.allowed_domains.length - 1} domínio(s)</span>}
+                  {sites.length > 1 && <span className="shrink-0 text-xs text-slate-500" title={sites.map((x) => x.allowed_domains[0] ?? x.name).join(", ")}>+{sites.length - 1}</span>}
                   {sites.some((s) => s.status !== "ativo") && <span className="text-xs text-slate-400 @[64rem]:hidden">pausado</span>}
                   <IconButton size="sm" label={`${sites.length ? "Adicionar outro site" : "Adicionar site"} de ${cl.name}`} icon={<Plus />} onClick={() => onAddSite(cl.id)} />
                 </div>
 
                 {/* WhatsApp do servidor próprio: um número por linha; o "+" adiciona outro número do mesmo cliente */}
-                <div className="flex min-w-0 flex-col gap-2 @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:pl-4" data-testid="cli-whatsapp-coluna">
+                <div className="flex min-w-0 flex-col justify-center gap-2 @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:px-4 @[64rem]:py-3" data-testid="cli-whatsapp-coluna">
                   {servidores.length === 0 && (
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
                       <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">WhatsApp</span>
@@ -276,16 +279,22 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                     const guardando = Boolean(cn.store_messages && cn.store_ack_at);
                     const de = i === 0 ? cl.name : `${cl.name} ${formatTelefone(cn.display_phone) || `(número ${i + 1})`}`;
                     return (
-                      <div key={cn.id} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 @[64rem]:flex-nowrap" data-testid="cli-whatsapp-numero">
-                        <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">{i === 0 ? "WhatsApp" : ""}</span>
-                        <Badge tone={e.tone} title={e.detalhe}><span className="whitespace-nowrap">{e.label}</span></Badge>
-                        {cn.display_phone && <span className="whitespace-nowrap text-xs tabular-nums text-slate-500">{formatTelefone(cn.display_phone)}</span>}
-                        {guardando && <span title="Guardando as conversas deste WhatsApp" className="text-slate-400"><MessageSquareText className="size-4" aria-label="Guardando as conversas" role="img" /></span>}
-                        {guardando && cn.ai_suggest && <span title="IA sugerindo vendas" className="text-brand-600"><Sparkles className="size-4" aria-label="IA sugerindo vendas" role="img" /></span>}
-                        {uso.level === "atencao" && <Badge tone="warning" data-testid="wa-sem-uso">Sem uso desde {formatDataCurta(cn.last_webhook_at!)}</Badge>}
-                        <span className="flex items-center gap-1" data-testid="wa-detalhe-servidor">
+                      <div key={cn.id} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 @[64rem]:flex-nowrap @[64rem]:justify-between" data-testid="cli-whatsapp-numero">
+                        <span className="flex min-w-0 flex-col items-start gap-1">
+                          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">{i === 0 ? "WhatsApp" : ""}</span>
+                            <Badge tone={e.tone} title={e.detalhe}><span className="whitespace-nowrap">{e.label}</span></Badge>
+                            {uso.level === "atencao" && <Badge tone="warning" data-testid="wa-sem-uso">Sem uso desde {formatDataCurta(cn.last_webhook_at!)}</Badge>}
+                          </span>
+                          <span className="flex min-w-0 flex-nowrap items-center gap-x-2">
+                            {cn.display_phone && <span className="whitespace-nowrap text-xs tabular-nums text-slate-500">{formatTelefone(cn.display_phone)}</span>}
+                            {guardando && <span title="Guardando as conversas deste WhatsApp" className="text-slate-400"><MessageSquareText className="size-4" aria-label="Guardando as conversas" role="img" /></span>}
+                            {guardando && cn.ai_suggest && <span title="IA sugerindo vendas" className="text-brand-600"><Sparkles className="size-4" aria-label="IA sugerindo vendas" role="img" /></span>}
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1" data-testid="wa-detalhe-servidor">
                           {podeGerenciar && (
-                            <Button className="px-3 py-1 text-xs" variant={e.estado === "conectado" ? "secondary" : "primary"} onClick={() => setQrDe({ conexaoId: cn.id, nome: cl.name })} aria-label={`Conectar o WhatsApp de ${de}`}>
+                            <Button className="min-w-[6.75rem] justify-center px-3 py-1 text-xs" variant={e.estado === "conectado" ? "secondary" : "primary"} onClick={() => setQrDe({ conexaoId: cn.id, nome: cl.name })} aria-label={`Conectar o WhatsApp de ${de}`}>
                               <QrCode className="size-3.5" aria-hidden /> {e.estado === "conectado" ? "Reconectar" : "Conectar"}
                             </Button>
                           )}
@@ -293,6 +302,7 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                           {podeGerenciar && (
                             <ExcluirWhatsApp connectionId={cn.id} instanceName={cn.instance_name} clientName={de} onMessage={(m) => setAvisos((a) => ({ ...a, [cl.id]: m }))} />
                           )}
+                          {podeGerenciar && i < servidores.length - 1 && <span aria-hidden className="hidden size-8 shrink-0 @[64rem]:block" />}
                           {podeGerenciar && i === servidores.length - 1 && (
                             <IconButton size="sm" label={`Adicionar outro número de WhatsApp de ${cl.name}`} icon={<Plus />} onClick={() => void novoNumero(cl.id)} data-testid="wa-novo-numero" />
                           )}
@@ -303,7 +313,7 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                 </div>
 
                 {/* API oficial */}
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 @[64rem]:flex-nowrap @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:pl-4">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 @[64rem]:flex-nowrap @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:px-4 @[64rem]:py-3">
                   <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">API oficial</span>
                   {estOficial.estado === "nenhum" ? <span className="whitespace-nowrap text-xs text-slate-400">Não ligado</span> : <Badge tone={estOficial.tone}><span className="whitespace-nowrap">{estOficial.label}</span></Badge>}
                   {usoOficial.level === "atencao" && <Badge tone="warning" data-testid="wa-sem-uso">Sem uso desde {formatDataCurta(oficial.connection!.last_webhook_at!)}</Badge>}
@@ -318,7 +328,7 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                   const px = pixelDe(cl.id);
                   const pronto = Boolean(px.destination?.enabled && px.destination.has_token);
                   return (
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 @[64rem]:flex-nowrap @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:pl-4" data-testid="cli-pixel-coluna">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 @[64rem]:flex-nowrap @[64rem]:border-l @[64rem]:border-slate-100 @[64rem]:px-4 @[64rem]:py-3" data-testid="cli-pixel-coluna">
                       <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400 @[64rem]:hidden">Pixel</span>
                       {!px.destination ? <span className="whitespace-nowrap text-xs text-slate-400">Sem pixel</span>
                         : pronto && pixelComErro(px.destination) ? <Badge tone="danger" title={px.destination.last_error_message ?? "O último envio ao Meta falhou"}><span className="whitespace-nowrap">Com erro no envio</span></Badge>
@@ -333,11 +343,11 @@ export function ClienteSiteWhatsApp({ clients, containers, connectionOf, destina
                 })()}
 
                 {aberto && (
-                  <div className="@[64rem]:col-span-5 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200" data-testid="cliente-detalhe">{renderDetail!(cl.id)}</div>
+                  <div className="@[64rem]:col-span-5 @[64rem]:mb-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200" data-testid="cliente-detalhe">{renderDetail!(cl.id)}</div>
                 )}
 
                 {avisos[cl.id] && (
-                  <div className="@[64rem]:col-span-5"><Alert tone={avisos[cl.id]!.tone}>{avisos[cl.id]!.text}</Alert></div>
+                  <div className="@[64rem]:col-span-5 @[64rem]:mb-3"><Alert tone={avisos[cl.id]!.tone}>{avisos[cl.id]!.text}</Alert></div>
                 )}
               </li>
             );

@@ -39,7 +39,10 @@ function seed(db) {
   check((await page.getByTestId("cli-site-whatsapp").innerText()).toLowerCase().includes("whatsapp (servidor próprio)") && (await page.getByTestId("cli-site-whatsapp").innerText()).toLowerCase().includes("api oficial"), "a lista mostra os dois tipos de WhatsApp em colunas separadas");
   check(txt.includes("brisa.com.br"), "o site do cliente aparece na coluna de site");
   const aurora = page.getByTestId("cli-site-whatsapp-row").filter({ hasText: "Loja Aurora" });
-  check((await aurora.innerText()).includes("aurora.com.br") && (await aurora.innerText()).includes("loja.aurora.com.br"), "dois sites do mesmo cliente aparecem um por um");
+  // 26/11/2026: a coluna mostra o primeiro site e "+N"; os demais aparecem ao abrir o cliente (e no balão ao passar o mouse)
+  const colAurora = aurora.getByTestId("cli-site-coluna");
+  check((await colAurora.innerText()).includes("aurora.com.br") && (await colAurora.innerText()).includes("+1")
+    && (await colAurora.locator("[title*='loja.aurora.com.br']").count()) >= 1, "dois sites do mesmo cliente: o primeiro e “+1” (o outro no balão)");
   check(((await aurora.innerText()).match(/não ligado/gi) ?? []).length === 2, "quem não tem WhatsApp mostra “não ligado” nos dois tipos");
 
   // O WhatsApp aparece UMA vez só (na lista do cliente); os detalhes mostram só os sites

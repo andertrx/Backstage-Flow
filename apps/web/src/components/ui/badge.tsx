@@ -12,10 +12,10 @@ const tones: Record<Tone, { box: string; dot: string | null }> = {
 };
 
 /** Etiqueta: as de estado (verde, âmbar, vermelho) levam um pontinho de cor, como o StatusBadge. */
-export function Badge({ tone = "neutral", children, ...rest }: { tone?: Tone; children: ReactNode } & HTMLAttributes<HTMLSpanElement>) {
+export function Badge({ tone = "neutral", children, className, ...rest }: { tone?: Tone; children: ReactNode } & HTMLAttributes<HTMLSpanElement>) {
   const t = tones[tone];
   return (
-    <span {...rest} className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium", t.box)}>
+    <span {...rest} className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium", t.box, className)}>
       {t.dot && <span className={cn("size-1.5 rounded-full", t.dot)} aria-hidden />}
       {children}
     </span>
