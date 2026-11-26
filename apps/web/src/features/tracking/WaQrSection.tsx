@@ -38,6 +38,18 @@ export function altBrPhone(input: string): string | null {
   return null;
 }
 
+/**
+ * 26/11/2026: o código de pareamento só vale se o número for EXATAMENTE o do WhatsApp do chip. Celular do Brasil tem 9 dígitos depois do DDD
+ * (81 9 9839-8622), mas alguns cadastros vieram sem o 9 da frente (81 9839-8622) e o celular respondia "código incorreto".
+ * Devolve o número (só dígitos, sem o 55) com o 9 na frente quando faltar; qualquer outro número volta como veio.
+ */
+export function numeroComNove(input: string): string {
+  const d = input.replace(/\D/g, "");
+  const nacional = d.startsWith("55") && d.length === 12 ? d.slice(2) : d.length === 10 ? d : null;
+  if (nacional && /^[6-9]/.test(nacional.slice(2))) return `${nacional.slice(0, 2)}9${nacional.slice(2)}`;
+  return d.startsWith("55") && d.length === 13 ? d.slice(2) : d;
+}
+
 export type WaQrConnection = Pick<WhatsAppConnection, "id" | "display_phone" | "phone_number_id" | "instance_name" | "gateway_state">;
 
 /**
@@ -54,7 +66,7 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
   const [qr, setQr] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
   const [codeFor, setCodeFor] = useState<string | null>(null);
-  const [codeNumber, setCodeNumber] = useState<string>(connection.display_phone ?? connection.phone_number_id);
+  const [codeNumber, setCodeNumber] = useState<string>(numeroComNove(connection.display_phone ?? connection.phone_number_id));
   const [tab, setTab] = useState<"qr" | "code">("qr");
   const [copied, setCopied] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -242,6 +254,10 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
                   </Button>
                 )}
               </div>
+              <p className="text-xs text-slate-500">
+                Use o número <strong>exatamente como está no WhatsApp do chip</strong> (celular do Brasil: DDD + 9 dígitos, já colocamos o 9 da frente).
+                Se o celular disser “código incorreto”, toque em <strong>Tentar sem o 9</strong>. O código vale por poucos minutos: digite assim que aparecer.
+              </p>
               <p className="text-xs text-slate-500">O código só muda quando você pedir outro: dá tempo de passar para o cliente. Cada código novo apaga o anterior.</p>
               {connect.isPending && mode.current === "code" && !code && <p className="text-xs text-slate-500">Gerando... o servidor de WhatsApp pode levar alguns segundos.</p>}
               {waiting && code && mode.current === "code" && (
