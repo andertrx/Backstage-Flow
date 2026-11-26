@@ -23,6 +23,17 @@ export const WA_QR_LABEL: Record<WaInstanceState, { text: string; tone: "success
 const POLL_MS = 3000;
 /** Depois deste tempo esperando a leitura, a tela para de conferir sozinha (poupa o servidor); um botão retoma. */
 const POLL_MAX_MS = 6 * 60_000;
+/**
+ * 26/11/2026: o código por número vence no WhatsApp depois de poucos minutos (o prazo exato é do WhatsApp e não é informado ao CRM).
+ * Esta é uma ESTIMATIVA conservadora, só para avisar a pessoa na tela; quem decide se vale é o WhatsApp.
+ */
+export const CODE_TTL_MS = 120_000;
+/** "1:40" a partir de milissegundos. */
+export function formatRestante(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
 /** O QR Code do WhatsApp vence em cerca de um minuto: pedimos um novo antes disso. */
 const REFRESH_MS = 50_000;
 
@@ -66,6 +77,8 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
   const [qr, setQr] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
   const [codeFor, setCodeFor] = useState<string | null>(null);
+  const [codeAt, setCodeAt] = useState<number | null>(null);
+  const [agora, setAgora] = useState(() => Date.now());
   const [codeNumber, setCodeNumber] = useState<string>(numeroComNove(connection.display_phone ?? connection.phone_number_id));
   const [tab, setTab] = useState<"qr" | "code">("qr");
   const [copied, setCopied] = useState(false);
@@ -97,6 +110,8 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
       setQr(r.qr);
       setCode(r.pairingCode ?? null);
       setCodeFor(r.pairingNumber ?? null);
+      setCodeAt(r.pairingCode ? Date.now() : null);
+      setAgora(Date.now());
       setWarn(r.message);
       qrAt.current = Date.now();
       if (r.state === "conectado") setNotice("WhatsApp conectado. As mensagens deste número já chegam ao CRM.");
@@ -112,6 +127,13 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
     void start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart]);
+
+  // Contador do código: um relógio de 1 segundo só enquanto há um código na tela
+  useEffect(() => {
+    if (!code || codeAt === null) return;
+    const t = setInterval(() => setAgora(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [code, codeAt]);
 
   // Enquanto espera a leitura: confere, UMA chamada de cada vez, e renova o QR só quando está para vencer.
   useEffect(() => {
@@ -182,6 +204,8 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
   }
 
   const safeQr = qr && SAFE_IMAGE.test(qr) ? qr : null;
+  const restante = codeAt !== null ? CODE_TTL_MS - (agora - codeAt) : null;
+  const vencido = restante !== null && restante <= 0;
   const hasInstance = Boolean(connection.instance_name) || state !== "desconhecido";
 
   return (
@@ -263,7 +287,12 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
               {waiting && code && mode.current === "code" && (
                 <div className="space-y-2 rounded-xl bg-slate-50 p-4" data-testid="wa-qr-code">
                   <p className="text-xs text-slate-600">No celular do cliente: <strong>Configurações → Aparelhos conectados → Conectar um aparelho → Conectar com número de telefone</strong>, e digite:</p>
-                  <p className="font-mono text-2xl font-semibold tracking-widest text-slate-900" aria-label="Código de pareamento">{code}</p>
+                  <p className={`font-mono text-2xl font-semibold tracking-widest ${vencido ? "text-slate-400 line-through" : "text-slate-900"}`} aria-label="Código de pareamento">{code}</p>
+                  {restante !== null && (vencido ? (
+                    <Alert tone="warning"><span data-testid="wa-code-vencido">Este código provavelmente já venceu. Toque em <strong>Gerar outro código</strong> e digite o novo logo que aparecer.</span></Alert>
+                  ) : (
+                    <p className="text-xs font-medium text-amber-700" data-testid="wa-code-restante">Vale por mais cerca de <strong className="tabular-nums">{formatRestante(restante)}</strong> (estimativa: o WhatsApp decide). Digite agora.</p>
+                  ))}
                   {codeFor && <p className="text-xs text-slate-500">Código gerado para o número <strong>{codeFor}</strong>. Ele precisa ser o do WhatsApp que está no celular.</p>}
                   <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => void copyMessage()}>
                     <Copy className="size-3.5" aria-hidden /> {copied ? "Copiado!" : "Copiar mensagem para o cliente"}

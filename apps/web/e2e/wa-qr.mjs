@@ -63,7 +63,8 @@ async function openModal(page) {
   // Conectar por código (aba "O celular está em outro lugar")
   check(c.instance_name === null, "desconectar apaga a conexão no servidor (a próxima começa do zero)");
   await qr.getByRole("tab", { name: /em outro lugar/ }).click();
-  check((await qr.getByLabel("Número do chip para o código").inputValue()) === "558195067876", "o campo do código já vem com o número cadastrado");
+  // 26/11/2026: o cadastro veio sem o 9 da frente (55 81 9506-7876); o campo já vem com o 9 (81 9 9506-7876), que é o número real do chip
+  check((await qr.getByLabel("Número do chip para o código").inputValue()) === "81995067876", "o campo do código já vem com o número cadastrado, com o 9 da frente");
   await qr.getByLabel("Número do chip para o código").fill("81 99506-7876");
   await qr.getByRole("button", { name: "Gerar código" }).click();
   await qr.getByTestId("wa-qr-code").waitFor();
