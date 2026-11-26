@@ -2059,6 +2059,29 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       for (const x of db.whatsappConnections) if (x.client_id === w.client_id && x.mode === "nao_oficial") { x.enabled = false; x.last_webhook_at = null; }
       return res(200, { mensagens: n.mensagens, pessoas: n.pessoas, sugestoes: 0, conversas: n.conversas_apagar, conversas_com_venda_mantidas: n.conversas_com_venda_mantidas, conexoes_desligadas: 1 });
     }
+    // 26/11/2026 — apagar o histórico de um cliente (WhatsApp, site ou os dois): mesma regra do banco
+    if (url.includes("/rest/v1/rpc/tracking_historico_contagem") || url.includes("/rest/v1/rpc/tracking_historico_apagar")) {
+      const p = parse();
+      if (role !== "admin" || !db.clients.some((c) => c.id === p.p_client)) return res(403, { code: "42501", message: "Só o administrador apaga o histórico do cliente." });
+      const de = (lista) => (lista ?? []).filter((x) => x.client_id === p.p_client);
+      const wa = { mensagens: de(db.waMessages).length, pessoas: de(db.waPeople).length, sugestoes: de(db.waSuggestions).length,
+        conversas_apagar: de(db.whatsappConversations).filter((c) => !(c.sales > 0)).length, conversas_com_venda_mantidas: de(db.whatsappConversations).filter((c) => c.sales > 0).length };
+      const site = { eventos: de(db.trackingEvents).length, visitas: 0, visitantes: 0, origens: de(db.trackingTouchpoints).length, leads: de(db.trackingLeads).length,
+        cliques_whatsapp: de(db.whatsappClicks).length, envios_meta_registro: 0, fila_meta_pendente_mantida: 0 };
+      const mantidos = { contatos: de(db.contacts).length, vendas_registradas: 0 };
+      if (url.includes("tracking_historico_contagem")) return res(200, { whatsapp: wa, site, mantidos });
+      if (!["whatsapp", "site", "ambos"].includes(p.p_escopo)) return res(400, { code: "22023", message: "Escolha o que apagar: WhatsApp, site ou os dois." });
+      if (p.p_confirmar !== "APAGAR") return res(400, { code: "22023", message: "Confirmação inválida: digite APAGAR." });
+      db.historicoApagados ??= [];
+      db.historicoApagados.push({ client: p.p_client, escopo: p.p_escopo });
+      const sai = (lista) => (lista ?? []).filter((x) => x.client_id !== p.p_client);
+      if (p.p_escopo !== "site") { db.waMessages = sai(db.waMessages); db.waPeople = sai(db.waPeople); db.waSuggestions = sai(db.waSuggestions);
+        db.whatsappConversations = (db.whatsappConversations ?? []).filter((c) => c.client_id !== p.p_client || c.sales > 0); }
+      if (p.p_escopo !== "whatsapp") { db.trackingEvents = sai(db.trackingEvents); db.trackingTouchpoints = sai(db.trackingTouchpoints); db.trackingLeads = sai(db.trackingLeads); db.whatsappClicks = sai(db.whatsappClicks); }
+      return res(200, { escopo: p.p_escopo,
+        whatsapp: p.p_escopo === "site" ? { mensagens: 0, pessoas: 0, sugestoes: 0, conversas: 0 } : { mensagens: wa.mensagens, pessoas: wa.pessoas, sugestoes: wa.sugestoes, conversas: wa.conversas_apagar },
+        site: p.p_escopo === "whatsapp" ? { eventos: 0, visitas: 0, visitantes: 0, origens: 0, leads: 0, cliques_whatsapp: 0, envios_meta_registro: 0 } : { eventos: site.eventos, visitas: 0, visitantes: 0, origens: site.origens, leads: site.leads, cliques_whatsapp: site.cliques_whatsapp, envios_meta_registro: 0 } });
+    }
     if (url.includes("/rest/v1/rpc/wa_unofficial_limpar")) {
       const p = parse();
       const w = db.whatsappConnections.find((x) => x.id === p.p_id && x.mode === "nao_oficial");

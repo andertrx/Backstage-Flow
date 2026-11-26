@@ -12,6 +12,7 @@ import { cn } from "@/lib/cn.ts";
 import { useSearchParamsUpdater } from "@/lib/useSearchParamsUpdater.ts";
 import { useWaSuggestions } from "./api.ts";
 import { ConfigSection, SectionIndex } from "@/components/ui/section.tsx";
+import { ApagarHistoricoCard } from "./ApagarHistoricoCard.tsx";
 import { ConversationsPanel } from "./ConversationsPage.tsx";
 import { MarketingView } from "./MarketingView.tsx";
 import { SuggestionsSection, WaAiCard } from "./SuggestionsSection.tsx";
@@ -119,12 +120,17 @@ export function TrackingHub() {
           <SectionIndex items={[
             { id: "cfg-clientes", label: "Site e/ou WhatsApp" },
             { id: "cfg-link", label: "Ferramentas" },
-            ...(profile?.role === "admin" ? [{ id: "cfg-ia", label: "IA de vendas" }] : []),
+            ...(profile?.role === "admin" ? [{ id: "cfg-ia", label: "IA de vendas" }, { id: "cfg-historico", label: "Apagar histórico" }] : []),
           ]} />
           <TrackingPage clientId={clientId} tabs={["sites"]} />
           {profile?.role === "admin" && (
             <ConfigSection id="cfg-ia" title="IA de vendas sugeridas" description="A IA lê as conversas do dia e sugere onde pode ter havido venda. Quem decide é você.">
               <WaAiCard />
+            </ConfigSection>
+          )}
+          {profile?.role === "admin" && (
+            <ConfigSection id="cfg-historico" title="Apagar histórico do cliente" description="Apaga o histórico de um cliente: só o WhatsApp, só o site ou os dois. Só administrador. Mostra quanto será apagado e só apaga com a palavra APAGAR.">
+              <ApagarHistoricoCard clientId={clientId} clientName={clients.find((c) => c.id === clientId)?.name ?? null} />
             </ConfigSection>
           )}
         </div>

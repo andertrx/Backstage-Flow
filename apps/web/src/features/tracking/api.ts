@@ -984,6 +984,42 @@ export function useWaLimpar() {
   });
 }
 
+export type HistoricoEscopo = "whatsapp" | "site" | "ambos";
+export interface HistoricoContagem {
+  whatsapp: { mensagens: number; pessoas: number; sugestoes: number; conversas_apagar: number; conversas_com_venda_mantidas: number };
+  site: { eventos: number; visitas: number; visitantes: number; origens: number; leads: number; cliques_whatsapp: number; envios_meta_registro: number; fila_meta_pendente_mantida: number };
+  mantidos: { contatos: number; vendas_registradas: number };
+}
+export interface HistoricoApagado {
+  escopo: HistoricoEscopo;
+  whatsapp: { mensagens: number; pessoas: number; sugestoes: number; conversas: number };
+  site: { eventos: number; visitas: number; visitantes: number; origens: number; leads: number; cliques_whatsapp: number; envios_meta_registro: number };
+}
+
+/** 26/11/2026 — "Apagar histórico do cliente" (só administrador): quanto será apagado e o que fica. */
+export function useHistoricoContagem() {
+  return useMutation({
+    mutationFn: async (clientId: string) => {
+      const { data, error } = await supabase.rpc("tracking_historico_contagem", { p_client: clientId });
+      if (error) throw new FriendlyError(readableDbError(error, "Não conseguimos contar o histórico deste cliente."));
+      return data as HistoricoContagem;
+    },
+  });
+}
+
+/** Apaga o histórico do cliente (WhatsApp, site ou os dois), só com a palavra APAGAR. Mantém vendas, contatos e a fila pendente do Meta. */
+export function useHistoricoApagar() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { clientId: string; escopo: HistoricoEscopo; confirmar: string }) => {
+      const { data, error } = await supabase.rpc("tracking_historico_apagar", { p_client: input.clientId, p_escopo: input.escopo, p_confirmar: input.confirmar });
+      if (error) throw new FriendlyError(readableDbError(error, "Não conseguimos apagar o histórico."));
+      return data as HistoricoApagado;
+    },
+    onSuccess: () => queryClient.invalidateQueries(),
+  });
+}
+
 export interface WaApagarTudoContagem { mensagens: number; pessoas: number; sugestoes: number; conversas_apagar: number; conversas_com_venda_mantidas: number; conexoes: number }
 
 /** "Apagar tudo deste cliente": quanto será apagado (passo 1). Só administrador. */
