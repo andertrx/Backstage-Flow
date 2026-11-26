@@ -50,7 +50,17 @@ const conta = (db, k, cid) => (db[k] ?? []).filter((x) => x.client_id === cid).l
   check(await botao.isDisabled(), "com a palavra errada (minúscula), continua travado");
   await page.screenshot({ path: "../../docs/etapa-34-tracking/imagens/tracking-apagar-historico.png", fullPage: false });
   await page.getByTestId("historico-palavra").fill("APAGAR");
+  // 2ª confirmação: "Você tem certeza?" — cancelar não apaga nada
   await botao.click();
+  const dlg = page.getByTestId("confirm-dialog");
+  await dlg.waitFor();
+  const txt = await dlg.innerText();
+  check(txt.includes("Você tem certeza?") && txt.includes("histórico do WhatsApp") && txt.includes("Prata e Pérola") && txt.includes("não pode ser desfeito"), "depois de digitar APAGAR ainda pergunta “Você tem certeza?”, dizendo o que e de quem");
+  await page.getByTestId("confirm-cancel").click();
+  await page.waitForTimeout(300);
+  check(conta(db, "waMessages", CLI) === 2 && !db.historicoApagados, "cancelar na pergunta final não apaga nada");
+  await botao.click();
+  await page.getByTestId("confirm-ok").click();
   await page.getByTestId("historico-feito").waitFor();
   check(conta(db, "waMessages", CLI) === 0 && conta(db, "waPeople", CLI) === 0, "WhatsApp do cliente apagado");
   check(conta(db, "waMessages", OUTRO) === 1 && conta(db, "waPeople", OUTRO) === 1, "outro cliente não foi tocado");
@@ -65,6 +75,7 @@ const conta = (db, k, cid) => (db[k] ?? []).filter((x) => x.client_id === cid).l
   check(r2.includes("2 evento(s)") && !r2.includes("WhatsApp:"), `só site: mostra números do site e nada do WhatsApp (${r2.replace(/\n/g, " | ")})`);
   await page.getByTestId("historico-palavra").fill("APAGAR");
   await page.getByTestId("historico-apagar").click();
+  await page.getByTestId("confirm-ok").click();
   await page.getByTestId("historico-feito").waitFor();
   check(conta(db, "trackingEvents", CLI) === 0 && conta(db, "trackingEvents", OUTRO) === 1, "eventos do site do cliente apagados, do outro não");
   check(db.contacts.length === 1, "o contato marcado continua depois de apagar o site");

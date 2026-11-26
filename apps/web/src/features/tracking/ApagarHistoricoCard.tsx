@@ -4,6 +4,7 @@ import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Input } from "@/components/ui/field.tsx";
+import { confirmar } from "@/lib/confirmStore.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { toast } from "@/lib/toastStore.ts";
 import { type HistoricoContagem, type HistoricoEscopo, useHistoricoApagar, useHistoricoContagem } from "./api.ts";
@@ -107,7 +108,17 @@ export function ApagarHistoricoCard({ clientId, clientName }: { clientId: string
                 <Input aria-label="Digite APAGAR para confirmar" value={palavra} onChange={(e) => setPalavra(e.target.value)} placeholder="APAGAR" className="w-40" autoComplete="off" data-testid="historico-palavra" />
               </label>
               <Button loading={apagar.isPending} disabled={palavra.trim() !== "APAGAR"} data-testid="historico-apagar"
-                onClick={() => apagar.mutate({ clientId, escopo, confirmar: palavra.trim() }, {
+                onClick={async () => {
+                  // 2ª confirmação (pedido do Ander, 26/11/2026): depois de digitar APAGAR, uma pergunta final antes de apagar de verdade
+                  const oQue = escopo === "whatsapp" ? "o histórico do WhatsApp" : escopo === "site" ? "o histórico do site" : "o histórico do WhatsApp e do site";
+                  const ok = await confirmar({
+                    title: "Você tem certeza?",
+                    message: `Você vai apagar ${oQue} de ${clientName ?? "este cliente"}. Isto não pode ser desfeito e não tem como recuperar depois.`,
+                    confirmLabel: "Sim, apagar para sempre",
+                    tone: "danger",
+                  });
+                  if (!ok) return;
+                  apagar.mutate({ clientId, escopo, confirmar: palavra.trim() }, {
                   onSuccess: (x) => {
                     const t = [
                       escopo !== "site" ? `WhatsApp: ${n(x.whatsapp.mensagens)} mensagem(ns), ${n(x.whatsapp.pessoas)} pessoa(s), ${n(x.whatsapp.conversas)} conversa(s)` : null,
@@ -116,7 +127,8 @@ export function ApagarHistoricoCard({ clientId, clientName }: { clientId: string
                     setFeito(`Apagado — ${t}.`); toast.success(`Histórico apagado (${clientName ?? "cliente"}).`); reiniciar();
                   },
                   onError: (e) => setErro(errorMessage(e)),
-                })}>
+                  });
+                }}>
                 <Trash2 className="size-4" aria-hidden /> Apagar para sempre
               </Button>
               <Button variant="ghost" onClick={reiniciar} disabled={apagar.isPending}>Cancelar</Button>
