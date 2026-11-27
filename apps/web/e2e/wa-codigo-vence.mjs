@@ -26,22 +26,25 @@ await page.getByRole("button", { name: "Gerar código" }).click();
 const box = page.getByTestId("wa-qr-code");
 await box.waitFor();
 const r0 = await page.getByTestId("wa-code-restante").innerText();
-check(/mais cerca de\s*(1:5\d|2:00)/.test(r0) && r0.includes("estimativa"), `logo depois de gerar mostra o contador (${r0})`);
+check(/Vence em\s*(1:5\d|2:00)/.test(r0) && r0.includes("estimativa"), `logo depois de gerar mostra o contador (${r0})`);
 check(await page.getByTestId("wa-code-vencido").count() === 0, "ainda não aparece o aviso de vencido");
 
 await page.clock.fastForward(60_000);
 const r1 = await page.getByTestId("wa-code-restante").innerText();
-check(/mais cerca de\s*(0:5\d|1:00)/.test(r1), `1 minuto depois o contador desceu (${r1})`);
+check(/Vence em\s*(0:5\d|1:00)/.test(r1), `1 minuto depois o contador desceu (${r1})`);
 
 await page.clock.fastForward(61_000);
-await page.getByTestId("wa-code-vencido").waitFor();
-check(await page.getByTestId("wa-code-restante").count() === 0, "passou de 2 minutos: o contador some");
-check((await page.getByTestId("wa-code-vencido").innerText()).includes("Gerar outro código"), "avisa que venceu e manda gerar outro código");
+await page.getByText(/renovado 1x/).waitFor();
+const r2 = await page.getByTestId("wa-code-restante").innerText();
+check(/Vence em\s*(1:5\d|2:00)/.test(r2), `ao vencer, gerou outro código sozinho e o contador reiniciou (${r2})`);
+check(await page.getByTestId("wa-code-vencido").count() === 0, "depois da renovação automática o aviso de vencido some");
 await page.screenshot({ path: "../../docs/etapa-34-tracking/imagens/tracking-codigo-vencido.png" });
-
+for (let i = 0; i < 7; i++) await page.clock.fastForward(121_000);
+await page.getByTestId("wa-code-vencido").waitFor();
+check((await page.getByTestId("wa-code-vencido").innerText()).includes("Gerar outro código"), "depois de 5 renovações automáticas para e pede ação manual");
 await page.getByRole("button", { name: "Gerar outro código" }).click();
 await page.getByTestId("wa-code-restante").waitFor();
-check(await page.getByTestId("wa-code-vencido").count() === 0, "gerar outro código zera o contador e tira o aviso");
+check(await page.getByTestId("wa-code-vencido").count() === 0, "gerar outro código manualmente zera tudo");
 check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
 await browser.close();
 console.log("wa-codigo-vence: OK");

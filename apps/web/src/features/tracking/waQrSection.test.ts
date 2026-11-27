@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { altBrPhone, CODE_TTL_MS, formatRestante, numeroComNove } from "./WaQrSection.tsx";
+import { altBrPhone, CODE_AUTO_MAX, CODE_TTL_MS, formatRestante, numeroComNove } from "./WaQrSection.tsx";
 
 describe("numeroComNove (código de pareamento do WhatsApp)", () => {
   it("cadastro sem o 9 da frente ganha o 9 (o caso da Prata e Pérola)", () => {
@@ -29,5 +29,5 @@ describe("contador do código de pareamento", () => {
     expect(formatRestante(0)).toBe("0:00");
     expect(formatRestante(-3_000)).toBe("0:00");
   });
-  it("a estimativa é de 2 minutos", () => expect(CODE_TTL_MS).toBe(120_000));
+  it("a estimativa é de 2 minutos e renova até 5 vezes", () => { expect(CODE_TTL_MS).toBe(120_000); expect(CODE_AUTO_MAX).toBe(5); });
 });

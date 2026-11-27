@@ -28,6 +28,8 @@ const POLL_MAX_MS = 6 * 60_000;
  * Esta é uma ESTIMATIVA conservadora, só para avisar a pessoa na tela; quem decide se vale é o WhatsApp.
  */
 export const CODE_TTL_MS = 120_000;
+/** Quantas vezes o código se renova sozinho ao vencer (depois, a pessoa decide: evita ficar gerando código para ninguém). */
+export const CODE_AUTO_MAX = 5;
 /** "1:40" a partir de milissegundos. */
 export function formatRestante(ms: number): string {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -91,21 +93,27 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
   const started = useRef(false);
   /** Só vale a resposta do pedido MAIS NOVO: um QR automático lento não pode apagar o código gerado depois, nem mostrar erro velho. */
   const reqSeq = useRef(0);
+  const autoCount = useRef(0);
+  const reqPending = useRef(false);
+  const [renovados, setRenovados] = useState(0);
   const waiting = state === "aguardando_leitura";
   const busy = connect.isPending || logout.isPending;
 
   const { mutateAsync: askQr } = connect;
   const { mutateAsync: checkStatus } = status;
 
-  async function start(kind: "qr" | "code" = "qr", numberOverride?: string) {
+  async function start(kind: "qr" | "code" = "qr", numberOverride?: string, auto = false) {
     mode.current = kind;
+    if (!auto) { autoCount.current = 0; setRenovados(0); }
     const my = ++reqSeq.current;
+    reqPending.current = true;
     setPaused(false);
     setError(null);
     setNotice(null);
     try {
       const r = await askQr({ connectionId: connection.id, ...(kind === "code" ? { number: numberOverride ?? codeNumber } : {}) });
       if (my !== reqSeq.current) return;
+      reqPending.current = false;
       setState(r.state);
       setQr(r.qr);
       setCode(r.pairingCode ?? null);
@@ -116,7 +124,7 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
       qrAt.current = Date.now();
       if (r.state === "conectado") setNotice("WhatsApp conectado. As mensagens deste número já chegam ao CRM.");
     } catch (err) {
-      if (my === reqSeq.current) setError(errorMessage(err));
+      if (my === reqSeq.current) { reqPending.current = false; setError(errorMessage(err)); }
     }
   }
 
@@ -134,6 +142,17 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
     const t = setInterval(() => setAgora(Date.now()), 1000);
     return () => clearInterval(t);
   }, [code, codeAt]);
+
+  // Código vencido (fim do contador): gera outro SOZINHO, com o mesmo número, até CODE_AUTO_MAX vezes.
+  // Se o pedido falhar, o código velho continua "vencido" e nada se repete em laço: o botão manual segue disponível.
+  const vencidoAgora = codeAt !== null && CODE_TTL_MS - (agora - codeAt) <= 0;
+  useEffect(() => {
+    if (!vencidoAgora || !waiting || mode.current !== "code" || autoCount.current >= CODE_AUTO_MAX || reqPending.current) return;
+    autoCount.current += 1;
+    setRenovados(autoCount.current);
+    void start("code", undefined, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vencidoAgora, waiting, codeAt]);
 
   // Enquanto espera a leitura: confere, UMA chamada de cada vez, e renova o QR só quando está para vencer.
   useEffect(() => {
@@ -155,7 +174,7 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
           return;
         }
         // Só o QR se renova sozinho. O CÓDIGO nunca muda sozinho: quem decide é a pessoa ("Gerar outro código"),
-        // senão o cliente digitaria um código que já foi trocado.
+        // o código só é trocado ao vencer o contador (acima) ou quando a pessoa pede.
         if (mode.current === "qr" && Date.now() - qrAt.current > REFRESH_MS) {
           const mySeq = reqSeq.current;
           const q = await askQr({ connectionId: connection.id });
@@ -282,16 +301,18 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
                 Use o número <strong>exatamente como está no WhatsApp do chip</strong> (celular do Brasil: DDD + 9 dígitos, já colocamos o 9 da frente).
                 Se o celular disser “código incorreto”, toque em <strong>Tentar sem o 9</strong>. O código vale por poucos minutos: digite assim que aparecer.
               </p>
-              <p className="text-xs text-slate-500">O código só muda quando você pedir outro: dá tempo de passar para o cliente. Cada código novo apaga o anterior.</p>
+              <p className="text-xs text-slate-500">Quando o tempo acabar, um código novo aparece sozinho (até 5 vezes). Cada código novo apaga o anterior: digite sempre o que está na tela.</p>
               {connect.isPending && mode.current === "code" && !code && <p className="text-xs text-slate-500">Gerando... o servidor de WhatsApp pode levar alguns segundos.</p>}
               {waiting && code && mode.current === "code" && (
                 <div className="space-y-2 rounded-xl bg-slate-50 p-4" data-testid="wa-qr-code">
                   <p className="text-xs text-slate-600">No celular do cliente: <strong>Configurações → Aparelhos conectados → Conectar um aparelho → Conectar com número de telefone</strong>, e digite:</p>
                   <p className={`font-mono text-2xl font-semibold tracking-widest ${vencido ? "text-slate-400 line-through" : "text-slate-900"}`} aria-label="Código de pareamento">{code}</p>
                   {restante !== null && (vencido ? (
-                    <Alert tone="warning"><span data-testid="wa-code-vencido">Este código provavelmente já venceu. Toque em <strong>Gerar outro código</strong> e digite o novo logo que aparecer.</span></Alert>
+                    <Alert tone="warning"><span data-testid="wa-code-vencido">{renovados < CODE_AUTO_MAX && !error
+                      ? "Este código venceu. Gerando outro automaticamente..."
+                      : <>Este código venceu e o sistema já renovou {renovados} {renovados === 1 ? "vez" : "vezes"} sozinho. Toque em <strong>Gerar outro código</strong> quando o cliente estiver pronto para digitar.</>}</span></Alert>
                   ) : (
-                    <p className="text-xs font-medium text-amber-700" data-testid="wa-code-restante">Vale por mais cerca de <strong className="tabular-nums">{formatRestante(restante)}</strong> (estimativa: o WhatsApp decide). Digite agora.</p>
+                    <p className="text-xs font-medium text-amber-700" data-testid="wa-code-restante">Vence em <strong className="tabular-nums">{formatRestante(restante)}</strong> (estimativa: o WhatsApp decide). Ao vencer, um código novo aparece sozinho{renovados > 0 ? ` (renovado ${renovados}x)` : ""}. Digite o que está na tela.</p>
                   ))}
                   {codeFor && <p className="text-xs text-slate-500">Código gerado para o número <strong>{codeFor}</strong>. Ele precisa ser o do WhatsApp que está no celular.</p>}
                   <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => void copyMessage()}>
