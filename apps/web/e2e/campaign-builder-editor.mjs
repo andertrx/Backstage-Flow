@@ -54,7 +54,7 @@ await ad.getByLabel("Link de destino").fill("http://loja.com.br");
 check(await checklist.getByText("precisa começar com https://", { exact: false }).isVisible(), "link sem https é cobrado");
 await ad.getByLabel("Link de destino").fill("https://loja.com.br");
 check(await checklist.getByText("Tudo preenchido", { exact: false }).isVisible(), "tudo preenchido: a conferência fica verde");
-check(await checklist.getByText("Nada é criado no Meta", { exact: false }).isVisible(), "avisa que nada é criado no Meta");
+check(await checklist.getByText("Validar não cria nada", { exact: false }).isVisible(), "avisa que validar não cria nada");
 
 // Salvamento automático
 await page.waitForFunction(() => document.querySelector('[data-testid="cb-estado"]')?.textContent === "Salvo", null, { timeout: 8000 });
@@ -84,7 +84,7 @@ await page.getByLabel("Crédito").uncheck();
 await page.getByTestId("cb-avancado").locator("summary").click();
 await page.getByLabel("JSON avançado").fill("{ quebrado");
 check(await checklist.getByText("JSON válido", { exact: false }).isVisible(), "JSON avançado inválido é cobrado");
-check((await page.getByRole("button", { name: /^Simular|^Publicar/ }).count()) === 0, "não há botão de simular/publicar ainda (nada de botão de mentira)");
+check((await page.getByRole("button", { name: /^Simular/ }).count()) === 0, "não há botão de simular (nada de botão de mentira)");
 
 // Fase A: públicos da conta (lidos do Meta) e Validar com o Meta (só a campanha, sem criar nada)
 const firstSet = page.getByTestId("cb-conjunto").first();
@@ -103,6 +103,28 @@ db.metaBuilder.validation = { ok: false, message: "(#200) Requires ads_managemen
 await page.getByRole("button", { name: "Validar com o Meta" }).click();
 await page.getByText("não tem permissão para criar campanhas", { exact: false }).waitFor();
 check(true, "token sem permissão de criar é explicado");
+
+// Fase B: Publicar (tudo pausado). Bloqueios claros antes de poder clicar.
+const publicar = page.getByRole("button", { name: /Publicar no Meta/ });
+check(await publicar.isDisabled(), "Publicar fica travado enquanto há pendências");
+const bloqueios = await page.getByTestId("cb-publicar-bloqueios").innerText();
+check(bloqueios.includes("modo avançado") && bloqueios.includes("imagem"), "explica o que falta: modo avançado e endereço da imagem");
+await page.getByLabel("JSON avançado").fill("");
+for (const campo of await page.getByLabel("Imagem do anúncio (endereço)").all()) await campo.fill("https://loja.com.br/imagem.jpg");
+await page.waitForFunction(() => !document.querySelector('[data-testid="cb-publicar-bloqueios"]'));
+check(await publicar.isEnabled(), "sem pendências, o Publicar libera");
+await publicar.click();
+const textoConfirma = await page.getByTestId("confirm-dialog").innerText().catch(() => "");
+check(textoConfirma.includes("PAUSADO") && textoConfirma.includes("2 conjunto(s)"), "1ª confirmação mostra o resumo exato e que sai pausado");
+await page.getByTestId("confirm-ok").click();
+await page.getByTestId("confirm-ok").waitFor();
+await page.getByTestId("confirm-ok").click();
+await page.getByTestId("cb-publicacao-status").waitFor();
+check((await page.getByTestId("cb-publicacao-status").innerText()).includes("Publicada"), "mostra que foi publicada (pausada)");
+check(db.metaBuilder.calls.filter((c) => c.action === "publish").length === 1, "chamou o servidor uma única vez");
+check((await page.getByTestId("cb-publicacao").getByText("confirmado no Meta").count()) >= 5, "cada objeto aparece confirmado pelo Meta");
+check(await page.getByRole("link", { name: /Abrir no Gerenciador/ }).isVisible(), "link para o Gerenciador de Anúncios");
+check((await page.getByRole("button", { name: /Publicar no Meta/ }).count()) === 0, "depois de publicada, não há como publicar de novo por engano");
 
 
 check(errors.length === 0, "sem erros no navegador");

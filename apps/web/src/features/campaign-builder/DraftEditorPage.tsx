@@ -1,9 +1,9 @@
 import {
   AD_CTAS, applyGoal, applyObjective, BILLING_LABELS, billingFor, type CampaignDraft, checkDraft, type CheckItem, checkSummary, COUNTRIES, CUSTOM_EVENTS,
   type DraftAd, type DraftAdSet, duplicateAdSet, GOAL_LABELS, GOALS_BY_OBJECTIVE, newAd, newAdSet, normalizeDraft, OBJECTIVE_LABELS, type ObjectiveId,
-  removeAdSet, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES,
+  removeAdSet, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES, checkPublishable, publishCounts,
 } from "@backstage/shared";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, Plus, ShieldCheck, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, ExternalLink, Plus, Rocket, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { useAccountAssets } from "@/features/ads-builder/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
-import { type AccountLists, saveDraftData, useAccountLists, useBuilderDraft, useBuilderPermissions, useDraftAccount, useValidateDraft } from "./api.ts";
+import { type AccountLists, type PublishOperationRow, saveDraftData, useAccountLists, useBuilderDraft, useBuilderPermissions, useDraftAccount, usePublishDraft, usePublishHistory, useValidateDraft } from "./api.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
 import { toast } from "@/lib/toastStore.ts";
 
@@ -84,6 +84,9 @@ function AdForm({ ad, pages, instas, disabled, onChange, onRemove }: {
         <Field label="Descrição">{(id) => <Input id={id} value={ad.description} disabled={disabled} maxLength={400} onChange={(e) => set({ description: e.target.value })} />}</Field>
       </div>
       <Field label="Link de destino" hint="Precisa começar com https://">{(id) => <Input id={id} type="url" value={ad.link} disabled={disabled} maxLength={2000} placeholder="https://" onChange={(e) => set({ link: e.target.value })} />}</Field>
+      <Field label="Imagem do anúncio (endereço)" hint="Só para publicar: endereço https:// da imagem. O envio direto do Google Drive vem na próxima fase.">
+        {(id) => <Input id={id} type="url" value={ad.imageUrl} disabled={disabled} maxLength={2000} placeholder="https://" onChange={(e) => set({ imageUrl: e.target.value })} />}
+      </Field>
     </div>
   );
 }
@@ -217,7 +220,81 @@ function AdSetCard({ draft, set, disabled, pages, instas, currency, lists, onCha
   );
 }
 
-function ChecklistPanel({ items, validate }: { items: CheckItem[]; validate?: ReactNode }) {
+const OP_LABEL: Record<PublishOperationRow["status"], string> = { processando: "Em andamento", concluida: "Publicada (pausada)", parcial: "Publicada em parte", falhou: "Não publicou" };
+const KIND_LABEL = { campanha: "Campanha", conjunto: "Conjunto", criativo: "Criativo", anuncio: "Anúncio" } as const;
+
+function PublishPanel({ draftId, draft, canPublish, accountName, accountExternalId, flush, disabled }: {
+  draftId: string; draft: CampaignDraft; canPublish: boolean; accountName: string; accountExternalId: string | null; flush: () => Promise<void>; disabled: boolean;
+}) {
+  const history = usePublishHistory(draftId);
+  const publish = usePublishDraft();
+  const key = useRef<string | null>(null);
+  const blockers = useMemo(() => checkPublishable(draft), [draft]);
+  const last = history.data?.[0];
+  const already = last && (last.status === "concluida" || last.status === "parcial");
+  const counts = publishCounts(draft);
+  const campaignId = last?.publish_items.find((i) => i.kind === "campanha")?.meta_id;
+
+  async function run() {
+    const resume = `1 campanha, ${counts.adSets} conjunto(s) e ${counts.ads} anúncio(s) na conta "${accountName}"`;
+    if (!(await confirmar(`Será criado no Meta: ${resume}. Tudo sai PAUSADO: nada gasta verba até você ativar no Gerenciador de Anúncios. Publicar agora?`))) return;
+    if (!(await confirmar("Você tem certeza? Isso cria itens de verdade na conta de anúncios do cliente."))) return;
+    await flush();
+    key.current ??= (globalThis.crypto?.randomUUID?.() ?? `op-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    publish.mutate({ draftId, operationKey: key.current }, {
+      onSuccess: () => { key.current = null; toast.success("Publicação feita no Meta. Tudo ficou pausado."); },
+      onError: (e) => toast.error(errorMessage(e)),
+    });
+  }
+
+  return (
+    <div className="space-y-2 border-t border-slate-100 pt-3" data-testid="cb-publicar">
+      {canPublish && !already && (
+        <>
+          <Button className="w-full" loading={publish.isPending} disabled={disabled || blockers.length > 0 || !accountExternalId} onClick={() => void run()}>
+            <Rocket className="size-4" aria-hidden /> Publicar no Meta (pausado)
+          </Button>
+          <p className="text-xs text-slate-500">Cria a campanha, os conjuntos e os anúncios <strong>pausados</strong>. Só publica o que a Conferência aceita.</p>
+          {blockers.length > 0 && (
+            <ul className="space-y-1 text-xs text-amber-800" data-testid="cb-publicar-bloqueios">
+              {blockers.slice(0, 4).map((b, i) => <li key={i}>• {b.message}</li>)}
+              {blockers.length > 4 && <li>• e mais {blockers.length - 4}...</li>}
+            </ul>
+          )}
+        </>
+      )}
+      {!canPublish && <p className="text-xs text-slate-500">Você não tem permissão para publicar. Peça ao administrador.</p>}
+      {last && (
+        <div className="space-y-1.5 rounded-xl bg-slate-50 p-3 text-xs" data-testid="cb-publicacao">
+          <p className="font-semibold text-slate-800" data-testid="cb-publicacao-status">{OP_LABEL[last.status]}</p>
+          {last.error_message && <p className="text-red-700">{last.error_message}</p>}
+          <ul className="space-y-1">
+            {last.publish_items.map((i) => (
+              <li key={i.position} className="flex gap-1.5" data-status={i.status}>
+                {i.status === "criado" ? <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-600" aria-hidden /> : i.status === "falhou" ? <XCircle className="mt-0.5 size-3.5 shrink-0 text-red-600" aria-hidden /> : <span className="mt-0.5 size-3.5 shrink-0 text-center text-slate-400" aria-hidden>·</span>}
+                <span className="min-w-0 flex-1">
+                  <span className="text-slate-700">{KIND_LABEL[i.kind]}: {i.name || "—"}</span>
+                  {i.status === "criado" && <span className="text-slate-400"> · {i.confirmed ? "confirmado no Meta" : "não confirmado"}{i.effective_status ? ` (${i.effective_status})` : ""}</span>}
+                  {i.status === "falhou" && <span className="block text-red-700">{i.error_message}</span>}
+                  {i.status === "pulado" && <span className="text-slate-400"> · não criado (parou antes)</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {campaignId && accountExternalId && (
+            <a className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline" target="_blank" rel="noreferrer"
+              href={`https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${accountExternalId.replace(/^act_/, "")}&selected_campaign_ids=${campaignId}`}>
+              <ExternalLink className="size-3.5" aria-hidden /> Abrir no Gerenciador de Anúncios
+            </a>
+          )}
+          {last.status === "parcial" && <p className="text-slate-600">O que foi criado está pausado. Confira no Gerenciador; para tentar de novo, duplique o rascunho.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChecklistPanel({ items, validate, publish }: { items: CheckItem[]; validate?: ReactNode; publish?: ReactNode }) {
   const s = checkSummary(items);
   return (
     <Card className="space-y-3 p-4" data-testid="cb-checklist">
@@ -236,8 +313,9 @@ function ChecklistPanel({ items, validate }: { items: CheckItem[]; validate?: Re
         ))}
       </ul>
       {validate}
+      {publish}
       <p className="border-t border-slate-100 pt-2 text-xs text-slate-500">
-        As regras de combinação seguem o catálogo da API {CATALOG_VERSION}. O <strong>Validar com o Meta</strong> confere só a campanha; os conjuntos e os anúncios o Meta confere na hora de publicar. Nada é criado no Meta.
+        As regras de combinação seguem o catálogo da API {CATALOG_VERSION}. O <strong>Validar com o Meta</strong> confere só a campanha; os conjuntos e os anúncios o Meta confere na hora de publicar. Validar não cria nada; Publicar cria tudo pausado.
       </p>
     </Card>
   );
@@ -452,7 +530,7 @@ export function DraftEditorPage() {
                 </Alert>
               )}
             </div>
-          ) : undefined} />
+          ) : undefined} publish={id ? <PublishPanel draftId={id} draft={draft} canPublish={perms.data?.publicar === true} accountName={account.data?.name ?? "da conta"} accountExternalId={account.data?.external_id ?? null} flush={flush} disabled={state === "conflito" || !canEdit} /> : undefined} />
           {accountLists.data && accountLists.data.failed.length > 0 && (
             <Alert tone="warning">Não consegui ler {accountLists.data.failed.map((f) => ({ pixels: "os pixels", customAudiences: "os públicos personalizados", savedAudiences: "os públicos salvos" })[f]).join(", ")} da conta no Meta. Confira as permissões do token.</Alert>
           )}

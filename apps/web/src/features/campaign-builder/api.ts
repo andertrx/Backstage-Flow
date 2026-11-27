@@ -217,3 +217,53 @@ export function useValidateDraft() {
     },
   });
 }
+
+export interface PublishItemRow {
+  kind: "campanha" | "conjunto" | "criativo" | "anuncio";
+  local_id: string;
+  name: string;
+  position: number;
+  status: "pendente" | "criado" | "falhou" | "pulado";
+  meta_id: string | null;
+  confirmed: boolean;
+  effective_status: string | null;
+  error_code: number | null;
+  error_message: string | null;
+}
+export interface PublishOperationRow {
+  id: string;
+  status: "processando" | "concluida" | "parcial" | "falhou";
+  summary: { campanhas?: number; conjuntos?: number; anuncios?: number };
+  error_message: string | null;
+  created_at: string;
+  finished_at: string | null;
+  publish_items: PublishItemRow[];
+}
+
+/** Publicações deste rascunho (a mais recente primeiro), com cada objeto criado no Meta. */
+export function usePublishHistory(draftId: string | undefined) {
+  return useQuery({
+    queryKey: [...KEY, "publicacoes", draftId],
+    enabled: !!draftId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("publish_operations")
+        .select("id, status, summary, error_message, created_at, finished_at, publish_items(kind, local_id, name, position, status, meta_id, confirmed, effective_status, error_code, error_message)")
+        .eq("draft_id", draftId!).order("created_at", { ascending: false });
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos ler as publicações."));
+      return ((data ?? []) as unknown as PublishOperationRow[]).map((o) => ({ ...o, publish_items: [...o.publish_items].sort((x, y) => x.position - y.position) }));
+    },
+  });
+}
+
+/** Cria a campanha no Meta (tudo PAUSADO). `operationKey` repetido devolve a mesma publicação (nunca cria duas vezes). */
+export function usePublishDraft() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { draftId: string; operationKey: string }) => {
+      const { data, error } = await supabase.functions.invoke("meta-builder", { body: { action: "publish", ...input } });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      return (data as { data: { operation: { id: string; status: string } | null; repeated: boolean } }).data;
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [...KEY, "publicacoes"] }),
+  });
+}

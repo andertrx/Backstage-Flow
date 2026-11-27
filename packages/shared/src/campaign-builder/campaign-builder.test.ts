@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyGoal, applyObjective, billingFor, checkDraft, checkSummary, duplicateAdSet, GOALS_BY_OBJECTIVE, newAd, newAdSet, newDraft, normalizeDraft, removeAdSet,
-  type CampaignDraft,
+  type CampaignDraft, checkPublishable, publishBlockers, publishCounts,
 } from "../index.ts";
 
 function completo(): CampaignDraft {
@@ -143,6 +143,44 @@ describe("públicos do conjunto (Fase A)", () => {
     const d = normalizeDraft({ adSets: [{ id: "s1", audienceIds: ["9001"] }] });
     const dup = duplicateAdSet(d, "s1");
     expect(dup.adSets[1].audienceIds).toEqual(["9001"]);
+  });
+});
+
+describe("publicar (Fase B)", () => {
+  it("sem endereço da imagem não publica, e diz o que fazer", () => {
+    const d = completo();
+    const msgs = checkPublishable(d).map((i) => i.message);
+    expect(msgs.some((m) => m.includes("endereço (https://) da imagem"))).toBe(true);
+  });
+  it("imagem http (sem s) é recusada; com https libera", () => {
+    const d = completo();
+    d.ads[0].imageUrl = "http://x.com/a.jpg";
+    expect(checkPublishable(d).some((i) => i.message.includes("precisa começar com https://"))).toBe(true);
+    d.ads[0].imageUrl = "https://x.com/a.jpg";
+    expect(publishBlockers(d)).toEqual([]);
+  });
+  it("metas de mensagem/formulário e botões de WhatsApp ainda não são publicados (aviso claro)", () => {
+    const d = completo();
+    d.ads[0].imageUrl = "https://x.com/a.jpg";
+    d.adSets[0].optimizationGoal = "CONVERSATIONS";
+    d.ads[0].cta = "WHATSAPP_MESSAGE";
+    const msgs = checkPublishable(d).map((i) => i.message).join(" | ");
+    expect(msgs).toContain("ainda não é publicada");
+    expect(msgs).toContain("ainda não é publicado");
+  });
+  it("modo avançado preenchido impede publicar (não é enviado, então não finge)", () => {
+    const d = completo();
+    d.ads[0].imageUrl = "https://x.com/a.jpg";
+    d.advancedJson = "{\"a\":1}";
+    expect(checkPublishable(d).some((i) => i.message.includes("modo avançado"))).toBe(true);
+  });
+  it("resumo: 1 campanha, N conjuntos, M anúncios", () => {
+    expect(publishCounts(completo())).toEqual({ campaigns: 1, adSets: 1, ads: 1 });
+  });
+  it("a imagem do anúncio é guardada e sobrevive ao duplicar o conjunto", () => {
+    const d = normalizeDraft({ adSets: [{ id: "s1" }], ads: [{ id: "a1", adSetId: "s1", imageUrl: "https://x.com/a.jpg" }] });
+    expect(d.ads[0].imageUrl).toBe("https://x.com/a.jpg");
+    expect(duplicateAdSet(d, "s1").ads[1].imageUrl).toBe("https://x.com/a.jpg");
   });
 });
 

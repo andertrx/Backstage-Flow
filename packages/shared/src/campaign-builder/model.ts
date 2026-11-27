@@ -49,6 +49,8 @@ export interface DraftAd {
   headline: string;
   description: string;
   link: string;
+  /** Endereço https da imagem do anúncio (enquanto o envio direto do Drive não existe). */
+  imageUrl: string;
   cta: AdCta | "";
 }
 export interface CampaignDraft {
@@ -69,7 +71,7 @@ export function newAdSet(over: Partial<DraftAdSet> = {}): DraftAdSet {
   };
 }
 export function newAd(adSetId: string, over: Partial<DraftAd> = {}): DraftAd {
-  return { id: newId(), adSetId, name: "", pageId: "", instagramId: "", primaryText: "", headline: "", description: "", link: "", cta: "", ...over };
+  return { id: newId(), adSetId, name: "", pageId: "", instagramId: "", primaryText: "", headline: "", description: "", link: "", imageUrl: "", cta: "", ...over };
 }
 export function newDraft(): CampaignDraft {
   return {
@@ -122,7 +124,7 @@ export function normalizeDraft(raw: unknown): CampaignDraft {
     if (!ids.has(adSetId)) return [];
     return [newAd(adSetId, {
       id: str(a.id, 80) || newId(), name: str(a.name, 200), pageId: str(a.pageId, 40), instagramId: str(a.instagramId, 40),
-      primaryText: str(a.primaryText, 2000), headline: str(a.headline, 200), description: str(a.description, 400), link: str(a.link, 2000),
+      primaryText: str(a.primaryText, 2000), headline: str(a.headline, 200), description: str(a.description, 400), link: str(a.link, 2000), imageUrl: str(a.imageUrl, 2000),
       cta: oneOf(a.cta, ctas),
     })];
   });

@@ -10,6 +10,7 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
   if (url.includes("/functions/v1/meta-builder")) {
     const b = parse();
     (db.metaBuilder.calls ??= []).push(b);
+    const isAdminOrPerm = () => role === "admin" || Boolean(db.builderPerms[userId]?.publicar);
     if (!["admin", "gestor", "operador"].includes(role)) return res(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para usar o Criar Campanhas." } });
     if (b.action === "account_lists") {
       return res(200, { data: db.metaBuilder.lists ?? { pixels: [{ id: "111222333", name: "Pixel da loja" }], customAudiences: [{ id: "9001", name: "Clientes que compraram", detail: "CUSTOM" }], savedAudiences: [{ id: "9002", name: "Mulheres 25-40 SP" }], failed: [] } });
@@ -17,7 +18,40 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
     if (b.action === "validate") {
       return res(200, { data: { ...(db.metaBuilder.validation ?? { ok: true, message: null, code: null, subcode: null, permission: false }), scope: "campaign" } });
     }
+    if (b.action === "publish") {
+      const can = isAdminOrPerm();
+      if (!can) return res(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para publicar no Meta." } });
+      const d = db.builderDrafts.find((x) => x.id === b.draftId);
+      if (!d) return res(404, { error: { code: "NOT_FOUND", message: "Rascunho não encontrado ou sem acesso." } });
+      db.metaBuilder.ops ??= [];
+      const same = db.metaBuilder.ops.find((o) => o.operation_key === b.operationKey);
+      if (same) return res(200, { data: { operation: { id: same.id, status: same.status }, repeated: true } });
+      if (db.metaBuilder.ops.some((o) => o.draft_id === b.draftId && ["concluida", "parcial"].includes(o.status))) {
+        return res(400, { error: { code: "INVALID_STATE", message: "Este rascunho já foi publicado. Confira no Gerenciador de Anúncios; para publicar de novo, duplique o rascunho." } });
+      }
+      const data = d.data ?? {};
+      const names = [{ kind: "campanha", name: data.campaign?.name ?? "" }];
+      for (const s of data.adSets ?? []) names.push({ kind: "conjunto", name: s.name });
+      for (const a of data.ads ?? []) { names.push({ kind: "criativo", name: a.name }); names.push({ kind: "anuncio", name: a.name }); }
+      const fail = db.metaBuilder.publishFail; // { position, message }
+      let stopped = false;
+      const items = names.map((n, i) => {
+        if (stopped) return { ...n, position: i, local_id: String(i), status: "pulado", meta_id: null, confirmed: false, effective_status: null, error_code: null, error_message: null };
+        if (fail && fail.position === i) { stopped = true; return { ...n, position: i, local_id: String(i), status: "falhou", meta_id: null, confirmed: false, effective_status: null, error_code: 100, error_message: fail.message }; }
+        return { ...n, position: i, local_id: String(i), status: "criado", meta_id: String(1000 + i), confirmed: true, effective_status: "PAUSED", error_code: null, error_message: null };
+      });
+      const made = items.filter((i) => i.status === "criado").length;
+      const status = made === 0 ? "falhou" : made === items.length ? "concluida" : "parcial";
+      const op = { id: `op-${db.metaBuilder.ops.length + 1}`, draft_id: b.draftId, operation_key: b.operationKey, status, summary: { campanhas: 1, conjuntos: (data.adSets ?? []).length, anuncios: (data.ads ?? []).length },
+        error_message: null, created_at: new Date().toISOString(), finished_at: new Date().toISOString(), publish_items: items };
+      db.metaBuilder.ops.unshift(op);
+      return res(200, { data: { operation: { id: op.id, status }, repeated: false } });
+    }
     return res(400, { error: { code: "INVALID_INPUT", message: "Pedido inválido." } });
+  }
+  if (url.includes("/rest/v1/publish_operations")) {
+    const draftId = new URL(url, "http://x").searchParams.get("draft_id")?.replace("eq.", "");
+    return res(200, (db.metaBuilder.ops ?? []).filter((o) => !draftId || o.draft_id === draftId));
   }
   if (!url.includes("/rest/v1/rpc/builder_")) return null;
   const rpc = (fn) => url.includes(`/rest/v1/rpc/${fn}`) && !url.includes(`/rest/v1/rpc/${fn}_`);
