@@ -3,7 +3,7 @@ import {
   type DraftAd, type DraftAdSet, duplicateAdSet, GOAL_LABELS, GOALS_BY_OBJECTIVE, newAd, newAdSet, normalizeDraft, OBJECTIVE_LABELS, type ObjectiveId,
   removeAdSet, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES,
 } from "@backstage/shared";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, Plus, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, Plus, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { useAccountAssets } from "@/features/ads-builder/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
-import { saveDraftData, useBuilderDraft, useBuilderPermissions, useDraftAccount } from "./api.ts";
+import { type AccountLists, saveDraftData, useAccountLists, useBuilderDraft, useBuilderPermissions, useDraftAccount, useValidateDraft } from "./api.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
 import { toast } from "@/lib/toastStore.ts";
 
@@ -88,8 +88,8 @@ function AdForm({ ad, pages, instas, disabled, onChange, onRemove }: {
   );
 }
 
-function AdSetCard({ draft, set, disabled, pages, instas, currency, onChange, onDuplicate, onRemove, onAddAd, onAdChange, onAdRemove }: {
-  draft: CampaignDraft; set: DraftAdSet; disabled: boolean; pages: { id: string; name: string }[]; instas: { id: string; name: string }[]; currency: string;
+function AdSetCard({ draft, set, disabled, pages, instas, currency, lists, onChange, onDuplicate, onRemove, onAddAd, onAdChange, onAdRemove }: {
+  draft: CampaignDraft; set: DraftAdSet; disabled: boolean; pages: { id: string; name: string }[]; instas: { id: string; name: string }[]; currency: string; lists: AccountLists | undefined;
   onChange: (s: DraftAdSet) => void; onDuplicate: () => void; onRemove: () => void; onAddAd: () => void; onAdChange: (a: DraftAd) => void; onAdRemove: (id: string) => void;
 }) {
   const objective = draft.campaign.objective;
@@ -137,7 +137,16 @@ function AdSetCard({ draft, set, disabled, pages, instas, currency, onChange, on
       </div>
       {need && (
         <div className="grid gap-3 rounded-xl bg-amber-50 p-3 sm:grid-cols-3">
-          {need.pixel && <Field label="Pixel (ID)">{(id) => <Input id={id} value={set.pixelId} disabled={disabled} maxLength={40} onChange={(e) => patch({ pixelId: e.target.value })} />}</Field>}
+          {need.pixel && (
+            <Field label={lists?.pixels.length ? "Pixel" : "Pixel (ID)"}>
+              {(id) => lists?.pixels.length ? (
+                <Select id={id} value={set.pixelId} disabled={disabled} onChange={(e) => patch({ pixelId: e.target.value })}>
+                  <option value="">Escolha...</option>
+                  {lists.pixels.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.id})</option>)}
+                </Select>
+              ) : <Input id={id} value={set.pixelId} disabled={disabled} maxLength={40} onChange={(e) => patch({ pixelId: e.target.value })} />}
+            </Field>
+          )}
           {need.customEvent && (
             <Field label="Evento de conversão">
               {(id) => (
@@ -183,7 +192,22 @@ function AdSetCard({ draft, set, disabled, pages, instas, currency, onChange, on
             )}
           </Field>
         </div>
-        <p className="text-xs text-slate-500">Posicionamentos: automáticos (o Meta escolhe). Públicos salvos, interesses e locais detalhados entram numa próxima fase.</p>
+        {lists && (lists.customAudiences.length > 0 || lists.savedAudiences.length > 0) && (
+          <fieldset className="space-y-1.5" data-testid="cb-publicos">
+            <legend className="text-sm font-medium text-slate-700">Públicos da conta (opcional)</legend>
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl bg-slate-50 p-2.5">
+              {[...lists.customAudiences.map((a) => ({ ...a, kind: "Personalizado" })), ...lists.savedAudiences.map((a) => ({ ...a, kind: "Salvo" }))].map((a) => (
+                <label key={a.id} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" disabled={disabled} checked={set.audienceIds.includes(a.id)}
+                    onChange={(e) => patch({ audienceIds: e.target.checked ? [...set.audienceIds, a.id] : set.audienceIds.filter((x) => x !== a.id) })} />
+                  <span className="min-w-0 flex-1 truncate">{a.name}</span>
+                  <span className="text-xs text-slate-400">{a.kind}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+        <p className="text-xs text-slate-500">Posicionamentos: automáticos (o Meta escolhe). Interesses e locais detalhados entram numa próxima fase.</p>
       </div>
       <div className="space-y-3">
         {ads.map((a) => <AdForm key={a.id} ad={a} pages={pages} instas={instas} disabled={disabled} onChange={onAdChange} onRemove={() => onAdRemove(a.id)} />)}
@@ -193,7 +217,7 @@ function AdSetCard({ draft, set, disabled, pages, instas, currency, onChange, on
   );
 }
 
-function ChecklistPanel({ items }: { items: CheckItem[] }) {
+function ChecklistPanel({ items, validate }: { items: CheckItem[]; validate?: ReactNode }) {
   const s = checkSummary(items);
   return (
     <Card className="space-y-3 p-4" data-testid="cb-checklist">
@@ -211,8 +235,9 @@ function ChecklistPanel({ items }: { items: CheckItem[] }) {
           </li>
         ))}
       </ul>
+      {validate}
       <p className="border-t border-slate-100 pt-2 text-xs text-slate-500">
-        As regras de combinação seguem o catálogo da API {CATALOG_VERSION}. O Meta ainda confirma tudo no <strong>Validar</strong>, que chega no próximo passo. Nada é criado no Meta.
+        As regras de combinação seguem o catálogo da API {CATALOG_VERSION}. O <strong>Validar com o Meta</strong> confere só a campanha; os conjuntos e os anúncios o Meta confere na hora de publicar. Nada é criado no Meta.
       </p>
     </Card>
   );
@@ -224,6 +249,8 @@ export function DraftEditorPage() {
   const loaded = useBuilderDraft(id);
   const account = useDraftAccount(loaded.data?.ad_account_id);
   const assets = useAccountAssets(loaded.data?.ad_account_id ?? null);
+  const accountLists = useAccountLists(loaded.data?.ad_account_id);
+  const validate = useValidateDraft();
   const [name, setName] = useState("");
   const [draft, setDraft] = useState<CampaignDraft | null>(null);
   const [state, setState] = useState<SaveState>("salvo");
@@ -388,6 +415,7 @@ export function DraftEditorPage() {
                 pages={pages}
                 instas={instas}
                 currency={currency}
+                lists={accountLists.data}
                 onChange={(n) => change({ ...draft, adSets: draft.adSets.map((x) => (x.id === n.id ? n : x)) })}
                 onDuplicate={() => change(duplicateAdSet(draft, s.id))}
                 onRemove={async () => { if ((await confirmar("Remover este conjunto e os anúncios dele do rascunho?"))) { change(removeAdSet(draft, s.id)); toast.success("Conjunto removido do rascunho."); } }}
@@ -405,7 +433,30 @@ export function DraftEditorPage() {
             <Textarea aria-label="JSON avançado" rows={6} className="mt-2 font-mono text-xs" value={draft.advancedJson} disabled={disabled} onChange={(e) => change({ ...draft, advancedJson: e.target.value })} />
           </details>
         </div>
-        <aside className="lg:sticky lg:top-4 lg:self-start"><ChecklistPanel items={items} /></aside>
+        <aside className="lg:sticky lg:top-4 lg:self-start space-y-3">
+          <ChecklistPanel items={items} validate={canEdit ? (
+            <div className="space-y-2 border-t border-slate-100 pt-3" data-testid="cb-validar">
+              <Button variant="secondary" className="w-full" loading={validate.isPending} disabled={state === "conflito" || !loaded.data?.ad_account_id}
+                onClick={async () => { if (!id) return; await flush(); validate.mutate(id); }}>
+                <ShieldCheck className="size-4" aria-hidden /> Validar com o Meta
+              </Button>
+              {!loaded.data?.ad_account_id && <p className="text-xs text-slate-500">Este rascunho não tem conta de anúncio escolhida.</p>}
+              {validate.error && <Alert tone="error">{errorMessage(validate.error)}</Alert>}
+              {validate.data?.ok && <Alert tone="success"><span data-testid="cb-validou-ok">O Meta aceitou a campanha. Nada foi criado.</span></Alert>}
+              {validate.data && !validate.data.ok && (
+                <Alert tone="error">
+                  <span data-testid="cb-validou-erro">
+                    {validate.data.permission ? "O token do Meta não tem permissão para criar campanhas (ads_management). " : "O Meta recusou a campanha: "}
+                    {validate.data.message}
+                  </span>
+                </Alert>
+              )}
+            </div>
+          ) : undefined} />
+          {accountLists.data && accountLists.data.failed.length > 0 && (
+            <Alert tone="warning">Não consegui ler {accountLists.data.failed.map((f) => ({ pixels: "os pixels", customAudiences: "os públicos personalizados", savedAudiences: "os públicos salvos" })[f]).join(", ")} da conta no Meta. Confira as permissões do token.</Alert>
+          )}
+        </aside>
       </div>
     </div>
   );

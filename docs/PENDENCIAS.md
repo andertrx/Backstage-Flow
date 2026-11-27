@@ -135,6 +135,13 @@
 - [x] (Feito em 16/11/2026) **Account Manager** conecta o WhatsApp dos clientes dele por um cartão na ficha do Onboarding, sem abrir o Tracking. Ele não cadastra o número: isso continua com administrador e gestor.
 - [ ] No primeiro teste real (Acollar): ter o **celular do cliente na mão** para ler o QR Code, e confirmar que o servidor de WhatsApp aceita mais um chip.
 
+## Criador de campanhas direto no Meta (27/11/2026)
+- [x] Decisões do Ander: criativos pelo **Google Drive** (conta de serviço, só leitura); token do Meta com `ads_management` já concedido (informado pelo Ander).
+- [x] **Fase A pronta** (função `meta-builder` v1): pixel e públicos da conta e "Validar com o Meta" (só a campanha). Ver `docs/etapa-35-campaign-builder/35.3-FASE-A-LISTAS-E-VALIDAR.md`.
+- [ ] **Teste real da Fase A:** abrir um rascunho de uma conta real e clicar em "Validar com o Meta"; me dizer o que apareceu (ok, recusa ou falta de permissão). Conferir se pixels e públicos aparecem.
+- [ ] **Fase B (publicar, sempre Pausada):** aguardando "Pode avançar". Antes, escolher a **conta de teste** para a primeira publicação.
+- [ ] **Fase C (Drive):** no Google Cloud, ativar a Drive API, criar/reaproveitar a conta de serviço, colar a chave só no campo do CRM e compartilhar a pasta raiz dos criativos com o e-mail dela (Leitor). Sugestão: adicionar mais uma pessoa como Proprietário do projeto.
+
 ## Fase C do WhatsApp por cliente, Criador e limpeza (21/11/2026)
 - [x] (Feito em 27/11/2026: **8 verificações OK de 8**, tudo desfeito no final.) **Rodar o teste SQL da Fase C** (`supabase/tests/wa_saude_clientes.sql`).
 - [x] (Feito em 27/11/2026: migration `20261127182033_limpeza_fila_e_log_do_meta`, o arquivo saiu de `pendente/` para `supabase/migrations/`; na hora não havia nenhuma linha com mais de 90 dias para apagar.) **Aplicar a limpeza técnica do banco** (`limpeza_fila_e_log_do_meta.sql`): apaga só dados técnicos com mais de 90 dias (fila e registro de chamadas ao Meta já enviados/descartados; nunca compras, vendas, contatos, conversas, leads nem eventos do site). Aplicar como migração `limpeza_fila_e_log_do_meta` (e então mover o arquivo para `supabase/migrations/`). Se o Ander decidir não aplicar, apagar o arquivo.

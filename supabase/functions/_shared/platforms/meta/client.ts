@@ -123,3 +123,28 @@ export async function graphGetAll<T>(path: string, params: Params, token: string
   if (url) throw new AppError(502, "PLATFORM_UNAVAILABLE", "A conta tem mais dados do que conseguimos buscar de uma vez. Tente novamente mais tarde.", { path, pages: MAX_PAGES });
   return items;
 }
+
+/**
+ * POST na Graph API devolvendo a resposta CRUA (status + corpo), sem traduzir o erro: quem chama decide.
+ * Usado pelo Campaign Builder para o "validate_only" (o Meta responde com o motivo exato da recusa). O token vai no corpo, nunca em log.
+ */
+export async function graphPostRaw(
+  path: string,
+  fields: Record<string, string>,
+  token: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ status: number; body: Record<string, unknown> & MetaErrorBody }> {
+  const url = graphUrl(path);
+  const form = new URLSearchParams(fields);
+  form.set("access_token", token);
+  const secret = appSecret();
+  if (secret) form.set("appsecret_proof", await appSecretProof(token, secret));
+  let response: Response;
+  try {
+    response = await fetchImpl(url, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" }, body: form });
+  } catch (err) {
+    throw new AppError(502, "PLATFORM_UNAVAILABLE", "Não conseguimos falar com o Meta agora. Tente novamente em instantes.", err);
+  }
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown> & MetaErrorBody;
+  return { status: response.status, body };
+}

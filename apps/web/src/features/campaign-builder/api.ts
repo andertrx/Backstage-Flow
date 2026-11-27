@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FriendlyError, friendlyDbError } from "@/lib/errors.ts";
+import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
 
 // ---------------------------------------------------------------------------
@@ -170,6 +170,50 @@ export function useDraftAccount(accountId: string | null | undefined) {
       const { data, error } = await supabase.from("ad_accounts").select("id, name, currency, external_id").eq("id", accountId!).maybeSingle();
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar a conta."));
       return data as { id: string; name: string; currency: string; external_id: string } | null;
+    },
+  });
+}
+
+export interface AccountListItem { id: string; name: string; detail?: string }
+export interface AccountLists {
+  pixels: AccountListItem[];
+  customAudiences: AccountListItem[];
+  savedAudiences: AccountListItem[];
+  /** Listas que o Meta não devolveu (ex.: falta de permissão): a tela avisa em vez de mostrar "vazio". */
+  failed: ("pixels" | "customAudiences" | "savedAudiences")[];
+}
+
+/** Pixels e públicos da conta de anúncio, lidos do Meta pelo servidor (só leitura). */
+export function useAccountLists(adAccountId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...KEY, "listas", adAccountId],
+    enabled: !!adAccountId,
+    staleTime: 5 * 60_000,
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("meta-builder", { body: { action: "account_lists", adAccountId } });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      return (data as { data: AccountLists }).data;
+    },
+  });
+}
+
+export interface DraftValidation {
+  ok: boolean;
+  message: string | null;
+  code: number | null;
+  subcode: number | null;
+  permission: boolean;
+  scope: "campaign";
+}
+
+/** Pergunta ao Meta se a campanha do rascunho seria aceita (sem criar nada). O rascunho precisa estar salvo. */
+export function useValidateDraft() {
+  return useMutation({
+    mutationFn: async (draftId: string) => {
+      const { data, error } = await supabase.functions.invoke("meta-builder", { body: { action: "validate", draftId } });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      return (data as { data: DraftValidation }).data;
     },
   });
 }

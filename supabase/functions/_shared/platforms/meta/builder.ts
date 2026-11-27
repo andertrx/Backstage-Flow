@@ -1,0 +1,108 @@
+/**
+ * Campaign Builder (Fase A): leituras da conta de anúncio e a VALIDAÇÃO da campanha no Meta.
+ * Nada aqui cria ou altera algo no Meta: as leituras são GET e a validação usa `execution_options=["validate_only"]`
+ * (o Meta confere a campanha e responde sem criar).
+ */
+import { graphGetAll, graphPostRaw, type MetaErrorBody } from "./client.ts";
+
+export interface ListItem {
+  id: string;
+  name: string;
+  detail?: string;
+}
+
+export interface AccountLists {
+  pixels: ListItem[];
+  customAudiences: ListItem[];
+  savedAudiences: ListItem[];
+  /** Listas que o Meta não devolveu (falta de permissão, por exemplo): a tela avisa em vez de fingir que está vazio. */
+  failed: ("pixels" | "customAudiences" | "savedAudiences")[];
+}
+
+const act = (externalId: string) => `act_${externalId.replace(/^act_/, "")}`;
+const text = (v: unknown, max = 200) => (typeof v === "string" ? v.slice(0, max) : "");
+
+/** Pixels, públicos personalizados e públicos salvos da conta (só id e nome). Uma lista que falha não derruba as outras. */
+export async function fetchAccountLists(token: string, externalId: string, fetchImpl: typeof fetch = fetch): Promise<AccountLists> {
+  const base = act(externalId);
+  const failed: AccountLists["failed"] = [];
+  const get = async <T>(key: AccountLists["failed"][number], path: string, fields: string): Promise<T[]> => {
+    try {
+      return await graphGetAll<T>(`${base}/${path}`, { fields, limit: "200" }, token, fetchImpl);
+    } catch {
+      failed.push(key);
+      return [];
+    }
+  };
+  const [pixels, custom, saved] = await Promise.all([
+    get<{ id?: string; name?: string }>("pixels", "adspixels", "id,name"),
+    get<{ id?: string; name?: string; subtype?: string; approximate_count_lower_bound?: number }>("customAudiences", "customaudiences", "id,name,subtype,approximate_count_lower_bound"),
+    get<{ id?: string; name?: string }>("savedAudiences", "saved_audiences", "id,name"),
+  ]);
+  const clean = (list: { id?: string; name?: string; subtype?: string }[]): ListItem[] =>
+    list.filter((x) => x.id).map((x) => ({ id: text(x.id, 40), name: text(x.name) || text(x.id, 40), ...(x.subtype ? { detail: text(x.subtype, 40) } : {}) }))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  return { pixels: clean(pixels), customAudiences: clean(custom), savedAudiences: clean(saved), failed };
+}
+
+/** Moedas sem centavos na Marketing API (o valor já é a unidade inteira). Demais: 100 (centavos). */
+const ZERO_DECIMAL = new Set(["JPY", "KRW", "CLP", "VND", "ISK", "HUF", "TWD", "UGX", "PYG"]);
+export function currencyOffset(currency: string): number {
+  return ZERO_DECIMAL.has(currency.toUpperCase()) ? 1 : 100;
+}
+
+export interface CampaignInput {
+  name: string;
+  objective: string;
+  specialAdCategories: string[];
+  budgetLevel: "campaign" | "adset";
+  budgetType: "daily" | "lifetime";
+  budgetAmount: number | null;
+}
+
+/** Campos da campanha no formato do Meta. O status é SEMPRE o informado (a validação usa PAUSED). Valor em unidades da moeda → menores unidades. */
+export function buildCampaignFields(c: CampaignInput, currency: string, status: "PAUSED" | "ACTIVE"): Record<string, string> {
+  const f: Record<string, string> = {
+    name: c.name,
+    objective: c.objective,
+    status,
+    special_ad_categories: JSON.stringify(c.specialAdCategories.length ? c.specialAdCategories : []),
+  };
+  if (c.budgetLevel === "campaign" && c.budgetAmount && c.budgetAmount > 0) {
+    f[c.budgetType === "lifetime" ? "lifetime_budget" : "daily_budget"] = String(Math.round(c.budgetAmount * currencyOffset(currency)));
+    f.bid_strategy = "LOWEST_COST_WITHOUT_CAP";
+  } else {
+    // Sem orçamento na campanha: o Meta exige dizer que o orçamento não é compartilhado entre os conjuntos.
+    f.is_adset_budget_sharing_enabled = "false";
+  }
+  return f;
+}
+
+export interface ValidationResult {
+  ok: boolean;
+  /** Mensagem do Meta em linguagem dele (já sem token): o que ele recusou. */
+  message: string | null;
+  code: number | null;
+  subcode: number | null;
+  /** O token não tem permissão de criar/alterar (ads_management)? */
+  permission: boolean;
+}
+
+/**
+ * Pergunta ao Meta se a campanha seria aceita, SEM criar (`validate_only`).
+ * Sucesso do Meta: `{"success": true}`. Recusa: objeto `error` com a mensagem e o motivo.
+ */
+export async function validateCampaign(token: string, externalId: string, fields: Record<string, string>, fetchImpl: typeof fetch = fetch): Promise<ValidationResult> {
+  const { status, body } = await graphPostRaw(`${act(externalId)}/campaigns`, { ...fields, execution_options: JSON.stringify(["validate_only"]) }, token, fetchImpl);
+  const err = (body as MetaErrorBody).error as (MetaErrorBody["error"] & { error_user_title?: string; error_user_msg?: string }) | undefined;
+  if (status < 400 && !err) return { ok: true, message: null, code: null, subcode: null, permission: false };
+  const code = err?.code ?? null;
+  const user = [err?.error_user_title, err?.error_user_msg].filter(Boolean).join(": ");
+  return {
+    ok: false,
+    message: (user || err?.message || "O Meta recusou a campanha sem dar o motivo.").slice(0, 600),
+    code,
+    subcode: err?.error_subcode ?? null,
+    permission: code === 10 || code === 200 || (code !== null && code >= 200 && code <= 299),
+  };
+}

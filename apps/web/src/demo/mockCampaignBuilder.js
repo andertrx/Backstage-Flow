@@ -2,10 +2,23 @@
 const findSecret = (text) => /EAA[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.|(senha|password|token|secret|api[_-]?key)\s*[:=]\s*\S{4,}/i.test(text);
 
 export function seedCampaignBuilder() {
-  return { builderPerms: {}, builderDrafts: [] };
+  return { builderPerms: {}, builderDrafts: [], metaBuilder: {} };
 }
 
 export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
+  // Edge Function meta-builder (Fase A): listas da conta e validação da campanha. Os testes ajustam db.metaBuilder.{lists,validation,calls}.
+  if (url.includes("/functions/v1/meta-builder")) {
+    const b = parse();
+    (db.metaBuilder.calls ??= []).push(b);
+    if (!["admin", "gestor", "operador"].includes(role)) return res(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para usar o Criar Campanhas." } });
+    if (b.action === "account_lists") {
+      return res(200, { data: db.metaBuilder.lists ?? { pixels: [{ id: "111222333", name: "Pixel da loja" }], customAudiences: [{ id: "9001", name: "Clientes que compraram", detail: "CUSTOM" }], savedAudiences: [{ id: "9002", name: "Mulheres 25-40 SP" }], failed: [] } });
+    }
+    if (b.action === "validate") {
+      return res(200, { data: { ...(db.metaBuilder.validation ?? { ok: true, message: null, code: null, subcode: null, permission: false }), scope: "campaign" } });
+    }
+    return res(400, { error: { code: "INVALID_INPUT", message: "Pedido inválido." } });
+  }
   if (!url.includes("/rest/v1/rpc/builder_")) return null;
   const rpc = (fn) => url.includes(`/rest/v1/rpc/${fn}`) && !url.includes(`/rest/v1/rpc/${fn}_`);
   const p = parse();

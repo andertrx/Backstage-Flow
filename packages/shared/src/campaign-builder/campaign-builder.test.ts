@@ -130,3 +130,19 @@ describe("Campaign Builder — rascunho", () => {
     expect(n.ads).toHaveLength(1);
   });
 });
+
+describe("públicos do conjunto (Fase A)", () => {
+  it("guarda só ids numéricos de públicos e ignora lixo", () => {
+    const d = normalizeDraft({ adSets: [{ id: "s1", audienceIds: ["9001", "abc", 5, "9002", "9001; drop"] }] });
+    expect(d.adSets[0].audienceIds).toEqual(["9001", "9002"]);
+  });
+  it("rascunho antigo, sem públicos, abre com lista vazia", () => {
+    expect(normalizeDraft({ adSets: [{ id: "s1" }] }).adSets[0].audienceIds).toEqual([]);
+  });
+  it("duplicar o conjunto leva os públicos junto", () => {
+    const d = normalizeDraft({ adSets: [{ id: "s1", audienceIds: ["9001"] }] });
+    const dup = duplicateAdSet(d, "s1");
+    expect(dup.adSets[1].audienceIds).toEqual(["9001"]);
+  });
+});
+

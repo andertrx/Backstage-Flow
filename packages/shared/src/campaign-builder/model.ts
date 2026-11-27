@@ -34,6 +34,8 @@ export interface DraftAdSet {
   ageMax: number;
   gender: "all" | "male" | "female";
   pixelId: string;
+  /** Públicos (personalizados ou salvos) da conta, escolhidos na lista que o Meta devolve. */
+  audienceIds: string[];
   customEvent: CustomEvent | "";
   pageId: string;
 }
@@ -63,7 +65,7 @@ const newId = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUI
 export function newAdSet(over: Partial<DraftAdSet> = {}): DraftAdSet {
   return {
     id: newId(), name: "", optimizationGoal: "", billingEvent: "", budgetAmount: null, startDate: "", endDate: "", countries: ["BR"],
-    ageMin: SPECIAL_AGE_MIN, ageMax: SPECIAL_AGE_MAX, gender: "all", pixelId: "", customEvent: "", pageId: "", ...over,
+    ageMin: SPECIAL_AGE_MIN, ageMax: SPECIAL_AGE_MAX, gender: "all", pixelId: "", audienceIds: [], customEvent: "", pageId: "", ...over,
   };
 }
 export function newAd(adSetId: string, over: Partial<DraftAd> = {}): DraftAd {
@@ -108,6 +110,7 @@ export function normalizeDraft(raw: unknown): CampaignDraft {
       countries: Array.isArray(s.countries) ? s.countries.filter((k): k is string => typeof k === "string" && /^[A-Z]{2}$/.test(k)).slice(0, 30) : ["BR"],
       ageMin: typeof s.ageMin === "number" ? s.ageMin : SPECIAL_AGE_MIN, ageMax: typeof s.ageMax === "number" ? s.ageMax : SPECIAL_AGE_MAX,
       gender: s.gender === "male" || s.gender === "female" ? s.gender : "all", pixelId: str(s.pixelId, 40),
+      audienceIds: Array.isArray(s.audienceIds) ? s.audienceIds.filter((k): k is string => typeof k === "string" && /^\d{1,40}$/.test(k)).slice(0, 50) : [],
       customEvent: oneOf(s.customEvent, CUSTOM_EVENTS), pageId: str(s.pageId, 40),
     });
   });

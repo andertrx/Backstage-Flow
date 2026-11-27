@@ -23,6 +23,8 @@ export const RATE_LIMITS = {
   "wa.gateway": { max: 60, windowSeconds: 600 },
   // QR/código por cliente: a tela confere a conexão a cada 3 s enquanto está aberta (até ~200 por 10 min), então o limite é maior.
   "wa.instance": { max: 600, windowSeconds: 600 },
+  // Campaign Builder: listas da conta e validação com o Meta (cada uma chama a Graph API).
+  "builder.meta": { max: 120, windowSeconds: 600 },
   "google.agenda": { max: 40, windowSeconds: 600 },
   "sheets.read": { max: 60, windowSeconds: 600 },
 } as const satisfies Record<string, RateRule>;

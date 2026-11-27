@@ -84,7 +84,26 @@ await page.getByLabel("Crédito").uncheck();
 await page.getByTestId("cb-avancado").locator("summary").click();
 await page.getByLabel("JSON avançado").fill("{ quebrado");
 check(await checklist.getByText("JSON válido", { exact: false }).isVisible(), "JSON avançado inválido é cobrado");
-check((await page.getByRole("button", { name: /^Validar|^Simular|^Publicar/ }).count()) === 0, "não há botão de validar/publicar ainda (nada de botão de mentira)");
+check((await page.getByRole("button", { name: /^Simular|^Publicar/ }).count()) === 0, "não há botão de simular/publicar ainda (nada de botão de mentira)");
+
+// Fase A: públicos da conta (lidos do Meta) e Validar com o Meta (só a campanha, sem criar nada)
+const firstSet = page.getByTestId("cb-conjunto").first();
+await firstSet.getByTestId("cb-publicos").waitFor();
+check((await firstSet.getByTestId("cb-publicos").getByText("Clientes que compraram").count()) === 1, "mostra os públicos da conta devolvidos pelo Meta");
+await firstSet.getByTestId("cb-publicos").getByLabel(/Clientes que compraram/).check();
+await page.getByRole("button", { name: "Validar com o Meta" }).click();
+await page.getByTestId("cb-validou-ok").waitFor();
+check(db.metaBuilder.calls.some((c) => c.action === "validate" && c.draftId === draft.id), "Validar manda o rascunho para o servidor (que pergunta ao Meta)");
+check(db.builderDrafts[0].data.adSets[0].audienceIds.includes("9001"), "o público escolhido foi salvo no rascunho antes de validar");
+db.metaBuilder.validation = { ok: false, message: "Objetivo inválido: escolha outro.", code: 100, subcode: 1, permission: false };
+await page.getByRole("button", { name: "Validar com o Meta" }).click();
+await page.getByTestId("cb-validou-erro").waitFor();
+check((await page.getByTestId("cb-validou-erro").innerText()).includes("Objetivo inválido"), "recusa do Meta aparece com o motivo dele");
+db.metaBuilder.validation = { ok: false, message: "(#200) Requires ads_management", code: 200, subcode: null, permission: true };
+await page.getByRole("button", { name: "Validar com o Meta" }).click();
+await page.getByText("não tem permissão para criar campanhas", { exact: false }).waitFor();
+check(true, "token sem permissão de criar é explicado");
+
 
 check(errors.length === 0, "sem erros no navegador");
 await browser.close();
