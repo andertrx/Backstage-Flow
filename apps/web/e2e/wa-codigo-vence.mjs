@@ -29,6 +29,7 @@ const r0 = await page.getByTestId("wa-code-restante").innerText();
 check(/Vence em\s*(1:5\d|2:00)/.test(r0) && r0.includes("estimativa"), `logo depois de gerar mostra o contador (${r0})`);
 check(await page.getByTestId("wa-code-vencido").count() === 0, "ainda não aparece o aviso de vencido");
 
+check(await page.getByTestId("wa-numero-nao-conferido").count() === 1, "sem outro WhatsApp conectado: avisa que não deu para conferir o número");
 await page.clock.fastForward(60_000);
 const r1 = await page.getByTestId("wa-code-restante").innerText();
 check(/Vence em\s*(0:5\d|1:00)/.test(r1), `1 minuto depois o contador desceu (${r1})`);

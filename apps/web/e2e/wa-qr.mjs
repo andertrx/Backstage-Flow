@@ -82,6 +82,12 @@ async function openModal(page) {
   await qr.getByRole("button", { name: "Tentar com o 9" }).click();
   await qr.getByTestId("wa-qr-code").waitFor();
   check(db.waInst.numbers.at(-1) === "81995067876", "o botão 'Tentar com o 9' pede o código para o número com o 9");
+  // Número conferido no WhatsApp: mostra a confirmação e some o botão de tentar com/sem o 9
+  db.waInst.numberCheck = "confirmado";
+  await qr.getByRole("button", { name: /Gerar (outro )?código/ }).click();
+  await qr.getByTestId("wa-numero-confirmado").waitFor();
+  check((await qr.getByRole("button", { name: /Tentar (com|sem) o 9/ }).count()) === 0, "número conferido: não precisa do botão 'Tentar com/sem o 9'");
+  db.waInst.numberCheck = undefined;
   // Servidor que não devolve o código: avisa (e a pessoa pode usar o QR na outra aba)
   db.waInst.noCode = true;
   await qr.getByRole("button", { name: /Gerar (outro )?código/ }).click();

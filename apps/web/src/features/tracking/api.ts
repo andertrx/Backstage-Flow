@@ -1160,6 +1160,8 @@ export interface WaInstanceConnect {
   pairingCode?: string | null;
   /** Número (com 55 e DDD) para o qual o código foi gerado. */
   pairingNumber?: string | null;
+  /** Conferência do número no WhatsApp antes do código (27/11/2026). */
+  numberCheck?: "confirmado" | "nao_existe" | "indisponivel" | null;
   /** O servidor aceitou o aviso automático? Se não, as mensagens não chegam ao CRM. */
   webhookOk: boolean;
   message: string | null;

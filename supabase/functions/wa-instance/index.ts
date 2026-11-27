@@ -56,6 +56,11 @@ function depsFor(db: SupabaseClient, base: { baseUrl: string; key: string }, use
         throw new GatewayFailure(unsafe ? 400 : 502, unsafe ? "O endereço do servidor não é seguro. Use https:// com um domínio." : gatewayProblem("sem_conexao"));
       }
     },
+    async helper(exclude) {
+      const { data } = await db.from("tracking_whatsapp_connections").select("instance_name")
+        .eq("mode", "nao_oficial").eq("gateway_state", "conectado").not("instance_name", "is", null).neq("instance_name", exclude).limit(1);
+      return (data?.[0] as { instance_name: string } | undefined)?.instance_name ?? null;
+    },
     async prepare() {
       const { data, error } = await db.rpc("wa_instance_prepare", { p_user: userId, p_connection: connectionId });
       if (error) throw dbFail(error, "Não conseguimos preparar a conexão.");

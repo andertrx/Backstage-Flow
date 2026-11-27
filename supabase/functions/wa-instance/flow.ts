@@ -19,6 +19,8 @@ export interface Deps {
   inboundUrl: string;
   /** Mensagem amigável para um erro HTTP do servidor. */
   problem(status: number): string;
+  /** Instância de OUTRO cliente que já está conectada (diferente de `exclude`): serve só para perguntar ao WhatsApp como o número está registrado. */
+  helper?(exclude: string): Promise<string | null>;
   /** Espera (injetável para os testes não esperarem de verdade). */
   wait(ms: number): Promise<void>;
 }
@@ -31,6 +33,8 @@ export interface ConnectResult {
   /** Número (com 55 e DDD) para o qual o código foi gerado: pode ser a forma com ou sem o 9, quando o servidor recusa a primeira. */
   pairingNumber: string | null;
 
+  /** Conferência do número no WhatsApp antes de gerar o código: confirmado (usou o formato registrado), nao_existe, ou indisponivel (nenhum WhatsApp conectado para perguntar). */
+  numberCheck?: "confirmado" | "nao_existe" | "indisponivel" | null;
   /** O servidor aceitou o aviso automático? Se não, as mensagens não chegam ao CRM. */
   webhookOk: boolean;
   message: string | null;
@@ -73,6 +77,29 @@ function logStep(passo: string, extra: Record<string, unknown> = {}) {
   console.log(JSON.stringify({ wa_instance: passo, ...extra }));
 }
 
+/**
+ * 27/11/2026: pergunta ao próprio WhatsApp como o número está registrado (com ou sem o 9), usando a conexão de outro cliente que já está ligada.
+ * Se der para saber, o código sai com o formato certo e ninguém precisa tentar "com/sem o 9". Se não der (ninguém conectado, servidor não responde), segue com o número digitado.
+ */
+export async function conferirNumero(d: Deps, number: string, instance: string): Promise<{ number: string; check: "confirmado" | "nao_existe" | "indisponivel" }> {
+  try {
+    const helper = d.helper ? await d.helper(instance) : null;
+    if (!helper) return { number, check: "indisponivel" };
+    const alt = altBrNumber(number);
+    const r = await d.gw(helper, "POST", "/chat/whatsappNumbers/{instance}", { body: { numbers: alt ? [number, alt] : [number] } });
+    if (r.status >= 400 || !Array.isArray(r.body)) return { number, check: "indisponivel" };
+    const items = r.body as Array<{ exists?: unknown; jid?: unknown }>;
+    for (const it of items) {
+      if (it?.exists !== true) continue;
+      const m = typeof it.jid === "string" ? /^(\d{10,15})@/.exec(it.jid) : null;
+      return { number: m ? m[1] : number, check: "confirmado" };
+    }
+    return { number, check: "nao_existe" };
+  } catch {
+    return { number, check: "indisponivel" };
+  }
+}
+
 export async function connect(d: Deps, numberRaw?: string): Promise<ConnectResult> {
   let number: string | null = null;
   if (numberRaw?.trim()) {
@@ -81,6 +108,13 @@ export async function connect(d: Deps, numberRaw?: string): Promise<ConnectResul
   }
   const { instance, key } = await d.prepare();
   let r: GatewayReply;
+  let numberCheck: ConnectResult["numberCheck"] = null;
+  if (number) {
+    const c = await conferirNumero(d, number, instance);
+    number = c.number;
+    numberCheck = c.check;
+    logStep("numero_conferido", { resultado: c.check });
+  }
 
   if (number) {
     // CÓDIGO: este tipo de servidor só gera o código quando a conexão é CRIADA já com o número. Então começa do zero, UMA vez:
@@ -127,19 +161,20 @@ export async function connect(d: Deps, numberRaw?: string): Promise<ConnectResul
   if (info.alreadyConnected) {
     logStep("conectado");
     await d.setState("conectado", true);
-    return { state: "conectado", qr: null, pairingCode: null, pairingNumber: null, webhookOk, message: webhookOk ? null : "Conectado, mas o servidor não aceitou o aviso automático. As mensagens não chegam ao CRM." };
+    return { state: "conectado", qr: null, pairingCode: null, pairingNumber: null, numberCheck, webhookOk, message: webhookOk ? null : "Conectado, mas o servidor não aceitou o aviso automático. As mensagens não chegam ao CRM." };
   }
   if (!info.qr && !info.pairingCode) {
     logStep("sem_qr_nem_codigo", { pediu_codigo: Boolean(number) });
     await d.setState("desconhecido", null);
-    return { state: "desconhecido", qr: null, pairingCode: null, pairingNumber: null, webhookOk, message: "O servidor ainda não gerou o QR Code. Clique de novo em alguns segundos." };
+    return { state: "desconhecido", qr: null, pairingCode: null, pairingNumber: null, numberCheck, webhookOk, message: "O servidor ainda não gerou o QR Code. Clique de novo em alguns segundos." };
   }
   logStep(number ? (info.pairingCode ? "codigo_gerado" : "codigo_nao_veio") : "qr_gerado", { numero_digitos: number?.length ?? null });
   await d.setState("aguardando_leitura", null);
   const semCodigo = number && !info.pairingCode ? "O servidor não gerou o código para esse número. Tente com ou sem o 9, ou use o QR Code." : null;
+  const naoExiste = numberCheck === "nao_existe" ? "O WhatsApp não encontrou esse número (nem com nem sem o 9). Confira o número no celular do cliente: Configurações → toque no nome." : null;
   return {
-    state: "aguardando_leitura", qr: info.qr, pairingCode: info.pairingCode, pairingNumber, webhookOk,
-    message: semCodigo ?? (webhookOk ? null : "O servidor não aceitou o aviso automático. Mesmo conectando, as mensagens não chegam ao CRM."),
+    state: "aguardando_leitura", qr: info.qr, pairingCode: info.pairingCode, pairingNumber, numberCheck, webhookOk,
+    message: semCodigo ?? naoExiste ?? (webhookOk ? null : "O servidor não aceitou o aviso automático. Mesmo conectando, as mensagens não chegam ao CRM."),
   };
 }
 

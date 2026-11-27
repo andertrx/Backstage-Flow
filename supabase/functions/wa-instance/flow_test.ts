@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
-import { altBrNumber, connect, type Deps, GatewayFailure, logout, remove, setWebhook, status } from "./flow.ts";
+import { altBrNumber, conferirNumero, connect, type Deps, GatewayFailure, logout, remove, setWebhook, status } from "./flow.ts";
 
 type Call = { instance: string; method: string; path: string; body?: unknown; query?: Record<string, string> };
 
@@ -278,4 +278,50 @@ Deno.test("código: se continuar recusando depois de 3 novas tentativas, mostra 
   });
   await assertRejects(() => connect(f.d, "81 98398-8622"), GatewayFailure, "erro 403");
   assertEquals(f.calls.filter((c) => c.path === "/instance/create").length, 4);
+});
+
+Deno.test("conferir número: o WhatsApp diz como o número está registrado → o código sai com esse formato (sem 9, por exemplo)", async () => {
+  const f = fake({
+    "POST /chat/whatsappNumbers/{instance}": [{ status: 200, body: [{ exists: true, jid: "558198398622@s.whatsapp.net", number: "5581998398622" }] }],
+    "DELETE /instance/delete/{instance}": [{ status: 200 }],
+    "POST /instance/create": [{ status: 201, body: { pairingCode: "ABCD1234" } }],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  f.d.helper = () => Promise.resolve("bf-outrocliente");
+  const r = await connect(f.d, "81998398622");
+  assertEquals(r.numberCheck, "confirmado");
+  assertEquals(r.pairingNumber, "558198398622");
+  const q = f.calls.find((c) => c.path === "/chat/whatsappNumbers/{instance}")!;
+  assertEquals(q.instance, "bf-outrocliente");
+  assertEquals((f.calls.find((c) => c.path === "/instance/create")!.body as { number: string }).number, "558198398622");
+});
+
+Deno.test("conferir número: nenhum WhatsApp conectado para perguntar → segue com o número digitado (indisponível)", async () => {
+  const f = fake({});
+  f.d.helper = () => Promise.resolve(null);
+  assertEquals(await conferirNumero(f.d, "5581998398622", "bf-x"), { number: "5581998398622", check: "indisponivel" });
+  assertEquals(f.calls.length, 0);
+});
+
+Deno.test("conferir número: o servidor não conhece a consulta ou falha → indisponível, sem derrubar a conexão", async () => {
+  const f = fake({ "POST /chat/whatsappNumbers/{instance}": [{ status: 404 }] });
+  f.d.helper = () => Promise.resolve("bf-outro");
+  assertEquals((await conferirNumero(f.d, "5581998398622", "bf-x")).check, "indisponivel");
+  const g = fake({});
+  g.d.helper = () => Promise.reject(new Error("falhou"));
+  assertEquals((await conferirNumero(g.d, "5581998398622", "bf-x")).check, "indisponivel");
+});
+
+Deno.test("conferir número: o WhatsApp diz que não existe → avisa na resposta, mas ainda gera o código (nunca bloqueia por engano)", async () => {
+  const f = fake({
+    "POST /chat/whatsappNumbers/{instance}": [{ status: 200, body: [{ exists: false, jid: "5581998398622@s.whatsapp.net" }, { exists: false }] }],
+    "DELETE /instance/delete/{instance}": [{ status: 200 }],
+    "POST /instance/create": [{ status: 201, body: { pairingCode: "ABCD1234" } }],
+    "POST /webhook/set/{instance}": [{ status: 200 }],
+  });
+  f.d.helper = () => Promise.resolve("bf-outro");
+  const r = await connect(f.d, "81998398622");
+  assertEquals(r.numberCheck, "nao_existe");
+  assertEquals(r.pairingCode, "ABCD1234");
+  assert(r.message?.includes("não encontrou"));
 });

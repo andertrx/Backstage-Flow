@@ -79,6 +79,7 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
   const [qr, setQr] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
   const [codeFor, setCodeFor] = useState<string | null>(null);
+  const [numberCheck, setNumberCheck] = useState<"confirmado" | "nao_existe" | "indisponivel" | null>(null);
   const [codeAt, setCodeAt] = useState<number | null>(null);
   const [agora, setAgora] = useState(() => Date.now());
   const [codeNumber, setCodeNumber] = useState<string>(numeroComNove(connection.display_phone ?? connection.phone_number_id));
@@ -118,6 +119,7 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
       setQr(r.qr);
       setCode(r.pairingCode ?? null);
       setCodeFor(r.pairingNumber ?? null);
+      setNumberCheck(kind === "code" ? (r.numberCheck ?? null) : null);
       setCodeAt(r.pairingCode ? Date.now() : null);
       setAgora(Date.now());
       setWarn(r.message);
@@ -291,7 +293,7 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
                 <Button loading={connect.isPending && mode.current === "code"} disabled={busy || codeNumber.replace(/\D/g, "").length < 10} onClick={() => void start("code")}>
                   <Smartphone className="size-4" aria-hidden /> {code ? "Gerar outro código" : "Gerar código"}
                 </Button>
-                {altBrPhone(codeNumber) && (
+                {numberCheck !== "confirmado" && altBrPhone(codeNumber) && (
                   <Button variant="secondary" disabled={busy} onClick={() => { const alt = altBrPhone(codeNumber)!; setCodeNumber(alt); void start("code", alt); }}>
                     Tentar {altBrPhone(codeNumber)!.replace(/\D/g, "").length === 11 ? "com o 9" : "sem o 9"}
                   </Button>
@@ -299,7 +301,8 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
               </div>
               <p className="text-xs text-slate-500">
                 Use o número <strong>exatamente como está no WhatsApp do chip</strong> (celular do Brasil: DDD + 9 dígitos, já colocamos o 9 da frente).
-                Se o celular disser “código incorreto”, toque em <strong>Tentar sem o 9</strong>. O código vale por poucos minutos: digite assim que aparecer.
+                Quando há outro WhatsApp do CRM conectado, o sistema pergunta ao WhatsApp como o número está registrado (com ou sem o 9) e já gera o código certo.
+                Se não der para conferir, e o celular disser “código incorreto”, toque em <strong>Tentar sem o 9</strong>.
               </p>
               <p className="text-xs text-slate-500">Quando o tempo acabar, um código novo aparece sozinho (até 5 vezes). Cada código novo apaga o anterior: digite sempre o que está na tela.</p>
               {connect.isPending && mode.current === "code" && !code && <p className="text-xs text-slate-500">Gerando... o servidor de WhatsApp pode levar alguns segundos.</p>}
@@ -315,6 +318,8 @@ export function WaQrSection({ connection, autoStart = false }: { connection: WaQ
                     <p className="text-xs font-medium text-amber-700" data-testid="wa-code-restante">Vence em <strong className="tabular-nums">{formatRestante(restante)}</strong> (estimativa: o WhatsApp decide). Ao vencer, um código novo aparece sozinho{renovados > 0 ? ` (renovado ${renovados}x)` : ""}. Digite o que está na tela.</p>
                   ))}
                   {codeFor && <p className="text-xs text-slate-500">Código gerado para o número <strong>{codeFor}</strong>. Ele precisa ser o do WhatsApp que está no celular.</p>}
+                  {numberCheck === "confirmado" && <p className="text-xs font-medium text-emerald-700" data-testid="wa-numero-confirmado">Número conferido no WhatsApp: é assim que ele está registrado. Não precisa testar com ou sem o 9.</p>}
+                  {numberCheck === "indisponivel" && <p className="text-xs text-slate-500" data-testid="wa-numero-nao-conferido">Não deu para conferir o número no WhatsApp agora (nenhum outro WhatsApp do CRM está conectado). Se o celular recusar, use “Tentar sem o 9”.</p>}
                   <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => void copyMessage()}>
                     <Copy className="size-3.5" aria-hidden /> {copied ? "Copiado!" : "Copiar mensagem para o cliente"}
                   </Button>
