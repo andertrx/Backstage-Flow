@@ -4,6 +4,7 @@ import { ConfirmViewport } from "@/components/ui/confirm-dialog.tsx";
 import { ToastViewport } from "@/components/ui/toast.tsx";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router";
+import { Splash } from "./components/layout/Splash.tsx";
 import { MissingConfig } from "./app/MissingConfig.tsx";
 import { router } from "./app/router.tsx";
 import { AuthProvider } from "./features/auth/AuthProvider.tsx";
@@ -49,6 +50,7 @@ await prepareDemo();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
+    <Splash />
     {isSupabaseConfigured ? (
       <QueryClientProvider client={queryClient}>
         <AuthProvider>

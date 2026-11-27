@@ -277,54 +277,51 @@ html.pdf-mode .pdf-width { width: 186mm; max-width: 186mm; }
 .hoje-pulse { animation: hoje-pulse 1.3s ease-out 1 0.6s; }
 
 
-/* ---------- Telas de entrada (login, senha): fundo vivo e logo em movimento ---------- */
-.auth-stage { background: var(--color-canvas); }
-.auth-orb { position: absolute; border-radius: 9999px; filter: blur(70px); pointer-events: none; opacity: 0.55; }
-.auth-orb-a { width: 38rem; height: 38rem; left: -10rem; top: -12rem; background: radial-gradient(circle, rgb(37 99 235 / 0.55), transparent 68%); }
-.auth-orb-b { width: 34rem; height: 34rem; right: -9rem; bottom: -12rem; background: radial-gradient(circle, rgb(14 165 233 / 0.5), transparent 68%); }
-.auth-orb-c { width: 22rem; height: 22rem; left: 55%; top: 8%; background: radial-gradient(circle, rgb(99 102 241 / 0.38), transparent 70%); }
-[data-theme="dark"] .auth-orb { opacity: 0.45; }
-.auth-grid {
+/* ---------- Telas de entrada (login, senha): painel escuro da marca + formulário ---------- */
+.auth-split { background: var(--color-canvas); }
+.auth-hero { background: #070b14; }
+.auth-hero-grid {
   position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
-  background-image: linear-gradient(to right, color-mix(in oklab, var(--color-slate-300) 45%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklab, var(--color-slate-300) 45%, transparent) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(ellipse 60% 55% at 50% 40%, #000 20%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse 60% 55% at 50% 40%, #000 20%, transparent 75%);
+  background-image: linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 70% at 30% 50%, #000 10%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 30% 50%, #000 10%, transparent 75%);
 }
-.auth-logo-in { animation: auth-logo-in 0.5s cubic-bezier(0.23, 1, 0.32, 1) both; }
-.auth-logo-float { }
-.auth-logo-glow {
-  position: absolute; left: 50%; top: 50%; width: 120%; height: 220%; transform: translate(-50%, -50%); border-radius: 9999px; pointer-events: none;
-  background: radial-gradient(closest-side, rgb(59 130 246 / 0.42), transparent); filter: blur(18px);
-}
-.auth-logo-shine {
-  position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(105deg, transparent 38%, rgb(125 190 255 / 0.95) 50%, transparent 62%) no-repeat;
-  background-size: 260% 100%; background-position: 160% 0;
-  -webkit-mask: url(/brand/logo.png) center / contain no-repeat; mask: url(/brand/logo.png) center / contain no-repeat;
-  animation: auth-shine 1.4s cubic-bezier(0.23, 1, 0.32, 1) 0.6s 1 both;
-}
-.auth-text-in { animation: rise 0.4s cubic-bezier(0.23, 1, 0.32, 1) 0.15s both; }
-.auth-card-in { animation: auth-card-in 0.5s cubic-bezier(0.23, 1, 0.32, 1) 0.1s both; }
-.auth-card-in form > * { animation: rise 0.4s cubic-bezier(0.23, 1, 0.32, 1) both; }
-.auth-card-in form > *:nth-child(1) { animation-delay: 0.25s; }
-.auth-card-in form > *:nth-child(2) { animation-delay: 0.31s; }
-.auth-card-in form > *:nth-child(3) { animation-delay: 0.36s; }
-.auth-card-in form > *:nth-child(4) { animation-delay: 0.40s; }
-.auth-card-in form > *:nth-child(5) { animation-delay: 0.43s; }
-@keyframes auth-logo-in { from { opacity: 0; transform: translateY(18px) scale(0.86); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
-@keyframes auth-card-in { from { opacity: 0; transform: translateY(28px) scale(0.97); } to { opacity: 1; transform: none; } }
-@keyframes auth-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-@keyframes auth-glow { 0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.92); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); } }
+.auth-hero-glow { position: absolute; width: 46rem; height: 46rem; left: -14rem; bottom: -18rem; pointer-events: none; background: radial-gradient(circle, rgb(37 99 235 / 0.35), transparent 65%); }
+.auth-hero-symbol { position: absolute; right: -6rem; top: -3rem; width: 26rem; opacity: 0.05; pointer-events: none; }
+.auth-hero-accent { background: linear-gradient(90deg, #60a5fa, #38bdf8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.auth-form-side { background: var(--color-canvas); }
+.auth-orb { position: absolute; right: -10rem; top: -10rem; width: 26rem; height: 26rem; border-radius: 9999px; pointer-events: none; background: radial-gradient(circle, rgb(37 99 235 / 0.16), transparent 68%); }
+/* Entrada: cada bloco sobe e aparece, um logo depois do outro (só transform e opacity). */
+.auth-fade { animation: auth-fade 0.42s var(--ease-out-strong) both; animation-delay: calc(var(--i, 0) * 70ms + 60ms); }
+@keyframes auth-fade { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .auth-fade { animation: fade-in 160ms ease-out both; animation-delay: 0s; } }
+[data-motion="off"] .auth-fade { animation: none !important; }
+
+/* ---------- Abertura (tela de carregamento do primeiro acesso da sessão) ---------- */
+.splash { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: #070b14; color: #fff; transition: opacity 0.4s var(--ease-out-strong), transform 0.4s var(--ease-out-strong); }
+.splash[data-saindo="true"] { opacity: 0; transform: scale(1.03); pointer-events: none; }
+.splash-grid { position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+  background-image: linear-gradient(to right, rgb(255 255 255 / 0.045) 1px, transparent 1px), linear-gradient(to bottom, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 55% 50% at 50% 50%, #000 10%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse 55% 50% at 50% 50%, #000 10%, transparent 75%);
+  animation: splash-in 0.8s ease-out both; }
+.splash-glow { position: absolute; width: min(90vmin, 56rem); aspect-ratio: 1; border-radius: 9999px; pointer-events: none; background: radial-gradient(circle, rgb(37 99 235 / 0.3), transparent 62%); animation: splash-in 1.2s ease-out both; }
+.splash-centro { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1.5rem; padding: 0 1.5rem; text-align: center; }
+.splash-logo { position: relative; width: min(80vw, 28rem); }
+.splash-logo img { display: block; width: 100%; height: auto; animation: splash-revela 0.9s var(--ease-in-out-strong) 0.2s both; }
+.splash-brilho { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 40%, rgb(255 255 255 / 0.85) 50%, transparent 60%) no-repeat; background-size: 260% 100%; background-position: 160% 0;
+  -webkit-mask: url(/brand/logo-dark.png) center / contain no-repeat; mask: url(/brand/logo-dark.png) center / contain no-repeat;
+  animation: auth-shine 1.2s var(--ease-out-strong) 1s 1 both; }
+.splash-frase { font-size: clamp(0.95rem, 2.4vw, 1.15rem); font-style: italic; color: #b6c3dc; animation: auth-fade 0.6s var(--ease-out-strong) 1.2s both; }
+.splash-linha { position: absolute; bottom: 3.25rem; left: 50%; width: 8rem; height: 2px; margin-left: -4rem; background: #1b2436; border-radius: 2px; overflow: hidden; }
+.splash-linha i { display: block; height: 100%; background: linear-gradient(90deg, #2563eb, #38bdf8); transform-origin: left; animation: splash-enche 2.4s linear both; }
+.splash-pular { position: absolute; right: 1.5rem; bottom: 1.5rem; font: 600 0.72rem/1 inherit; letter-spacing: 0.08em; color: #aab6cf; background: #0d1424; border: 1px solid #26334d; border-radius: 9999px; padding: 0.6rem 1.1rem; cursor: pointer; transition: color 150ms var(--ease-out-strong), border-color 150ms var(--ease-out-strong), scale 150ms var(--ease-out-strong); }
+.splash-pular:active { scale: 0.97; }
+@media (hover: hover) { .splash-pular:hover { color: #fff; border-color: #3b82f6; } }
+@keyframes splash-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes splash-revela { from { clip-path: inset(0 100% 0 0); opacity: 0; transform: translateY(6px); } 30% { opacity: 1; } to { clip-path: inset(0); opacity: 1; transform: none; } }
+@keyframes splash-enche { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .splash * , .splash { animation-duration: 0.01s !important; animation-delay: 0s !important; transition-duration: 0.01s !important; } .splash-brilho { display: none; } }
 @keyframes auth-shine { 0% { background-position: 160% 0; } 38%, 100% { background-position: -60% 0; } }
-@keyframes auth-drift-a { to { transform: translate(8rem, 5rem) scale(1.15); } }
-@keyframes auth-drift-b { to { transform: translate(-7rem, -4rem) scale(1.12); } }
-@keyframes auth-drift-c { to { transform: translate(-6rem, 6rem) scale(0.9); } }
-@media (prefers-reduced-motion: reduce) {
-  .auth-orb, .auth-logo-in, .auth-logo-float, .auth-logo-glow, .auth-logo-shine, .auth-text-in, .auth-card-in, .auth-card-in form > * { animation: none !important; }
-  .auth-logo-shine { display: none; }
-}
-[data-motion="off"] .auth-orb, [data-motion="off"] .auth-logo-in, [data-motion="off"] .auth-logo-float, [data-motion="off"] .auth-logo-glow, [data-motion="off"] .auth-logo-shine,
-[data-motion="off"] .auth-text-in, [data-motion="off"] .auth-card-in, [data-motion="off"] .auth-card-in form > * { animation: none !important; }
-[data-motion="off"] .auth-logo-shine { display: none; }
