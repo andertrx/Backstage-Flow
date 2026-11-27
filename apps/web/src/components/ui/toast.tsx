@@ -22,6 +22,13 @@ export function ToastViewport() {
             className={cn("animate-toast-in pointer-events-auto flex w-full max-w-sm items-start gap-2.5 rounded-2xl bg-white p-3.5 text-sm text-slate-800 shadow-elevated ring-1", box)}>
             <Icon className={cn("mt-0.5 size-4 shrink-0", iconColor)} aria-hidden />
             <p className="min-w-0 flex-1 break-words">{t.message}</p>
+            {t.action && (
+              <button type="button" data-testid="toast-action"
+                onClick={async () => { const a = t.action!; dismissToast(t.id); await a.onClick(); }}
+                className="press shrink-0 rounded-lg px-2 py-0.5 text-sm font-semibold text-brand-700 hover:bg-brand-50">
+                {t.action.label}
+              </button>
+            )}
             <button type="button" onClick={() => dismissToast(t.id)} aria-label="Fechar aviso"
               className="rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700">
               <X className="size-4" aria-hidden />

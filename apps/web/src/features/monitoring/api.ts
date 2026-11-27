@@ -91,6 +91,17 @@ export function useArchiveMonitorRule() {
   });
 }
 
+export function useUnarchiveMonitorRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("monitor_rule_unarchive", { p_id: id });
+      if (error) throw new FriendlyError(monitorError(error, "Não conseguimos desfazer a remoção da regra."));
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
 export interface ScopeOption {
   id: string;
   name: string;

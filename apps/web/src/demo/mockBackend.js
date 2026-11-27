@@ -1469,6 +1469,14 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
           replaces_id: p.p_replaces_id ?? null, archived_at: null, created_at: now, created_by: userId });
         return res(200, id);
       }
+      if (fn === "monitor_rule_unarchive") {
+        if (!can("rules")) return err("42501", "Sem permissão para gerenciar as regras do monitoramento");
+        const r = db.monitorRules.find((x) => x.id === p.p_id);
+        if (!r || (r.client_id && !visible(r.client_id))) return err("22023", "Regra não encontrada");
+        if (!r.archived_at) return err("22023", "Esta regra já está ativa. Atualize a página.");
+        r.archived_at = null;
+        return res(204);
+      }
       if (fn === "monitor_rule_archive") {
         if (!can("rules")) return err("42501", "Sem permissão para gerenciar as regras do monitoramento");
         const r = db.monitorRules.find((x) => x.id === p.p_id);
@@ -1715,6 +1723,14 @@ export function createMockBackend(db, { role = "admin", password = null, userId 
       // Um pixel por cliente: o aviso "sem pixel" depende de o cliente ter um pixel ligado (com token) em algum recipiente.
       out.pixel_ok = db.trackingDestinations.some((d) => d.enabled && db.capiTokens[d.id] != null && db.trackingContainers.find((t) => t.id === d.container_id)?.client_id === k.client_id);
       return res(200, out);
+    }
+    if (url.includes("/rest/v1/rpc/contact_unarchive")) {
+      const k = db.contacts.find((x) => x.id === parse().p_id);
+      if (!k || role === "vendedor" || !canMarkContacts(k.client_id)) return res(403, { code: "42501", message: "Só a equipe da agência desarquiva contatos." });
+      if (!k.archived_at) return res(400, { code: "22023", message: "Este contato não está arquivado." });
+      k.archived_at = null;
+      contactLog(k, { kind: "desarquivado" });
+      return res(204);
     }
     if (url.includes("/rest/v1/rpc/contact_archive")) {
       const k = db.contacts.find((x) => x.id === parse().p_id);

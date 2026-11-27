@@ -1,9 +1,11 @@
 // Avisos rápidos ("Salvo!", "Erro ao salvar"): estado simples fora do React, lido pelo <ToastViewport />.
 export type ToastTone = "success" | "error" | "info";
-export interface Toast { id: number; tone: ToastTone; message: string }
+export interface ToastAction { label: string; onClick: () => unknown }
+export interface Toast { id: number; tone: ToastTone; message: string; action?: ToastAction }
 
 const MAX = 4;
 const DURATION: Record<ToastTone, number> = { success: 4000, info: 4000, error: 7000 };
+const ACTION_DURATION = 9000;
 
 let toasts: Toast[] = [];
 let seq = 0;
@@ -22,21 +24,22 @@ export function dismissToast(id: number) {
   emit();
 }
 
-function push(tone: ToastTone, message: string): number {
+function push(tone: ToastTone, message: string, action?: ToastAction): number {
   const text = message.trim();
   if (!text) return -1;
   // A mesma mensagem repetida não empilha.
   const same = toasts.find((x) => x.tone === tone && x.message === text);
   if (same) { dismissToast(same.id); }
   const id = ++seq;
-  toasts = [...toasts, { id, tone, message: text }].slice(-MAX);
-  timers.set(id, setTimeout(() => dismissToast(id), DURATION[tone]));
+  toasts = [...toasts, { id, tone, message: text, ...(action ? { action } : {}) }].slice(-MAX);
+  // Aviso com botão ("Desfazer") fica mais tempo na tela.
+  timers.set(id, setTimeout(() => dismissToast(id), action ? ACTION_DURATION : DURATION[tone]));
   emit();
   return id;
 }
 
 export const toast = {
-  success: (message: string) => push("success", message),
+  success: (message: string, action?: ToastAction) => push("success", message, action),
   error: (message: string) => push("error", message),
   info: (message: string) => push("info", message),
 };

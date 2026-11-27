@@ -43,7 +43,7 @@ export interface ContactStage extends ContactProfile {
 export interface ContactHistoryRow {
   id: number;
   at: string;
-  kind: "criado" | "etapa" | "perfil" | "venda" | "arquivado";
+  kind: "criado" | "etapa" | "perfil" | "venda" | "arquivado" | "desarquivado";
   stage_id: string | null;
   profile_id: string | null;
   value_micros: number | null;
@@ -228,6 +228,18 @@ export function useArchiveContact() {
     mutationFn: async (id: number) => {
       const { error } = await supabase.rpc("contact_archive", { p_id: id });
       if (error) throw ruleError(error, "Não conseguimos arquivar o contato.");
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+/** "Desfazer" do arquivamento: o contato volta para a lista de trabalho (o histórico registra). */
+export function useUnarchiveContact() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.rpc("contact_unarchive", { p_id: id });
+      if (error) throw ruleError(error, "Não conseguimos desfazer o arquivamento.");
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
   });

@@ -21,6 +21,7 @@ import {
   type ContactStage,
   findContacts,
   useArchiveContact,
+  useUnarchiveContact,
   useContactClients,
   useContactHistory,
   useContactRastreio,
@@ -405,6 +406,7 @@ function ContactModal({ contact: c, profiles, stages, canMark, canArchive, stage
   const history = useContactHistory(c.id);
   const save = useUpdateContact();
   const archive = useArchiveContact();
+  const unarchive = useUnarchiveContact();
   const [saleStage, setSaleStage] = useState<ContactStage | null>(null);
   const [value, setValue] = useState("");
   const [currency, setCurrency] = useState("BRL");
@@ -497,6 +499,7 @@ function ContactModal({ contact: c, profiles, stages, canMark, canArchive, stage
                 {h.kind === "etapa" && `Etapa: ${stageOf(h.stage_id)?.name ?? "—"}`}
                 {h.kind === "venda" && `Venda: ${h.value_micros != null && h.currency ? formatMoney(h.value_micros / 1_000_000, h.currency) : "—"}${h.order_id ? ` (pedido ${h.order_id})` : ""}`}
                 {h.kind === "arquivado" && "Arquivado"}
+                {h.kind === "desarquivado" && "Voltou para a lista (arquivamento desfeito)"}
                 {h.meta_event && <span className="text-emerald-700"> · evento para o Meta: {h.meta_event}</span>}
                 {h.meta_note && <span className="text-slate-400"> · {h.meta_note}</span>}
               </li>
@@ -507,7 +510,7 @@ function ContactModal({ contact: c, profiles, stages, canMark, canArchive, stage
         {canArchive && !c.archived && (
           <div className="flex justify-end">
             <Button variant="ghost" className="text-xs" loading={archive.isPending} onClick={async () => {
-              if ((await confirmar("Arquivar este contato? Ele sai da lista de trabalho, mas o histórico continua guardado."))) archive.mutate(c.id, { onSuccess: () => { toast.success("Contato arquivado. O histórico continua guardado."); onClose(); } });
+              if ((await confirmar("Arquivar este contato? Ele sai da lista de trabalho, mas o histórico continua guardado."))) archive.mutate(c.id, { onSuccess: () => { toast.success("Contato arquivado. O histórico continua guardado.", { label: "Desfazer", onClick: () => unarchive.mutateAsync(c.id).then(() => toast.success("Contato de volta à lista.")).catch((e) => toast.error(errorMessage(e))) }); onClose(); } });
             }}>
               <Archive className="size-3.5" aria-hidden /> Arquivar
             </Button>

@@ -13,7 +13,7 @@ import { formatDateTime } from "@/lib/format.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
 import { toast } from "@/lib/toastStore.ts";
 import {
-  type BuilderPersonPermission, useArchiveDraft, useBuilderDrafts, useBuilderPeople, useBuilderPermissions, useCreateDraft, useSaveBuilderPermission,
+  type BuilderPersonPermission, useArchiveDraft, useUnarchiveDraft, useBuilderDrafts, useBuilderPeople, useBuilderPermissions, useCreateDraft, useSaveBuilderPermission,
 } from "./api.ts";
 
 function NewDraftModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -130,6 +130,7 @@ export function CampaignBuilderPage() {
   const perms = useBuilderPermissions();
   const drafts = useBuilderDrafts();
   const archive = useArchiveDraft();
+  const unarchive = useUnarchiveDraft();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -138,7 +139,10 @@ export function CampaignBuilderPage() {
     setError(null);
     try {
       await archive.mutateAsync(id);
-      toast.success("Rascunho arquivado. Ele continua guardado.");
+      toast.success("Rascunho arquivado. Ele continua guardado.", {
+        label: "Desfazer",
+        onClick: () => unarchive.mutateAsync(id).then(() => toast.success("Rascunho de volta à lista.")).catch((e) => toast.error(errorMessage(e))),
+      });
     } catch (err) {
       setError(errorMessage(err));
     }

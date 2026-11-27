@@ -87,6 +87,17 @@ export function useArchiveDraft() {
   });
 }
 
+export function useUnarchiveDraft() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("builder_draft_unarchive", { p_id: id });
+      if (error) throw new FriendlyError(dbError(error, "Não conseguimos desfazer o arquivamento."));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...KEY, "rascunhos"] }),
+  });
+}
+
 /** Só administrador. */
 export function useBuilderPeople(enabled: boolean) {
   return useQuery({

@@ -23,7 +23,7 @@ import { useAuth } from "@/features/auth/AuthProvider.tsx";
 import { useActiveClients } from "@/features/clients/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
-import { type MonitorRuleRow, useArchiveMonitorRule, useMonitorRules, useSaveMonitorRule, useScopeOptions } from "./api.ts";
+import { type MonitorRuleRow, useArchiveMonitorRule, useUnarchiveMonitorRule, useMonitorRules, useSaveMonitorRule, useScopeOptions } from "./api.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
 import { toast } from "@/lib/toastStore.ts";
 
@@ -52,6 +52,7 @@ export function RulesSettings() {
   const [showHistory, setShowHistory] = useState(false);
   const { data: rules = [], isLoading, error } = useMonitorRules(showHistory);
   const archive = useArchiveMonitorRule();
+  const unarchive = useUnarchiveMonitorRule();
   const [editing, setEditing] = useState<Editing>(null);
 
   const current = rules.filter((r) => !r.archived_at);
@@ -153,7 +154,7 @@ export function RulesSettings() {
                       aria-label="Remover regra"
                       loading={archive.isPending && archive.variables === r.id}
                       onClick={async () => {
-                        if ((await confirmar("Remover esta regra? Volta a valer o limite mais geral. Ela continua no histórico."))) archive.mutate(r.id, { onSuccess: () => toast.success("Regra removida. Ela continua no histórico.") });
+                        if ((await confirmar("Remover esta regra? Volta a valer o limite mais geral. Ela continua no histórico."))) archive.mutate(r.id, { onSuccess: () => toast.success("Regra removida. Ela continua no histórico.", { label: "Desfazer", onClick: () => unarchive.mutateAsync(r.id).then(() => toast.success("Regra de volta.")).catch((e) => toast.error(errorMessage(e))) }) });
                       }}
                     >
                       <Trash2 className="size-4" aria-hidden />

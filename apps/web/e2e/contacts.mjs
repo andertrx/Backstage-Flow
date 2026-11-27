@@ -108,6 +108,16 @@ function seed(db) {
   await page.getByTestId("contact-row").first().getByText("Arquivado").waitFor();
   check(await page.getByTestId("toast").filter({ hasText: "Contato arquivado" }).count() === 1, "aviso de retorno: Contato arquivado");
   check(db.contacts[0].archived_at && db.contactHistory.some((h) => h.kind === "arquivado"), "admin arquiva (fica no histórico, não apaga)");
+  // "Desfazer" no aviso: o contato volta para a lista e o histórico registra
+  await page.getByTestId("toast-action").click();
+  await page.getByTestId("contact-row").first().waitFor();
+  await page.waitForFunction(() => !document.querySelector('[data-testid="contact-row"]')?.textContent?.includes("Arquivado"));
+  check(db.contacts[0].archived_at === null && db.contactHistory.some((h) => h.kind === "desarquivado"), "Desfazer: contato volta à lista e o histórico registra (não apaga nada)");
+  // arquiva de novo (os próximos passos do teste contam com ele arquivado)
+  await page.getByTestId("contact-row").first().click();
+  await page.getByTestId("contact-modal").getByRole("button", { name: /Arquivar/ }).click();
+  await page.getByTestId("confirm-ok").click();
+  await page.getByTestId("contact-row").first().getByText("Arquivado").waitFor();
 
   await page.getByRole("button", { name: "Ajustes", exact: true }).click();
   await page.getByRole("button", { name: "Perfis e etapas" }).click();

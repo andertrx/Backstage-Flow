@@ -64,6 +64,13 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
     db.builderDrafts.push(d);
     return res(200, { id: d.id, version: 1, updated_at: t });
   }
+  if (rpc("builder_draft_unarchive")) {
+    if (!can("editar")) return denied("Você não tem permissão para desarquivar rascunhos.");
+    const d = db.builderDrafts.find((x) => x.id === p.p_id && x.archived_at);
+    if (!d) return bad("Rascunho não encontrado ou já está ativo.");
+    d.archived_at = null;
+    return res(204);
+  }
   if (rpc("builder_draft_archive")) {
     if (!can("editar")) return denied("Você não tem permissão para arquivar rascunhos.");
     const d = db.builderDrafts.find((x) => x.id === p.p_id && !x.archived_at);
