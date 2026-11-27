@@ -52,6 +52,8 @@ export interface PublishCtx {
   timezone: string;
   draft: CampaignDraft;
   audiences: Audiences;
+  /** Imagens do Drive já enviadas ao Meta: id do arquivo no Drive → hash da imagem no Meta. */
+  imageHashes?: Map<string, string>;
 }
 
 const act = (externalId: string) => `act_${externalId.replace(/^act_/, "")}`;
@@ -125,8 +127,10 @@ export function adSetFields(s: DraftAdSet, campaignId: string, ctx: PublishCtx):
   return f;
 }
 
-export function creativeFields(a: DraftAd): Record<string, string> {
-  const link: Record<string, unknown> = { message: a.primaryText, link: a.link, picture: a.imageUrl };
+export function creativeFields(a: DraftAd, imageHash?: string): Record<string, string> {
+  const link: Record<string, unknown> = { message: a.primaryText, link: a.link };
+  if (imageHash) link.image_hash = imageHash;
+  else link.picture = a.imageUrl;
   if (a.headline) link.name = a.headline;
   if (a.description) link.description = a.description;
   if (a.cta && a.cta !== "NO_BUTTON") link.call_to_action = { type: a.cta, value: { link: a.link } };
@@ -176,7 +180,9 @@ export async function runPublish(deps: PublishDeps, ctx: PublishCtx, onItem: (po
       } else if (item.kind === "criativo") {
         const a = d.ads.find((x) => x.id === item.localId)!;
         path = `${base}/adcreatives`;
-        fields = creativeFields(a);
+        const hash = a.driveFileId ? ctx.imageHashes?.get(a.driveFileId) : undefined;
+        if (a.driveFileId && !hash) throw new Error("A imagem do Drive deste anúncio não foi enviada ao Meta.");
+        fields = creativeFields(a, hash);
       } else {
         const a = d.ads.find((x) => x.id === item.localId)!;
         path = `${base}/ads`;

@@ -3,7 +3,7 @@ import {
   type DraftAd, type DraftAdSet, duplicateAdSet, GOAL_LABELS, GOALS_BY_OBJECTIVE, newAd, newAdSet, normalizeDraft, OBJECTIVE_LABELS, type ObjectiveId,
   removeAdSet, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES, checkPublishable, publishCounts,
 } from "@backstage/shared";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, ExternalLink, Plus, Rocket, ShieldCheck, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, ExternalLink, Image as ImageIcon, Plus, Rocket, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -14,6 +14,7 @@ import { useAccountAssets } from "@/features/ads-builder/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { type AccountLists, type PublishOperationRow, saveDraftData, useAccountLists, useBuilderDraft, useBuilderPermissions, useDraftAccount, usePublishDraft, usePublishHistory, useValidateDraft } from "./api.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
+import { DrivePicker } from "./DrivePicker.tsx";
 import { toast } from "@/lib/toastStore.ts";
 
 type SaveState = "salvo" | "salvando" | "pendente" | "erro" | "conflito" | "somente-leitura";
@@ -43,6 +44,7 @@ function AdForm({ ad, pages, instas, disabled, onChange, onRemove }: {
   ad: DraftAd; pages: { id: string; name: string }[]; instas: { id: string; name: string }[]; disabled: boolean; onChange: (a: DraftAd) => void; onRemove: () => void;
 }) {
   const set = (p: Partial<DraftAd>) => onChange({ ...ad, ...p });
+  const [picker, setPicker] = useState(false);
   return (
     <div className="space-y-3 rounded-xl bg-slate-50 p-3" data-testid="cb-anuncio">
       <div className="flex items-center justify-between gap-2">
@@ -84,9 +86,25 @@ function AdForm({ ad, pages, instas, disabled, onChange, onRemove }: {
         <Field label="Descrição">{(id) => <Input id={id} value={ad.description} disabled={disabled} maxLength={400} onChange={(e) => set({ description: e.target.value })} />}</Field>
       </div>
       <Field label="Link de destino" hint="Precisa começar com https://">{(id) => <Input id={id} type="url" value={ad.link} disabled={disabled} maxLength={2000} placeholder="https://" onChange={(e) => set({ link: e.target.value })} />}</Field>
-      <Field label="Imagem do anúncio (endereço)" hint="Só para publicar: endereço https:// da imagem. O envio direto do Google Drive vem na próxima fase.">
-        {(id) => <Input id={id} type="url" value={ad.imageUrl} disabled={disabled} maxLength={2000} placeholder="https://" onChange={(e) => set({ imageUrl: e.target.value })} />}
-      </Field>
+      <div className="space-y-2" data-testid="cb-imagem">
+        <p className="text-sm font-medium text-slate-700">Imagem do anúncio</p>
+        {ad.driveFileId ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white p-2.5 ring-1 ring-slate-200">
+            <ImageIcon className="size-4 text-slate-500" aria-hidden />
+            <span className="min-w-0 flex-1 truncate text-sm" data-testid="cb-drive-arquivo">{ad.driveFileName || "Imagem do Drive"}</span>
+            <Button variant="secondary" className="px-3 py-1.5 text-xs" disabled={disabled} onClick={() => setPicker(true)}>Trocar</Button>
+            <Button variant="ghost" className="px-3 py-1.5 text-xs" disabled={disabled} onClick={() => set({ driveFileId: "", driveFileName: "" })}>Remover</Button>
+          </div>
+        ) : (
+          <>
+            <Button variant="secondary" disabled={disabled} onClick={() => setPicker(true)} data-testid="cb-drive-escolher"><ImageIcon className="size-4" aria-hidden /> Escolher do Google Drive</Button>
+            <Field label="ou o endereço da imagem" hint="Alternativa: endereço https:// de uma imagem já publicada.">
+              {(id) => <Input id={id} type="url" value={ad.imageUrl} disabled={disabled} maxLength={2000} placeholder="https://" onChange={(e) => set({ imageUrl: e.target.value })} />}
+            </Field>
+          </>
+        )}
+        <DrivePicker open={picker} onClose={() => setPicker(false)} onPick={(f) => set({ driveFileId: f.id, driveFileName: f.name, imageUrl: "" })} />
+      </div>
     </div>
   );
 }

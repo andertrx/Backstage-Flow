@@ -150,7 +150,7 @@ describe("publicar (Fase B)", () => {
   it("sem endereço da imagem não publica, e diz o que fazer", () => {
     const d = completo();
     const msgs = checkPublishable(d).map((i) => i.message);
-    expect(msgs.some((m) => m.includes("endereço (https://) da imagem"))).toBe(true);
+    expect(msgs.some((m) => m.includes("escolha a imagem no Google Drive"))).toBe(true);
   });
   it("imagem http (sem s) é recusada; com https libera", () => {
     const d = completo();
@@ -182,5 +182,14 @@ describe("publicar (Fase B)", () => {
     expect(d.ads[0].imageUrl).toBe("https://x.com/a.jpg");
     expect(duplicateAdSet(d, "s1").ads[1].imageUrl).toBe("https://x.com/a.jpg");
   });
+  it("imagem escolhida no Drive libera o publicar sem endereço, e só aceita ID válido", () => {
+    const d = completo();
+    d.ads[0].driveFileId = "1AbCdEfGhIjKlMnOp";
+    expect(publishBlockers(d)).toEqual([]);
+    const n = normalizeDraft({ adSets: [{ id: "s1" }], ads: [{ id: "a1", adSetId: "s1", driveFileId: "oi; drop", driveFileName: "ADS-01.png" }] });
+    expect(n.ads[0].driveFileId).toBe("");
+    const ok = normalizeDraft({ adSets: [{ id: "s1" }], ads: [{ id: "a1", adSetId: "s1", driveFileId: "1AbCdEfGhIjKlMnOp", driveFileName: "ADS-01.png" }] });
+    expect(ok.ads[0].driveFileId).toBe("1AbCdEfGhIjKlMnOp");
+    expect(duplicateAdSet(ok, "s1").ads[1].driveFileName).toBe("ADS-01.png");
+  });
 });
-

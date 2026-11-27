@@ -106,3 +106,26 @@ export async function validateCampaign(token: string, externalId: string, fields
     permission: code === 10 || code === 200 || (code !== null && code >= 200 && code <= 299),
   };
 }
+
+function toBase64(bytes: Uint8Array): string {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  return btoa(bin);
+}
+
+/**
+ * Envia uma imagem à biblioteca da conta (`/adimages`, em base64) e devolve o hash que o Meta usa nos anúncios.
+ * O Meta devolve o MESMO hash para a mesma imagem, então reenviar não duplica nada. Falha vira uma mensagem clara.
+ */
+export async function uploadAdImage(token: string, externalId: string, bytes: Uint8Array, name: string, fetchImpl: typeof fetch = fetch): Promise<string> {
+  const { status, body } = await graphPostRaw(`${act(externalId)}/adimages`, { bytes: toBase64(bytes), name: name.slice(0, 100) }, token, fetchImpl);
+  const err = (body as MetaErrorBody).error as (MetaErrorBody["error"] & { error_user_msg?: string }) | undefined;
+  if (status >= 400 || err) {
+    throw new Error(`O Meta recusou a imagem "${name}": ${(err?.error_user_msg || err?.message || `HTTP ${status}`).slice(0, 300)}`);
+  }
+  const images = (body.images ?? {}) as Record<string, { hash?: string }>;
+  const hash = Object.values(images)[0]?.hash;
+  if (!hash) throw new Error(`O Meta não devolveu o código da imagem "${name}".`);
+  return hash;
+}

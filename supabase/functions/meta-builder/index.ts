@@ -12,7 +12,9 @@ import { z } from "npm:zod@4";
 import { adminClient, requireRole, userClient } from "../_shared/auth.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { enforceRateLimit } from "../_shared/ratelimit.ts";
-import { buildCampaignFields, fetchAccountLists, validateCampaign } from "../_shared/platforms/meta/builder.ts";
+import { buildCampaignFields, fetchAccountLists, uploadAdImage, validateCampaign } from "../_shared/platforms/meta/builder.ts";
+import { DriveClient, parseDriveFolderId } from "../_shared/google/drive.ts";
+import { parseServiceAccount, SheetsError } from "../_shared/google/sheets.ts";
 import { graphGet, graphPostRaw } from "../_shared/platforms/meta/client.ts";
 import { buildPlan, type ItemResult, runPublish } from "../_shared/platforms/meta/publish.ts";
 import { normalizeDraft } from "../../../packages/shared/src/campaign-builder/model.ts";
@@ -23,6 +25,8 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("account_lists"), adAccountId: id }),
   z.object({ action: z.literal("validate"), draftId: id }),
   z.object({ action: z.literal("publish"), draftId: id, operationKey: z.string().min(8).max(80) }),
+  z.object({ action: z.literal("drive_list"), folder: z.string().trim().min(1).max(500) }),
+  z.object({ action: z.literal("drive_thumb"), fileId: z.string().regex(/^[A-Za-z0-9_-]{10,100}$/, "Arquivo inválido.") }),
 ]);
 
 interface AccountRow {
@@ -62,6 +66,16 @@ async function myPermissions(req: Request): Promise<{ ver: boolean; editar: bool
   const p = (data ?? {}) as { ver?: boolean; editar?: boolean; publicar?: boolean };
   return { ver: p.ver === true, editar: p.editar === true, publicar: p.publicar === true };
 }
+
+/** Cliente do Drive com a conta de serviço do Google que já existe (a das planilhas; chave no cofre). */
+async function driveClient(): Promise<DriveClient> {
+  const { data, error } = await adminClient().rpc("sheets_key_get");
+  if (error) throw new AppError(500, "DB_ERROR", "Não conseguimos ler a chave do Google no cofre.", error);
+  return new DriveClient(parseServiceAccount(data as string | null));
+}
+
+/** Erros do Google (SheetsError) viram erro amigável do CRM. */
+const toApp = (err: unknown) => (err instanceof SheetsError ? new AppError(err.status, err.code, err.userMessage, err.technical) : err);
 
 const PUBLISH_BLOCK_MINUTES = 10;
 
@@ -124,6 +138,16 @@ async function publish(req: Request, caller: { id: string }, input: { draftId: s
   let errorMessage: string | null = null;
   try {
     const token = await tokenFor(account.connection_id!);
+    // Imagens do Drive: baixa e envia ao Meta ANTES de criar qualquer coisa. Se uma falhar, nada é criado.
+    const imageHashes = new Map<string, string>();
+    const driveIds = [...new Set(draft.ads.map((a) => a.driveFileId).filter(Boolean))];
+    if (driveIds.length) {
+      const drive = await driveClient();
+      for (const fileId of driveIds) {
+        const img = await drive.downloadImage(fileId);
+        imageHashes.set(fileId, await uploadAdImage(token, account.external_id, img.bytes, img.name));
+      }
+    }
     const lists = await fetchAccountLists(token, account.external_id);
     const used = new Set(draft.adSets.flatMap((s) => s.audienceIds));
     const saved = new Map<string, Record<string, unknown>>();
@@ -133,7 +157,7 @@ async function publish(req: Request, caller: { id: string }, input: { draftId: s
     }
     outcome = await runPublish(
       { post: (path, fields) => graphPostRaw(path, fields, token), get: (path, params) => graphGet<Record<string, unknown>>(path, params, token) },
-      { externalId: account.external_id, currency: account.currency, timezone: account.timezone || "UTC", draft, audiences: { custom: new Set(lists.customAudiences.map((x) => x.id)), saved } },
+      { externalId: account.external_id, currency: account.currency, timezone: account.timezone || "UTC", draft, imageHashes, audiences: { custom: new Set(lists.customAudiences.map((x) => x.id)), saved } },
       async (position, r: ItemResult) => {
         await db.from("publish_items").update({
           status: r.status, meta_id: r.metaId ?? null, confirmed: r.confirmed ?? false, effective_status: r.effectiveStatus ?? null,
@@ -142,7 +166,7 @@ async function publish(req: Request, caller: { id: string }, input: { draftId: s
       },
     );
   } catch (err) {
-    errorMessage = err instanceof AppError ? err.userMessage : "A publicação foi interrompida por um erro do servidor. Confira no Gerenciador do Meta o que chegou a ser criado.";
+    errorMessage = err instanceof AppError || err instanceof SheetsError ? err.userMessage : err instanceof Error && err.message.startsWith("O Meta") ? err.message : "A publicação foi interrompida por um erro do servidor. Confira no Gerenciador do Meta o que chegou a ser criado.";
     const { data: made } = await db.from("publish_items").select("id").eq("operation_id", operationId).eq("status", "criado").limit(1);
     outcome = made && made.length ? "parcial" : "falhou";
   }
@@ -168,6 +192,21 @@ Deno.serve(handle(async (req) => {
     const account = await loadAccount(req, input.adAccountId);
     const lists = await fetchAccountLists(await tokenFor(account.connection_id!), account.external_id);
     return json(req, 200, { data: lists });
+  }
+
+  if (input.action === "drive_list") {
+    const folderId = parseDriveFolderId(input.folder);
+    if (!folderId) throw new AppError(400, "INVALID_INPUT", "Cole o link da pasta do Google Drive (ou o ID dela).");
+    try {
+      const drive = await driveClient();
+      const [folder, content] = await Promise.all([drive.meta(folderId), drive.list(folderId)]);
+      return json(req, 200, { data: { folder: { id: folder.id, name: folder.name }, ...content } });
+    } catch (e) { throw toApp(e); }
+  }
+  if (input.action === "drive_thumb") {
+    try {
+      return json(req, 200, { data: { thumbnail: await (await driveClient()).thumbnail(input.fileId) } });
+    } catch (e) { throw toApp(e); }
   }
 
   if (input.action === "publish") {

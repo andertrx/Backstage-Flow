@@ -37,8 +37,10 @@ export function checkPublishable(d: CampaignDraft): CheckItem[] {
   }
   for (const a of d.ads) {
     const label = a.name.trim() || "Anúncio sem nome";
-    if (!a.imageUrl.trim()) err("anuncio", `${label}: informe o endereço (https://) da imagem. O envio direto do Drive vem na próxima fase.`, a.id);
-    else if (!isHttps(a.imageUrl.trim())) err("anuncio", `${label}: o endereço da imagem precisa começar com https://.`, a.id);
+    if (!a.driveFileId) {
+      if (!a.imageUrl.trim()) err("anuncio", `${label}: escolha a imagem no Google Drive (ou informe o endereço https:// dela).`, a.id);
+      else if (!isHttps(a.imageUrl.trim())) err("anuncio", `${label}: o endereço da imagem precisa começar com https://.`, a.id);
+    }
     if (a.cta && PUBLISH_UNSUPPORTED_CTAS.includes(a.cta)) err("anuncio", `${label}: o botão "${a.cta}" ainda não é publicado por aqui. Escolha outro botão.`, a.id);
   }
   return out;

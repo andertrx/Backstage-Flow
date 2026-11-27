@@ -267,3 +267,37 @@ export function usePublishDraft() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: [...KEY, "publicacoes"] }),
   });
 }
+
+export interface DriveListing {
+  folder: { id: string; name: string };
+  folders: { id: string; name: string }[];
+  images: { id: string; name: string; mimeType: string; size: number | null }[];
+  /** Arquivos de outros tipos (ex.: vídeo) que não aparecem nesta etapa. */
+  others: number;
+}
+
+/** Lista uma pasta do Google Drive (link ou ID). Só enxerga o que foi compartilhado com a conta de serviço do CRM. */
+export function useDriveList() {
+  return useMutation({
+    mutationFn: async (folder: string) => {
+      const { data, error } = await supabase.functions.invoke("meta-builder", { body: { action: "drive_list", folder } });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      return (data as { data: DriveListing }).data;
+    },
+  });
+}
+
+/** Miniatura da imagem escolhida (null se o Drive não tiver). */
+export function useDriveThumb(fileId: string | null) {
+  return useQuery({
+    queryKey: [...KEY, "miniatura", fileId],
+    enabled: !!fileId,
+    staleTime: 10 * 60_000,
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("meta-builder", { body: { action: "drive_thumb", fileId } });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      return (data as { data: { thumbnail: string | null } }).data.thumbnail;
+    },
+  });
+}

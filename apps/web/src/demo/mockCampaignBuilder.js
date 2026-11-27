@@ -18,6 +18,13 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
     if (b.action === "validate") {
       return res(200, { data: { ...(db.metaBuilder.validation ?? { ok: true, message: null, code: null, subcode: null, permission: false }), scope: "campaign" } });
     }
+    if (b.action === "drive_list") {
+      if (db.metaBuilder.driveError) return res(400, { error: { code: "DRIVE_NOT_SHARED", message: db.metaBuilder.driveError } });
+      const root = { folder: { id: "pastaRaiz1234567", name: "Criativos Excalibur" }, folders: [{ id: "subpasta12345678", name: "Black Friday" }], images: [], others: 1 };
+      const sub = { folder: { id: "subpasta12345678", name: "Black Friday" }, folders: [], images: [{ id: "imagemUm1234567", name: "ADS-01.png", mimeType: "image/png", size: 245000 }, { id: "imagemDois123456", name: "ADS-02.jpg", mimeType: "image/jpeg", size: 1400000 }], others: 0 };
+      return res(200, { data: String(b.folder).includes("subpasta12345678") ? sub : root });
+    }
+    if (b.action === "drive_thumb") return res(200, { data: { thumbnail: null } });
     if (b.action === "publish") {
       const can = isAdminOrPerm();
       if (!can) return res(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para publicar no Meta." } });

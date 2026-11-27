@@ -141,7 +141,9 @@
 - [ ] **Teste real da Fase A:** abrir um rascunho de uma conta real e clicar em "Validar com o Meta"; me dizer o que apareceu (ok, recusa ou falta de permissão). Conferir se pixels e públicos aparecem.
 - [x] **Fase B pronta** (27/11/2026): botão "Publicar no Meta (pausado)", função `meta-builder` v2, tabelas `publish_operations` e `publish_items`. Ver `docs/etapa-35-campaign-builder/35.4-FASE-B-PUBLICAR.md`.
 - [ ] **Primeira publicação real (Ander):** escolher uma **conta de teste**, montar um rascunho simples (objetivo Tráfego, meta Cliques no link, 1 conjunto, 1 anúncio com o endereço https de uma imagem) e clicar em Publicar. Conferir no Gerenciador de Anúncios que tudo ficou **Pausado**. Me dizer o resultado (ou o erro do Meta) para eu ajustar os campos.
-- [ ] **Fase C (Drive):** no Google Cloud, ativar a Drive API, criar/reaproveitar a conta de serviço, colar a chave só no campo do CRM e compartilhar a pasta raiz dos criativos com o e-mail dela (Leitor). Sugestão: adicionar mais uma pessoa como Proprietário do projeto.
+- [x] **Fase C pronta** (27/11/2026, imagens JPG/PNG; vídeo fica para depois). Ver `docs/etapa-35-campaign-builder/35.5-FASE-C-GOOGLE-DRIVE.md`. Usa a conta de serviço que **já existe** (a das planilhas).
+- [ ] **Ander (2 passos):** (1) Google Cloud, projeto `backstage-flow`: ativar a **Google Drive API**; (2) Drive: compartilhar a pasta principal dos criativos com `crm-leitura@backstage-flow.iam.gserviceaccount.com` como **Leitor**. Depois, no rascunho, "Escolher do Google Drive". Sugestão: adicionar mais uma pessoa como Proprietário do projeto no Google Cloud.
+- [ ] **Vídeo no Criador** (fase própria): envio em partes ao Meta.
 
 ## Fase C do WhatsApp por cliente, Criador e limpeza (21/11/2026)
 - [x] (Feito em 27/11/2026: **8 verificações OK de 8**, tudo desfeito no final.) **Rodar o teste SQL da Fase C** (`supabase/tests/wa_saude_clientes.sql`).

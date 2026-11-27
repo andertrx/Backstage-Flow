@@ -110,7 +110,20 @@ check(await publicar.isDisabled(), "Publicar fica travado enquanto há pendênci
 const bloqueios = await page.getByTestId("cb-publicar-bloqueios").innerText();
 check(bloqueios.includes("modo avançado") && bloqueios.includes("imagem"), "explica o que falta: modo avançado e endereço da imagem");
 await page.getByLabel("JSON avançado").fill("");
-for (const campo of await page.getByLabel("Imagem do anúncio (endereço)").all()) await campo.fill("https://loja.com.br/imagem.jpg");
+// Anúncio 1: imagem escolhida no Google Drive (navega até a subpasta e escolhe)
+await page.getByTestId("cb-drive-escolher").first().click();
+const picker = page.getByTestId("drive-picker");
+await picker.getByLabel("Link da pasta do Drive").fill("https://drive.google.com/drive/folders/pastaRaiz1234567");
+await picker.getByRole("button", { name: "Abrir pasta" }).click();
+await picker.getByRole("button", { name: "Black Friday" }).first().click();
+await picker.getByTestId("drive-imagem").first().waitFor();
+check((await picker.getByTestId("drive-imagem").count()) === 2, "mostra só as imagens JPG/PNG da subpasta");
+await picker.getByTestId("drive-imagem").first().click();
+await picker.getByRole("button", { name: "Usar esta imagem" }).click();
+await page.getByTestId("cb-drive-arquivo").first().waitFor();
+check((await page.getByTestId("cb-drive-arquivo").first().innerText()).includes("ADS-01.png"), "o anúncio guarda a imagem escolhida do Drive");
+// Anúncio 2: endereço da imagem (alternativa)
+await page.getByLabel("ou o endereço da imagem").fill("https://loja.com.br/imagem.jpg");
 await page.waitForFunction(() => !document.querySelector('[data-testid="cb-publicar-bloqueios"]'));
 check(await publicar.isEnabled(), "sem pendências, o Publicar libera");
 await publicar.click();
@@ -122,6 +135,7 @@ await page.getByTestId("confirm-ok").click();
 await page.getByTestId("cb-publicacao-status").waitFor();
 check((await page.getByTestId("cb-publicacao-status").innerText()).includes("Publicada"), "mostra que foi publicada (pausada)");
 check(db.metaBuilder.calls.filter((c) => c.action === "publish").length === 1, "chamou o servidor uma única vez");
+check(db.builderDrafts[0].data.ads.some((x) => x.driveFileId === "imagemUm1234567" && x.driveFileName === "ADS-01.png"), "o rascunho guarda o arquivo do Drive (id e nome)");
 check((await page.getByTestId("cb-publicacao").getByText("confirmado no Meta").count()) >= 5, "cada objeto aparece confirmado pelo Meta");
 check(await page.getByRole("link", { name: /Abrir no Gerenciador/ }).isVisible(), "link para o Gerenciador de Anúncios");
 check((await page.getByRole("button", { name: /Publicar no Meta/ }).count()) === 0, "depois de publicada, não há como publicar de novo por engano");

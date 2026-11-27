@@ -102,3 +102,24 @@ Deno.test("publicar: erro já na campanha → falhou, nada criado", async () => 
   assertEquals(out, "falhou");
   assertEquals(m.calls.length, 1);
 });
+
+Deno.test("criativo: imagem do Drive usa image_hash (sem picture); sem Drive usa o endereço", () => {
+  const d = draft();
+  const comHash = JSON.parse(creativeFields(d.ads[0], "HASH1").object_story_spec).link_data;
+  assertEquals(comHash.image_hash, "HASH1");
+  assertEquals(comHash.picture, undefined);
+  const semHash = JSON.parse(creativeFields(d.ads[0]).object_story_spec).link_data;
+  assertEquals(semHash.picture, "https://loja.com.br/i.jpg");
+});
+
+Deno.test("publicar: anúncio com imagem do Drive sem hash enviado falha ANTES de falar com o Meta (nada de criativo sem imagem)", async () => {
+  const d = draft();
+  d.ads[0].driveFileId = "drive-file-1234";
+  const m = fakeMeta();
+  const got = new Map<number, ItemResult>();
+  const out = await runPublish(m.deps, ctx(d), (pos, r) => { got.set(pos, { ...(got.get(pos) ?? {}), ...r }); return Promise.resolve(); });
+  assertEquals(out, "parcial");
+  assertEquals(got.get(2)?.status, "falhou");
+  assert(got.get(2)?.errorMessage?.includes("não foi enviada ao Meta"));
+  assert(!m.calls.some((c) => c.endsWith("/adcreatives")));
+});

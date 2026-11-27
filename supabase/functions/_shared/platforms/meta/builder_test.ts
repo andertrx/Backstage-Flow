@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { buildCampaignFields, currencyOffset, fetchAccountLists, validateCampaign } from "./builder.ts";
+import { buildCampaignFields, currencyOffset, fetchAccountLists, uploadAdImage, validateCampaign } from "./builder.ts";
 
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -56,4 +56,20 @@ Deno.test("listas da conta: só id e nome, em ordem; uma lista que falha vira av
   assertEquals(l.customAudiences[0], { id: "9", name: "Clientes", detail: "CUSTOM" });
   assertEquals(l.savedAudiences, []);
   assertEquals(l.failed, ["savedAudiences"]);
+});
+
+Deno.test("imagem: envia em base64 para /adimages e devolve o hash; o token só vai no corpo", async () => {
+  let seen: { url: string; body: string } | null = null;
+  const f = ((url: URL, init: RequestInit) => { seen = { url: String(url), body: String(init.body) }; return Promise.resolve(reply(200, { images: { "a.png": { hash: "abc123", url: "https://x" } } })); }) as unknown as typeof fetch;
+  const hash = await uploadAdImage("TOKEN-SECRETO", "123", new Uint8Array([1, 2, 3]), "a.png", f);
+  assertEquals(hash, "abc123");
+  assert(seen!.url.includes("/act_123/adimages") && !seen!.url.includes("TOKEN-SECRETO"));
+  assert(decodeURIComponent(seen!.body).includes("bytes=AQID"));
+});
+
+Deno.test("imagem: recusa do Meta vira mensagem clara com o nome do arquivo", async () => {
+  const f = (() => Promise.resolve(reply(400, { error: { message: "bad", error_user_msg: "Imagem pequena demais." } }))) as unknown as typeof fetch;
+  let msg = "";
+  try { await uploadAdImage("t", "1", new Uint8Array([1]), "pequena.png", f); } catch (e) { msg = (e as Error).message; }
+  assertEquals(msg, 'O Meta recusou a imagem "pequena.png": Imagem pequena demais.');
 });

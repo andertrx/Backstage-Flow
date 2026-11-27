@@ -52,7 +52,7 @@ function pemToDer(pem: string): Uint8Array<ArrayBuffer> {
 }
 
 /** JWT da conta de serviço (assinado com RS256). */
-export async function signServiceJwt(sa: ServiceAccount, nowSeconds = Math.floor(Date.now() / 1000)): Promise<string> {
+export async function signServiceJwt(sa: ServiceAccount, nowSeconds = Math.floor(Date.now() / 1000), scope: string = SHEETS_SCOPE): Promise<string> {
   let key: CryptoKey;
   try {
     key = await crypto.subtle.importKey("pkcs8", pemToDer(sa.private_key), { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
@@ -60,7 +60,7 @@ export async function signServiceJwt(sa: ServiceAccount, nowSeconds = Math.floor
     throw new SheetsError(400, "SHEETS_BAD_KEY", "A chave privada do Google está corrompida. Gere uma chave nova no Google Cloud e cole no CRM.", err);
   }
   const header = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const claims = b64url(JSON.stringify({ iss: sa.client_email, scope: SHEETS_SCOPE, aud: TOKEN_URL, iat: nowSeconds, exp: nowSeconds + 3600 }));
+  const claims = b64url(JSON.stringify({ iss: sa.client_email, scope, aud: TOKEN_URL, iat: nowSeconds, exp: nowSeconds + 3600 }));
   const sig = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(`${header}.${claims}`)));
   return `${header}.${claims}.${b64url(sig)}`;
 }
@@ -78,10 +78,11 @@ async function call(fetchFn: Fetch, url: string, init: RequestInit): Promise<Res
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 /** Token de acesso (reaproveitado até 5 min antes de vencer). */
-export async function accessToken(sa: ServiceAccount, fetchFn: Fetch = fetch): Promise<string> {
-  const cached = tokenCache.get(sa.client_email);
+export async function accessToken(sa: ServiceAccount, fetchFn: Fetch = fetch, scope: string = SHEETS_SCOPE): Promise<string> {
+  const cacheKey = `${sa.client_email}|${scope}`;
+  const cached = tokenCache.get(cacheKey);
   if (cached && cached.expiresAt - 300_000 > Date.now()) return cached.token;
-  const assertion = await signServiceJwt(sa);
+  const assertion = await signServiceJwt(sa, Math.floor(Date.now() / 1000), scope);
   const res = await call(fetchFn, TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -93,7 +94,7 @@ export async function accessToken(sa: ServiceAccount, fetchFn: Fetch = fetch): P
       "O Google recusou a chave da conta de serviço (ela pode ter sido apagada ou desativada no Google Cloud). Gere uma chave nova e cole no CRM.",
       { status: res.status, error: body.error, description: body.error_description });
   }
-  tokenCache.set(sa.client_email, { token: body.access_token, expiresAt: Date.now() + Number(body.expires_in ?? 3600) * 1000 });
+  tokenCache.set(cacheKey, { token: body.access_token, expiresAt: Date.now() + Number(body.expires_in ?? 3600) * 1000 });
   return body.access_token;
 }
 
