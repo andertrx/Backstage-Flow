@@ -22,7 +22,7 @@ import { useEnviosPendentes } from "@/features/operations/enviosApi.ts";
 import { useMyOpsPermissions } from "@/features/operations/api.ts";
 import { cn } from "@/lib/cn.ts";
 import { buildHojeItems, type HojeInputs, type HojeTone, hojeWatching, saudacao } from "./hojeLogic.ts";
-import { useCountUp } from "./useCountUp.ts";
+import { useCountUpText } from "@/lib/useCountUp.ts";
 
 const EMPTY: MetricTotals = { spend_micros: null, impressions: null, clicks: null, leads: null, messages: null, conversions: null, conversion_value_micros: null };
 const TONE: Record<HojeTone, { ring: string; chip: string; icon: LucideIcon }> = {
@@ -37,7 +37,7 @@ function Rise({ i, className, children }: { i: number; className?: string; child
 }
 
 function Count({ value }: { value: number }) {
-  return <span className="tabular-nums">{useCountUp(value)}</span>;
+  return <span ref={useCountUpText<HTMLSpanElement>(value, (v) => String(Math.round(v)), 600)} className="tabular-nums">{value}</span>;
 }
 
 function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {

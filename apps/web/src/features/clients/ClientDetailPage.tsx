@@ -205,7 +205,7 @@ export function ClientDetailPage() {
         <nav className="flex flex-wrap gap-2" aria-label="Abas do cliente" data-testid="client-tabs">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button key={id} type="button" onClick={() => setTab(id)} aria-pressed={tab === id} data-testid={`client-tab-${id}`}
-              className={cn("inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all",
+              className={cn("inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold press",
                 tab === id ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
                   : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400")}>
               <Icon className="size-4" aria-hidden />{label}

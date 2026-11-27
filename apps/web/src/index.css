@@ -26,26 +26,30 @@
   --shadow-card: 0 1px 0 rgb(15 23 42 / 0.02);
   --shadow-elevated: 0 12px 32px -8px rgb(15 23 42 / 0.2), 0 4px 12px -4px rgb(15 23 42 / 0.1);
   --shadow-brand: 0 4px 14px -4px rgb(37 99 235 / 0.55);
-  /* Movimento: curtos, sem loop. */
+  /* Movimento (27/11/2026): curvas fortes. Entrada e resposta = ease-out forte; movimento que já está na tela = ease-in-out forte; nunca ease-in. */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Curtos, sem loop. */
   --animate-fade-in: fade-in 150ms ease-out both;
-  --animate-modal-in: modal-in 320ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
-  --animate-sheet-in: sheet-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  --animate-toast-in: toast-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-modal-in: modal-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-sheet-in: sheet-in 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-toast-in: toast-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
   /* "backwards" (e não "both"): terminada a animação, a página volta a ser um elemento comum. Com "both" o navegador seguia tratando o bloco como transformado e as janelas (position: fixed) saíam do lugar. */
-  --animate-page-in: page-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  --animate-page-in: page-in 200ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
   --animate-page-fast: fade-in 140ms ease-out backwards;
-  --animate-drawer-in: drawer-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  --animate-rise: rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  --animate-drawer-in: drawer-in 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-rise: rise 280ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
   --animate-draw: draw-line 1000ms cubic-bezier(0.4, 0, 0.2, 1) backwards;
   --animate-area: area-in 700ms ease-out 250ms backwards;
   --animate-shimmer: shimmer 1.4s ease-in-out infinite;
   @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(0.94); } to { opacity: 1; transform: none; } }
+  @keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: none; } }
   @keyframes sheet-in { from { transform: translateY(24px); opacity: 0.6; } to { transform: none; opacity: 1; } }
   @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes drawer-in { from { transform: translateX(-24px); opacity: 0.4; } to { transform: none; opacity: 1; } }
-  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
   @keyframes draw-line { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
   @keyframes area-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
@@ -121,7 +125,13 @@ p { text-wrap-style: pretty; }
     background-size: 1rem;
   }
   /* Entrada em sequência dos cartões (a posição vem de --i). Só enquanto roda: depois a página volta a ser comum. */
-  .rise { animation: var(--animate-rise); animation-delay: calc(var(--i, 0) * 45ms); }
+  .rise { animation: var(--animate-rise); animation-delay: min(180ms, calc(var(--i, 0) * 40ms - var(--i, 0) * var(--i, 0) * 2ms)); }
+  /* Botões, abas e itens do menu: resposta ao toque (só propriedades baratas; nunca "tudo") e afundar de leve ao pressionar. */
+  .press {
+    transition: color 150ms var(--ease-out-strong), background-color 150ms var(--ease-out-strong), border-color 150ms var(--ease-out-strong),
+      box-shadow 150ms var(--ease-out-strong), opacity 150ms var(--ease-out-strong), scale 150ms var(--ease-out-strong);
+  }
+  .press:active { scale: 0.97; }
   /* Linha do gráfico que se desenha (pathLength = 1 no desenho). */
   .chart-line { stroke-dasharray: 1; stroke-dashoffset: 0; animation: var(--animate-draw); }
   .chart-area { animation: var(--animate-area); }
@@ -134,6 +144,7 @@ p { text-wrap-style: pretty; }
   }
 }
 
+/* "Reduzir movimento" = menos e mais suave, não zero: some o deslocamento e o atraso, fica só o aparecer (opacidade), que ajuda a entender a mudança. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -141,6 +152,13 @@ p { text-wrap-style: pretty; }
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  [class*="animate-modal-in"], [class*="animate-sheet-in"], [class*="animate-toast-in"], [class*="animate-page-"], [class*="animate-drawer-in"],
+  [class*="animate-rise"], .rise, .page-stagger > * > *, .shell-in-left, .shell-in-top {
+    animation: fade-in 160ms ease-out both !important;
+    animation-delay: 0ms !important;
+  }
+  .press { transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease, opacity 120ms ease !important; }
+  .press:active { scale: 1; }
 }
 
 /* ---------- Tema escuro (53.4) ----------
@@ -219,18 +237,18 @@ p { text-wrap-style: pretty; }
 @keyframes shell-in-top { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
 @keyframes bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 /* Entrada em sequência dos blocos de TODA página (53.6): cada bloco do topo sobe um pouco depois do anterior. Só enquanto roda (fill "backwards"). */
-.page-stagger > * > * { animation: rise 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
-.page-stagger > * > *:nth-child(2) { animation-delay: 50ms; }
-.page-stagger > * > *:nth-child(3) { animation-delay: 100ms; }
-.page-stagger > * > *:nth-child(4) { animation-delay: 150ms; }
-.page-stagger > * > *:nth-child(5) { animation-delay: 200ms; }
-.page-stagger > * > *:nth-child(6) { animation-delay: 250ms; }
-.page-stagger > * > *:nth-child(n+7) { animation-delay: 300ms; }
+.page-stagger > * > * { animation: rise 280ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+.page-stagger > * > *:nth-child(2) { animation-delay: 40ms; }
+.page-stagger > * > *:nth-child(3) { animation-delay: 72ms; }
+.page-stagger > * > *:nth-child(4) { animation-delay: 100ms; }
+.page-stagger > * > *:nth-child(5) { animation-delay: 124ms; }
+.page-stagger > * > *:nth-child(6) { animation-delay: 144ms; }
+.page-stagger > * > *:nth-child(n+7) { animation-delay: 160ms; }
 @media print { .page-stagger > * > * { animation: none; } }
 [data-motion="off"] .page-stagger > * > *, [data-motion="off"] .shell-in-left, [data-motion="off"] .shell-in-top { animation: none; }
-.shell-in-left { animation: shell-in-left 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
-.shell-in-top { animation: shell-in-top 480ms cubic-bezier(0.22, 1, 0.36, 1) 80ms backwards; }
-.bar-grow { transform-origin: left; animation: bar-grow 700ms cubic-bezier(0.22, 1, 0.36, 1) 150ms backwards; }
+.shell-in-left { animation: shell-in-left 320ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+.shell-in-top { animation: shell-in-top 320ms cubic-bezier(0.23, 1, 0.32, 1) 60ms backwards; }
+.bar-grow { transform-origin: left; animation: bar-grow 500ms cubic-bezier(0.23, 1, 0.32, 1) 100ms backwards; }
 
 /* PDF do dashboard do cliente (Etapa 19): A4, cores de fundo mantidas,
    blocos sem quebra no meio. */
@@ -255,16 +273,16 @@ html.pdf-mode .pdf-width { width: 186mm; max-width: 186mm; }
   0% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0.35); }
   100% { box-shadow: 0 0 0 14px rgb(239 68 68 / 0); }
 }
-.hoje-rise { animation: hoje-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.hoje-rise { animation: hoje-rise 0.32s cubic-bezier(0.23, 1, 0.32, 1) both; animation-delay: min(200ms, calc(var(--i, 0) * 50ms - var(--i, 0) * var(--i, 0) * 3ms)); }
 .hoje-pulse { animation: hoje-pulse 1.3s ease-out 1 0.6s; }
 
 
 /* ---------- Telas de entrada (login, senha): fundo vivo e logo em movimento ---------- */
 .auth-stage { background: var(--color-canvas); }
-.auth-orb { position: absolute; border-radius: 9999px; filter: blur(70px); pointer-events: none; opacity: 0.55; will-change: transform; }
-.auth-orb-a { width: 38rem; height: 38rem; left: -10rem; top: -12rem; background: radial-gradient(circle, rgb(37 99 235 / 0.55), transparent 68%); animation: auth-drift-a 18s ease-in-out infinite alternate; }
-.auth-orb-b { width: 34rem; height: 34rem; right: -9rem; bottom: -12rem; background: radial-gradient(circle, rgb(14 165 233 / 0.5), transparent 68%); animation: auth-drift-b 22s ease-in-out infinite alternate; }
-.auth-orb-c { width: 22rem; height: 22rem; left: 55%; top: 8%; background: radial-gradient(circle, rgb(99 102 241 / 0.38), transparent 70%); animation: auth-drift-c 26s ease-in-out infinite alternate; }
+.auth-orb { position: absolute; border-radius: 9999px; filter: blur(70px); pointer-events: none; opacity: 0.55; }
+.auth-orb-a { width: 38rem; height: 38rem; left: -10rem; top: -12rem; background: radial-gradient(circle, rgb(37 99 235 / 0.55), transparent 68%); }
+.auth-orb-b { width: 34rem; height: 34rem; right: -9rem; bottom: -12rem; background: radial-gradient(circle, rgb(14 165 233 / 0.5), transparent 68%); }
+.auth-orb-c { width: 22rem; height: 22rem; left: 55%; top: 8%; background: radial-gradient(circle, rgb(99 102 241 / 0.38), transparent 70%); }
 [data-theme="dark"] .auth-orb { opacity: 0.45; }
 .auth-grid {
   position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
@@ -274,27 +292,27 @@ html.pdf-mode .pdf-width { width: 186mm; max-width: 186mm; }
   mask-image: radial-gradient(ellipse 60% 55% at 50% 40%, #000 20%, transparent 75%);
   -webkit-mask-image: radial-gradient(ellipse 60% 55% at 50% 40%, #000 20%, transparent 75%);
 }
-.auth-logo-in { animation: auth-logo-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.auth-logo-float { animation: auth-float 6s ease-in-out 1s infinite; }
+.auth-logo-in { animation: auth-logo-in 0.5s cubic-bezier(0.23, 1, 0.32, 1) both; }
+.auth-logo-float { }
 .auth-logo-glow {
   position: absolute; left: 50%; top: 50%; width: 120%; height: 220%; transform: translate(-50%, -50%); border-radius: 9999px; pointer-events: none;
-  background: radial-gradient(closest-side, rgb(59 130 246 / 0.42), transparent); filter: blur(18px); animation: auth-glow 4.5s ease-in-out infinite;
+  background: radial-gradient(closest-side, rgb(59 130 246 / 0.42), transparent); filter: blur(18px);
 }
 .auth-logo-shine {
   position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(105deg, transparent 38%, rgb(125 190 255 / 0.95) 50%, transparent 62%) no-repeat;
   background-size: 260% 100%; background-position: 160% 0;
   -webkit-mask: url(/brand/logo.png) center / contain no-repeat; mask: url(/brand/logo.png) center / contain no-repeat;
-  animation: auth-shine 5.5s ease-in-out 1.2s infinite;
+  animation: auth-shine 1.4s cubic-bezier(0.23, 1, 0.32, 1) 0.6s 1 both;
 }
-.auth-text-in { animation: rise 0.7s ease-out 0.35s both; }
-.auth-card-in { animation: auth-card-in 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s both; }
-.auth-card-in form > * { animation: rise 0.6s ease-out both; }
-.auth-card-in form > *:nth-child(1) { animation-delay: 0.55s; }
-.auth-card-in form > *:nth-child(2) { animation-delay: 0.65s; }
-.auth-card-in form > *:nth-child(3) { animation-delay: 0.75s; }
-.auth-card-in form > *:nth-child(4) { animation-delay: 0.85s; }
-.auth-card-in form > *:nth-child(5) { animation-delay: 0.95s; }
+.auth-text-in { animation: rise 0.4s cubic-bezier(0.23, 1, 0.32, 1) 0.15s both; }
+.auth-card-in { animation: auth-card-in 0.5s cubic-bezier(0.23, 1, 0.32, 1) 0.1s both; }
+.auth-card-in form > * { animation: rise 0.4s cubic-bezier(0.23, 1, 0.32, 1) both; }
+.auth-card-in form > *:nth-child(1) { animation-delay: 0.25s; }
+.auth-card-in form > *:nth-child(2) { animation-delay: 0.31s; }
+.auth-card-in form > *:nth-child(3) { animation-delay: 0.36s; }
+.auth-card-in form > *:nth-child(4) { animation-delay: 0.40s; }
+.auth-card-in form > *:nth-child(5) { animation-delay: 0.43s; }
 @keyframes auth-logo-in { from { opacity: 0; transform: translateY(18px) scale(0.86); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
 @keyframes auth-card-in { from { opacity: 0; transform: translateY(28px) scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes auth-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }

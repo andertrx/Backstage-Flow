@@ -6,7 +6,7 @@ import { InfoTooltip } from "@/components/ui/tooltip.tsx";
 import { cn } from "@/lib/cn.ts";
 import type { BalanceTotals } from "@/features/balance/summary.ts";
 import { formatChange, formatKpi } from "@/lib/format.ts";
-import { useCountUp } from "@/lib/useCountUp.ts";
+import { useCountUpText } from "@/lib/useCountUp.ts";
 
 /** O que o card precisa saber do indicador (serve também para a visão executiva). */
 type CardDefinition = Pick<KpiDefinition, "label" | "description" | "format" | "direction">;
@@ -76,7 +76,7 @@ export function KpiCard({ definition, value, previous, currency, missing, loadin
   const variation = kpiVariation(value, previous, definition.direction);
   const Arrow = variation.trend === "up" ? ArrowUpRight : variation.trend === "down" ? ArrowDownRight : Minus;
   const tones = hero ? toneClassDark : toneClass;
-  const counted = useCountUp(value);
+  const countRef = useCountUpText<HTMLParagraphElement>(value, (v) => formatKpi(v, definition.format, currency));
   return (
     <Shell label={definition.label} hero={hero} index={index} className={className}>
       <Head label={definition.label} icon={icon} hero={hero} tip={definition.description} />
@@ -85,8 +85,8 @@ export function KpiCard({ definition, value, previous, currency, missing, loadin
       ) : value == null ? (
         <p className={cn("text-sm", hero ? "text-blue-100" : "text-slate-500")} data-testid="kpi-missing">{missing}</p>
       ) : (
-        <p className={valueClass(hero)} data-testid="kpi-value">
-          {formatKpi(counted ?? value, definition.format, currency)}
+        <p ref={countRef} className={valueClass(hero)} data-testid="kpi-value">
+          {formatKpi(value, definition.format, currency)}
         </p>
       )}
       {!loading && value != null && (

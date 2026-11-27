@@ -79,7 +79,7 @@ export function ChartsSection({ range, filters, currency }: { range: DateRange; 
                 disabled={g === "day" && !dailyAllowed}
                 title={g === "day" && !dailyAllowed ? `Para mais de ${MAX_DAILY_DAYS} dias, use semanal ou mensal.` : undefined}
                 onClick={() => set("agrupar", g === "day" ? null : g)}
-                className={cn("rounded-lg px-3 py-1 text-sm font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40",
+                className={cn("rounded-lg px-3 py-1 text-sm font-medium press disabled:cursor-not-allowed disabled:opacity-40",
                   granularity === g ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-800")}
               >
                 {GRANULARITY_LABELS[g]}

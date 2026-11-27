@@ -123,7 +123,7 @@ export function ResultsPage() {
             {TABS.map((t) => (
               <button key={t.id} type="button" aria-pressed={tab === t.id}
                 onClick={() => setParam({ aba: t.id === "visao" ? null : t.id, campanha: null, conjunto: null, busca: null })}
-                className={cn("rounded-lg px-4 py-2 text-sm font-semibold transition-all",
+                className={cn("rounded-lg px-4 py-2 text-sm font-semibold press",
                   tab === t.id ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
                     : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400")}>
                 {t.label}

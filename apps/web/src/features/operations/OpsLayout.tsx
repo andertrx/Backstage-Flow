@@ -78,7 +78,7 @@ export function OpsLayout() {
                   to={to}
                   className={({ isActive }) =>
                     cn(
-                      "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all duration-150",
+                      "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold press",
                       isActive
                         ? "bg-brand-600 text-white shadow-brand"
                         : gi === 1

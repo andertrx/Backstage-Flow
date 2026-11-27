@@ -99,7 +99,7 @@ export function TrackingHub() {
           {([["painel", "Painel", Radar], ["config", "Configurações", Settings2]] as const).map(([id, label, Icon]) => (
             <button key={id} type="button" role="tab" aria-selected={section === id} data-testid={`tracking-section-${id}`}
               onClick={() => set({ secao: id === "painel" ? null : id, sub: null })}
-              className={cn("inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all",
+              className={cn("inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold press",
                 section === id ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
                   : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400")}>
               <Icon className="size-4" aria-hidden />{label}
@@ -140,7 +140,7 @@ export function TrackingHub() {
           <nav className="flex flex-wrap gap-2" aria-label="Abas do painel" data-testid="tracking-tabs">
             {shown.map(({ id, label, icon: Icon }) => (
               <button key={id} type="button" onClick={() => set({ aba: id === "site" ? null : id, sub: null })} aria-pressed={tab === id} data-testid={`tracking-panel-tab-${id}`}
-                className={cn("inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all",
+                className={cn("inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold press",
                   tab === id ? "bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.35)]"
                     : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-blue-700 hover:ring-blue-400")}>
                 <Icon className="size-4" aria-hidden />{label}

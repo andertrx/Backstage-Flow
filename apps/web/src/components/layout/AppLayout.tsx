@@ -69,7 +69,7 @@ function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; on
                     aria-label={collapsed ? label : undefined}
                     className={({ isActive }) =>
                       cn(
-                        "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
+                        "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium press",
                         "focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-brand-500",
                         collapsed && "justify-center px-0",
                         isActive ? "bg-brand-50 font-semibold text-brand-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",

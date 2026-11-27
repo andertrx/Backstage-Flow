@@ -39,7 +39,7 @@ export function Button({ variant = "primary", size = "md", loading, disabled, cl
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        "inline-flex items-center justify-center font-medium transition-all duration-150 active:scale-[0.98]",
+        "inline-flex items-center justify-center font-medium press",
         "focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none disabled:active:scale-100",
         sizes[size],
         variants[variant],
