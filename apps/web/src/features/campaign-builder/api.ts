@@ -272,7 +272,9 @@ export interface DriveListing {
   folder: { id: string; name: string };
   folders: { id: string; name: string }[];
   images: { id: string; name: string; mimeType: string; size: number | null }[];
-  /** Arquivos de outros tipos (ex.: vídeo) que não aparecem nesta etapa. */
+  /** Vídeos MP4/MOV (até 30 MB). Pode faltar em respostas antigas. */
+  videos?: { id: string; name: string; mimeType: string; size: number | null }[];
+  /** Arquivos de outros tipos que não aparecem. */
   others: number;
 }
 

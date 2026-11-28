@@ -120,7 +120,7 @@ Deno.test("publicar: anúncio com imagem do Drive sem hash enviado falha ANTES d
   const out = await runPublish(m.deps, ctx(d), (pos, r) => { got.set(pos, { ...(got.get(pos) ?? {}), ...r }); return Promise.resolve(); });
   assertEquals(out, "parcial");
   assertEquals(got.get(2)?.status, "falhou");
-  assert(got.get(2)?.errorMessage?.includes("não foi enviada ao Meta"));
+  assert(got.get(2)?.errorMessage?.includes("não foi enviado ao Meta"));
   assert(!m.calls.some((c) => c.endsWith("/adcreatives")));
 });
 
@@ -173,4 +173,32 @@ Deno.test("público: interesses junto de um público salvo que já tem interesse
   let msg = "";
   try { adSetFields(d.adSets[0], "C1", c); } catch (e) { msg = (e as Error).message; }
   assert(msg.includes("já tem interesses"));
+});
+
+Deno.test("criativo de vídeo: video_data com id do vídeo, miniatura do Meta e botão do destino (site, mensagem e formulário)", () => {
+  const a = newAd("s1", { id: "a1", name: "Reels", pageId: "111", primaryText: "Oferta", headline: "Compre", link: "https://loja.com.br", cta: "SHOP_NOW" });
+  const vid = { id: "vid1", thumbnail: "https://scontent/x.jpg" };
+  const site = JSON.parse(creativeFields(a, undefined, "", vid).object_story_spec);
+  assertEquals(site.link_data, undefined);
+  assertEquals(site.video_data, { video_id: "vid1", image_url: "https://scontent/x.jpg", message: "Oferta", title: "Compre", call_to_action: { type: "SHOP_NOW", value: { link: "https://loja.com.br" } } });
+  const zap = JSON.parse(creativeFields(a, undefined, "WHATSAPP", vid).object_story_spec);
+  assertEquals(zap.video_data.call_to_action, { type: "WHATSAPP_MESSAGE", value: { app_destination: "WHATSAPP" } });
+  const form = JSON.parse(creativeFields({ ...a, leadFormId: "555566" }, undefined, "ON_AD", vid).object_story_spec);
+  assertEquals(form.video_data.call_to_action, { type: "SIGN_UP", value: { lead_gen_form_id: "555566" } });
+});
+
+Deno.test("publicar com vídeo: o criativo usa o vídeo enviado e não pede hash de imagem", async () => {
+  const d = draft();
+  d.ads[0] = { ...d.ads[0], driveFileId: "videoUm12345678", driveKind: "video", imageUrl: "" };
+  const c = ctx(d);
+  c.videos = new Map([["videoUm12345678", { id: "vid1", thumbnail: "https://scontent/x.jpg" }]]);
+  const sent: Record<string, string>[] = [];
+  const deps = {
+    post: (path: string, f: Record<string, string>) => { sent.push({ path, ...f }); return Promise.resolve({ status: 200, body: { id: `id${sent.length}` } }); },
+    get: (id: string) => Promise.resolve({ id, status: "PAUSED", effective_status: "PAUSED" }),
+  };
+  const out = await runPublish(deps, c, () => Promise.resolve());
+  assertEquals(out, "concluida");
+  const cr = sent.find((x) => x.path.endsWith("/adcreatives"))!;
+  assert(JSON.parse(cr.object_story_spec).video_data.video_id === "vid1");
 });

@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { buildCampaignFields, currencyOffset, fetchAccountLists, fetchLeadForms, searchTargeting, uploadAdImage, validateCampaign } from "./builder.ts";
+import { buildCampaignFields, currencyOffset, fetchAccountLists, fetchLeadForms, searchTargeting, uploadAdImage, uploadAdVideo, validateCampaign } from "./builder.ts";
 
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -94,4 +94,35 @@ Deno.test("busca de cidades: só cidades, com região e país", async () => {
 Deno.test("formulários da página: id, nome e status", async () => {
   const f = (() => Promise.resolve(reply(200, { data: [{ id: "555566", name: "Cadastro Janeiro", status: "ACTIVE" }, { name: "x" }] }))) as typeof fetch;
   assertEquals(await fetchLeadForms("TOK", "1234567", f), [{ id: "555566", name: "Cadastro Janeiro", status: "ACTIVE" }]);
+});
+
+Deno.test("enviar vídeo: manda o arquivo, espera o Meta processar e devolve id e miniatura", async () => {
+  const calls: string[] = [];
+  let polls = 0;
+  const f = ((u: URL | string, init?: RequestInit) => {
+    calls.push(`${init?.method ?? "GET"} ${String(u).split("?")[0]}`);
+    if (init?.method === "POST") {
+      assert(init.body instanceof FormData && init.body.get("source") instanceof Blob && init.body.get("access_token") === "TOK");
+      return Promise.resolve(reply(200, { id: "vid1" }));
+    }
+    polls++;
+    return Promise.resolve(reply(200, polls < 2 ? { status: { video_status: "processing" } } : { status: { video_status: "ready" }, picture: "https://scontent/x.jpg" }));
+  }) as typeof fetch;
+  const v = await uploadAdVideo("TOK", "123", new Uint8Array([1, 2, 3]), "reels.mp4", "video/mp4", { fetchImpl: f, pollMs: 1 });
+  assertEquals(v, { id: "vid1", thumbnail: "https://scontent/x.jpg" });
+  assert(calls[0].startsWith("POST") && calls[0].endsWith("/act_123/advideos"));
+  assertEquals(polls, 2);
+});
+
+Deno.test("enviar vídeo: recusa do Meta, erro de processamento e demora viram mensagens claras", async () => {
+  const bytes = new Uint8Array([1]);
+  const refuse = (() => Promise.resolve(reply(400, { error: { message: "bad", error_user_msg: "Formato inválido" } }))) as typeof fetch;
+  let m1 = ""; try { await uploadAdVideo("T", "1", bytes, "a.mp4", "video/mp4", { fetchImpl: refuse }); } catch (e) { m1 = (e as Error).message; }
+  assert(m1.includes("recusou o vídeo") && m1.includes("Formato inválido"));
+  const broken = ((_u: URL | string, init?: RequestInit) => Promise.resolve(init?.method === "POST" ? reply(200, { id: "v" }) : reply(200, { status: { video_status: "error" } }))) as typeof fetch;
+  let m2 = ""; try { await uploadAdVideo("T", "1", bytes, "a.mp4", "video/mp4", { fetchImpl: broken, pollMs: 1 }); } catch (e) { m2 = (e as Error).message; }
+  assert(m2.includes("não conseguiu processar"));
+  const slow = ((_u: URL | string, init?: RequestInit) => Promise.resolve(init?.method === "POST" ? reply(200, { id: "v" }) : reply(200, { status: { video_status: "processing" } }))) as typeof fetch;
+  let m3 = ""; try { await uploadAdVideo("T", "1", bytes, "a.mp4", "video/mp4", { fetchImpl: slow, pollMs: 1, maxWaitMs: 5 }); } catch (e) { m3 = (e as Error).message; }
+  assert(m3.includes("ainda está processando"));
 });

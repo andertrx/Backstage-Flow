@@ -54,6 +54,8 @@ export interface PublishCtx {
   audiences: Audiences;
   /** Imagens do Drive já enviadas ao Meta: id do arquivo no Drive → hash da imagem no Meta. */
   imageHashes?: Map<string, string>;
+  /** Vídeos do Drive já enviados e processados no Meta: id do arquivo → id do vídeo e miniatura. */
+  videos?: Map<string, { id: string; thumbnail: string }>;
 }
 
 const act = (externalId: string) => `act_${externalId.replace(/^act_/, "")}`;
@@ -142,7 +144,7 @@ const MESSAGING_CTA: Record<string, { type: string; app: string }> = {
 };
 const LEAD_CTAS = ["SIGN_UP", "LEARN_MORE", "APPLY_NOW", "GET_QUOTE", "GET_OFFER", "SUBSCRIBE", "DOWNLOAD", "CONTACT_US", "BOOK_TRAVEL"];
 
-export function creativeFields(a: DraftAd, imageHash?: string, destination: string = ""): Record<string, string> {
+export function creativeFields(a: DraftAd, imageHash?: string, destination: string = "", video?: { id: string; thumbnail: string }): Record<string, string> {
   const messaging = MESSAGING_CTA[destination];
   const leadForm = destination === "ON_AD";
   const link: Record<string, unknown> = { message: a.primaryText, link: messaging ? "https://fb.me/" : leadForm ? "http://fb.me/" : a.link };
@@ -154,6 +156,17 @@ export function creativeFields(a: DraftAd, imageHash?: string, destination: stri
   else if (leadForm) link.call_to_action = { type: LEAD_CTAS.includes(a.cta) ? a.cta : "SIGN_UP", value: { lead_gen_form_id: a.leadFormId } };
   else if (a.cta && a.cta !== "NO_BUTTON") link.call_to_action = { type: a.cta, value: { link: a.link } };
   const story: Record<string, unknown> = { page_id: a.pageId, link_data: link };
+  if (video) {
+    // Vídeo: video_data no lugar de link_data. A miniatura é a que o Meta gerou; o botão segue as mesmas regras do destino.
+    const v: Record<string, unknown> = { video_id: video.id, image_url: video.thumbnail, message: a.primaryText };
+    if (a.headline) v.title = a.headline;
+    if (a.description) v.link_description = a.description;
+    if (messaging) v.call_to_action = { type: messaging.type, value: { app_destination: messaging.app } };
+    else if (leadForm) v.call_to_action = { type: LEAD_CTAS.includes(a.cta) ? a.cta : "SIGN_UP", value: { lead_gen_form_id: a.leadFormId } };
+    else v.call_to_action = { type: a.cta && a.cta !== "NO_BUTTON" ? a.cta : "LEARN_MORE", value: { link: a.link } };
+    delete story.link_data;
+    story.video_data = v;
+  }
   if (a.instagramId) story.instagram_user_id = a.instagramId;
   return { name: a.name, object_story_spec: JSON.stringify(story) };
 }
@@ -200,8 +213,9 @@ export async function runPublish(deps: PublishDeps, ctx: PublishCtx, onItem: (po
         const a = d.ads.find((x) => x.id === item.localId)!;
         path = `${base}/adcreatives`;
         const hash = a.driveFileId ? ctx.imageHashes?.get(a.driveFileId) : undefined;
-        if (a.driveFileId && !hash) throw new Error("A imagem do Drive deste anúncio não foi enviada ao Meta.");
-        fields = creativeFields(a, hash, d.adSets.find((x) => x.id === a.adSetId)?.destinationType ?? "");
+        if (a.driveFileId && !hash && !ctx.videos?.get(a.driveFileId)) throw new Error("A imagem ou o vídeo do Drive deste anúncio não foi enviado ao Meta.");
+        const video = a.driveFileId ? ctx.videos?.get(a.driveFileId) : undefined;
+        fields = creativeFields(a, video ? undefined : hash, d.adSets.find((x) => x.id === a.adSetId)?.destinationType ?? "", video);
       } else {
         const a = d.ads.find((x) => x.id === item.localId)!;
         path = `${base}/ads`;

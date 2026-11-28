@@ -159,10 +159,10 @@ describe("publicar (Fase B)", () => {
     d.ads[0].imageUrl = "https://x.com/a.jpg";
     expect(publishBlockers(d)).toEqual([]);
   });
-  it("meta que exige vídeo/post/ligação e o botão de ligar ainda não são publicados (aviso claro)", () => {
+  it("meta que exige post existente/ligação e o botão de ligar ainda não são publicados (aviso claro)", () => {
     const d = completo();
     d.ads[0].imageUrl = "https://x.com/a.jpg";
-    d.adSets[0].optimizationGoal = "THRUPLAY";
+    d.adSets[0].optimizationGoal = "POST_ENGAGEMENT";
     d.ads[0].cta = "CALL_NOW";
     const msgs = checkPublishable(d).map((i) => i.message).join(" | ");
     expect(msgs).toContain("ainda não é publicada");
@@ -262,5 +262,24 @@ describe("Fase E — interesses, cidades e Advantage+", () => {
     expect(checkDraft(base).some((i) => i.message.includes("um país ou uma cidade"))).toBe(true);
     base.adSets[0].cities = [{ key: "2673660", name: "Fortaleza", radius: 17 }];
     expect(checkDraft(base).some((i) => i.message.includes("um país ou uma cidade"))).toBe(false);
+  });
+});
+
+describe("Fase G — vídeo", () => {
+  const base = () => normalizeDraft({
+    campaign: { name: "X", objective: "OUTCOME_AWARENESS", status: "PAUSED" },
+    adSets: [{ id: "s1", name: "Conj", optimizationGoal: "THRUPLAY", billingEvent: "IMPRESSIONS", budgetAmount: 10 }],
+    ads: [{ id: "a1", adSetId: "s1", name: "Anúncio", pageId: "111", primaryText: "Oi", link: "https://x.com.br", cta: "LEARN_MORE", driveFileId: "arquivoImagem12", driveKind: "image" }],
+  });
+  it("meta de vídeo (ThruPlay) já publica, mas só com vídeo do Drive em todos os anúncios do conjunto", () => {
+    const d = base();
+    expect(checkPublishable(d).some((i) => i.message.includes("todos os anúncios do conjunto sejam vídeos"))).toBe(true);
+    d.ads[0] = { ...d.ads[0], driveKind: "video", driveFileId: "arquivoVideo123" };
+    expect(checkPublishable(d).some((i) => i.message.includes("sejam vídeos") || i.message.includes("ainda não é publicada"))).toBe(false);
+  });
+  it("no máximo 3 vídeos diferentes por publicação", () => {
+    const d = base();
+    d.ads = ["aaaaaaaaaa1", "aaaaaaaaaa2", "aaaaaaaaaa3", "aaaaaaaaaa4"].map((f, i) => ({ ...d.ads[0], id: `a${i}`, driveFileId: f, driveKind: "video" as const }));
+    expect(checkPublishable(d).some((i) => i.message.includes("até 3 vídeos"))).toBe(true);
   });
 });

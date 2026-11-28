@@ -117,7 +117,8 @@ await picker.getByLabel("Link da pasta do Drive").fill("https://drive.google.com
 await picker.getByRole("button", { name: "Abrir pasta" }).click();
 await picker.getByRole("button", { name: "Black Friday" }).first().click();
 await picker.getByTestId("drive-imagem").first().waitFor();
-check((await picker.getByTestId("drive-imagem").count()) === 2, "mostra só as imagens JPG/PNG da subpasta");
+check((await picker.getByTestId("drive-imagem").count()) === 2, "mostra as imagens JPG/PNG da subpasta");
+check((await picker.getByTestId("drive-video").count()) === 1, "mostra também o vídeo MP4 da subpasta");
 await picker.getByTestId("drive-imagem").first().click();
 await picker.getByRole("button", { name: "Usar esta imagem" }).click();
 await page.getByTestId("cb-drive-arquivo").first().waitFor();

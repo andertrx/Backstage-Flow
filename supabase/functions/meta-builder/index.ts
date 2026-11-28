@@ -12,7 +12,7 @@ import { z } from "npm:zod@4";
 import { adminClient, requireRole, userClient } from "../_shared/auth.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { enforceRateLimit } from "../_shared/ratelimit.ts";
-import { buildCampaignFields, fetchAccountLists, fetchLeadForms, searchTargeting, uploadAdImage, validateCampaign } from "../_shared/platforms/meta/builder.ts";
+import { buildCampaignFields, fetchAccountLists, fetchLeadForms, searchTargeting, uploadAdImage, uploadAdVideo, validateCampaign } from "../_shared/platforms/meta/builder.ts";
 import { DriveClient, parseDriveFolderId } from "../_shared/google/drive.ts";
 import { parseServiceAccount, SheetsError } from "../_shared/google/sheets.ts";
 import { graphGet, graphPostRaw } from "../_shared/platforms/meta/client.ts";
@@ -140,14 +140,16 @@ async function publish(req: Request, caller: { id: string }, input: { draftId: s
   let errorMessage: string | null = null;
   try {
     const token = await tokenFor(account.connection_id!);
-    // Imagens do Drive: baixa e envia ao Meta ANTES de criar qualquer coisa. Se uma falhar, nada é criado.
+    // Imagens e vídeos do Drive: baixa e envia ao Meta ANTES de criar qualquer coisa. Se uma falhar, nada é criado.
     const imageHashes = new Map<string, string>();
+    const videos = new Map<string, { id: string; thumbnail: string }>();
     const driveIds = [...new Set(draft.ads.map((a) => a.driveFileId).filter(Boolean))];
     if (driveIds.length) {
       const drive = await driveClient();
       for (const fileId of driveIds) {
-        const img = await drive.downloadImage(fileId);
-        imageHashes.set(fileId, await uploadAdImage(token, account.external_id, img.bytes, img.name));
+        const media = await drive.downloadMedia(fileId);
+        if (media.kind === "video") videos.set(fileId, await uploadAdVideo(token, account.external_id, media.bytes, media.name, media.mimeType));
+        else imageHashes.set(fileId, await uploadAdImage(token, account.external_id, media.bytes, media.name));
       }
     }
     const lists = await fetchAccountLists(token, account.external_id);
@@ -159,7 +161,7 @@ async function publish(req: Request, caller: { id: string }, input: { draftId: s
     }
     outcome = await runPublish(
       { post: (path, fields) => graphPostRaw(path, fields, token), get: (path, params) => graphGet<Record<string, unknown>>(path, params, token) },
-      { externalId: account.external_id, currency: account.currency, timezone: account.timezone || "UTC", draft, imageHashes, audiences: { custom: new Set(lists.customAudiences.map((x) => x.id)), saved } },
+      { externalId: account.external_id, currency: account.currency, timezone: account.timezone || "UTC", draft, imageHashes, videos, audiences: { custom: new Set(lists.customAudiences.map((x) => x.id)), saved } },
       async (position, r: ItemResult) => {
         await db.from("publish_items").update({
           status: r.status, meta_id: r.metaId ?? null, confirmed: r.confirmed ?? false, effective_status: r.effectiveStatus ?? null,

@@ -70,6 +70,8 @@ export interface DraftAd {
   /** Imagem escolhida no Google Drive (id e nome do arquivo). Tem prioridade sobre o endereço. */
   driveFileId: string;
   driveFileName: string;
+  /** O arquivo do Drive é imagem ou vídeo. */
+  driveKind: "image" | "video";
   cta: AdCta | "";
 }
 export interface CampaignDraft {
@@ -90,7 +92,7 @@ export function newAdSet(over: Partial<DraftAdSet> = {}): DraftAdSet {
   };
 }
 export function newAd(adSetId: string, over: Partial<DraftAd> = {}): DraftAd {
-  return { id: newId(), adSetId, name: "", pageId: "", instagramId: "", primaryText: "", headline: "", description: "", link: "", leadFormId: "", imageUrl: "", driveFileId: "", driveFileName: "", cta: "", ...over };
+  return { id: newId(), adSetId, name: "", pageId: "", instagramId: "", primaryText: "", headline: "", description: "", link: "", leadFormId: "", imageUrl: "", driveFileId: "", driveFileName: "", driveKind: "image", cta: "", ...over };
 }
 export function newDraft(): CampaignDraft {
   return {
@@ -155,7 +157,7 @@ export function normalizeDraft(raw: unknown): CampaignDraft {
     return [newAd(adSetId, {
       id: str(a.id, 80) || newId(), name: str(a.name, 200), pageId: str(a.pageId, 40), instagramId: str(a.instagramId, 40),
       primaryText: str(a.primaryText, 2000), headline: str(a.headline, 200), description: str(a.description, 400), link: str(a.link, 2000), leadFormId: /^\d{5,30}$/.test(str(a.leadFormId, 30)) ? str(a.leadFormId, 30) : "", imageUrl: str(a.imageUrl, 2000),
-      driveFileId: /^[A-Za-z0-9_-]{10,100}$/.test(str(a.driveFileId, 100)) ? str(a.driveFileId, 100) : "", driveFileName: str(a.driveFileName, 200),
+      driveFileId: /^[A-Za-z0-9_-]{10,100}$/.test(str(a.driveFileId, 100)) ? str(a.driveFileId, 100) : "", driveFileName: str(a.driveFileName, 200), driveKind: a.driveKind === "video" ? "video" : "image",
       cta: oneOf(a.cta, ctas),
     })];
   });

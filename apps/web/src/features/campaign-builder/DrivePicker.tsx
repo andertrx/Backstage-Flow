@@ -1,4 +1,4 @@
-import { Folder, FolderOpen, Image as ImageIcon } from "lucide-react";
+import { Film, Folder, FolderOpen, Image as ImageIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -13,14 +13,14 @@ const write = (v: string) => { try { localStorage.setItem(STORE, v); } catch { /
 const size = (n: number | null) => (n == null ? "" : n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
 /**
- * Escolher a imagem do anúncio numa pasta do Google Drive (Fase C). O CRM só lê as pastas compartilhadas com a conta de serviço.
+ * Escolher a imagem ou o vídeo do anúncio numa pasta do Google Drive (Fase C). O CRM só lê as pastas compartilhadas com a conta de serviço.
  * Cola o link da pasta uma vez (fica lembrado neste navegador), navega nas subpastas e escolhe uma imagem JPG ou PNG.
  */
-export function DrivePicker({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (f: { id: string; name: string }) => void }) {
+export function DrivePicker({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (f: { id: string; name: string; kind: "image" | "video" }) => void }) {
   const list = useDriveList();
   const [link, setLink] = useState(read);
   const [trail, setTrail] = useState<{ id: string; name: string }[]>([]);
-  const [chosen, setChosen] = useState<{ id: string; name: string } | null>(null);
+  const [chosen, setChosen] = useState<{ id: string; name: string; kind: "image" | "video" } | null>(null);
   const thumb = useDriveThumb(chosen?.id ?? null);
   const { mutate } = list;
 
@@ -74,24 +74,34 @@ export function DrivePicker({ open, onClose, onPick }: { open: boolean; onClose:
                 <li key={im.id}>
                   <button type="button" aria-pressed={chosen?.id === im.id} data-testid="drive-imagem"
                     className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left ${chosen?.id === im.id ? "bg-brand-50 ring-1 ring-brand-300" : "hover:bg-white"}`}
-                    onClick={() => setChosen({ id: im.id, name: im.name })}>
+                    onClick={() => setChosen({ id: im.id, name: im.name, kind: "image" })}>
                     <ImageIcon className="size-4 text-slate-500" aria-hidden /> <span className="min-w-0 flex-1 truncate">{im.name}</span>
                     <span className="text-xs text-slate-400">{size(im.size)}</span>
                   </button>
                 </li>
               ))}
-              {d.folders.length === 0 && d.images.length === 0 && (
-                <li className="flex items-center gap-2 px-2 py-3 text-slate-500"><FolderOpen className="size-4" aria-hidden /> Nenhuma imagem JPG ou PNG nesta pasta.</li>
+              {(d.videos ?? []).map((v) => (
+                <li key={v.id}>
+                  <button type="button" aria-pressed={chosen?.id === v.id} data-testid="drive-video"
+                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left ${chosen?.id === v.id ? "bg-brand-50 ring-1 ring-brand-300" : "hover:bg-white"}`}
+                    onClick={() => setChosen({ id: v.id, name: v.name, kind: "video" })}>
+                    <Film className="size-4 text-slate-500" aria-hidden /> <span className="min-w-0 flex-1 truncate">{v.name}</span>
+                    <span className="text-xs text-slate-400">{size(v.size)}</span>
+                  </button>
+                </li>
+              ))}
+              {d.folders.length === 0 && d.images.length === 0 && (d.videos ?? []).length === 0 && (
+                <li className="flex items-center gap-2 px-2 py-3 text-slate-500"><FolderOpen className="size-4" aria-hidden /> Nenhuma imagem (JPG/PNG) ou vídeo (MP4/MOV) nesta pasta.</li>
               )}
             </ul>
-            {d.others > 0 && <p className="text-xs text-slate-500">{d.others} arquivo(s) de outro tipo (como vídeo) não aparecem: nesta etapa só imagens JPG e PNG, até 8 MB.</p>}
+            {d.others > 0 && <p className="text-xs text-slate-500">{d.others} arquivo(s) de outro tipo não aparecem. Valem imagens JPG/PNG (até 8 MB) e vídeos MP4/MOV (até 30 MB).</p>}
           </div>
         )}
         {chosen && (
           <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3" data-testid="drive-escolhida">
             {thumb.data ? <img src={thumb.data} alt="" className="size-20 rounded-lg object-cover ring-1 ring-slate-200" /> : <div className="grid size-20 place-items-center rounded-lg bg-white text-slate-300 ring-1 ring-slate-200"><ImageIcon className="size-6" aria-hidden /></div>}
             <div className="min-w-0 flex-1"><p className="truncate font-medium text-slate-800">{chosen.name}</p><p className="text-xs text-slate-500">{thumb.isLoading ? "Carregando miniatura..." : thumb.data ? "Miniatura do Drive" : "Sem miniatura disponível"}</p></div>
-            <Button onClick={() => { onPick(chosen); onClose(); }}>Usar esta imagem</Button>
+            <Button onClick={() => { onPick(chosen); onClose(); }}>{chosen.kind === "video" ? "Usar este vídeo" : "Usar esta imagem"}</Button>
           </div>
         )}
       </div>

@@ -44,7 +44,28 @@ Deno.test("listar pasta: separa subpastas e imagens JPG/PNG; conta o resto sem m
   assertEquals(r.folders, [{ id: "f1", name: "Black Friday" }]);
   assertEquals(r.images.map((i) => i.name), ["ADS-01.png", "ADS-02.jpg"]);
   assertEquals(r.images[0].size, 12345);
-  assertEquals(r.others, 1);
+  assertEquals(r.videos.map((v) => v.name), ["video.mp4"]);
+  assertEquals(r.others, 0);
+});
+
+Deno.test("baixar mídia: vídeo MP4 vem como vídeo; vídeo acima de 30 MB e outros tipos são recusados antes de baixar", async () => {
+  let downloaded = false;
+  const c = await fakeClient((u) => {
+    if (u.includes("alt=media")) { downloaded = true; return new Response(new Uint8Array([1, 2, 3])); }
+    if (u.includes("/files/ok")) return new Response(JSON.stringify({ id: "ok", name: "reels.mp4", mimeType: "video/mp4", size: "3" }));
+    if (u.includes("/files/grande")) return new Response(JSON.stringify({ id: "grande", name: "pesado.mp4", mimeType: "video/mp4", size: String(31 * 1024 * 1024) }));
+    return new Response(JSON.stringify({ id: "doc", name: "a.pdf", mimeType: "application/pdf", size: "3" }));
+  });
+  const ok = await c.downloadMedia("ok");
+  assertEquals(ok.kind, "video");
+  assertEquals(ok.bytes.length, 3);
+  downloaded = false;
+  for (const id of ["grande", "doc"]) {
+    let code = "";
+    try { await c.downloadMedia(id); } catch (e) { code = (e as { code: string }).code; }
+    assert(code === "DRIVE_TOO_BIG" || code === "DRIVE_NOT_MEDIA");
+  }
+  assertEquals(downloaded, false);
 });
 
 Deno.test("baixar imagem: recusa o que não é JPG/PNG e o que passa do limite ANTES de baixar", async () => {

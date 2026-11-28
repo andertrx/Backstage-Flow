@@ -37,6 +37,10 @@ export interface DriveFile { id: string; name: string; mimeType: string; size: n
 export const IMAGE_MIMES = ["image/jpeg", "image/png"] as const;
 /** Limite de tamanho para baixar e enviar ao Meta (o servidor trabalha em memória). */
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+/** Vídeos: MP4 e MOV até 30 MB (o envio acontece em memória no servidor; acima disso, suba direto no Gerenciador). */
+export const VIDEO_MIMES = ["video/mp4", "video/quicktime"] as const;
+export const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
+export type MediaKind = "image" | "video";
 
 export class DriveClient {
   constructor(private sa: ServiceAccount, private fetchFn: Fetch = fetch) {}
@@ -58,7 +62,7 @@ export class DriveClient {
   }
 
   /** Subpastas e imagens de uma pasta (até 200 de cada). Só id, nome, tipo e tamanho. */
-  async list(folderId: string): Promise<{ folders: DriveFolder[]; images: DriveFile[]; others: number }> {
+  async list(folderId: string): Promise<{ folders: DriveFolder[]; images: DriveFile[]; videos: DriveFile[]; others: number }> {
     const q = `'${folderId}' in parents and trashed = false`;
     const fields = "files(id,name,mimeType,size),nextPageToken";
     const body = await this.json(`${DRIVE_URL}/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&pageSize=200&orderBy=${encodeURIComponent("folder,name")}&supportsAllDrives=true&includeItemsFromAllDrives=true`);
@@ -66,7 +70,9 @@ export class DriveClient {
     const folders = items.filter((f) => f.mimeType === "application/vnd.google-apps.folder").map((f) => ({ id: f.id, name: f.name }));
     const images = items.filter((f) => (IMAGE_MIMES as readonly string[]).includes(f.mimeType))
       .map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType, size: f.size ? Number(f.size) : null }));
-    return { folders, images, others: items.length - folders.length - images.length };
+    const videos = items.filter((f) => (VIDEO_MIMES as readonly string[]).includes(f.mimeType))
+      .map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType, size: f.size ? Number(f.size) : null }));
+    return { folders, images, videos, others: items.length - folders.length - images.length - videos.length };
   }
 
   async meta(fileId: string): Promise<DriveFile> {
@@ -88,6 +94,23 @@ export class DriveClient {
     const bytes = new Uint8Array(await res.arrayBuffer());
     if (bytes.length > MAX_IMAGE_BYTES) throw new SheetsError(400, "DRIVE_TOO_BIG", `"${meta.name}" é grande demais. Reduza a imagem e tente de novo.`);
     return { bytes, name: meta.name, mimeType: meta.mimeType };
+  }
+
+  /** Baixa imagem OU vídeo (decide pelo tipo do arquivo). Recusa tipo errado ou arquivo grande ANTES de baixar. */
+  async downloadMedia(fileId: string): Promise<{ kind: MediaKind; bytes: Uint8Array; name: string; mimeType: string }> {
+    const meta = await this.meta(fileId);
+    if ((IMAGE_MIMES as readonly string[]).includes(meta.mimeType)) return { kind: "image", ...(await this.downloadImage(fileId)) };
+    if (!(VIDEO_MIMES as readonly string[]).includes(meta.mimeType)) {
+      throw new SheetsError(400, "DRIVE_NOT_MEDIA", `"${meta.name}" não é imagem (JPG/PNG) nem vídeo (MP4/MOV). Escolha outro arquivo.`);
+    }
+    if ((meta.size ?? 0) > MAX_VIDEO_BYTES) {
+      throw new SheetsError(400, "DRIVE_TOO_BIG", `"${meta.name}" tem mais de ${MAX_VIDEO_BYTES / 1024 / 1024} MB. Comprima o vídeo e tente de novo.`);
+    }
+    const res = await this.req(`${DRIVE_URL}/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`);
+    if (!res.ok) throw driveApiError(res.status, await res.json().catch(() => null), this.sa.client_email);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.length > MAX_VIDEO_BYTES) throw new SheetsError(400, "DRIVE_TOO_BIG", `"${meta.name}" é grande demais. Comprima o vídeo e tente de novo.`);
+    return { kind: "video", bytes, name: meta.name, mimeType: meta.mimeType };
   }
 
   /** Miniatura pequena (data URL) para mostrar no CRM. Se o Drive não tiver miniatura, devolve null. */

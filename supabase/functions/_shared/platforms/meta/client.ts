@@ -148,3 +148,27 @@ export async function graphPostRaw(
   const body = (await response.json().catch(() => ({}))) as Record<string, unknown> & MetaErrorBody;
   return { status: response.status, body };
 }
+
+/** POST multipart (envio de arquivo, como o vídeo). Resposta crua como graphPostRaw; o token vai no corpo, nunca em log. */
+export async function graphPostFile(
+  path: string,
+  fields: Record<string, string>,
+  file: { field: string; bytes: Uint8Array; name: string; mimeType: string },
+  token: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ status: number; body: Record<string, unknown> & MetaErrorBody }> {
+  const form = new FormData();
+  for (const [k, v] of Object.entries(fields)) form.set(k, v);
+  form.set("access_token", token);
+  const secret = appSecret();
+  if (secret) form.set("appsecret_proof", await appSecretProof(token, secret));
+  form.set(file.field, new Blob([file.bytes as BlobPart], { type: file.mimeType }), file.name);
+  let response: Response;
+  try {
+    response = await fetchImpl(graphUrl(path), { method: "POST", headers: { Accept: "application/json" }, body: form });
+  } catch (err) {
+    throw new AppError(502, "PLATFORM_UNAVAILABLE", "Não conseguimos falar com o Meta agora. Tente novamente em instantes.", err);
+  }
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown> & MetaErrorBody;
+  return { status: response.status, body };
+}

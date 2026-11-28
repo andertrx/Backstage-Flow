@@ -3,7 +3,7 @@
  * Nada aqui cria ou altera algo no Meta: as leituras são GET e a validação usa `execution_options=["validate_only"]`
  * (o Meta confere a campanha e responde sem criar).
  */
-import { graphGet, graphGetAll, graphPostRaw, type MetaErrorBody } from "./client.ts";
+import { graphGet, graphGetAll, graphPostFile, graphPostRaw, type MetaErrorBody } from "./client.ts";
 
 export interface ListItem {
   id: string;
@@ -158,4 +158,34 @@ export interface LeadFormHit { id: string; name: string; status: string }
 export async function fetchLeadForms(token: string, pageId: string, fetchImpl: typeof fetch = fetch): Promise<LeadFormHit[]> {
   const rows = await graphGetAll<{ id?: string; name?: string; status?: string }>(`${pageId}/leadgen_forms`, { fields: "id,name,status", limit: "100" }, token, fetchImpl);
   return rows.filter((r) => r.id).map((r) => ({ id: text(r.id, 40), name: text(r.name) || text(r.id, 40), status: text(r.status, 20) }));
+}
+
+export interface UploadedVideo { id: string; thumbnail: string }
+
+/**
+ * Envia um vídeo (MP4/MOV) à biblioteca da conta (`/advideos`) e ESPERA o Meta terminar de processar (até `maxWaitMs`).
+ * Devolve o id do vídeo e a miniatura que o próprio Meta gerou (o anúncio de vídeo exige uma). Falhas viram mensagem clara.
+ */
+export async function uploadAdVideo(
+  token: string, externalId: string, bytes: Uint8Array, name: string, mimeType: string,
+  opts: { fetchImpl?: typeof fetch; maxWaitMs?: number; pollMs?: number } = {},
+): Promise<UploadedVideo> {
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  const { status, body } = await graphPostFile(`${act(externalId)}/advideos`, { name: name.slice(0, 100) }, { field: "source", bytes, name, mimeType }, token, fetchImpl);
+  const err = (body as MetaErrorBody).error as (MetaErrorBody["error"] & { error_user_msg?: string }) | undefined;
+  if (status >= 400 || err) throw new Error(`O Meta recusou o vídeo "${name}": ${(err?.error_user_msg || err?.message || `HTTP ${status}`).slice(0, 300)}`);
+  const id = typeof body.id === "string" ? body.id : "";
+  if (!id) throw new Error(`O Meta não devolveu o código do vídeo "${name}".`);
+  const deadline = Date.now() + (opts.maxWaitMs ?? 90_000);
+  for (;;) {
+    const info = await graphGet<{ status?: { video_status?: string }; picture?: string }>(id, { fields: "status,picture" }, token, fetchImpl);
+    const st = info.status?.video_status;
+    if (st === "error") throw new Error(`O Meta não conseguiu processar o vídeo "${name}". Tente outro arquivo (MP4 com H.264).`);
+    if (st === "ready") {
+      if (!info.picture) throw new Error(`O Meta não gerou a miniatura do vídeo "${name}".`);
+      return { id, thumbnail: info.picture };
+    }
+    if (Date.now() >= deadline) throw new Error(`O Meta ainda está processando o vídeo "${name}". Aguarde alguns minutos e publique de novo.`);
+    await new Promise((r) => setTimeout(r, opts.pollMs ?? 3000));
+  }
 }

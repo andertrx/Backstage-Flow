@@ -105,13 +105,13 @@ function AdForm({ ad, adAccountId, destination, pages, instas, disabled, onChang
         </Field>
       )}
       <div className="space-y-2" data-testid="cb-imagem">
-        <p className="text-sm font-medium text-slate-700">Imagem do anúncio</p>
+        <p className="text-sm font-medium text-slate-700">Imagem ou vídeo do anúncio</p>
         {ad.driveFileId ? (
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white p-2.5 ring-1 ring-slate-200">
             <ImageIcon className="size-4 text-slate-500" aria-hidden />
-            <span className="min-w-0 flex-1 truncate text-sm" data-testid="cb-drive-arquivo">{ad.driveFileName || "Imagem do Drive"}</span>
+            <span className="min-w-0 flex-1 truncate text-sm" data-testid="cb-drive-arquivo">{ad.driveFileName || (ad.driveKind === "video" ? "Vídeo do Drive" : "Imagem do Drive")}</span>
             <Button variant="secondary" className="px-3 py-1.5 text-xs" disabled={disabled} onClick={() => setPicker(true)}>Trocar</Button>
-            <Button variant="ghost" className="px-3 py-1.5 text-xs" disabled={disabled} onClick={() => set({ driveFileId: "", driveFileName: "" })}>Remover</Button>
+            <Button variant="ghost" className="px-3 py-1.5 text-xs" disabled={disabled} onClick={() => set({ driveFileId: "", driveFileName: "", driveKind: "image" })}>Remover</Button>
           </div>
         ) : (
           <>
@@ -121,7 +121,7 @@ function AdForm({ ad, adAccountId, destination, pages, instas, disabled, onChang
             </Field>
           </>
         )}
-        <DrivePicker open={picker} onClose={() => setPicker(false)} onPick={(f) => set({ driveFileId: f.id, driveFileName: f.name, imageUrl: "" })} />
+        <DrivePicker open={picker} onClose={() => setPicker(false)} onPick={(f) => set({ driveFileId: f.id, driveFileName: f.name, driveKind: f.kind, imageUrl: "" })} />
       </div>
     </div>
   );
