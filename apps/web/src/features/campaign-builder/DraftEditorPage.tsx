@@ -1,7 +1,7 @@
 import {
   AD_CTAS, applyGoal, DESTINATION_LABELS, destinationsFor, leadsToWebsite, usesExistingPost, PUBLISH_UNSUPPORTED_GOALS, applyObjective, BILLING_LABELS, billingFor, type CampaignDraft, checkDraft, type CheckItem, checkSummary, COUNTRIES, CUSTOM_EVENTS,
   type DraftAd, type DraftAdSet, duplicateAdSet, GOAL_LABELS, GOALS_BY_OBJECTIVE, newAd, newAdSet, normalizeDraft, OBJECTIVE_LABELS, type ObjectiveId,
-  removeAdSet, CITY_RADIUS_MAX, CITY_RADIUS_MIN, MAX_CITIES, MAX_INTERESTS, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES, checkPublishable, publishCounts,
+  removeAdSet, featureLabel, MANUAL_PLACEMENTS, SUGGESTED_URL_TAGS, urlTagsProblem, CITY_RADIUS_MAX, CITY_RADIUS_MIN, MAX_CITIES, MAX_INTERESTS, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES, checkPublishable, publishCounts,
 } from "@backstage/shared";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, ExternalLink, Image as ImageIcon, Plus, Rocket, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -303,6 +303,49 @@ function AdSetCard({ adAccountId, draft, set, disabled, pages, instas, currency,
   );
 }
 
+/** Resultado da leitura de volta no Meta: o que ficou ligado de verdade. */
+function AutomationsBadge({ check }: { check: NonNullable<PublishOperationRow["publish_items"][number]["automations_check"]> }) {
+  if (check.kind === "criativo") {
+    return check.ligadas.length === 0
+      ? <span className="block text-emerald-700" data-testid="cb-automacoes-ok">Automações do criativo: todas desligadas (lido no Meta).</span>
+      : <span className="block text-amber-700" data-testid="cb-automacoes-ligadas">O Meta deixou ligado: {check.ligadas.map(featureLabel).join(", ")}. Desligue no Gerenciador antes de ativar.</span>;
+  }
+  const problems = [check.advantageAudience ? "Público Advantage+ ligado" : "", check.placements === "automatic" ? "posicionamentos automáticos" : ""].filter(Boolean);
+  return problems.length === 0
+    ? <span className="block text-emerald-700" data-testid="cb-automacoes-ok">Conjunto: público como você definiu e posicionamentos escolhidos (lido no Meta).</span>
+    : <span className="block text-amber-700" data-testid="cb-automacoes-ligadas">Conjunto: {problems.join(" e ")} (lido no Meta).</span>;
+}
+
+/** Painel "Configurações automáticas do Meta": tudo desligado por padrão. */
+function ControlPanel({ draft, disabled, onChange }: { draft: CampaignDraft; disabled: boolean; onChange: (d: CampaignDraft) => void }) {
+  const ctl = draft.campaign.control;
+  const set = (p: Partial<typeof ctl>) => onChange({ ...draft, campaign: { ...draft.campaign, control: { ...ctl, ...p } } });
+  const problem = urlTagsProblem(ctl.urlTags);
+  const row = (id: string, checked: boolean, label: string, hint: string, onToggle: (v: boolean) => void) => (
+    <label className="flex items-start gap-2 text-sm" data-testid={id}>
+      <input type="checkbox" className="mt-0.5" disabled={disabled} checked={checked} onChange={(e) => onToggle(e.target.checked)} />
+      <span><span className="font-medium text-slate-700">{label}</span><br /><span className="text-xs text-slate-500">{hint}</span></span>
+    </label>
+  );
+  return (
+    <fieldset className="space-y-3 rounded-xl bg-slate-50 p-3" data-testid="cb-controle">
+      <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold text-slate-800"><ShieldCheck className="size-4 text-brand-600" aria-hidden /> Configurações automáticas do Meta</legend>
+      <p className="text-xs text-slate-500">Tudo vem <strong>desligado</strong>: o Meta só faz o que você escolheu. Depois de publicar, o CRM lê de volta no Meta e mostra se algo ficou ligado.</p>
+      {row("cb-ctl-melhorias", ctl.enhancements, "Deixar o Meta aplicar melhorias automáticas", "Retoque de imagem, corte e descorte de vídeo, comentários em destaque, ajuste de texto, música, tradução e outras (84 no total).", (v) => set({ enhancements: v }))}
+      {row("cb-ctl-multi", ctl.multiAdvertiser, "Deixar aparecer junto de anúncios de outros anunciantes", "Anúncios de vários anunciantes, que o Meta mostra em sequência.", (v) => set({ multiAdvertiser: v }))}
+      {row("cb-ctl-posicionamentos", ctl.placements === "automatic", "Posicionamentos automáticos", `Desligado = só ${MANUAL_PLACEMENTS.facebook_positions.length + MANUAL_PLACEMENTS.instagram_positions.length} lugares: Feed, Stories e Reels do Facebook; Feed, Stories, Reels e Explorar do Instagram. Sem Audience Network, Messenger e Threads.`, (v) => set({ placements: v ? "automatic" : "manual" }))}
+      <Field label="Parâmetros de rastreio (UTM) — opcional" hint={problem ?? "Vão no link de todos os anúncios. Ex.: utm_source=meta&utm_campaign={{campaign.name}}"}>
+        {(id) => (
+          <div className="flex gap-2">
+            <Input id={id} value={ctl.urlTags} disabled={disabled} maxLength={500} placeholder="utm_source=meta&utm_medium=paid" onChange={(e) => set({ urlTags: e.target.value.trim() })} />
+            {!ctl.urlTags && <Button variant="secondary" className="shrink-0 text-xs" disabled={disabled} onClick={() => set({ urlTags: SUGGESTED_URL_TAGS })}>Usar sugestão</Button>}
+          </div>
+        )}
+      </Field>
+    </fieldset>
+  );
+}
+
 const OP_LABEL: Record<PublishOperationRow["status"], string> = { processando: "Em andamento", concluida: "Publicada (pausada)", parcial: "Publicada em parte", falhou: "Não publicou" };
 const KIND_LABEL = { campanha: "Campanha", conjunto: "Conjunto", criativo: "Criativo", anuncio: "Anúncio" } as const;
 
@@ -358,6 +401,7 @@ function PublishPanel({ draftId, draft, canPublish, accountName, accountExternal
                 <span className="min-w-0 flex-1">
                   <span className="text-slate-700">{KIND_LABEL[i.kind]}: {i.name || "—"}</span>
                   {i.status === "criado" && <span className="text-slate-400"> · {i.confirmed ? "confirmado no Meta" : "não confirmado"}{i.effective_status ? ` (${i.effective_status})` : ""}</span>}
+                  {i.status === "criado" && i.automations_check && <AutomationsBadge check={i.automations_check} />}
                   {i.status === "falhou" && <span className="block text-red-700">{i.error_message}</span>}
                   {i.status === "pulado" && <span className="text-slate-400"> · não criado (parou antes)</span>}
                 </span>
@@ -564,6 +608,7 @@ export function DraftEditorPage() {
                 ))}
               </div>
             </fieldset>
+            <ControlPanel draft={draft} disabled={disabled} onChange={change} />
           </Section>
 
           <Section n={2} title="Conjuntos e anúncios" hint="Cada conjunto tem o seu público, e cada conjunto tem os seus anúncios.">

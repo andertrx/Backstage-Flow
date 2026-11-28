@@ -5,6 +5,9 @@
  */
 import type { CampaignDraft, DraftAd, DraftAdSet } from "../../../../../packages/shared/src/campaign-builder/model.ts";
 import { currencyOffset } from "./builder.ts";
+import {
+  adSetCheck, type AutomationControl, type AutomationsCheck, DEFAULT_CONTROL, enabledFeatures, MANUAL_PLACEMENTS, optOutSpec,
+} from "../../../../../packages/shared/src/campaign-builder/automations.ts";
 
 export type ItemKind = "campanha" | "conjunto" | "criativo" | "anuncio";
 export interface PlanItem {
@@ -32,6 +35,8 @@ export interface ItemResult {
   errorMessage?: string;
   confirmed?: boolean;
   effectiveStatus?: string | null;
+  /** Leitura de volta das automações (Fase J.1): o que o Meta deixou ligado. */
+  automations?: AutomationsCheck;
 }
 
 export interface PublishDeps {
@@ -123,6 +128,13 @@ export function adSetFields(s: DraftAdSet, campaignId: string, ctx: PublishCtx):
   else delete targeting.genders;
   if (customIds.length) targeting.custom_audiences = customIds.map((id) => ({ id }));
   targeting.targeting_automation = { advantage_audience: s.advantageAudience ? 1 : 0 };
+  // Posicionamentos (Controle total): escolhidos = só Feed, Explorar, Stories e Reels (Facebook e Instagram). Automáticos = o Meta escolhe.
+  for (const k of ["publisher_platforms", "facebook_positions", "instagram_positions", "audience_network_positions", "messenger_positions", "threads_positions", "whatsapp_positions"]) delete targeting[k];
+  if ((c.control ?? DEFAULT_CONTROL).placements === "manual") {
+    targeting.publisher_platforms = [...MANUAL_PLACEMENTS.publisher_platforms];
+    targeting.facebook_positions = [...MANUAL_PLACEMENTS.facebook_positions];
+    targeting.instagram_positions = [...MANUAL_PLACEMENTS.instagram_positions];
+  }
   f.targeting = JSON.stringify(targeting);
 
   // Destino (Meta): mensagens e formulário no anúncio levam destination_type e a página como objeto promovido.
@@ -144,7 +156,16 @@ const MESSAGING_CTA: Record<string, { type: string; app: string }> = {
 };
 const LEAD_CTAS = ["SIGN_UP", "LEARN_MORE", "APPLY_NOW", "GET_QUOTE", "GET_OFFER", "SUBSCRIBE", "DOWNLOAD", "CONTACT_US", "BOOK_TRAVEL"];
 
-export function creativeFields(a: DraftAd, imageHash?: string, destination: string = "", video?: { id: string; thumbnail: string }): Record<string, string> {
+/** Campos do Controle total que vão em todo criativo montado pelo CRM: melhorias desligadas, sem anúncios de vários anunciantes, UTM. */
+export function controlFields(control: AutomationControl = DEFAULT_CONTROL): Record<string, string> {
+  const f: Record<string, string> = {};
+  if (!control.enhancements) f.degrees_of_freedom_spec = JSON.stringify(optOutSpec());
+  if (!control.multiAdvertiser) f.contextual_multi_ads = JSON.stringify({ enroll_status: "OPT_OUT" });
+  if (control.urlTags) f.url_tags = control.urlTags;
+  return f;
+}
+
+export function creativeFields(a: DraftAd, imageHash?: string, destination: string = "", video?: { id: string; thumbnail: string }, control: AutomationControl = DEFAULT_CONTROL): Record<string, string> {
   if (destination === "ON_POST" || destination === "INSTAGRAM_PROFILE") {
     // Post que já existe no Instagram: o Meta usa a mídia e a legenda do post. No perfil, o botão leva ao perfil.
     const f: Record<string, unknown> = { name: a.name, object_id: a.pageId, instagram_user_id: a.instagramId, source_instagram_media_id: a.igMediaId };
@@ -174,7 +195,7 @@ export function creativeFields(a: DraftAd, imageHash?: string, destination: stri
     story.video_data = v;
   }
   if (a.instagramId) story.instagram_user_id = a.instagramId;
-  return { name: a.name, object_story_spec: JSON.stringify(story) };
+  return { name: a.name, object_story_spec: JSON.stringify(story), ...controlFields(control) };
 }
 
 export function adFields(a: DraftAd, adSetId: string, creativeId: string): Record<string, string> {
@@ -221,7 +242,7 @@ export async function runPublish(deps: PublishDeps, ctx: PublishCtx, onItem: (po
         const hash = a.driveFileId ? ctx.imageHashes?.get(a.driveFileId) : undefined;
         if (a.driveFileId && !hash && !ctx.videos?.get(a.driveFileId)) throw new Error("A imagem ou o vídeo do Drive deste anúncio não foi enviado ao Meta.");
         const video = a.driveFileId ? ctx.videos?.get(a.driveFileId) : undefined;
-        fields = creativeFields(a, video ? undefined : hash, d.adSets.find((x) => x.id === a.adSetId)?.destinationType ?? "", video);
+        fields = creativeFields(a, video ? undefined : hash, d.adSets.find((x) => x.id === a.adSetId)?.destinationType ?? "", video, d.campaign.control);
       } else {
         const a = d.ads.find((x) => x.id === item.localId)!;
         path = `${base}/ads`;
@@ -250,10 +271,15 @@ export async function runPublish(deps: PublishDeps, ctx: PublishCtx, onItem: (po
     const id = created.get(item.position);
     if (!id) continue;
     try {
-      const got = await deps.get(id, { fields: "id,name,status,effective_status" });
+      // Releitura: além de confirmar, lê as automações (criativo: melhorias ligadas; conjunto: Público Advantage+ e posicionamentos).
+      const extra = item.kind === "criativo" ? ",degrees_of_freedom_spec" : item.kind === "conjunto" ? ",targeting" : "";
+      const got = await deps.get(id, { fields: `id,name,status,effective_status${extra}` });
       const status = typeof got.status === "string" ? got.status : null;
       const confirmed = got.id === id && (item.kind === "criativo" || status === "PAUSED");
-      await onItem(item.position, { status: "criado", metaId: id, confirmed, effectiveStatus: typeof got.effective_status === "string" ? got.effective_status : status });
+      const automations: AutomationsCheck | undefined = item.kind === "criativo"
+        ? { kind: "criativo", ligadas: enabledFeatures(got.degrees_of_freedom_spec) }
+        : item.kind === "conjunto" ? adSetCheck(got.targeting) : undefined;
+      await onItem(item.position, { status: "criado", metaId: id, confirmed, effectiveStatus: typeof got.effective_status === "string" ? got.effective_status : status, automations });
     } catch {
       await onItem(item.position, { status: "criado", metaId: id, confirmed: false });
     }

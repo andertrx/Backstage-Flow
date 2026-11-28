@@ -62,7 +62,10 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
       const items = names.map((n, i) => {
         if (stopped) return { ...n, position: i, local_id: String(i), status: "pulado", meta_id: null, confirmed: false, effective_status: null, error_code: null, error_message: null };
         if (fail && fail.position === i) { stopped = true; return { ...n, position: i, local_id: String(i), status: "falhou", meta_id: null, confirmed: false, effective_status: null, error_code: 100, error_message: fail.message }; }
-        return { ...n, position: i, local_id: String(i), status: "criado", meta_id: String(1000 + i), confirmed: true, effective_status: "PAUSED", error_code: null, error_message: null };
+        // Leitura de volta das automações (Fase J.1): o teste pode simular o Meta ligando algo com db.metaBuilder.forcedOn = ["inline_comment"].
+        const automations_check = n.kind === "criativo" ? { kind: "criativo", ligadas: db.metaBuilder.forcedOn ?? [] }
+          : n.kind === "conjunto" ? { kind: "conjunto", advantageAudience: false, placements: (data.campaign?.control?.placements ?? "manual") } : null;
+        return { ...n, position: i, local_id: String(i), status: "criado", meta_id: String(1000 + i), confirmed: true, effective_status: "PAUSED", error_code: null, error_message: null, automations_check };
       });
       const made = items.filter((i) => i.status === "criado").length;
       const status = made === 0 ? "falhou" : made === items.length ? "concluida" : "parcial";

@@ -147,6 +147,7 @@
 - [x] **Fase H pronta** (28/11/2026): post que já existe (Engajamento com a publicação e Visitas ao perfil). Ver `35.9-FASE-H-POST-EXISTENTE.md`. **Não testado no Meta de verdade.**
 - [x] **Plano da Esteira de criativos** (28/11/2026): `35.10-PLANO-ESTEIRA-DE-CRIATIVOS.md`. Posicionamentos confirmados pelo Ander.
 - [x] **Fase J.0 (sondagem)** feita na Acelera Atacado: `35.11-FASE-J0-SONDAGEM-NO-META.md`. Ficaram 2 criativos de teste na biblioteca da conta ("[TESTE CRM - NAO USAR]"); não são anúncios. Falta confirmar 2 vídeos + 3 textos no mesmo criativo (indicar um anúncio feito assim no Gerenciador, se existir).
+- [x] **Fase J.1 (Controle total)** pronta: `35.12-FASE-J1-CONTROLE-TOTAL.md`. Falta o Ander fazer **uma publicação real de teste (pausada)** para confirmar que o Meta aceita as 84 melhorias desligadas pela API direta.
 - [ ] **Ander (2 passos):** (1) Google Cloud, projeto `backstage-flow`: ativar a **Google Drive API**; (2) Drive: compartilhar a pasta principal dos criativos com `crm-leitura@backstage-flow.iam.gserviceaccount.com` como **Leitor**. Depois, no rascunho, "Escolher do Google Drive". Sugestão: adicionar mais uma pessoa como Proprietário do projeto no Google Cloud.
 - [ ] **Vídeo no Criador** (fase própria): envio em partes ao Meta.
 

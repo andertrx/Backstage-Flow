@@ -1,3 +1,4 @@
+import type { AutomationsCheck } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
@@ -229,6 +230,8 @@ export interface PublishItemRow {
   effective_status: string | null;
   error_code: number | null;
   error_message: string | null;
+  /** Leitura de volta das automações do Meta (Fase J.1). */
+  automations_check?: AutomationsCheck | null;
 }
 export interface PublishOperationRow {
   id: string;
@@ -247,7 +250,7 @@ export function usePublishHistory(draftId: string | undefined) {
     enabled: !!draftId,
     queryFn: async () => {
       const { data, error } = await supabase.from("publish_operations")
-        .select("id, status, summary, error_message, created_at, finished_at, publish_items(kind, local_id, name, position, status, meta_id, confirmed, effective_status, error_code, error_message)")
+        .select("id, status, summary, error_message, created_at, finished_at, publish_items(kind, local_id, name, position, status, meta_id, confirmed, effective_status, error_code, error_message, automations_check)")
         .eq("draft_id", draftId!).order("created_at", { ascending: false });
       if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos ler as publicações."));
       return ((data ?? []) as unknown as PublishOperationRow[]).map((o) => ({ ...o, publish_items: [...o.publish_items].sort((x, y) => x.position - y.position) }));

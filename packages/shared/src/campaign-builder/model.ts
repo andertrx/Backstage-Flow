@@ -3,6 +3,7 @@ import {
   AD_CTAS, billingFor, DESTINATION_TYPES, destinationsFor, type AdCta, type BillingEvent, type DestinationType, type CustomEvent, type ObjectiveId, type OptimizationGoal, type SpecialAdCategory,
   GOALS_BY_OBJECTIVE, OBJECTIVE_LABELS, SPECIAL_AGE_MAX, SPECIAL_AGE_MIN, CUSTOM_EVENTS, SPECIAL_AD_CATEGORIES,
 } from "./catalog.ts";
+import { type AutomationControl, DEFAULT_CONTROL, normalizeControl } from "./automations.ts";
 
 export const DRAFT_SCHEMA = 1;
 
@@ -20,6 +21,8 @@ export interface DraftCampaign {
   budgetType: BudgetType;
   /** Valor na moeda da conta (ex.: 50 = R$ 50,00). Nunca se soma moedas diferentes. */
   budgetAmount: number | null;
+  /** "Controle total" (Fase J.1): automações do Meta. Padrão: tudo desligado. */
+  control: AutomationControl;
 }
 export interface DraftAdSet {
   id: string;
@@ -100,7 +103,7 @@ export function newAd(adSetId: string, over: Partial<DraftAd> = {}): DraftAd {
 export function newDraft(): CampaignDraft {
   return {
     schema: DRAFT_SCHEMA,
-    campaign: { name: "", objective: "", status: "", specialAdCategories: [], budgetLevel: "adset", budgetType: "daily", budgetAmount: null },
+    campaign: { name: "", objective: "", status: "", specialAdCategories: [], budgetLevel: "adset", budgetType: "daily", budgetAmount: null, control: { ...DEFAULT_CONTROL } },
     adSets: [], ads: [], advancedJson: "",
   };
 }
@@ -125,6 +128,7 @@ export function normalizeDraft(raw: unknown): CampaignDraft {
     budgetLevel: c.budgetLevel === "campaign" ? "campaign" : "adset",
     budgetType: c.budgetType === "lifetime" ? "lifetime" : "daily",
     budgetAmount: numOrNull(c.budgetAmount),
+    control: normalizeControl(c.control),
   };
   const adSets = (Array.isArray(r.adSets) ? r.adSets : []).slice(0, 50).map((x): DraftAdSet => {
     const s = (x ?? {}) as Record<string, unknown>;

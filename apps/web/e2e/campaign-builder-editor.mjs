@@ -127,6 +127,13 @@ check((await page.getByTestId("cb-drive-arquivo").first().innerText()).includes(
 await page.getByLabel("ou o endereço da imagem").fill("https://loja.com.br/imagem.jpg");
 await page.waitForFunction(() => !document.querySelector('[data-testid="cb-publicar-bloqueios"]'));
 check(await publicar.isEnabled(), "sem pendências, o Publicar libera");
+// Fase J.1: Controle total — tudo desligado por padrão
+const ctl = page.getByTestId("cb-controle");
+check(!(await ctl.getByTestId("cb-ctl-melhorias").locator("input").isChecked()) && !(await ctl.getByTestId("cb-ctl-multi").locator("input").isChecked()) && !(await ctl.getByTestId("cb-ctl-posicionamentos").locator("input").isChecked()), "Controle total: melhorias, vários anunciantes e posicionamentos automáticos vêm desligados");
+await ctl.getByRole("button", { name: "Usar sugestão" }).click();
+await page.waitForTimeout(1500);
+check((db.builderDrafts[0].data.campaign.control?.urlTags ?? "").startsWith("utm_source=meta"), "UTM sugerida é salva no rascunho");
+db.metaBuilder.forcedOn = ["inline_comment"]; // o Meta "teima" e liga uma melhoria: a tela tem que mostrar
 await publicar.click();
 const textoConfirma = await page.getByTestId("confirm-dialog").innerText().catch(() => "");
 check(textoConfirma.includes("PAUSADO") && textoConfirma.includes("2 conjunto(s)"), "1ª confirmação mostra o resumo exato e que sai pausado");
@@ -139,6 +146,8 @@ check(db.metaBuilder.calls.filter((c) => c.action === "publish").length === 1, "
 check(db.builderDrafts[0].data.ads.some((x) => x.driveFileId === "imagemUm1234567" && x.driveFileName === "ADS-01.png"), "o rascunho guarda o arquivo do Drive (id e nome)");
 check((await page.getByTestId("cb-publicacao").getByText("confirmado no Meta").count()) >= 5, "cada objeto aparece confirmado pelo Meta");
 check(await page.getByRole("link", { name: /Abrir no Gerenciador/ }).isVisible(), "link para o Gerenciador de Anúncios");
+check((await page.getByTestId("cb-automacoes-ligadas").first().innerText()).includes("Comentários em destaque"), "leitura de volta: mostra a melhoria que o Meta deixou ligada, em português");
+check((await page.getByTestId("cb-automacoes-ok").count()) >= 2, "leitura de volta: conjuntos aparecem com público e posicionamentos como escolhidos");
 check((await page.getByRole("button", { name: /Publicar no Meta/ }).count()) === 0, "depois de publicada, não há como publicar de novo por engano");
 
 

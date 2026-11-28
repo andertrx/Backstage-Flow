@@ -4,6 +4,7 @@
  */
 import { billingFor, DESTINATION_LABELS, destinationsFor, GOAL_REQUIRES, GOALS_BY_OBJECTIVE, leadsToWebsite, usesExistingPost, SPECIAL_AGE_MAX, SPECIAL_AGE_MIN } from "./catalog.ts";
 import type { CampaignDraft } from "./model.ts";
+import { urlTagsProblem } from "./automations.ts";
 
 export type CheckLevel = "erro" | "aviso";
 export interface CheckItem {
@@ -46,6 +47,11 @@ export function checkDraft(d: CampaignDraft): CheckItem[] {
       err("campanha", "O modo avançado precisa ser um JSON válido (um objeto).");
     }
   }
+
+  const tagsProblem = urlTagsProblem(c.control.urlTags);
+  if (tagsProblem) err("campanha", tagsProblem);
+  if (c.control.placements === "automatic") warn("campanha", "Posicionamentos automáticos: o Meta pode entregar em Audience Network, Messenger e outros lugares que você não escolheu.");
+  if (c.control.enhancements) warn("campanha", "Melhorias automáticas do Meta ligadas: o Meta pode mexer em imagem, vídeo, texto e botão dos anúncios.");
 
   if (d.adSets.length === 0) err("campanha", "Adicione pelo menos um conjunto de anúncios.");
 

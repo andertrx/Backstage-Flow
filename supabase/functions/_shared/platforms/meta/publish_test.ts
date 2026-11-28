@@ -217,3 +217,45 @@ Deno.test("post que já existe: criativo usa o post do Instagram (sem texto/imag
   assertEquals(f.destination_type, "ON_POST");
   assertEquals(JSON.parse(f.promoted_object), { page_id: "111" });
 });
+
+Deno.test("Controle total (padrão): criativo desliga todas as melhorias, sem anúncios de vários anunciantes; conjunto com posicionamentos escolhidos", () => {
+  const d = draft();
+  const cr = creativeFields(d.ads[0], undefined, "", undefined, d.campaign.control);
+  const dof = JSON.parse(cr.degrees_of_freedom_spec);
+  assert(Object.keys(dof.creative_features_spec).length > 80);
+  assert(Object.values(dof.creative_features_spec).every((v) => (v as { enroll_status: string }).enroll_status === "OPT_OUT"));
+  assertEquals(dof.creative_features_spec.inline_comment, { enroll_status: "OPT_OUT" });
+  assertEquals(JSON.parse(cr.contextual_multi_ads), { enroll_status: "OPT_OUT" });
+  assertEquals(cr.url_tags, undefined);
+  const t = JSON.parse(adSetFields(d.adSets[0], "C1", ctx(d)).targeting);
+  assertEquals(t.publisher_platforms, ["facebook", "instagram"]);
+  assertEquals(t.facebook_positions, ["feed", "story", "facebook_reels"]);
+  assertEquals(t.instagram_positions, ["stream", "story", "reels", "explore", "explore_home"]);
+  assertEquals(t.audience_network_positions, undefined);
+});
+
+Deno.test("Controle total: quem liga as melhorias e os posicionamentos automáticos recebe o padrão do Meta; UTM vai no criativo", () => {
+  const d = draft();
+  d.campaign.control = { enhancements: true, multiAdvertiser: true, placements: "automatic", urlTags: "utm_source=meta" };
+  const cr = creativeFields(d.ads[0], undefined, "", undefined, d.campaign.control);
+  assertEquals(cr.degrees_of_freedom_spec, undefined);
+  assertEquals(cr.contextual_multi_ads, undefined);
+  assertEquals(cr.url_tags, "utm_source=meta");
+  const t = JSON.parse(adSetFields(d.adSets[0], "C1", ctx(d)).targeting);
+  assertEquals(t.publisher_platforms, undefined);
+});
+
+Deno.test("leitura de volta: mostra as melhorias que o Meta deixou ligadas e o estado do conjunto", async () => {
+  const d = draft();
+  const got = new Map<number, ItemResult>();
+  const deps = {
+    post: (path: string) => Promise.resolve({ status: 200, body: { id: path.endsWith("/campaigns") ? "C1" : path.endsWith("/adsets") ? "S1" : path.endsWith("/adcreatives") ? "CR1" : "AD1" } }),
+    get: (id: string) => Promise.resolve(id === "CR1"
+      ? { id, status: "ACTIVE", degrees_of_freedom_spec: { creative_features_spec: { inline_comment: { enroll_status: "OPT_IN" }, video_uncrop: { enroll_status: "OPT_OUT" } } } }
+      : id === "S1" ? { id, status: "PAUSED", targeting: { targeting_automation: { advantage_audience: 0 }, publisher_platforms: ["facebook", "instagram"] } }
+      : { id, status: "PAUSED" }),
+  };
+  await runPublish(deps, ctx(d), (pos, r) => { got.set(pos, { ...(got.get(pos) ?? {}), ...r }); return Promise.resolve(); });
+  assertEquals(got.get(2)?.automations, { kind: "criativo", ligadas: ["inline_comment"] });
+  assertEquals(got.get(1)?.automations, { kind: "conjunto", advantageAudience: false, placements: "manual" });
+});

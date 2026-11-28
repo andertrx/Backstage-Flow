@@ -85,7 +85,7 @@ const PUBLISH_BLOCK_MINUTES = 10;
 async function operationView(db: ReturnType<typeof adminClient>, operationId: string) {
   const { data: op } = await db.from("publish_operations").select("id, draft_id, status, summary, error_message, created_at, finished_at").eq("id", operationId).maybeSingle();
   const { data: items } = await db.from("publish_items")
-    .select("kind, local_id, name, position, status, meta_id, confirmed, effective_status, error_code, error_message").eq("operation_id", operationId).order("position");
+    .select("kind, local_id, name, position, status, meta_id, confirmed, effective_status, error_code, error_message, automations_check").eq("operation_id", operationId).order("position");
   return { operation: op, items: items ?? [] };
 }
 
@@ -167,6 +167,7 @@ async function publish(req: Request, caller: { id: string }, input: { draftId: s
         await db.from("publish_items").update({
           status: r.status, meta_id: r.metaId ?? null, confirmed: r.confirmed ?? false, effective_status: r.effectiveStatus ?? null,
           error_code: r.errorCode ?? null, error_message: r.errorMessage ?? null, updated_at: new Date().toISOString(),
+          ...(r.automations ? { automations_check: r.automations } : {}),
         }).eq("operation_id", operationId).eq("position", position);
       },
     );

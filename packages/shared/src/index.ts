@@ -41,6 +41,7 @@ export * from "./campaign-builder/catalog.ts";
 export * from "./campaign-builder/model.ts";
 export * from "./campaign-builder/checklist.ts";
 export * from "./campaign-builder/publish.ts";
+export * from "./campaign-builder/automations.ts";
 export * from "./monitoring/monitoring.ts";
 export * from "./monitoring/objectives.ts";
 export * from "./results/sheets.ts";

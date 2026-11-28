@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyGoal, applyObjective, billingFor, checkDraft, checkSummary, duplicateAdSet, GOALS_BY_OBJECTIVE, newAd, newAdSet, newDraft, normalizeDraft, removeAdSet,
-  type CampaignDraft, checkPublishable, publishBlockers, publishCounts, destinationsFor, leadsToWebsite,
+  type CampaignDraft, checkPublishable, publishBlockers, publishCounts, destinationsFor, leadsToWebsite, enabledFeatures, urlTagsProblem,
 } from "../index.ts";
 
 function completo(): CampaignDraft {
@@ -311,5 +311,30 @@ describe("Fase H — post que já existe (engajamento e visitas ao perfil)", () 
   it("engajamento com a publicação fora do Engajamento não publica", () => {
     const d = base("OUTCOME_TRAFFIC", "POST_ENGAGEMENT");
     expect(checkPublishable(d).some((i) => i.message.includes("só publica no objetivo Engajamento"))).toBe(true);
+  });
+});
+
+describe("Fase J.1 — Controle total", () => {
+  it("rascunho novo e rascunho antigo começam com tudo desligado e posicionamentos escolhidos", () => {
+    expect(newDraft().campaign.control).toEqual({ enhancements: false, multiAdvertiser: false, placements: "manual", urlTags: "" });
+    expect(normalizeDraft({ campaign: { name: "Antigo" } }).campaign.control).toEqual({ enhancements: false, multiAdvertiser: false, placements: "manual", urlTags: "" });
+  });
+  it("lê as melhorias ligadas nos dois formatos que o Meta devolve", () => {
+    expect(enabledFeatures({ creative_features_spec: { a: { enroll_status: "OPT_IN" }, b: { enroll_status: "OPT_OUT" } } })).toEqual(["a"]);
+    expect(enabledFeatures({ creative_features: [{ feature: "inline_comment", enroll_status: "OPT_IN" }, { feature: "x", enroll_status: "OPT_OUT" }] })).toEqual(["inline_comment"]);
+    expect(enabledFeatures(null)).toEqual([]);
+  });
+  it("parâmetros de rastreio: aceita nome=valor e recusa espaço ou ? no começo", () => {
+    expect(urlTagsProblem("utm_source=meta&utm_campaign={{campaign.name}}")).toBeNull();
+    expect(urlTagsProblem("?utm_source=meta")).not.toBeNull();
+    expect(urlTagsProblem("utm source=meta")).not.toBeNull();
+    const d = normalizeDraft({ campaign: { name: "X", control: { urlTags: "sem igual" } } });
+    expect(checkDraft(d).some((i) => i.message.includes("parâmetros de rastreio"))).toBe(true);
+  });
+  it("avisa quando o Controle total foi afrouxado", () => {
+    const d = normalizeDraft({ campaign: { name: "X", control: { placements: "automatic", enhancements: true } } });
+    const msgs = checkDraft(d).filter((i) => i.level === "aviso").map((i) => i.message).join(" | ");
+    expect(msgs).toContain("Posicionamentos automáticos");
+    expect(msgs).toContain("Melhorias automáticas do Meta ligadas");
   });
 });
