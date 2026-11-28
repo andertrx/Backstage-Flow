@@ -22,7 +22,7 @@ const GESTORA = "22222222-2222-2222-2222-222222222222";
   const menu = page.getByRole("link", { name: "Criar", exact: true });
   check(await menu.isVisible(), "item de menu 'Criar' aparece para o administrador");
   check(await page.getByText("Nenhum rascunho ainda.").isVisible(), "começa sem rascunhos");
-  check(await page.getByText("Nada é criado no Meta por aqui", { exact: false }).isVisible(), "diz claramente que nada é criado no Meta");
+  check(await page.getByText("Tudo é criado pausado", { exact: false }).isVisible(), "diz claramente que tudo é criado pausado");
 
   // Novo rascunho
   await page.getByRole("button", { name: "Novo rascunho" }).click();

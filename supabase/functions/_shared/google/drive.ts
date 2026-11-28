@@ -31,7 +31,7 @@ export function driveApiError(status: number, body: { error?: { message?: string
 }
 
 export interface DriveFolder { id: string; name: string }
-export interface DriveFile { id: string; name: string; mimeType: string; size: number | null }
+export interface DriveFile { id: string; name: string; mimeType: string; size: number | null; width?: number | null; height?: number | null }
 
 /** Tipos que o anúncio aceita como imagem (o Meta aceita JPG e PNG). */
 export const IMAGE_MIMES = ["image/jpeg", "image/png"] as const;
@@ -64,14 +64,19 @@ export class DriveClient {
   /** Subpastas e imagens de uma pasta (até 200 de cada). Só id, nome, tipo e tamanho. */
   async list(folderId: string): Promise<{ folders: DriveFolder[]; images: DriveFile[]; videos: DriveFile[]; others: number }> {
     const q = `'${folderId}' in parents and trashed = false`;
-    const fields = "files(id,name,mimeType,size),nextPageToken";
+    const fields = "files(id,name,mimeType,size,imageMediaMetadata(width,height),videoMediaMetadata(width,height)),nextPageToken";
     const body = await this.json(`${DRIVE_URL}/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&pageSize=200&orderBy=${encodeURIComponent("folder,name")}&supportsAllDrives=true&includeItemsFromAllDrives=true`);
-    const items = (body?.files ?? []) as { id: string; name: string; mimeType: string; size?: string }[];
+    const items = (body?.files ?? []) as { id: string; name: string; mimeType: string; size?: string; imageMediaMetadata?: { width?: number; height?: number }; videoMediaMetadata?: { width?: number; height?: number } }[];
+    // Largura e altura que o próprio Drive informa (a esteira usa para separar vertical de Feed).
+    const dims = (f: (typeof items)[number]) => {
+      const m = f.videoMediaMetadata ?? f.imageMediaMetadata;
+      return { width: typeof m?.width === "number" ? m.width : null, height: typeof m?.height === "number" ? m.height : null };
+    };
     const folders = items.filter((f) => f.mimeType === "application/vnd.google-apps.folder").map((f) => ({ id: f.id, name: f.name }));
     const images = items.filter((f) => (IMAGE_MIMES as readonly string[]).includes(f.mimeType))
-      .map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType, size: f.size ? Number(f.size) : null }));
+      .map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType, size: f.size ? Number(f.size) : null, ...dims(f) }));
     const videos = items.filter((f) => (VIDEO_MIMES as readonly string[]).includes(f.mimeType))
-      .map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType, size: f.size ? Number(f.size) : null }));
+      .map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType, size: f.size ? Number(f.size) : null, ...dims(f) }));
     return { folders, images, videos, others: items.length - folders.length - images.length - videos.length };
   }
 

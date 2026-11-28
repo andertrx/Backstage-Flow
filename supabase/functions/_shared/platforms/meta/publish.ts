@@ -203,7 +203,7 @@ export function adFields(a: DraftAd, adSetId: string, creativeId: string): Recor
 }
 
 type MetaErr = { message?: string; code?: number; error_user_title?: string; error_user_msg?: string };
-function failure(body: Record<string, unknown>, status: number): { message: string; code: number | null } {
+export function failure(body: Record<string, unknown>, status: number): { message: string; code: number | null } {
   const e = (body.error ?? {}) as MetaErr;
   const user = [e.error_user_title, e.error_user_msg].filter(Boolean).join(": ");
   return { message: (user || e.message || `O Meta recusou (HTTP ${status}).`).slice(0, 600), code: typeof e.code === "number" ? e.code : null };

@@ -24,6 +24,8 @@ export interface BuilderDraftRow {
   version: number;
   updated_at: string;
   updated_by_name: string | null;
+  /** "esteira" = Esteira de criativos (Fase J.2); "campanha" = campanha nova. */
+  kind?: "campanha" | "esteira";
 }
 export interface BuilderPersonPermission {
   user_id: string;
@@ -66,9 +68,9 @@ export function useBuilderDrafts() {
 export function useCreateDraft() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (v: { name: string; clientId: string; adAccountId: string }) => {
+    mutationFn: async (v: { name: string; clientId: string; adAccountId: string; data?: unknown }) => {
       const { data, error } = await supabase.rpc("builder_draft_save", {
-        p_id: null, p_version: null, p_client: v.clientId, p_account: v.adAccountId, p_name: v.name, p_data: {},
+        p_id: null, p_version: null, p_client: v.clientId, p_account: v.adAccountId, p_name: v.name, p_data: v.data ?? {},
       });
       if (error) throw new FriendlyError(dbError(error, "Não conseguimos criar o rascunho."));
       return data as { id: string; version: number };
@@ -271,12 +273,15 @@ export function usePublishDraft() {
   });
 }
 
+/** Arquivo do Drive. Largura e altura vêm do próprio Drive (quando ele sabe). */
+export interface DriveFileRow { id: string; name: string; mimeType: string; size: number | null; width?: number | null; height?: number | null }
+
 export interface DriveListing {
   folder: { id: string; name: string };
   folders: { id: string; name: string }[];
-  images: { id: string; name: string; mimeType: string; size: number | null }[];
+  images: DriveFileRow[];
   /** Vídeos MP4/MOV (até 30 MB). Pode faltar em respostas antigas. */
-  videos?: { id: string; name: string; mimeType: string; size: number | null }[];
+  videos?: DriveFileRow[];
   /** Arquivos de outros tipos que não aparecem. */
   others: number;
 }
@@ -353,4 +358,73 @@ export function useIgMedia(adAccountId: string | null | undefined, igUserId: str
       return (data as { data: { media: IgMediaItem[] } }).data.media;
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Fase J.2 — Esteira de criativos
+// ---------------------------------------------------------------------------
+
+export interface AccountAdSet {
+  id: string;
+  external_id: string;
+  name: string;
+  effective_status: string | null;
+  campaign: { external_id: string; name: string; effective_status: string | null } | null;
+}
+
+/** Conjuntos da conta que o CRM já sincroniza do Meta (pelo RLS: só quem tem acesso ao cliente). */
+export function useAccountAdSets(adAccountId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...KEY, "conjuntos", adAccountId],
+    enabled: !!adAccountId,
+    staleTime: 2 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("ad_groups")
+        .select("id, external_id, name, effective_status, campaign:campaigns(external_id, name, effective_status)")
+        .eq("ad_account_id", adAccountId!).order("last_seen_at", { ascending: false }).limit(300);
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os conjuntos da conta."));
+      return (data ?? []) as unknown as AccountAdSet[];
+    },
+  });
+}
+
+/** Anúncios de um conjunto (para escolher o anúncio-modelo). */
+export function useAdSetAds(adGroupId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...KEY, "anuncios-do-conjunto", adGroupId],
+    enabled: !!adGroupId,
+    staleTime: 2 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("ads").select("external_id, name, effective_status").eq("ad_group_id", adGroupId!).order("last_seen_at", { ascending: false }).limit(100);
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os anúncios do conjunto."));
+      return (data ?? []) as { external_id: string; name: string; effective_status: string | null }[];
+    },
+  });
+}
+
+export interface AdSetInfo {
+  id: string; name: string; campaignId: string; campaignName: string; destinationType: string; optimizationGoal: string; effectiveStatus: string;
+  check: AutomationsCheck;
+}
+export interface AdTemplate { pageId: string; instagramId: string; bodies: string[]; titles: string[]; description: string; link: string; cta: string; urlTags: string }
+
+async function callBuilder<T>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke("meta-builder", { body });
+  if (error) throw new FriendlyError(await friendlyFunctionError(error));
+  return (data as { data: T }).data;
+}
+
+/** Lê no Meta o destino e as automações do conjunto escolhido (só leitura; o conjunto nunca é alterado). */
+export function useAdSetInfo() {
+  return useMutation({ mutationFn: (v: { adAccountId: string; adSetId: string }) => callBuilder<AdSetInfo>({ action: "adset_info", ...v }) });
+}
+
+/** Lê do Meta os textos, títulos, página, Instagram, link e botão de um anúncio que já existe. */
+export function useAdTemplate() {
+  return useMutation({ mutationFn: (v: { adAccountId: string; adId: string }) => callBuilder<AdTemplate>({ action: "ad_template", ...v }) });
+}
+
+/** Envia UM arquivo do Drive ao Meta (o vídeo espera o processamento, até ~90 s). */
+export function prepareMedia(draftId: string, fileId: string) {
+  return callBuilder<{ kind: "video"; id: string; thumbnail: string } | { kind: "image"; hash: string }>({ action: "media_prepare", draftId, fileId });
 }

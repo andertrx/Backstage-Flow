@@ -35,6 +35,32 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
       if (db.metaBuilder.formsError) return res(400, { error: { code: "LEAD_FORMS_UNAVAILABLE", message: db.metaBuilder.formsError } });
       return res(200, { data: { forms: db.metaBuilder.forms ?? [{ id: "555566677", name: "Cadastro Janeiro", status: "ACTIVE" }, { id: "555566688", name: "Cadastro antigo", status: "ARCHIVED" }] } });
     }
+    if (b.action === "drive_list" && String(b.folder).includes("esteira")) {
+      // Fase J.2: pasta com um par (vertical 9:16 + 4:5), um vídeo sem par e uma imagem quadrada.
+      return res(200, { data: { folder: { id: "pastaEsteira1234", name: "Black semana 2" }, folders: [], others: 0,
+        images: [{ id: "imgQuadrada12345", name: "OFERTA-03.jpg", mimeType: "image/jpeg", size: 300000, width: 1080, height: 1080 }],
+        videos: [
+          { id: "vidVertical12345", name: "OFERTA-01_9x16.mp4", mimeType: "video/mp4", size: 12000000, width: 1080, height: 1920 },
+          { id: "vidFeed123456789", name: "OFERTA-01_4x5.mp4", mimeType: "video/mp4", size: 11000000, width: 1080, height: 1350 },
+          { id: "vidSozinho123456", name: "OFERTA-02.mp4", mimeType: "video/mp4", size: 9000000, width: 1080, height: 1350 },
+        ] } });
+    }
+    if (b.action === "adset_info") {
+      const a = (db.metaBuilder.adsets ?? {})[b.adSetId] ?? { destinationType: "WHATSAPP", advantageAudience: true, placements: "automatic" };
+      const g = (db.adGroups ?? []).find((x) => x.external_id === b.adSetId);
+      const c = (db.campaigns ?? []).find((x) => x.id === g?.campaign_id);
+      return res(200, { data: { id: b.adSetId, name: g?.name ?? "Conjunto", campaignId: c?.external_id ?? "", campaignName: c?.name ?? "", destinationType: a.destinationType, optimizationGoal: "CONVERSATIONS", effectiveStatus: "ACTIVE",
+        check: { kind: "conjunto", advantageAudience: a.advantageAudience, placements: a.placements } } });
+    }
+    if (b.action === "ad_template") {
+      return res(200, { data: db.metaBuilder.template ?? { pageId: "328104960376244", instagramId: "17841402908048736", bodies: ["Revenda moda masculina que gira rápido!", "Sua loja merece vender mais!", "Lojista, renove seu estoque!"],
+        titles: ["Moda Masculina no Atacado", "Renove o estoque", "Converse conosco"], description: "", link: "https://api.whatsapp.com/send", cta: "WHATSAPP_MESSAGE", urlTags: "utm_source=meta&utm_campaign={{campaign.name}}" } });
+    }
+    if (b.action === "media_prepare") {
+      (db.metaBuilder.prepared ??= []).push(b.fileId);
+      if (db.metaBuilder.prepareFail === b.fileId) return res(400, { error: { code: "PLATFORM_BAD_REQUEST", message: "O Meta recusou o vídeo." } });
+      return res(200, { data: b.fileId.startsWith("img") ? { kind: "image", hash: `hash${b.fileId.slice(0, 10)}` } : { kind: "video", id: String(7000 + db.metaBuilder.prepared.length), thumbnail: `https://scontent.example/${b.fileId}.jpg` } });
+    }
     if (b.action === "drive_list") {
       if (db.metaBuilder.driveError) return res(400, { error: { code: "DRIVE_NOT_SHARED", message: db.metaBuilder.driveError } });
       const root = { folder: { id: "pastaRaiz1234567", name: "Criativos Excalibur" }, folders: [{ id: "subpasta12345678", name: "Black Friday" }], images: [], others: 1 };
@@ -54,9 +80,11 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
         return res(400, { error: { code: "INVALID_STATE", message: "Este rascunho já foi publicado. Confira no Gerenciador de Anúncios; para publicar de novo, duplique o rascunho." } });
       }
       const data = d.data ?? {};
-      const names = [{ kind: "campanha", name: data.campaign?.name ?? "" }];
-      for (const s of data.adSets ?? []) names.push({ kind: "conjunto", name: s.name });
-      for (const a of data.ads ?? []) { names.push({ kind: "criativo", name: a.name }); names.push({ kind: "anuncio", name: a.name }); }
+      const esteira = data.kind === "esteira";
+      if (esteira) (db.metaBuilder.esteiraPublished ??= []).push(JSON.parse(JSON.stringify(data)));
+      const names = esteira ? [] : [{ kind: "campanha", name: data.campaign?.name ?? "" }];
+      for (const s of esteira ? [] : (data.adSets ?? [])) names.push({ kind: "conjunto", name: s.name });
+      for (const a of esteira ? (data.items ?? []) : (data.ads ?? [])) { names.push({ kind: "criativo", name: a.name }); names.push({ kind: "anuncio", name: a.name }); }
       const fail = db.metaBuilder.publishFail; // { position, message }
       let stopped = false;
       const items = names.map((n, i) => {
@@ -75,6 +103,18 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
       return res(200, { data: { operation: { id: op.id, status }, repeated: false } });
     }
     return res(400, { error: { code: "INVALID_INPUT", message: "Pedido inválido." } });
+  }
+  // Esteira (J.2): conjuntos da conta com a campanha, e anúncios de um conjunto.
+  if (url.includes("/rest/v1/ad_groups") && decodeURIComponent(url).includes("campaign:campaigns")) {
+    const acc = new URL(url, "http://x").searchParams.get("ad_account_id")?.replace("eq.", "");
+    return res(200, (db.adGroups ?? []).filter((g) => g.ad_account_id === acc).map((g) => {
+      const c = (db.campaigns ?? []).find((x) => x.id === g.campaign_id);
+      return { id: g.id, external_id: g.external_id, name: g.name, effective_status: g.effective_status ?? "ACTIVE", campaign: c ? { external_id: c.external_id, name: c.name, effective_status: c.effective_status ?? "ACTIVE" } : null };
+    }));
+  }
+  if (url.includes("/rest/v1/ads?") && url.includes("ad_group_id=eq.") && decodeURIComponent(url).includes("select=external_id,name,effective_status")) {
+    const g = new URL(url, "http://x").searchParams.get("ad_group_id")?.replace("eq.", "");
+    return res(200, (db.ads ?? []).filter((a) => a.ad_group_id === g).map((a) => ({ external_id: a.external_id, name: a.name, effective_status: a.effective_status ?? "ACTIVE" })));
   }
   if (url.includes("/rest/v1/publish_operations")) {
     const draftId = new URL(url, "http://x").searchParams.get("draft_id")?.replace("eq.", "");
@@ -111,7 +151,7 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
     return res(200, db.builderDrafts.filter((d) => !d.archived_at).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).map((d) => ({
       id: d.id, client_id: d.client_id, client_name: db.clients.find((c) => c.id === d.client_id)?.name ?? "",
       ad_account_id: d.ad_account_id, ad_account_name: db.adAccounts.find((a) => a.id === d.ad_account_id)?.name ?? null,
-      name: d.name, version: d.version, updated_at: d.updated_at, updated_by_name: name(d.updated_by),
+      name: d.name, version: d.version, updated_at: d.updated_at, updated_by_name: name(d.updated_by), kind: d.data?.kind === "esteira" ? "esteira" : "campanha",
     })));
   }
   if (rpc("builder_draft_get")) {

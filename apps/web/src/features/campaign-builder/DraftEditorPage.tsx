@@ -1,11 +1,11 @@
 import {
   AD_CTAS, applyGoal, DESTINATION_LABELS, destinationsFor, leadsToWebsite, usesExistingPost, PUBLISH_UNSUPPORTED_GOALS, applyObjective, BILLING_LABELS, billingFor, type CampaignDraft, checkDraft, type CheckItem, checkSummary, COUNTRIES, CUSTOM_EVENTS,
   type DraftAd, type DraftAdSet, duplicateAdSet, GOAL_LABELS, GOALS_BY_OBJECTIVE, newAd, newAdSet, normalizeDraft, OBJECTIVE_LABELS, type ObjectiveId,
-  removeAdSet, featureLabel, MANUAL_PLACEMENTS, SUGGESTED_URL_TAGS, urlTagsProblem, CITY_RADIUS_MAX, CITY_RADIUS_MIN, MAX_CITIES, MAX_INTERESTS, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES, checkPublishable, publishCounts,
+  removeAdSet, featureLabel, isEsteira, MANUAL_PLACEMENTS, SUGGESTED_URL_TAGS, urlTagsProblem, CITY_RADIUS_MAX, CITY_RADIUS_MIN, MAX_CITIES, MAX_INTERESTS, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES, checkPublishable, publishCounts,
 } from "@backstage/shared";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, ExternalLink, Image as ImageIcon, Plus, Rocket, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, Navigate, useParams } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
@@ -304,7 +304,7 @@ function AdSetCard({ adAccountId, draft, set, disabled, pages, instas, currency,
 }
 
 /** Resultado da leitura de volta no Meta: o que ficou ligado de verdade. */
-function AutomationsBadge({ check }: { check: NonNullable<PublishOperationRow["publish_items"][number]["automations_check"]> }) {
+export function AutomationsBadge({ check }: { check: NonNullable<PublishOperationRow["publish_items"][number]["automations_check"]> }) {
   if (check.kind === "criativo") {
     return check.ligadas.length === 0
       ? <span className="block text-emerald-700" data-testid="cb-automacoes-ok">Automações do criativo: todas desligadas (lido no Meta).</span>
@@ -467,7 +467,7 @@ export function DraftEditorPage() {
   const canEdit = perms.data?.editar === true;
 
   useEffect(() => {
-    if (!loaded.data || draft) return;
+    if (!loaded.data || draft || isEsteira(loaded.data.data)) return;
     setName(loaded.data.name);
     setDraft(normalizeDraft(loaded.data.data));
     version.current = loaded.data.version;
@@ -522,6 +522,8 @@ export function DraftEditorPage() {
 
   if (loaded.isLoading || perms.isLoading) return <p className="text-sm text-slate-500">Carregando...</p>;
   if (loaded.error) return <Alert tone="error">{errorMessage(loaded.error)}</Alert>;
+  // Esteira de criativos tem o seu próprio editor: nunca abrir (e salvar por cima) aqui.
+  if (loaded.data && isEsteira(loaded.data.data)) return <Navigate to={`/criar/esteira/${id}`} replace />;
   if (!draft) return null;
   const disabled = !canEdit || state === "conflito";
   const c = draft.campaign;

@@ -95,6 +95,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [Fase 35.2 (passo 1) — Criar campanhas: menu, permissões por pessoa e rascunhos](docs/etapa-35-campaign-builder/35.2-PASSO-1-PERMISSOES-E-RASCUNHOS.md) ✅ feito (16/11) — nada é criado no Meta; editor e Validar vêm nos próximos passos
   - [Fase 35.2 (passo 2) — Editor do rascunho: campanha, conjuntos, anúncios e conferência](docs/etapa-35-campaign-builder/35.2-PASSO-2-EDITOR.md) ✅ feito (16/11) — salva sozinho; Validar/Simular vêm no passo 3
   - [Fase J.1 — Controle total: melhorias automáticas do Meta desligadas, posicionamentos escolhidos, UTM e conferência depois de publicar](docs/etapa-35-campaign-builder/35.12-FASE-J1-CONTROLE-TOTAL.md) ✅ 28/11
+  - [Fase J.2 — Esteira de criativos: subir criativos (Feed + vertical, até 5 textos e títulos) num conjunto que já existe, pausados e sem automações](docs/etapa-35-campaign-builder/35.13-FASE-J2-ESTEIRA-DE-CRIATIVOS.md) ✅ 28/11
 - [Etapa 36 — Central de Operações](docs/etapa-36-central-operacoes/36.16-RELATORIO-FINAL.md) ✅ concluída ([auditoria e plano](docs/etapa-36-central-operacoes/36.0-AUDITORIA.md))
   - [36.1 — Setores, equipe e permissões](docs/etapa-36-central-operacoes/36.1-SETORES-EQUIPE.md) ✅ concluída
   - [36.2 — Tarefas: Kanban, lista, Minhas tarefas, comentários, anexos e status](docs/etapa-36-central-operacoes/36.2-TAREFAS.md) ✅ concluída

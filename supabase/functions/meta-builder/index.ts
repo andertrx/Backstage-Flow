@@ -18,6 +18,9 @@ import { parseServiceAccount, SheetsError } from "../_shared/google/sheets.ts";
 import { graphGet, graphPostRaw } from "../_shared/platforms/meta/client.ts";
 import { buildPlan, type ItemResult, runPublish } from "../_shared/platforms/meta/publish.ts";
 import { normalizeDraft } from "../../../packages/shared/src/campaign-builder/model.ts";
+import { esteiraPlan, esteiraPublishBlockers, isEsteira, normalizeEsteira } from "../../../packages/shared/src/campaign-builder/esteira.ts";
+import { adSetCheck } from "../../../packages/shared/src/campaign-builder/automations.ts";
+import { runEsteira, templateFromCreative } from "../_shared/platforms/meta/esteira.ts";
 import { publishBlockers } from "../../../packages/shared/src/campaign-builder/publish.ts";
 
 const id = z.guid("Identificador inválido.");
@@ -30,6 +33,10 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("ig_media"), adAccountId: id, igUserId: z.string().regex(/^\d{5,30}$/, "ID do Instagram inválido.") }),
   z.object({ action: z.literal("drive_list"), folder: z.string().trim().min(1).max(500) }),
   z.object({ action: z.literal("drive_thumb"), fileId: z.string().regex(/^[A-Za-z0-9_-]{10,100}$/, "Arquivo inválido.") }),
+  // Fase J.2 — Esteira de criativos.
+  z.object({ action: z.literal("adset_info"), adAccountId: id, adSetId: z.string().regex(/^\d{5,30}$/, "Conjunto inválido.") }),
+  z.object({ action: z.literal("ad_template"), adAccountId: id, adId: z.string().regex(/^\d{5,30}$/, "Anúncio inválido.") }),
+  z.object({ action: z.literal("media_prepare"), draftId: id, fileId: z.string().regex(/^[A-Za-z0-9_-]{10,100}$/, "Arquivo inválido.") }),
 ]);
 
 interface AccountRow {
@@ -104,6 +111,7 @@ async function publish(req: Request, caller: { id: string }, input: { draftId: s
     return { ...(await operationView(db, sameKey.id as string)), repeated: true };
   }
 
+  if (isEsteira(row.data)) return await publishEsteira(req, caller, input, row);
   const draft = normalizeDraft(row.data);
   const blockers = publishBlockers(draft);
   if (blockers.length) {
@@ -111,18 +119,7 @@ async function publish(req: Request, caller: { id: string }, input: { draftId: s
   }
   const account = await loadAccount(req, row.ad_account_id);
 
-  // Não publica de novo o que já foi publicado, nem enquanto outra publicação do mesmo rascunho está rodando.
-  const { data: previous } = await db.from("publish_operations").select("id, status, created_at").eq("draft_id", input.draftId);
-  const now = Date.now();
-  for (const p of previous ?? []) {
-    const age = (now - new Date(p.created_at as string).getTime()) / 60_000;
-    if (p.status === "concluida" || p.status === "parcial") {
-      throw new AppError(400, "INVALID_STATE", "Este rascunho já foi publicado. Confira no Gerenciador de Anúncios; para publicar de novo, duplique o rascunho.");
-    }
-    if (p.status === "processando" && age < PUBLISH_BLOCK_MINUTES) {
-      throw new AppError(400, "INVALID_STATE", "Já há uma publicação deste rascunho em andamento. Aguarde alguns minutos.");
-    }
-  }
+  await guardRepeat(db, input.draftId);
 
   const plan = buildPlan(draft);
   const { data: op, error: opError } = await db.from("publish_operations").insert({
@@ -180,6 +177,84 @@ async function publish(req: Request, caller: { id: string }, input: { draftId: s
   await db.from("audit_logs").insert({
     actor_id: caller.id, action: "builder.publicar", target_type: "builder_draft", target_id: input.draftId,
     details: { operation: operationId, status: outcome, conjuntos: draft.adSets.length, anuncios: draft.ads.length },
+  });
+  return { ...(await operationView(db, operationId)), repeated: false };
+}
+
+/** Não publica de novo o que já foi publicado, nem enquanto outra publicação do mesmo rascunho está rodando. */
+async function guardRepeat(db: ReturnType<typeof adminClient>, draftId: string) {
+  const { data: previous } = await db.from("publish_operations").select("id, status, created_at").eq("draft_id", draftId);
+  const now = Date.now();
+  for (const p of previous ?? []) {
+    const age = (now - new Date(p.created_at as string).getTime()) / 60_000;
+    if (p.status === "concluida" || p.status === "parcial") {
+      throw new AppError(400, "INVALID_STATE", "Este rascunho já foi publicado. Confira no Gerenciador de Anúncios; para publicar de novo, duplique o rascunho ou crie outra esteira.");
+    }
+    if (p.status === "processando" && age < PUBLISH_BLOCK_MINUTES) {
+      throw new AppError(400, "INVALID_STATE", "Já há uma publicação deste rascunho em andamento. Aguarde alguns minutos.");
+    }
+  }
+}
+
+interface AdSetMeta { id?: string; name?: string; account_id?: string; destination_type?: string; effective_status?: string; optimization_goal?: string; campaign?: { id?: string; name?: string }; targeting?: Record<string, unknown> }
+
+/** Lê o conjunto no Meta e confere que ele é da conta (nunca mexe nele). */
+async function readAdSet(token: string, account: AccountRow, adSetId: string): Promise<AdSetMeta> {
+  const got = await graphGet<AdSetMeta>(adSetId, { fields: "id,name,account_id,destination_type,effective_status,optimization_goal,campaign{id,name},targeting" }, token);
+  if (String(got.account_id ?? "").replace(/^act_/, "") !== account.external_id.replace(/^act_/, "")) {
+    throw new AppError(404, "NOT_FOUND", "Esse conjunto não é desta conta de anúncio.");
+  }
+  return got;
+}
+
+/** Fase J.2: sobe os criativos da esteira (criativo + anúncio PAUSADO) no conjunto que já existe. */
+async function publishEsteira(req: Request, caller: { id: string }, input: { draftId: string; operationKey: string }, row: { ad_account_id: string | null; client_id: string; data: unknown }) {
+  const db = adminClient();
+  const d = normalizeEsteira(row.data);
+  const blockers = esteiraPublishBlockers(d);
+  if (blockers.length) {
+    throw new AppError(400, "INVALID_STATE", `Ainda não dá para subir: ${blockers.slice(0, 3).map((b) => b.message).join(" · ")}${blockers.length > 3 ? ` (e mais ${blockers.length - 3})` : ""}`);
+  }
+  const account = await loadAccount(req, row.ad_account_id!);
+  await guardRepeat(db, input.draftId);
+  const plan = esteiraPlan(d);
+  const { data: op, error: opError } = await db.from("publish_operations").insert({
+    draft_id: input.draftId, client_id: row.client_id, ad_account_id: account.id, operation_key: input.operationKey, status: "processando",
+    summary: { campanhas: 0, conjuntos: 0, anuncios: d.items.length, conjunto_existente: d.target?.adSetId }, created_by: caller.id,
+  }).select("id").single();
+  if (opError || !op) throw new AppError(500, "DB_ERROR", "Não conseguimos registrar a publicação. Nada foi criado no Meta.", opError);
+  const operationId = op.id as string;
+  const { error: itemsError } = await db.from("publish_items").insert(plan.map((p) => ({ operation_id: operationId, kind: p.kind, local_id: p.localId, name: p.name.slice(0, 300), position: p.position })));
+  if (itemsError) {
+    await db.from("publish_operations").update({ status: "falhou", error_message: "Não foi possível registrar os itens. Nada foi criado no Meta.", finished_at: new Date().toISOString() }).eq("id", operationId);
+    throw new AppError(500, "DB_ERROR", "Não conseguimos registrar a publicação. Nada foi criado no Meta.", itemsError);
+  }
+  let outcome: "concluida" | "parcial" | "falhou" = "falhou";
+  let errorMessage: string | null = null;
+  try {
+    const token = await tokenFor(account.connection_id!);
+    const adSet = await readAdSet(token, account, d.target!.adSetId);
+    const platforms = Array.isArray(adSet.targeting?.publisher_platforms) ? (adSet.targeting!.publisher_platforms as unknown[]).filter((x): x is string => typeof x === "string") : [];
+    outcome = await runEsteira(
+      { post: (path, fields) => graphPostRaw(path, fields, token), get: (path, params) => graphGet<Record<string, unknown>>(path, params, token) },
+      { externalId: account.external_id, draft: d, adSetPlatforms: platforms },
+      async (position, r: ItemResult) => {
+        await db.from("publish_items").update({
+          status: r.status, meta_id: r.metaId ?? null, confirmed: r.confirmed ?? false, effective_status: r.effectiveStatus ?? null,
+          error_code: r.errorCode ?? null, error_message: r.errorMessage ?? null, updated_at: new Date().toISOString(),
+          ...(r.automations ? { automations_check: r.automations } : {}),
+        }).eq("operation_id", operationId).eq("position", position);
+      },
+    );
+  } catch (err) {
+    errorMessage = err instanceof AppError ? err.userMessage : err instanceof Error && /^(O Meta|Escolha|O destino|O arquivo|")/.test(err.message) ? err.message : "A publicação foi interrompida por um erro do servidor. Confira no Gerenciador do Meta o que chegou a ser criado.";
+    const { data: made } = await db.from("publish_items").select("id").eq("operation_id", operationId).eq("status", "criado").limit(1);
+    outcome = made && made.length ? "parcial" : "falhou";
+  }
+  await db.from("publish_operations").update({ status: outcome, error_message: errorMessage, finished_at: new Date().toISOString() }).eq("id", operationId);
+  await db.from("audit_logs").insert({
+    actor_id: caller.id, action: "builder.esteira", target_type: "builder_draft", target_id: input.draftId,
+    details: { operation: operationId, status: outcome, anuncios: d.items.length, conjunto: d.target?.adSetId },
   });
   return { ...(await operationView(db, operationId)), repeated: false };
 }
@@ -246,6 +321,42 @@ Deno.serve(handle(async (req) => {
     } catch (e) { throw toApp(e); }
   }
 
+  if (input.action === "adset_info") {
+    const account = await loadAccount(req, input.adAccountId);
+    const a = await readAdSet(await tokenFor(account.connection_id!), account, input.adSetId);
+    return json(req, 200, { data: {
+      id: String(a.id ?? input.adSetId), name: String(a.name ?? ""), campaignId: String(a.campaign?.id ?? ""), campaignName: String(a.campaign?.name ?? ""),
+      destinationType: String(a.destination_type ?? ""), optimizationGoal: String(a.optimization_goal ?? ""), effectiveStatus: String(a.effective_status ?? ""),
+      check: adSetCheck(a.targeting),
+    } });
+  }
+  if (input.action === "ad_template") {
+    const account = await loadAccount(req, input.adAccountId);
+    const got = await graphGet<{ account_id?: string; creative?: Record<string, unknown> }>(input.adId, { fields: "account_id,creative{object_story_spec,asset_feed_spec,url_tags}" }, await tokenFor(account.connection_id!));
+    if (String(got.account_id ?? "").replace(/^act_/, "") !== account.external_id.replace(/^act_/, "")) throw new AppError(404, "NOT_FOUND", "Esse anúncio não é desta conta de anúncio.");
+    return json(req, 200, { data: templateFromCreative(got.creative ?? {}) });
+  }
+  if (input.action === "media_prepare") {
+    // Envia UM arquivo do Drive ao Meta (o vídeo espera o processamento). A tela chama um por vez e guarda o código no rascunho.
+    if (!perms.editar) throw new AppError(403, "FORBIDDEN", "Você não tem permissão para editar rascunhos.");
+    const { data: draftRow, error } = await userClient(req).rpc("builder_draft_get", { p_id: input.draftId });
+    if (error || !draftRow) throw new AppError(404, "NOT_FOUND", "Rascunho não encontrado ou sem acesso.", error);
+    const row = draftRow as { ad_account_id: string | null; data: unknown };
+    if (!row.ad_account_id || !isEsteira(row.data)) throw new AppError(400, "INVALID_STATE", "Este rascunho não é uma esteira de criativos.");
+    const d = normalizeEsteira(row.data);
+    if (!d.items.some((i) => i.feed?.fileId === input.fileId || i.vertical?.fileId === input.fileId)) throw new AppError(400, "INVALID_STATE", "Esse arquivo não está na esteira. Salve e tente de novo.");
+    const account = await loadAccount(req, row.ad_account_id);
+    const token = await tokenFor(account.connection_id!);
+    try {
+      const media = await (await driveClient()).downloadMedia(input.fileId);
+      if (media.kind === "video") return json(req, 200, { data: { kind: "video", ...(await uploadAdVideo(token, account.external_id, media.bytes, media.name, media.mimeType)) } });
+      return json(req, 200, { data: { kind: "image", hash: await uploadAdImage(token, account.external_id, media.bytes, media.name) } });
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith("O Meta")) throw new AppError(400, "PLATFORM_BAD_REQUEST", e.message);
+      throw toApp(e);
+    }
+  }
+
   if (input.action === "publish") {
     if (!perms.publicar) throw new AppError(403, "FORBIDDEN", "Você não tem permissão para publicar no Meta.");
     return json(req, 200, { data: await publish(req, caller, input) });
@@ -256,6 +367,7 @@ Deno.serve(handle(async (req) => {
   const { data: draftRow, error } = await userClient(req).rpc("builder_draft_get", { p_id: input.draftId });
   if (error || !draftRow) throw new AppError(404, "NOT_FOUND", "Rascunho não encontrado ou sem acesso.", error);
   const row = draftRow as { ad_account_id: string | null; data: unknown };
+  if (isEsteira(row.data)) throw new AppError(400, "INVALID_STATE", "A esteira de criativos é conferida pelo Meta na hora de subir.");
   if (!row.ad_account_id) throw new AppError(400, "INVALID_STATE", "Escolha a conta de anúncio do rascunho antes de validar.");
   const draft = normalizeDraft(row.data);
   const c = draft.campaign;

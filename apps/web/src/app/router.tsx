@@ -44,6 +44,7 @@ const MonitoringPage = lazy(() => import("@/features/monitoring/MonitoringPage.t
 const ResultsPage = lazy(() => import("@/features/results/ResultsPage.tsx").then((m) => ({ default: m.ResultsPage })));
 const CampaignBuilderPage = lazy(() => import("@/features/campaign-builder/CampaignBuilderPage.tsx").then((m) => ({ default: m.CampaignBuilderPage })));
 const DraftEditorPage = lazy(() => import("@/features/campaign-builder/DraftEditorPage.tsx").then((m) => ({ default: m.DraftEditorPage })));
+const EsteiraPage = lazy(() => import("@/features/campaign-builder/EsteiraPage.tsx").then((m) => ({ default: m.EsteiraPage })));
 const AdsBuilderPage = lazy(() => import("@/features/ads-builder/AdsBuilderPage.tsx").then((m) => ({ default: m.AdsBuilderPage })));
 const AlertsPage = lazy(() => import("@/features/alerts/AlertsPage.tsx").then((m) => ({ default: m.AlertsPage })));
 const OpsLayout = lazy(() => import("@/features/operations/OpsLayout.tsx").then((m) => ({ default: m.OpsLayout })));
@@ -189,6 +190,7 @@ export const router = createBrowserRouter([
           { index: true, element: <Navigate to="/criar/campanhas" replace /> },
           { path: "campanhas", element: <CampaignBuilderPage /> },
           { path: "campanhas/:id", element: <DraftEditorPage /> },
+          { path: "esteira/:id", element: <EsteiraPage /> },
           { path: "anuncios", element: <AdsBuilderPage /> },
         ],
       },

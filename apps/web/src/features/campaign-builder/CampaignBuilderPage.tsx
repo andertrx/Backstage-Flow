@@ -1,4 +1,5 @@
-import { FilePlus2, Megaphone } from "lucide-react";
+import { newEsteira } from "@backstage/shared";
+import { FilePlus2, Layers, Megaphone } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
@@ -16,7 +17,7 @@ import {
   type BuilderPersonPermission, useArchiveDraft, useUnarchiveDraft, useBuilderDrafts, useBuilderPeople, useBuilderPermissions, useCreateDraft, useSaveBuilderPermission,
 } from "./api.ts";
 
-function NewDraftModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function NewDraftModal({ open, onClose, esteira = false }: { open: boolean; onClose: () => void; esteira?: boolean }) {
   const accounts = useMetaAccounts();
   const create = useCreateDraft();
   const navigate = useNavigate();
@@ -30,23 +31,23 @@ function NewDraftModal({ open, onClose }: { open: boolean; onClose: () => void }
     if (!account) return;
     setError(null);
     try {
-      const r = await create.mutateAsync({ name: name.trim(), clientId: account.client_id, adAccountId: account.id });
+      const r = await create.mutateAsync({ name: name.trim(), clientId: account.client_id, adAccountId: account.id, data: esteira ? newEsteira() : {} });
       setName("");
       setAccountId("");
       onClose();
-      navigate(`/criar/campanhas/${r.id}`);
+      navigate(esteira ? `/criar/esteira/${r.id}` : `/criar/campanhas/${r.id}`);
     } catch (err) {
       setError(errorMessage(err));
     }
   }
 
   return (
-    <Modal title="Novo rascunho de campanha" open={open} onClose={onClose}>
+    <Modal title={esteira ? "Subir criativos num conjunto que já existe" : "Novo rascunho de campanha"} open={open} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4 p-5" noValidate>
-        <p className="text-sm text-slate-600">O rascunho fica só aqui no CRM. Nada é criado no Meta.</p>
+        <p className="text-sm text-slate-600">{esteira ? "Você escolhe o conjunto, a pasta do Drive e os textos. Nada é criado no Meta até você clicar em Subir." : "O rascunho fica só aqui no CRM. Nada é criado no Meta."}</p>
         {error && <Alert tone="error">{error}</Alert>}
         <Field label="Nome do rascunho">
-          {(id) => <Input id={id} value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Black Friday — Cadastros" />}
+          {(id) => <Input id={id} value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder={esteira ? "Ex.: Criativos Black — semana 2" : "Ex.: Black Friday — Cadastros"} />}
         </Field>
         <Field label="Conta de anúncio (Meta)">
           {(id) => (
@@ -62,7 +63,7 @@ function NewDraftModal({ open, onClose }: { open: boolean; onClose: () => void }
         </Field>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" loading={create.isPending} disabled={name.trim().length < 2 || !account}>Criar rascunho</Button>
+          <Button type="submit" loading={create.isPending} disabled={name.trim().length < 2 || !account}>{esteira ? "Começar" : "Criar rascunho"}</Button>
         </div>
       </form>
     </Modal>
@@ -132,6 +133,7 @@ export function CampaignBuilderPage() {
   const archive = useArchiveDraft();
   const unarchive = useUnarchiveDraft();
   const [open, setOpen] = useState(false);
+  const [openEsteira, setOpenEsteira] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function doArchive(id: string, name: string) {
@@ -155,13 +157,18 @@ export function CampaignBuilderPage() {
           <span className="rounded-lg bg-brand-50 p-2 text-brand-600"><Megaphone className="size-5" aria-hidden /></span>
           <div>
             <h1 className="text-xl font-semibold">Criar campanhas</h1>
-            <p className="text-sm text-slate-500">Monte e guarde rascunhos de campanha. Nada é criado no Meta por aqui.</p>
+            <p className="text-sm text-slate-500">Suba criativos em conjuntos que já existem ou monte campanhas novas. Tudo é criado pausado.</p>
           </div>
         </div>
         {perms.data?.criar && (
-          <Button onClick={() => setOpen(true)}>
-            <FilePlus2 className="size-4" aria-hidden /> Novo rascunho
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setOpenEsteira(true)} data-testid="cb-subir-criativos">
+              <Layers className="size-4" aria-hidden /> Subir criativos
+            </Button>
+            <Button variant="secondary" onClick={() => setOpen(true)}>
+              <FilePlus2 className="size-4" aria-hidden /> Novo rascunho
+            </Button>
+          </div>
         )}
       </header>
 
@@ -179,7 +186,8 @@ export function CampaignBuilderPage() {
           {drafts.data?.map((d) => (
             <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
               <div className="min-w-0">
-                <Link to={`/criar/campanhas/${d.id}`} className="font-medium text-brand-700 hover:underline">{d.name}</Link>
+                <Link to={d.kind === "esteira" ? `/criar/esteira/${d.id}` : `/criar/campanhas/${d.id}`} className="font-medium text-brand-700 hover:underline">{d.name}</Link>
+                {d.kind === "esteira" && <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">Subir criativos</span>}
                 <p className="text-xs text-slate-500">
                   {d.client_name} · {d.ad_account_name ?? "sem conta"} · atualizado {formatDateTime(d.updated_at)}
                   {d.updated_by_name ? ` por ${d.updated_by_name}` : ""}
@@ -197,6 +205,7 @@ export function CampaignBuilderPage() {
 
       {isAdmin && <PeopleCard />}
       <NewDraftModal open={open} onClose={() => setOpen(false)} />
+      <NewDraftModal esteira open={openEsteira} onClose={() => setOpenEsteira(false)} />
     </div>
   );
 }
