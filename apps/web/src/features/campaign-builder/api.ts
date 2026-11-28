@@ -535,3 +535,19 @@ export function useAccountCampaigns(adAccountId: string | null | undefined) {
 export function useImportCampaign() {
   return useMutation({ mutationFn: (v: { adAccountId: string; campaignId: string }) => callBuilder<{ draft: CampaignDraft; notes: string[] }>({ action: "campaign_import", ...v }) });
 }
+
+export interface VideoUploadStep {
+  status: "enviando" | "processando" | "pronto" | "falhou";
+  sent: number;
+  total: number;
+  error: string | null;
+  /** O mesmo arquivo já tinha sido enviado a esta conta: reaproveitado. */
+  reused: boolean;
+  videoId?: string;
+  thumbnail?: string;
+}
+
+/** Fase J.4: avança o envio em partes de UM vídeo do Drive (a tela chama de novo até ficar pronto). */
+export function videoUploadStep(draftId: string, fileId: string) {
+  return callBuilder<VideoUploadStep>({ action: "video_upload_step", draftId, fileId });
+}

@@ -202,3 +202,41 @@ export async function fetchIgMedia(token: string, igUserId: string, fetchImpl: t
     return { id: String(r.id), caption: text(r.caption, 120), type, permalink: text(r.permalink, 300), date: text(r.timestamp, 30), thumbnail: thumb.startsWith("https://") ? thumb : "" };
   });
 }
+
+/**
+ * Fase J.4 — envio de vídeo EM PARTES (upload_phase start/transfer/finish) na conta de anúncio.
+ * Cada função devolve o que o Meta respondeu; falhas viram mensagem clara (sem token).
+ */
+export function resumableVideoApi(token: string, externalId: string, name: string, fetchImpl: typeof fetch = fetch) {
+  const path = `${act(externalId)}/advideos`;
+  const fail = (body: Record<string, unknown>, status: number, what: string) => {
+    const err = (body as MetaErrorBody).error as (MetaErrorBody["error"] & { error_user_msg?: string }) | undefined;
+    return new Error(`O Meta recusou ${what} do vídeo "${name}": ${(err?.error_user_msg || err?.message || `HTTP ${status}`).slice(0, 300)}`);
+  };
+  const num = (v: unknown) => Number(typeof v === "string" || typeof v === "number" ? v : NaN);
+  return {
+    async start(fileSize: number) {
+      const { status, body } = await graphPostRaw(path, { upload_phase: "start", file_size: String(fileSize) }, token, fetchImpl);
+      if (status >= 400 || (body as MetaErrorBody).error) throw fail(body, status, "o início do envio");
+      const r = { uploadSessionId: String(body.upload_session_id ?? ""), videoId: String(body.video_id ?? ""), startOffset: num(body.start_offset), endOffset: num(body.end_offset) };
+      if (!r.uploadSessionId || !r.videoId || !Number.isFinite(r.startOffset) || !Number.isFinite(r.endOffset)) throw new Error(`O Meta não abriu o envio do vídeo "${name}".`);
+      return r;
+    },
+    async transfer(uploadSessionId: string, startOffset: number, chunk: Uint8Array) {
+      const { status, body } = await graphPostFile(path, { upload_phase: "transfer", upload_session_id: uploadSessionId, start_offset: String(startOffset) },
+        { field: "video_file_chunk", bytes: chunk, name: "parte", mimeType: "application/octet-stream" }, token, fetchImpl);
+      if (status >= 400 || (body as MetaErrorBody).error) throw fail(body, status, "uma parte");
+      const r = { startOffset: num(body.start_offset), endOffset: num(body.end_offset) };
+      if (!Number.isFinite(r.startOffset) || !Number.isFinite(r.endOffset)) throw new Error(`O Meta não confirmou a parte do vídeo "${name}".`);
+      return r;
+    },
+    async finish(uploadSessionId: string) {
+      const { status, body } = await graphPostRaw(path, { upload_phase: "finish", upload_session_id: uploadSessionId, title: name.slice(0, 100) }, token, fetchImpl);
+      if (status >= 400 || (body as MetaErrorBody).error || body.success === false) throw fail(body, status, "o fim do envio");
+    },
+    async videoStatus(videoId: string) {
+      const info = await graphGet<{ status?: { video_status?: string }; picture?: string }>(videoId, { fields: "status,picture" }, token, fetchImpl);
+      return { status: info.status?.video_status ?? "", picture: typeof info.picture === "string" ? info.picture : "" };
+    },
+  };
+}

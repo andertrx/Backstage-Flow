@@ -12,8 +12,9 @@ import { z } from "npm:zod@4";
 import { adminClient, requireRole, userClient } from "../_shared/auth.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { enforceRateLimit } from "../_shared/ratelimit.ts";
-import { buildCampaignFields, fetchAccountLists, fetchIgMedia, fetchLeadForms, searchTargeting, uploadAdImage, uploadAdVideo, validateCampaign } from "../_shared/platforms/meta/builder.ts";
-import { DriveClient, parseDriveFolderId } from "../_shared/google/drive.ts";
+import { buildCampaignFields, fetchAccountLists, fetchIgMedia, fetchLeadForms, resumableVideoApi, searchTargeting, uploadAdImage, uploadAdVideo, validateCampaign } from "../_shared/platforms/meta/builder.ts";
+import { MAX_BIG_VIDEO_BYTES, newUploadState, type UploadState, uploadStep } from "../_shared/platforms/meta/video-upload.ts";
+import { DriveClient, parseDriveFolderId, VIDEO_MIMES } from "../_shared/google/drive.ts";
 import { parseServiceAccount, SheetsError } from "../_shared/google/sheets.ts";
 import { graphGet, graphPostRaw } from "../_shared/platforms/meta/client.ts";
 import { buildPlan, type ItemResult, runPublish } from "../_shared/platforms/meta/publish.ts";
@@ -39,6 +40,8 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("ad_template"), adAccountId: id, adId: z.string().regex(/^\d{5,30}$/, "Anúncio inválido.") }),
   z.object({ action: z.literal("media_prepare"), draftId: id, fileId: z.string().regex(/^[A-Za-z0-9_-]{10,100}$/, "Arquivo inválido.") }),
   // Fase J.5 — copiar uma campanha que já existe (só leitura no Meta).
+  // Fase J.4 — vídeo grande: avança o envio em partes de UM vídeo do Drive (a tela chama até terminar).
+  z.object({ action: z.literal("video_upload_step"), draftId: id, fileId: z.string().regex(/^[A-Za-z0-9_-]{10,100}$/, "Arquivo inválido.") }),
   z.object({ action: z.literal("campaign_import"), adAccountId: id, campaignId: z.string().regex(/^\d{5,30}$/, "Campanha inválida.") }),
 ]);
 
@@ -358,6 +361,55 @@ Deno.serve(handle(async (req) => {
       if (e instanceof Error && e.message.startsWith("O Meta")) throw new AppError(400, "PLATFORM_BAD_REQUEST", e.message);
       throw toApp(e);
     }
+  }
+
+  if (input.action === "video_upload_step") {
+    if (!perms.editar) throw new AppError(403, "FORBIDDEN", "Você não tem permissão para editar rascunhos.");
+    const { data: draftRow, error } = await userClient(req).rpc("builder_draft_get", { p_id: input.draftId });
+    if (error || !draftRow) throw new AppError(404, "NOT_FOUND", "Rascunho não encontrado ou sem acesso.", error);
+    const row = draftRow as { ad_account_id: string | null; data: unknown };
+    if (!row.ad_account_id || !isEsteira(row.data)) throw new AppError(400, "INVALID_STATE", "Este rascunho não é uma esteira de criativos.");
+    if (!normalizeEsteira(row.data).items.some((i) => i.feed?.fileId === input.fileId || i.vertical?.fileId === input.fileId)) {
+      throw new AppError(400, "INVALID_STATE", "Esse arquivo não está na esteira. Salve e tente de novo.");
+    }
+    const account = await loadAccount(req, row.ad_account_id);
+    let drive: DriveClient;
+    let meta: Awaited<ReturnType<DriveClient["metaFull"]>>;
+    try {
+      drive = await driveClient();
+      meta = await drive.metaFull(input.fileId);
+    } catch (e) { throw toApp(e); }
+    if (!(VIDEO_MIMES as readonly string[]).includes(meta.mimeType)) throw new AppError(400, "INVALID_INPUT", `"${meta.name}" não é vídeo MP4 ou MOV.`);
+    if (!meta.size || meta.size > MAX_BIG_VIDEO_BYTES) throw new AppError(400, "INVALID_INPUT", `"${meta.name}" passa de ${MAX_BIG_VIDEO_BYTES / 1024 / 1024} MB. Comprima o vídeo e tente de novo.`);
+    // O mesmo arquivo do Drive, sem alteração, já enviado a esta conta: reaproveita (não envia de novo).
+    const { data: found } = await db.from("builder_media_uploads").select("*")
+      .eq("ad_account_id", account.id).eq("drive_file_id", input.fileId).eq("drive_modified_at", meta.modifiedTime).neq("status", "falhou").maybeSingle();
+    let up = found as Record<string, unknown> | null;
+    if (!up) {
+      const { data: created, error: insErr } = await db.from("builder_media_uploads").insert({
+        ad_account_id: account.id, drive_file_id: input.fileId, drive_modified_at: meta.modifiedTime.slice(0, 40), file_name: meta.name.slice(0, 300),
+        file_size: meta.size, created_by: caller.id,
+      }).select("*").single();
+      if (insErr || !created) throw new AppError(500, "DB_ERROR", "Não conseguimos registrar o envio do vídeo.", insErr);
+      up = created as Record<string, unknown>;
+    }
+    const view = (st: UploadState, reused: boolean) => ({
+      status: st.status, sent: st.status === "enviando" ? st.startOffset : st.fileSize, total: st.fileSize, error: st.errorMessage || null, reused,
+      ...(st.status === "pronto" ? { videoId: st.metaVideoId, thumbnail: st.thumbnail } : {}),
+    });
+    const state: UploadState = {
+      status: up.status as UploadState["status"], fileSize: Number(up.file_size), uploadSessionId: String(up.upload_session_id ?? ""), metaVideoId: String(up.meta_video_id ?? ""),
+      startOffset: Number(up.start_offset), endOffset: Number(up.end_offset), thumbnail: String(up.thumbnail_url ?? ""), errorMessage: "",
+    };
+    if (state.status === "pronto") return json(req, 200, { data: view(state, true) });
+    const api = resumableVideoApi(await tokenFor(account.connection_id!), account.external_id, meta.name);
+    const next = await uploadStep({ ...api, readRange: (a, b) => drive.downloadRange(input.fileId, a, b), now: () => Date.now() }, state.status === "falhou" ? newUploadState(state.fileSize) : state, 45_000);
+    await db.from("builder_media_uploads").update({
+      status: next.status, upload_session_id: next.uploadSessionId.slice(0, 100), meta_video_id: /^\d{0,30}$/.test(next.metaVideoId) ? next.metaVideoId : "",
+      start_offset: next.startOffset, end_offset: next.endOffset, thumbnail_url: next.thumbnail.startsWith("https://") ? next.thumbnail.slice(0, 2000) : "",
+      error_message: next.errorMessage.slice(0, 500), updated_at: new Date().toISOString(),
+    }).eq("id", up.id as string);
+    return json(req, 200, { data: view(next, false) });
   }
 
   if (input.action === "campaign_import") {

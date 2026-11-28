@@ -66,8 +66,16 @@ check(saved.items[1].bodies[0] === "Texto só deste criativo" && saved.items[0].
 // 4. Enviar arquivos e subir
 check(await page.getByTestId("es-subir").isDisabled(), "não sobe antes de enviar os arquivos ao Meta");
 check(await page.getByTestId("es-bloqueios").getByText("ainda não foram enviados", { exact: false }).isVisible(), "explica que falta enviar os arquivos");
+// Vídeo grande (J.4): vai em partes; um erro no meio para o envio e o próximo clique continua de onde parou.
+db.metaBuilder.uploadFailOnce = "vidVertical12345";
 await page.getByTestId("es-enviar-arquivos").click();
-await page.waitForFunction(() => !document.querySelector('[data-testid="es-enviar-arquivos"]'), null, { timeout: 8000 });
+await page.getByText("O Meta recusou uma parte do vídeo.", { exact: false }).waitFor({ timeout: 8000 });
+check(await page.getByText("Clique de novo para continuar de onde parou", { exact: false }).isVisible(), "erro no meio do envio explica que dá para continuar");
+await page.getByTestId("es-checklist").screenshot({ path: `${SHOTS}/35-16-videos-grandes.png` });
+check(db.metaBuilder.uploads.vidVertical12345.sent === 0 && db.metaBuilder.uploads.vidFeed123456789.sent > 0, "o vídeo do Feed terminou; o vertical parou no erro");
+await page.getByTestId("es-enviar-arquivos").click();
+await page.waitForFunction(() => !document.querySelector('[data-testid="es-enviar-arquivos"]'), null, { timeout: 10000 });
+check(db.metaBuilder.uploads.vidFeed123456789.calls === 2, "o vídeo já enviado não foi enviado de novo");
 check((db.metaBuilder.prepared ?? []).length === 4, "enviou 4 arquivos (cada um uma vez)");
 await page.waitForFunction(() => document.querySelector('[data-testid="es-estado"]')?.textContent === "Salvo", null, { timeout: 8000 });
 check(db.builderDrafts[0].data.items[0].vertical.metaVideoId !== "", "guardou o código do vídeo no rascunho");

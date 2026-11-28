@@ -45,10 +45,10 @@ export type MediaKind = "image" | "video";
 export class DriveClient {
   constructor(private sa: ServiceAccount, private fetchFn: Fetch = fetch) {}
 
-  private async req(url: string): Promise<Response> {
+  private async req(url: string, extra: Record<string, string> = {}): Promise<Response> {
     const token = await accessToken(this.sa, this.fetchFn, DRIVE_SCOPE);
     try {
-      return await this.fetchFn(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      return await this.fetchFn(url, { headers: { ...extra, Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     } catch (err) {
       throw new SheetsError(502, "DRIVE_UNREACHABLE", "Não conseguimos falar com o Google agora. Tente de novo em instantes.", err);
     }
@@ -83,6 +83,19 @@ export class DriveClient {
   async meta(fileId: string): Promise<DriveFile> {
     const b = await this.json(`${DRIVE_URL}/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,size&supportsAllDrives=true`);
     return { id: String(b.id), name: String(b.name), mimeType: String(b.mimeType), size: b.size ? Number(b.size) : null };
+  }
+
+  /** Tipo, tamanho e data da última alteração (a data diz se o arquivo mudou desde o último envio ao Meta). */
+  async metaFull(fileId: string): Promise<DriveFile & { modifiedTime: string }> {
+    const b = await this.json(`${DRIVE_URL}/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,size,modifiedTime&supportsAllDrives=true`);
+    return { id: String(b.id), name: String(b.name), mimeType: String(b.mimeType), size: b.size ? Number(b.size) : null, modifiedTime: String(b.modifiedTime ?? "") };
+  }
+
+  /** Baixa só os bytes [start, end) do arquivo (envio de vídeo grande em partes). */
+  async downloadRange(fileId: string, start: number, end: number): Promise<Uint8Array> {
+    const res = await this.req(`${DRIVE_URL}/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`, { Range: `bytes=${start}-${end - 1}` });
+    if (!res.ok) throw driveApiError(res.status, await res.json().catch(() => null), this.sa.client_email);
+    return new Uint8Array(await res.arrayBuffer());
   }
 
   /** Baixa uma imagem (recusa o que não é JPG/PNG ou passa de 8 MB, ANTES de baixar). */

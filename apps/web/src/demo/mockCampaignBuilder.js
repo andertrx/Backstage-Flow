@@ -66,6 +66,17 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
         control: { enhancements: false, multiAdvertiser: false, placements: "manual", urlTags: "" } }, adSets: [set], ads: [ad], advancedJson: "" },
         notes: ["CJ-01 | INTERESSES: o original usa Público Advantage+ (copiado assim; desligue se quiser).", "1 anúncio(s): a imagem ou o vídeo precisa ser escolhido de novo no Drive.", "O original tem melhorias automáticas do Meta ligadas. A cópia sobe com todas DESLIGADAS (Controle total)."] } });
     }
+    if (b.action === "video_upload_step") {
+      // J.4: cada chamada envia metade de um vídeo de 120 MB; a 2ª termina. db.metaBuilder.uploadFailOnce = fileId simula um erro (a próxima continua).
+      const total = 120 * 1024 * 1024;
+      const up = ((db.metaBuilder.uploads ??= {})[b.fileId] ??= { sent: 0, calls: 0 });
+      up.calls++;
+      if (db.metaBuilder.uploadFailOnce === b.fileId) { db.metaBuilder.uploadFailOnce = null; return res(200, { data: { status: "enviando", sent: up.sent, total, error: "O Meta recusou uma parte do vídeo.", reused: false } }); }
+      up.sent = Math.min(total, up.sent + total / 2);
+      if (up.sent < total) return res(200, { data: { status: "enviando", sent: up.sent, total, error: null, reused: false } });
+      if (!up.done) { up.done = true; (db.metaBuilder.prepared ??= []).push(b.fileId); }
+      return res(200, { data: { status: "pronto", sent: total, total, error: null, reused: up.calls > 2, videoId: String(8000 + Object.keys(db.metaBuilder.uploads).length), thumbnail: `https://scontent.example/${b.fileId}.jpg` } });
+    }
     if (b.action === "media_prepare") {
       (db.metaBuilder.prepared ??= []).push(b.fileId);
       if (db.metaBuilder.prepareFail === b.fileId) return res(400, { error: { code: "PLATFORM_BAD_REQUEST", message: "O Meta recusou o vídeo." } });
