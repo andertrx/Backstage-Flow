@@ -2,7 +2,7 @@
  * Fase 35.2 — lista de conferência do rascunho. Só LÊ o rascunho: não fala com o Meta.
  * "erro" impede de seguir para o Validar; "aviso" só chama atenção. O Meta ainda confirma tudo no Validar (passo 3).
  */
-import { billingFor, DESTINATION_LABELS, destinationsFor, GOAL_REQUIRES, GOALS_BY_OBJECTIVE, leadsToWebsite, SPECIAL_AGE_MAX, SPECIAL_AGE_MIN } from "./catalog.ts";
+import { billingFor, DESTINATION_LABELS, destinationsFor, GOAL_REQUIRES, GOALS_BY_OBJECTIVE, leadsToWebsite, usesExistingPost, SPECIAL_AGE_MAX, SPECIAL_AGE_MIN } from "./catalog.ts";
 import type { CampaignDraft } from "./model.ts";
 
 export type CheckLevel = "erro" | "aviso";
@@ -84,6 +84,12 @@ export function checkDraft(d: CampaignDraft): CheckItem[] {
     const label = `${a.name.trim() || "Anúncio sem nome"}${set?.name ? ` (${set.name})` : ""}`;
     if (a.name.trim().length < 2) err("anuncio", `${label}: dê um nome ao anúncio.`, a.id);
     if (!a.pageId.trim()) err("anuncio", `${label}: informe a página (ID) que publica o anúncio.`, a.id);
+    if (usesExistingPost(set?.destinationType ?? "")) {
+      // Post que já existe: texto, imagem, link e botão vêm do próprio post.
+      if (!a.instagramId.trim()) err("anuncio", `${label}: escolha o Instagram que publicou o post.`, a.id);
+      if (!a.igMediaId.trim()) err("anuncio", `${label}: escolha o post do Instagram.`, a.id);
+      continue;
+    }
     if (!a.primaryText.trim()) err("anuncio", `${label}: escreva o texto principal.`, a.id);
     const website = leadsToWebsite(set?.destinationType ?? "");
     if (website && !a.cta) err("anuncio", `${label}: escolha o botão (CTA).`, a.id);

@@ -144,6 +144,7 @@
 - [x] **Fase C pronta** (27/11/2026, imagens JPG/PNG; vídeo fica para depois). Ver `docs/etapa-35-campaign-builder/35.5-FASE-C-GOOGLE-DRIVE.md`. Usa a conta de serviço que **já existe** (a das planilhas).
 - [x] **Fase D pronta** (28/11/2026): opções iguais às do Meta (metas por objetivo, destino WhatsApp/Messenger/Direct, formulário no anúncio). Ver `docs/etapa-35-campaign-builder/35.6-FASE-D-OPCOES-DO-META.md`. **Não testado no Meta de verdade:** na primeira publicação com mensagens ou formulário, conferir o resultado e avisar.
 - [x] **Fases E, F e G prontas** (28/11/2026): cidades com raio, interesses, Advantage+, lista de formulários e vídeo do Drive. Ver `35.7-FASES-E-F-PUBLICOS-E-FORMULARIOS.md` e `35.8-FASE-G-VIDEO.md`. **Nada testado no Meta de verdade**: na primeira publicação com cidade/interesse, formulário ou vídeo, conferir o resultado e avisar.
+- [x] **Fase H pronta** (28/11/2026): post que já existe (Engajamento com a publicação e Visitas ao perfil). Ver `35.9-FASE-H-POST-EXISTENTE.md`. **Não testado no Meta de verdade.**
 - [ ] **Ander (2 passos):** (1) Google Cloud, projeto `backstage-flow`: ativar a **Google Drive API**; (2) Drive: compartilhar a pasta principal dos criativos com `crm-leitura@backstage-flow.iam.gserviceaccount.com` como **Leitor**. Depois, no rascunho, "Escolher do Google Drive". Sugestão: adicionar mais uma pessoa como Proprietário do projeto no Google Cloud.
 - [ ] **Vídeo no Criador** (fase própria): envio em partes ao Meta.
 

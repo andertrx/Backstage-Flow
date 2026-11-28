@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { buildCampaignFields, currencyOffset, fetchAccountLists, fetchLeadForms, searchTargeting, uploadAdImage, uploadAdVideo, validateCampaign } from "./builder.ts";
+import { buildCampaignFields, currencyOffset, fetchAccountLists, fetchIgMedia, fetchLeadForms, searchTargeting, uploadAdImage, uploadAdVideo, validateCampaign } from "./builder.ts";
 
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -125,4 +125,18 @@ Deno.test("enviar vídeo: recusa do Meta, erro de processamento e demora viram m
   const slow = ((_u: URL | string, init?: RequestInit) => Promise.resolve(init?.method === "POST" ? reply(200, { id: "v" }) : reply(200, { status: { video_status: "processing" } }))) as typeof fetch;
   let m3 = ""; try { await uploadAdVideo("T", "1", bytes, "a.mp4", "video/mp4", { fetchImpl: slow, pollMs: 1, maxWaitMs: 5 }); } catch (e) { m3 = (e as Error).message; }
   assert(m3.includes("ainda está processando"));
+});
+
+Deno.test("posts do Instagram: id, legenda curta, tipo, link e miniatura (só https)", async () => {
+  let url = "";
+  const f = ((u: URL | string) => { url = String(u); return Promise.resolve(reply(200, { data: [
+    { id: "1790", caption: "Treino de hoje", media_type: "VIDEO", permalink: "https://www.instagram.com/p/x/", timestamp: "2026-11-20T10:00:00+0000", thumbnail_url: "https://scontent/t.jpg" },
+    { id: "1791", media_type: "IMAGE", media_url: "http://inseguro/x.jpg" },
+    { caption: "sem id" },
+  ] })); }) as typeof fetch;
+  const r = await fetchIgMedia("TOK", "17841400000", f);
+  assertEquals(r.length, 2);
+  assertEquals(r[0], { id: "1790", caption: "Treino de hoje", type: "VIDEO", permalink: "https://www.instagram.com/p/x/", date: "2026-11-20T10:00:00+0000", thumbnail: "https://scontent/t.jpg" });
+  assertEquals(r[1].thumbnail, "");
+  assert(url.includes("/17841400000/media"));
 });

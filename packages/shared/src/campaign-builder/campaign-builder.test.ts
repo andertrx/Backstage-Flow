@@ -162,7 +162,7 @@ describe("publicar (Fase B)", () => {
   it("meta que exige post existente/ligação e o botão de ligar ainda não são publicados (aviso claro)", () => {
     const d = completo();
     d.ads[0].imageUrl = "https://x.com/a.jpg";
-    d.adSets[0].optimizationGoal = "POST_ENGAGEMENT";
+    d.adSets[0].optimizationGoal = "PAGE_LIKES";
     d.ads[0].cta = "CALL_NOW";
     const msgs = checkPublishable(d).map((i) => i.message).join(" | ");
     expect(msgs).toContain("ainda não é publicada");
@@ -281,5 +281,35 @@ describe("Fase G — vídeo", () => {
     const d = base();
     d.ads = ["aaaaaaaaaa1", "aaaaaaaaaa2", "aaaaaaaaaa3", "aaaaaaaaaa4"].map((f, i) => ({ ...d.ads[0], id: `a${i}`, driveFileId: f, driveKind: "video" as const }));
     expect(checkPublishable(d).some((i) => i.message.includes("até 3 vídeos"))).toBe(true);
+  });
+});
+
+describe("Fase H — post que já existe (engajamento e visitas ao perfil)", () => {
+  const base = (objective: string, goal: string) => normalizeDraft({
+    campaign: { name: "Campanha", objective, status: "PAUSED" },
+    adSets: [{ id: "s1", name: "Conj", optimizationGoal: goal, billingEvent: "IMPRESSIONS", budgetAmount: 10, pageId: "11111" }],
+    ads: [{ id: "a1", adSetId: "s1", name: "Anúncio", pageId: "11111", instagramId: "22222", igMediaId: "17900000000001" }],
+  });
+  it("o Meta só oferece ON_POST no Engajamento, e perfil do Instagram para as metas de visita", () => {
+    expect(destinationsFor("POST_ENGAGEMENT", "OUTCOME_ENGAGEMENT")).toEqual(["ON_POST"]);
+    expect(destinationsFor("POST_ENGAGEMENT", "OUTCOME_TRAFFIC")).toEqual([]);
+    expect(destinationsFor("VISIT_INSTAGRAM_PROFILE", "OUTCOME_TRAFFIC")).toEqual(["INSTAGRAM_PROFILE"]);
+  });
+  it("engajamento com post no objetivo Engajamento publica sem imagem, texto, link nem botão", () => {
+    const d = base("OUTCOME_ENGAGEMENT", "POST_ENGAGEMENT");
+    d.adSets[0].destinationType = "ON_POST";
+    expect(publishBlockers(d).map((i) => i.message)).toEqual([]);
+  });
+  it("sem o post escolhido, a conferência pede o post e o Instagram", () => {
+    const d = base("OUTCOME_TRAFFIC", "VISIT_INSTAGRAM_PROFILE");
+    d.adSets[0].destinationType = "INSTAGRAM_PROFILE";
+    d.ads[0] = { ...d.ads[0], igMediaId: "", instagramId: "" };
+    const msgs = checkDraft(d).map((i) => i.message).join(" | ");
+    expect(msgs).toContain("escolha o post do Instagram");
+    expect(msgs).toContain("escolha o Instagram");
+  });
+  it("engajamento com a publicação fora do Engajamento não publica", () => {
+    const d = base("OUTCOME_TRAFFIC", "POST_ENGAGEMENT");
+    expect(checkPublishable(d).some((i) => i.message.includes("só publica no objetivo Engajamento"))).toBe(true);
   });
 });

@@ -189,3 +189,16 @@ export async function uploadAdVideo(
     await new Promise((r) => setTimeout(r, opts.pollMs ?? 3000));
   }
 }
+
+export interface IgMediaHit { id: string; caption: string; type: string; permalink: string; date: string; thumbnail: string }
+
+/** Posts recentes de uma conta de Instagram vinculada (só leitura; até 25). O Meta recusa se o token não tem acesso ao Instagram. */
+export async function fetchIgMedia(token: string, igUserId: string, fetchImpl: typeof fetch = fetch): Promise<IgMediaHit[]> {
+  const body = await graphGet<{ data?: Record<string, unknown>[] }>(`${igUserId}/media`, { fields: "id,caption,media_type,permalink,timestamp,thumbnail_url,media_url", limit: "25" }, token, fetchImpl);
+  const rows = Array.isArray(body.data) ? body.data : [];
+  return rows.filter((r) => typeof r.id === "string").map((r) => {
+    const type = text(r.media_type, 20);
+    const thumb = text(r.thumbnail_url, 800) || (type === "IMAGE" ? text(r.media_url, 800) : "");
+    return { id: String(r.id), caption: text(r.caption, 120), type, permalink: text(r.permalink, 300), date: text(r.timestamp, 30), thumbnail: thumb.startsWith("https://") ? thumb : "" };
+  });
+}

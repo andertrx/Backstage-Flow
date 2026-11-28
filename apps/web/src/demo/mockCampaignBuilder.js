@@ -24,6 +24,13 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
         ? [{ key: "2673660", name: "Fortaleza", detail: "Ceará, Brasil" }, { key: "2673661", name: "Fortim", detail: "Ceará, Brasil" }]
         : [{ id: "6003107902433", name: "Academia", detail: "público de 1.200.000+" }, { id: "6003107902434", name: "Crossfit" }] } });
     }
+    if (b.action === "ig_media") {
+      if (db.metaBuilder.igError) return res(400, { error: { code: "IG_MEDIA_UNAVAILABLE", message: db.metaBuilder.igError } });
+      return res(200, { data: { media: db.metaBuilder.igMedia ?? [
+        { id: "17900000000001", caption: "Treino de segunda: peito e tríceps", type: "VIDEO", permalink: "https://www.instagram.com/p/a/", date: "2026-11-20T10:00:00+0000", thumbnail: "" },
+        { id: "17900000000002", caption: "Aula experimental grátis", type: "IMAGE", permalink: "https://www.instagram.com/p/b/", date: "2026-11-18T10:00:00+0000", thumbnail: "" },
+      ] } });
+    }
     if (b.action === "lead_forms") {
       if (db.metaBuilder.formsError) return res(400, { error: { code: "LEAD_FORMS_UNAVAILABLE", message: db.metaBuilder.formsError } });
       return res(200, { data: { forms: db.metaBuilder.forms ?? [{ id: "555566677", name: "Cadastro Janeiro", status: "ACTIVE" }, { id: "555566688", name: "Cadastro antigo", status: "ARCHIVED" }] } });

@@ -334,3 +334,20 @@ export function useLeadForms(adAccountId: string | null | undefined, pageId: str
     },
   });
 }
+
+export interface IgMediaItem { id: string; caption: string; type: string; permalink: string; date: string; thumbnail: string }
+
+/** Posts recentes do Instagram vinculado (para promover um post que já existe). Se o Meta não liberar, a mensagem explica. */
+export function useIgMedia(adAccountId: string | null | undefined, igUserId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "posts-instagram", adAccountId, igUserId],
+    enabled: enabled && !!adAccountId && /^\d{5,30}$/.test(igUserId),
+    staleTime: 2 * 60_000,
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("meta-builder", { body: { action: "ig_media", adAccountId, igUserId } });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      return (data as { data: { media: IgMediaItem[] } }).data.media;
+    },
+  });
+}

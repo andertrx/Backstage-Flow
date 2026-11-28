@@ -145,6 +145,12 @@ const MESSAGING_CTA: Record<string, { type: string; app: string }> = {
 const LEAD_CTAS = ["SIGN_UP", "LEARN_MORE", "APPLY_NOW", "GET_QUOTE", "GET_OFFER", "SUBSCRIBE", "DOWNLOAD", "CONTACT_US", "BOOK_TRAVEL"];
 
 export function creativeFields(a: DraftAd, imageHash?: string, destination: string = "", video?: { id: string; thumbnail: string }): Record<string, string> {
+  if (destination === "ON_POST" || destination === "INSTAGRAM_PROFILE") {
+    // Post que já existe no Instagram: o Meta usa a mídia e a legenda do post. No perfil, o botão leva ao perfil.
+    const f: Record<string, unknown> = { name: a.name, object_id: a.pageId, instagram_user_id: a.instagramId, source_instagram_media_id: a.igMediaId };
+    if (destination === "INSTAGRAM_PROFILE") f.call_to_action = { type: "VIEW_INSTAGRAM_PROFILE" };
+    return Object.fromEntries(Object.entries(f).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)]));
+  }
   const messaging = MESSAGING_CTA[destination];
   const leadForm = destination === "ON_AD";
   const link: Record<string, unknown> = { message: a.primaryText, link: messaging ? "https://fb.me/" : leadForm ? "http://fb.me/" : a.link };

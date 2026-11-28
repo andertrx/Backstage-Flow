@@ -202,3 +202,18 @@ Deno.test("publicar com vídeo: o criativo usa o vídeo enviado e não pede hash
   const cr = sent.find((x) => x.path.endsWith("/adcreatives"))!;
   assert(JSON.parse(cr.object_story_spec).video_data.video_id === "vid1");
 });
+
+Deno.test("post que já existe: criativo usa o post do Instagram (sem texto/imagem); no perfil o botão leva ao perfil; conjunto leva destino e página", () => {
+  const a = newAd("s1", { id: "a1", name: "Post", pageId: "111", instagramId: "222", igMediaId: "17900000000001" });
+  const post = creativeFields(a, undefined, "ON_POST");
+  assertEquals(post, { name: "Post", object_id: "111", instagram_user_id: "222", source_instagram_media_id: "17900000000001" });
+  const perfil = creativeFields(a, undefined, "INSTAGRAM_PROFILE");
+  assertEquals(JSON.parse(perfil.call_to_action), { type: "VIEW_INSTAGRAM_PROFILE" });
+  const d = draft();
+  d.campaign.objective = "OUTCOME_ENGAGEMENT";
+  d.adSets[0] = { ...d.adSets[0], optimizationGoal: "POST_ENGAGEMENT", destinationType: "ON_POST" };
+  d.ads[0] = { ...d.ads[0], igMediaId: "17900000000001" };
+  const f = adSetFields(d.adSets[0], "C1", ctx(d));
+  assertEquals(f.destination_type, "ON_POST");
+  assertEquals(JSON.parse(f.promoted_object), { page_id: "111" });
+});

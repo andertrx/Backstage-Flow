@@ -1,5 +1,5 @@
 import {
-  AD_CTAS, applyGoal, DESTINATION_LABELS, destinationsFor, leadsToWebsite, PUBLISH_UNSUPPORTED_GOALS, applyObjective, BILLING_LABELS, billingFor, type CampaignDraft, checkDraft, type CheckItem, checkSummary, COUNTRIES, CUSTOM_EVENTS,
+  AD_CTAS, applyGoal, DESTINATION_LABELS, destinationsFor, leadsToWebsite, usesExistingPost, PUBLISH_UNSUPPORTED_GOALS, applyObjective, BILLING_LABELS, billingFor, type CampaignDraft, checkDraft, type CheckItem, checkSummary, COUNTRIES, CUSTOM_EVENTS,
   type DraftAd, type DraftAdSet, duplicateAdSet, GOAL_LABELS, GOALS_BY_OBJECTIVE, newAd, newAdSet, normalizeDraft, OBJECTIVE_LABELS, type ObjectiveId,
   removeAdSet, CITY_RADIUS_MAX, CITY_RADIUS_MIN, MAX_CITIES, MAX_INTERESTS, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES, checkPublishable, publishCounts,
 } from "@backstage/shared";
@@ -16,6 +16,7 @@ import { type AccountLists, type PublishOperationRow, saveDraftData, useAccountL
 import { confirmar } from "@/lib/confirmStore.ts";
 import { DrivePicker } from "./DrivePicker.tsx";
 import { TargetingPicker } from "./TargetingPicker.tsx";
+import { IgPostPicker } from "./IgPostPicker.tsx";
 import { toast } from "@/lib/toastStore.ts";
 
 type SaveState = "salvo" | "salvando" | "pendente" | "erro" | "conflito" | "somente-leitura";
@@ -47,6 +48,8 @@ function AdForm({ ad, adAccountId, destination, pages, instas, disabled, onChang
   const set = (p: Partial<DraftAd>) => onChange({ ...ad, ...p });
   const [picker, setPicker] = useState(false);
   const website = leadsToWebsite(destination);
+  const existing = usesExistingPost(destination);
+  const [postPicker, setPostPicker] = useState(false);
   const forms = useLeadForms(adAccountId, ad.pageId, destination === "ON_AD");
   return (
     <div className="space-y-3 rounded-xl bg-slate-50 p-3" data-testid="cb-anuncio">
@@ -58,7 +61,7 @@ function AdForm({ ad, adAccountId, destination, pages, instas, disabled, onChang
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Nome do anúncio">{(id) => <Input id={id} value={ad.name} disabled={disabled} maxLength={200} onChange={(e) => set({ name: e.target.value })} />}</Field>
-        {website && (<Field label="Botão (CTA)">
+        {website && !existing && (<Field label="Botão (CTA)">
           {(id) => (
             <Select id={id} value={ad.cta} disabled={disabled} onChange={(e) => set({ cta: e.target.value as DraftAd["cta"] })}>
               <option value="">Escolha...</option>
@@ -74,22 +77,24 @@ function AdForm({ ad, adAccountId, destination, pages, instas, disabled, onChang
             </Select>
           ) : <Input id={id} value={ad.pageId} disabled={disabled} maxLength={40} onChange={(e) => set({ pageId: e.target.value })} />}
         </Field>
-        <Field label="Perfil do Instagram (opcional)">
+        <Field label={existing ? "Perfil do Instagram" : "Perfil do Instagram (opcional)"}>
           {(id) => instas.length ? (
             <Select id={id} value={ad.instagramId} disabled={disabled} onChange={(e) => set({ instagramId: e.target.value })}>
-              <option value="">Sem Instagram</option>
+              <option value="">{existing ? "Escolha..." : "Sem Instagram"}</option>
               {instas.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
           ) : <Input id={id} value={ad.instagramId} disabled={disabled} maxLength={40} onChange={(e) => set({ instagramId: e.target.value })} />}
         </Field>
       </div>
+      {!existing && (<>
       <Field label="Texto principal">{(id) => <Textarea id={id} rows={3} value={ad.primaryText} disabled={disabled} maxLength={2000} onChange={(e) => set({ primaryText: e.target.value })} />}</Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Título">{(id) => <Input id={id} value={ad.headline} disabled={disabled} maxLength={200} onChange={(e) => set({ headline: e.target.value })} />}</Field>
         <Field label="Descrição">{(id) => <Input id={id} value={ad.description} disabled={disabled} maxLength={400} onChange={(e) => set({ description: e.target.value })} />}</Field>
       </div>
-      {website && <Field label="Link de destino" hint="Precisa começar com https://">{(id) => <Input id={id} type="url" value={ad.link} disabled={disabled} maxLength={2000} placeholder="https://" onChange={(e) => set({ link: e.target.value })} />}</Field>}
-      {destination && destination !== "WEBSITE" && destination !== "ON_AD" && (
+      </>)}
+      {website && !existing && <Field label="Link de destino" hint="Precisa começar com https://">{(id) => <Input id={id} type="url" value={ad.link} disabled={disabled} maxLength={2000} placeholder="https://" onChange={(e) => set({ link: e.target.value })} />}</Field>}
+      {destination && destination !== "WEBSITE" && destination !== "ON_AD" && !existing && (
         <p className="rounded-xl bg-white p-2.5 text-xs text-slate-600 ring-1 ring-slate-200" data-testid="cb-destino-mensagem">
           O botão e o destino ({DESTINATION_LABELS[destination]}) o Meta monta sozinho, como no Gerenciador de Anúncios. Não precisa de link.
         </p>
@@ -104,6 +109,7 @@ function AdForm({ ad, adAccountId, destination, pages, instas, disabled, onChang
           ) : <Input id={id} inputMode="numeric" value={ad.leadFormId} disabled={disabled} maxLength={30} onChange={(e) => set({ leadFormId: e.target.value.replace(/\D/g, "") })} />}
         </Field>
       )}
+      {!existing && (
       <div className="space-y-2" data-testid="cb-imagem">
         <p className="text-sm font-medium text-slate-700">Imagem ou vídeo do anúncio</p>
         {ad.driveFileId ? (
@@ -123,6 +129,19 @@ function AdForm({ ad, adAccountId, destination, pages, instas, disabled, onChang
         )}
         <DrivePicker open={picker} onClose={() => setPicker(false)} onPick={(f) => set({ driveFileId: f.id, driveFileName: f.name, driveKind: f.kind, imageUrl: "" })} />
       </div>
+      )}
+      {existing && (
+        <div className="space-y-2" data-testid="cb-post-instagram">
+          <p className="text-sm font-medium text-slate-700">Post do Instagram</p>
+          <p className="text-xs text-slate-500">A imagem ou o vídeo, o texto e o botão vêm do próprio post. {destination === "INSTAGRAM_PROFILE" ? "O botão leva ao perfil do Instagram." : "O Meta conta curtidas, comentários e compartilhamentos do post."}</p>
+          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white p-2.5 ring-1 ring-slate-200">
+            <span className="min-w-0 flex-1 truncate text-sm" data-testid="cb-post-escolhido">{ad.igMediaId ? (ad.igMediaLabel || `Post ${ad.igMediaId}`) : "Nenhum post escolhido"}</span>
+            <Button variant="secondary" className="px-3 py-1.5 text-xs" disabled={disabled || !ad.instagramId} onClick={() => setPostPicker(true)} data-testid="cb-post-escolher">{ad.igMediaId ? "Trocar" : "Escolher post"}</Button>
+          </div>
+          {!ad.instagramId && <p className="text-xs text-slate-500">Escolha antes o perfil do Instagram.</p>}
+          <IgPostPicker open={postPicker} adAccountId={adAccountId} igUserId={ad.instagramId} onClose={() => setPostPicker(false)} onPick={(m) => set({ igMediaId: m.id, igMediaLabel: m.caption || `Post de ${m.date.slice(0, 10)}` })} />
+        </div>
+      )}
     </div>
   );
 }

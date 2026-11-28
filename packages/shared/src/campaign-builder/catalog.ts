@@ -53,12 +53,16 @@ export const GOAL_REQUIRES: Partial<Record<OptimizationGoal, { pixel?: boolean; 
   LEAD_GENERATION: { page: true },
   QUALITY_LEAD: { page: true },
   CONVERSATIONS: { page: true },
+  POST_ENGAGEMENT: { page: true },
+  VISIT_INSTAGRAM_PROFILE: { page: true },
+  PROFILE_VISIT: { page: true },
 };
 
 /** Para onde o anúncio leva a pessoa (destination_type do Meta). Site é o padrão (campo vazio). */
-export type DestinationType = "WEBSITE" | "WHATSAPP" | "MESSENGER" | "INSTAGRAM_DIRECT" | "ON_AD";
+export type DestinationType = "WEBSITE" | "WHATSAPP" | "MESSENGER" | "INSTAGRAM_DIRECT" | "ON_AD" | "ON_POST" | "INSTAGRAM_PROFILE";
 export const DESTINATION_LABELS: Record<DestinationType, string> = {
   WEBSITE: "Site", WHATSAPP: "WhatsApp", MESSENGER: "Messenger", INSTAGRAM_DIRECT: "Direct do Instagram", ON_AD: "Formulário no próprio anúncio",
+  ON_POST: "Post que já existe no Instagram", INSTAGRAM_PROFILE: "Perfil do Instagram",
 };
 export const DESTINATION_TYPES = Object.keys(DESTINATION_LABELS) as DestinationType[];
 
@@ -69,10 +73,15 @@ export const DESTINATION_TYPES = Object.keys(DESTINATION_LABELS) as DestinationT
 export function destinationsFor(goal: OptimizationGoal | "", objective: ObjectiveId | ""): DestinationType[] {
   if (goal === "CONVERSATIONS") return objective === "OUTCOME_LEADS" ? ["WHATSAPP"] : ["WHATSAPP", "MESSENGER", "INSTAGRAM_DIRECT"];
   if (goal === "LEAD_GENERATION") return ["ON_AD"];
+  // Post existente: o Meta só oferece engajamento com a publicação (ON_POST) dentro do objetivo Engajamento.
+  if (goal === "POST_ENGAGEMENT" && objective === "OUTCOME_ENGAGEMENT") return ["ON_POST"];
+  if (goal === "VISIT_INSTAGRAM_PROFILE" || goal === "PROFILE_VISIT") return ["INSTAGRAM_PROFILE"];
   return [];
 }
 
 /** O anúncio leva ao site (precisa de link e botão)? Falso para mensagens e formulário no anúncio. */
+/** O anúncio usa um post que já existe no Instagram (sem imagem, texto, link nem botão para montar)? */
+export const usesExistingPost = (d: DestinationType | ""): boolean => d === "ON_POST" || d === "INSTAGRAM_PROFILE";
 export const leadsToWebsite = (d: DestinationType | ""): boolean => d === "" || d === "WEBSITE";
 
 export type BillingEvent = "IMPRESSIONS" | "LINK_CLICKS" | "THRUPLAY";

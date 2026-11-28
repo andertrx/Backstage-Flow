@@ -2,18 +2,17 @@
  * Criador de campanhas, Fase B — o que o "Publicar" já sabe criar no Meta e a conferência que vale SÓ para publicar.
  * Tudo é criado PAUSADO. Nada aqui fala com o Meta (isso é do servidor).
  */
-import { type AdCta, GOAL_LABELS, leadsToWebsite, type OptimizationGoal } from "./catalog.ts";
+import { type AdCta, GOAL_LABELS, leadsToWebsite, type OptimizationGoal, usesExistingPost } from "./catalog.ts";
 import { checkDraft, type CheckItem } from "./checklist.ts";
 import type { CampaignDraft } from "./model.ts";
 
 /**
- * Metas que o Meta oferece mas o Publicar ainda não monta (exigem post existente, evento, ligação, perfil ou dados do CRM).
+ * Metas que o Meta oferece mas o Publicar ainda não monta (exigem evento, ligação ou dados do CRM).
  * Conversas (WhatsApp, Messenger, Direct) e Geração de leads (formulário no anúncio) já são publicadas.
  * Para as demais, crie no Gerenciador ou pelo Criador de Anúncios com o Claude.
  */
 export const PUBLISH_UNSUPPORTED_GOALS: readonly OptimizationGoal[] = [
-  "QUALITY_LEAD", "QUALITY_CALL", "REMINDERS_SET", "EVENT_RESPONSES", "PAGE_LIKES", "PROFILE_VISIT", "VISIT_INSTAGRAM_PROFILE",
-  "POST_ENGAGEMENT",
+  "QUALITY_LEAD", "QUALITY_CALL", "REMINDERS_SET", "EVENT_RESPONSES", "PAGE_LIKES",
 ];
 /** Metas de vídeo: o Publicar aceita, mas todos os anúncios do conjunto precisam ser vídeo do Drive. */
 export const VIDEO_GOALS: readonly OptimizationGoal[] = ["THRUPLAY", "TWO_SECOND_CONTINUOUS_VIDEO_VIEWS"];
@@ -43,6 +42,9 @@ export function checkPublishable(d: CampaignDraft): CheckItem[] {
   if (d.advancedJson.trim()) err("campanha", "O modo avançado (JSON) ainda não é enviado ao publicar. Esvazie o campo ou aplique no Gerenciador.");
   for (const s of d.adSets) {
     const label = s.name.trim() || "Conjunto sem nome";
+    if (s.optimizationGoal === "POST_ENGAGEMENT" && d.campaign.objective !== "OUTCOME_ENGAGEMENT") {
+      err("conjunto", `${label}: "Engajamento com a publicação" só publica no objetivo Engajamento (nos outros o Meta não oferece o destino do post).`, s.id);
+    }
     if (s.optimizationGoal && PUBLISH_UNSUPPORTED_GOALS.includes(s.optimizationGoal)) {
       err("conjunto", `${label}: a meta "${GOAL_LABELS[s.optimizationGoal]}" ainda não é publicada por aqui. Escolha outra meta ou crie no Gerenciador de Anúncios.`, s.id);
     }
@@ -54,6 +56,7 @@ export function checkPublishable(d: CampaignDraft): CheckItem[] {
   }
   for (const a of d.ads) {
     const label = a.name.trim() || "Anúncio sem nome";
+    if (usesExistingPost(d.adSets.find((s) => s.id === a.adSetId)?.destinationType ?? "")) continue;
     if (!a.driveFileId) {
       if (!a.imageUrl.trim()) err("anuncio", `${label}: escolha a imagem no Google Drive (ou informe o endereço https:// dela).`, a.id);
       else if (!isHttps(a.imageUrl.trim())) err("anuncio", `${label}: o endereço da imagem precisa começar com https://.`, a.id);

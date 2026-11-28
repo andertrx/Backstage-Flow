@@ -24,7 +24,7 @@ await page.getByLabel("Objetivo").selectOption("OUTCOME_TRAFFIC");
 const metas = await page.getByRole("button", { name: "Adicionar conjunto" }).click().then(() => page.getByTestId("cb-conjunto").first().getByLabel("Meta de otimização").locator("option").allTextContents());
 const tem = (t) => metas.some((m) => m.startsWith(t));
 check(tem("Cliques no link") && tem("Conversas (mensagens)") && tem("Visitas ao perfil"), "Tráfego mostra as metas do Meta (inclui Conversas e Visitas ao perfil)");
-check(metas.some((m) => m.includes("Visitas ao perfil") && m.includes("ainda não publica")), "meta que o Publicar ainda não monta vem marcada");
+check(metas.some((m) => m.startsWith("Ligações") && m.includes("ainda não publica")) && !metas.some((m) => m.startsWith("Visitas ao perfil") && m.includes("ainda não publica")), "meta que o Publicar ainda não monta vem marcada (Ligações) e Visitas ao perfil já publica");
 check(!tem("Geração de leads"), "Geração de leads não aparece em Tráfego (o Meta não oferece)");
 
 const set = page.getByTestId("cb-conjunto").first();
@@ -73,6 +73,17 @@ await page.getByTestId("cb-advantage").first().locator("input").check();
 await page.waitForTimeout(1600);
 const saved = db.builderDrafts[0]?.data?.adSets?.[0];
 check(saved?.cities?.[0]?.key === "2673660" && saved.cities[0].radius === 30 && saved.interests?.[0]?.id === "6003107902433" && saved.advantageAudience === true, "cidades, raio, interesses e Advantage+ foram salvos no rascunho");
+// Fase H: post que já existe (Engajamento com a publicação) — sem texto, imagem, link nem botão
+await page.getByLabel("Objetivo").selectOption("OUTCOME_ENGAGEMENT");
+await set.getByLabel("Meta de otimização").selectOption("POST_ENGAGEMENT");
+check((await set.getByLabel("Onde as pessoas continuam").locator("option").allTextContents()).join(",").includes("Post que já existe no Instagram"), "Engajamento com a publicação oferece o post que já existe");
+check((await ad.getByLabel("Texto principal").count()) === 0 && (await ad.getByTestId("cb-imagem").count()) === 0, "com post existente, some texto, imagem, link e botão");
+await ad.getByLabel("Perfil do Instagram").selectOption({ index: 1 }).catch(async () => { await ad.getByLabel("Perfil do Instagram").fill("17841400000000"); });
+await ad.getByTestId("cb-post-escolher").click();
+await page.getByTestId("ig-post").first().click();
+check((await ad.getByTestId("cb-post-escolhido").innerText()).includes("Treino de segunda"), "o post escolhido aparece no anúncio");
+await page.waitForTimeout(1600);
+check(db.builderDrafts[0]?.data?.ads?.[0]?.igMediaId === "17900000000001", "o rascunho guarda o id do post do Instagram");
 check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
 await browser.close();
 console.log("criador-destinos: OK");
