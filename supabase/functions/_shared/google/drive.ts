@@ -37,7 +37,7 @@ export interface DriveFile { id: string; name: string; mimeType: string; size: n
 export const IMAGE_MIMES = ["image/jpeg", "image/png"] as const;
 /** Limite de tamanho para baixar e enviar ao Meta (o servidor trabalha em memória). */
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-/** Vídeos: MP4 e MOV até 30 MB (o envio acontece em memória no servidor; acima disso, suba direto no Gerenciador). */
+/** Envio direto (em memória) de vídeo: até 30 MB. Acima disso, o vídeo vai antes, em partes (video-upload.ts, até 500 MB). */
 export const VIDEO_MIMES = ["video/mp4", "video/quicktime"] as const;
 export const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
 export type MediaKind = "image" | "video";

@@ -155,7 +155,7 @@
 - [ ] **Teste real da J.4**: enviar pela esteira um vídeo grande (ex.: 100 MB) do Drive para uma conta e conferir no Gerenciador (biblioteca de vídeos). Nada é publicado.
 - [ ] **Mensagem de abordagem dentro do anúncio (WhatsApp)**: o Meta guarda essas mensagens na conta do WhatsApp Business (sequência de boas-vindas), não no anúncio. Para o CRM ligar sozinho, precisamos do acesso à conta do WhatsApp Business de cada cliente. Por enquanto a biblioteca guarda as mensagens para copiar. Decisão do Ander: vale buscar esse acesso?
 - [ ] **Ander (2 passos):** (1) Google Cloud, projeto `backstage-flow`: ativar a **Google Drive API**; (2) Drive: compartilhar a pasta principal dos criativos com `crm-leitura@backstage-flow.iam.gserviceaccount.com` como **Leitor**. Depois, no rascunho, "Escolher do Google Drive". Sugestão: adicionar mais uma pessoa como Proprietário do projeto no Google Cloud.
-- [ ] **Vídeo no Criador** (fase própria): envio em partes ao Meta.
+- [x] **Vídeo no Criador**: feito na Fase J.6 (`35.17-FASE-J6-VIDEOS-GRANDES-NO-CRIADOR.md`), até 500 MB em partes. Falta teste real: publicar (pausado) uma campanha com um vídeo grande do Drive.
 
 ## Fase C do WhatsApp por cliente, Criador e limpeza (21/11/2026)
 - [x] (Feito em 27/11/2026: **8 verificações OK de 8**, tudo desfeito no final.) **Rodar o teste SQL da Fase C** (`supabase/tests/wa_saude_clientes.sql`).

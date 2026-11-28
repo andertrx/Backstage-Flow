@@ -277,10 +277,13 @@ describe("Fase G — vídeo", () => {
     d.ads[0] = { ...d.ads[0], driveKind: "video", driveFileId: "arquivoVideo123" };
     expect(checkPublishable(d).some((i) => i.message.includes("sejam vídeos") || i.message.includes("ainda não é publicada"))).toBe(false);
   });
-  it("no máximo 3 vídeos diferentes por publicação", () => {
+  it("no máximo 10 vídeos diferentes por publicação (J.6: vão antes, em partes)", () => {
     const d = base();
-    d.ads = ["aaaaaaaaaa1", "aaaaaaaaaa2", "aaaaaaaaaa3", "aaaaaaaaaa4"].map((f, i) => ({ ...d.ads[0], id: `a${i}`, driveFileId: f, driveKind: "video" as const }));
-    expect(checkPublishable(d).some((i) => i.message.includes("até 3 vídeos"))).toBe(true);
+    const vids = (n: number) => Array.from({ length: n }, (_, i) => ({ ...d.ads[0], id: `a${i}`, driveFileId: `aaaaaaaaaa${i}`, driveKind: "video" as const }));
+    d.ads = vids(4);
+    expect(checkPublishable(d).some((i) => i.message.includes("vídeos diferentes"))).toBe(false);
+    d.ads = vids(11);
+    expect(checkPublishable(d).some((i) => i.message.includes("até 10 vídeos"))).toBe(true);
   });
 });
 

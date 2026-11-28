@@ -280,7 +280,7 @@ export interface DriveListing {
   folder: { id: string; name: string };
   folders: { id: string; name: string }[];
   images: DriveFileRow[];
-  /** Vídeos MP4/MOV (até 30 MB). Pode faltar em respostas antigas. */
+  /** Vídeos MP4/MOV (até 500 MB). Pode faltar em respostas antigas. */
   videos?: DriveFileRow[];
   /** Arquivos de outros tipos que não aparecem. */
   others: number;

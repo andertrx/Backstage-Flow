@@ -3,10 +3,11 @@ import {
   type DraftAd, type DraftAdSet, duplicateAdSet, GOAL_LABELS, GOALS_BY_OBJECTIVE, newAd, newAdSet, normalizeDraft, OBJECTIVE_LABELS, type ObjectiveId,
   removeAdSet, featureLabel, isEsteira, MANUAL_PLACEMENTS, SUGGESTED_URL_TAGS, urlTagsProblem, CITY_RADIUS_MAX, CITY_RADIUS_MIN, MAX_CITIES, MAX_INTERESTS, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES, checkPublishable, publishCounts,
 } from "@backstage/shared";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, ExternalLink, Image as ImageIcon, Plus, Rocket, ShieldCheck, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, CloudUpload, Copy, ExternalLink, Image as ImageIcon, Plus, Rocket, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
+import { type SendProgress, SendProgressView, sendVideo } from "./videoSend.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
@@ -361,6 +362,26 @@ function PublishPanel({ draftId, draft, canPublish, accountName, accountExternal
   const already = last && (last.status === "concluida" || last.status === "parcial");
   const counts = publishCounts(draft);
   const campaignId = last?.publish_items.find((i) => i.kind === "campanha")?.meta_id;
+  // Fase J.6: vídeos do Drive vão ANTES, em partes (até 500 MB), e o Publicar reaproveita o que já está no Meta.
+  const videos = useMemo(() => [...new Map(draft.ads.filter((a) => a.driveFileId && a.driveKind === "video").map((a) => [a.driveFileId, { fileId: a.driveFileId, name: a.driveFileName || "Vídeo do Drive" }])).values()], [draft.ads]);
+  const [readyVideos, setReadyVideos] = useState<Set<string>>(() => new Set());
+  const pendingVideos = videos.filter((v) => !readyVideos.has(v.fileId));
+  const [sending, setSending] = useState<SendProgress | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  async function sendVideos() {
+    setSendError(null);
+    await flush();
+    const list = [...pendingVideos];
+    for (let i = 0; i < list.length; i++) {
+      const f = list[i];
+      setSending({ done: i, total: list.length, name: f.name, pct: null, note: "" });
+      const r = await sendVideo(draftId, f, (pct, note) => setSending({ done: i, total: list.length, name: f.name, pct, note }));
+      if (!r.ok) { setSendError(r.error); break; }
+      setReadyVideos((prev) => new Set(prev).add(f.fileId));
+    }
+    setSending(null);
+  }
 
   async function run() {
     const resume = `1 campanha, ${counts.adSets} conjunto(s) e ${counts.ads} anúncio(s) na conta "${accountName}"`;
@@ -378,10 +399,21 @@ function PublishPanel({ draftId, draft, canPublish, accountName, accountExternal
     <div className="space-y-2 border-t border-slate-100 pt-3" data-testid="cb-publicar">
       {canPublish && !already && (
         <>
-          <Button className="w-full" loading={publish.isPending} disabled={disabled || blockers.length > 0 || !accountExternalId} onClick={() => void run()}>
+          {pendingVideos.length > 0 && (
+            <Button variant="secondary" className="w-full" loading={!!sending} disabled={disabled || !!sending || !accountExternalId} onClick={() => void sendVideos()} data-testid="cb-enviar-videos">
+              <CloudUpload className="size-4" aria-hidden /> Enviar {pendingVideos.length} vídeo(s) ao Meta
+            </Button>
+          )}
+          {videos.length > 0 && pendingVideos.length === 0 && (
+            <p className="flex items-center gap-1.5 text-xs text-emerald-700" data-testid="cb-videos-prontos"><CheckCircle2 className="size-3.5" aria-hidden /> {videos.length} vídeo(s) já estão no Meta.</p>
+          )}
+          {sending && <SendProgressView sending={sending} testId="cb-envio" />}
+          {sendError && <Alert tone="error">{sendError}</Alert>}
+          <Button className="w-full" loading={publish.isPending} disabled={disabled || blockers.length > 0 || !accountExternalId || pendingVideos.length > 0 || !!sending} onClick={() => void run()}>
             <Rocket className="size-4" aria-hidden /> Publicar no Meta (pausado)
           </Button>
           <p className="text-xs text-slate-500">Cria a campanha, os conjuntos e os anúncios <strong>pausados</strong>. Só publica o que a Conferência aceita.</p>
+          {pendingVideos.length > 0 && <p className="text-xs text-amber-800" data-testid="cb-videos-pendentes">• Envie os vídeos ao Meta antes de publicar (botão acima).</p>}
           {blockers.length > 0 && (
             <ul className="space-y-1 text-xs text-amber-800" data-testid="cb-publicar-bloqueios">
               {blockers.slice(0, 4).map((b, i) => <li key={i}>• {b.message}</li>)}

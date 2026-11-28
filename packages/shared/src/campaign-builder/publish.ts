@@ -16,7 +16,8 @@ export const PUBLISH_UNSUPPORTED_GOALS: readonly OptimizationGoal[] = [
 ];
 /** Metas de vídeo: o Publicar aceita, mas todos os anúncios do conjunto precisam ser vídeo do Drive. */
 export const VIDEO_GOALS: readonly OptimizationGoal[] = ["THRUPLAY", "TWO_SECOND_CONTINUOUS_VIDEO_VIEWS"];
-export const PUBLISH_MAX_VIDEOS = 3;
+/** Vídeos diferentes por publicação (Fase J.6: vão antes, em partes, pelo "Enviar vídeos ao Meta"). */
+export const PUBLISH_MAX_VIDEOS = 10;
 /** Botões que exigem telefone (o Meta monta os de mensagem e de formulário sozinho a partir do destino). */
 export const PUBLISH_UNSUPPORTED_CTAS: readonly AdCta[] = ["CALL_NOW"];
 
@@ -38,7 +39,7 @@ export function checkPublishable(d: CampaignDraft): CheckItem[] {
   if (d.adSets.length > PUBLISH_MAX_ADSETS) err("campanha", `Publicar aceita até ${PUBLISH_MAX_ADSETS} conjuntos por vez.`);
   if (d.ads.length > PUBLISH_MAX_ADS) err("campanha", `Publicar aceita até ${PUBLISH_MAX_ADS} anúncios por vez.`);
   const videos = d.ads.filter((a) => a.driveFileId && a.driveKind === "video");
-  if (new Set(videos.map((a) => a.driveFileId)).size > PUBLISH_MAX_VIDEOS) err("campanha", `Publicar aceita até ${PUBLISH_MAX_VIDEOS} vídeos diferentes por vez (o envio e o processamento no Meta levam tempo).`);
+  if (new Set(videos.map((a) => a.driveFileId)).size > PUBLISH_MAX_VIDEOS) err("campanha", `Publicar aceita até ${PUBLISH_MAX_VIDEOS} vídeos diferentes por vez.`);
   if (d.advancedJson.trim()) err("campanha", "O modo avançado (JSON) ainda não é enviado ao publicar. Esvazie o campo ou aplique no Gerenciador.");
   for (const s of d.adSets) {
     const label = s.name.trim() || "Conjunto sem nome";

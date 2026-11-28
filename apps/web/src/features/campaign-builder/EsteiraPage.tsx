@@ -15,11 +15,12 @@ import { confirmar } from "@/lib/confirmStore.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { toast } from "@/lib/toastStore.ts";
 import {
-  type AdSetInfo, prepareMedia, videoUploadStep, saveDraftData, useAccountAdSets, useAdSetAds, useAdSetInfo, useAdTemplate, useBuilderDraft, useBuilderPermissions,
+  type AdSetInfo, prepareMedia, saveDraftData, useAccountAdSets, useAdSetAds, useAdSetInfo, useAdTemplate, useBuilderDraft, useBuilderPermissions,
   useCopySets, useDraftAccount, useDriveList, useDriveThumb, usePublishDraft, usePublishHistory,
 } from "./api.ts";
 import { AutomationsBadge } from "./DraftEditorPage.tsx";
 import { ApproachMessages, CopySetModal, TextList } from "./CopySets.tsx";
+import { type SendProgress, SendProgressView, sendVideo } from "./videoSend.tsx";
 
 type SaveState = "salvo" | "salvando" | "pendente" | "erro" | "conflito";
 const DEST_LABEL: Record<string, string> = { WHATSAPP: "WhatsApp", MESSENGER: "Messenger", INSTAGRAM_DIRECT: "Direct do Instagram", WEBSITE: "Site", "": "Site" };
@@ -129,7 +130,6 @@ function DriveSection({ disabled, onAdd }: { disabled: boolean; onAdd: (p: Propo
   );
 }
 
-const mb = (n: number) => `${(n / 1024 / 1024).toFixed(1).replace(".", ",")} MB`;
 
 const OP_LABEL = { processando: "Em andamento", concluida: "Criativos criados (pausados)", parcial: "Criados em parte", falhou: "Não subiu" } as const;
 
@@ -140,7 +140,7 @@ function PublishBox({ draftId, draft, accountName, accountExternalId, canPublish
   const history = usePublishHistory(draftId);
   const publish = usePublishDraft();
   const key = useRef<string | null>(null);
-  const [sending, setSending] = useState<{ done: number; total: number; name: string; pct: number | null; note: string } | null>(null);
+  const [sending, setSending] = useState<SendProgress | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const pending = mediaToPrepare(draft);
   const blockers = esteiraPublishBlockers(draft);
@@ -151,7 +151,7 @@ function PublishBox({ draftId, draft, accountName, accountExternalId, canPublish
     setSendError(null);
     await flush();
     const list = [...pending];
-    outer: for (let i = 0; i < list.length; i++) {
+    for (let i = 0; i < list.length; i++) {
       const f = list[i];
       setSending({ done: i, total: list.length, name: f.name, pct: null, note: "" });
       try {
@@ -160,17 +160,9 @@ function PublishBox({ draftId, draft, accountName, accountExternalId, canPublish
           if (r.kind === "image") onPrepared(f.fileId, { hash: r.hash });
           continue;
         }
-        // Vídeo: envio em partes. Cada chamada avança um pouco; se a página fechar, a próxima continua de onde parou.
-        for (let step = 0; step < 400; step++) {
-          const r = await videoUploadStep(draftId, f.fileId);
-          if (r.status === "pronto" && r.videoId && r.thumbnail) { onPrepared(f.fileId, { videoId: r.videoId, thumbnail: r.thumbnail }); continue outer; }
-          if (r.status === "falhou" || r.error) { setSendError(`"${f.name}": ${r.error ?? "o Meta não aceitou o vídeo."} Clique de novo para continuar de onde parou.`); break outer; }
-          const pct = r.total ? Math.round((r.sent / r.total) * 100) : 0;
-          setSending({ done: i, total: list.length, name: f.name, pct, note: r.status === "processando" ? "O Meta está processando o vídeo..." : `${mb(r.sent)} de ${mb(r.total)}` });
-          if (r.status === "processando") await new Promise((res) => setTimeout(res, 4000));
-        }
-        setSendError(`"${f.name}": o envio está demorando mais que o normal. Clique de novo para continuar.`);
-        break;
+        const r = await sendVideo(draftId, f, (pct, note) => setSending({ done: i, total: list.length, name: f.name, pct, note }));
+        if (!r.ok) { setSendError(r.error); break; }
+        onPrepared(f.fileId, { videoId: r.videoId, thumbnail: r.thumbnail });
       } catch (e) {
         setSendError(`"${f.name}": ${errorMessage(e)}`);
         break;
@@ -199,17 +191,7 @@ function PublishBox({ draftId, draft, accountName, accountExternalId, canPublish
               <CloudUpload className="size-4" aria-hidden /> Enviar {pending.length} arquivo(s) ao Meta
             </Button>
           )}
-          {sending && (
-            <div className="space-y-1 text-xs text-slate-600" role="status" data-testid="es-envio-andamento">
-              <p>Enviando {sending.done + 1} de {sending.total}: {sending.name}{sending.note ? ` (${sending.note})` : ""}.</p>
-              {sending.pct !== null && (
-                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100" aria-label={`${sending.pct}% enviado`}>
-                  <div className="h-full rounded-full bg-blue-600 transition-[width] duration-300" style={{ width: `${sending.pct}%` }} data-testid="es-envio-barra" />
-                </div>
-              )}
-              <p className="text-slate-400">Vídeos vão em partes: pode fechar a página, o envio continua de onde parou quando você voltar e clicar de novo.</p>
-            </div>
-          )}
+          {sending && <SendProgressView sending={sending} testId="es-envio" />}
           {sendError && <Alert tone="error">{sendError}</Alert>}
           <Button className="w-full" loading={publish.isPending} disabled={disabled || blockers.length > 0 || !accountExternalId || !!sending} onClick={() => void run()} data-testid="es-subir">
             <Rocket className="size-4" aria-hidden /> Subir criativos (pausados)

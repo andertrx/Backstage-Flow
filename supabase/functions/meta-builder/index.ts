@@ -14,7 +14,7 @@ import { AppError, handle, json } from "../_shared/http.ts";
 import { enforceRateLimit } from "../_shared/ratelimit.ts";
 import { buildCampaignFields, fetchAccountLists, fetchIgMedia, fetchLeadForms, resumableVideoApi, searchTargeting, uploadAdImage, uploadAdVideo, validateCampaign } from "../_shared/platforms/meta/builder.ts";
 import { MAX_BIG_VIDEO_BYTES, newUploadState, type UploadState, uploadStep } from "../_shared/platforms/meta/video-upload.ts";
-import { DriveClient, parseDriveFolderId, VIDEO_MIMES } from "../_shared/google/drive.ts";
+import { DriveClient, MAX_VIDEO_BYTES, parseDriveFolderId, VIDEO_MIMES } from "../_shared/google/drive.ts";
 import { parseServiceAccount, SheetsError } from "../_shared/google/sheets.ts";
 import { graphGet, graphPostRaw } from "../_shared/platforms/meta/client.ts";
 import { buildPlan, type ItemResult, runPublish } from "../_shared/platforms/meta/publish.ts";
@@ -94,6 +94,17 @@ async function driveClient(): Promise<DriveClient> {
 const toApp = (err: unknown) => (err instanceof SheetsError ? new AppError(err.status, err.code, err.userMessage, err.technical) : err);
 
 const PUBLISH_BLOCK_MINUTES = 10;
+/** Vídeos que ainda podem ir direto na hora de publicar (os demais precisam ter passado pelo envio em partes). */
+const PUBLISH_DIRECT_VIDEOS = 3;
+
+/** Vídeo do Drive já enviado e processado nesta conta, na mesma versão do arquivo (Fase J.4/J.6). */
+async function readyVideo(db: ReturnType<typeof adminClient>, adAccountId: string, fileId: string, modifiedTime: string) {
+  const { data } = await db.from("builder_media_uploads").select("meta_video_id, thumbnail_url")
+    .eq("ad_account_id", adAccountId).eq("drive_file_id", fileId).eq("drive_modified_at", modifiedTime).eq("status", "pronto").maybeSingle();
+  const id = String(data?.meta_video_id ?? "");
+  const thumb = String(data?.thumbnail_url ?? "");
+  return /^\d{5,30}$/.test(id) && thumb.startsWith("https://") ? { id, thumbnail: thumb } : null;
+}
 
 async function operationView(db: ReturnType<typeof adminClient>, operationId: string) {
   const { data: op } = await db.from("publish_operations").select("id, draft_id, status, summary, error_message, created_at, finished_at").eq("id", operationId).maybeSingle();
@@ -150,7 +161,17 @@ async function publish(req: Request, caller: { id: string }, input: { draftId: s
     const driveIds = [...new Set(draft.ads.map((a) => a.driveFileId).filter(Boolean))];
     if (driveIds.length) {
       const drive = await driveClient();
+      let direct = 0;
       for (const fileId of driveIds) {
+        // Fase J.6: vídeo já enviado em partes ("Enviar vídeos ao Meta") é reaproveitado; só vídeo pequeno ainda vai direto aqui.
+        const info = await drive.metaFull(fileId);
+        if ((VIDEO_MIMES as readonly string[]).includes(info.mimeType)) {
+          const ready = await readyVideo(db, account.id, fileId, info.modifiedTime);
+          if (ready) { videos.set(fileId, ready); continue; }
+          if ((info.size ?? 0) > MAX_VIDEO_BYTES || ++direct > PUBLISH_DIRECT_VIDEOS) {
+            throw new AppError(400, "INVALID_STATE", `O vídeo "${info.name}" ainda não foi enviado ao Meta. Clique em "Enviar vídeos ao Meta" e publique de novo.`);
+          }
+        }
         const media = await drive.downloadMedia(fileId);
         if (media.kind === "video") videos.set(fileId, await uploadAdVideo(token, account.external_id, media.bytes, media.name, media.mimeType));
         else imageHashes.set(fileId, await uploadAdImage(token, account.external_id, media.bytes, media.name));
@@ -368,10 +389,12 @@ Deno.serve(handle(async (req) => {
     const { data: draftRow, error } = await userClient(req).rpc("builder_draft_get", { p_id: input.draftId });
     if (error || !draftRow) throw new AppError(404, "NOT_FOUND", "Rascunho não encontrado ou sem acesso.", error);
     const row = draftRow as { ad_account_id: string | null; data: unknown };
-    if (!row.ad_account_id || !isEsteira(row.data)) throw new AppError(400, "INVALID_STATE", "Este rascunho não é uma esteira de criativos.");
-    if (!normalizeEsteira(row.data).items.some((i) => i.feed?.fileId === input.fileId || i.vertical?.fileId === input.fileId)) {
-      throw new AppError(400, "INVALID_STATE", "Esse arquivo não está na esteira. Salve e tente de novo.");
-    }
+    if (!row.ad_account_id) throw new AppError(400, "INVALID_STATE", "Escolha a conta de anúncio do rascunho.");
+    // Esteira (J.4) ou rascunho de campanha nova (J.6): o vídeo precisa estar no rascunho.
+    const inDraft = isEsteira(row.data)
+      ? normalizeEsteira(row.data).items.some((i) => i.feed?.fileId === input.fileId || i.vertical?.fileId === input.fileId)
+      : normalizeDraft(row.data).ads.some((a) => a.driveFileId === input.fileId && a.driveKind === "video");
+    if (!inDraft) throw new AppError(400, "INVALID_STATE", "Esse vídeo não está no rascunho. Salve e tente de novo.");
     const account = await loadAccount(req, row.ad_account_id);
     let drive: DriveClient;
     let meta: Awaited<ReturnType<DriveClient["metaFull"]>>;

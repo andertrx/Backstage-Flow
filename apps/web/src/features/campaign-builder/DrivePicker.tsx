@@ -94,7 +94,7 @@ export function DrivePicker({ open, onClose, onPick }: { open: boolean; onClose:
                 <li className="flex items-center gap-2 px-2 py-3 text-slate-500"><FolderOpen className="size-4" aria-hidden /> Nenhuma imagem (JPG/PNG) ou vídeo (MP4/MOV) nesta pasta.</li>
               )}
             </ul>
-            {d.others > 0 && <p className="text-xs text-slate-500">{d.others} arquivo(s) de outro tipo não aparecem. Valem imagens JPG/PNG (até 8 MB) e vídeos MP4/MOV (até 30 MB).</p>}
+            {d.others > 0 && <p className="text-xs text-slate-500">{d.others} arquivo(s) de outro tipo não aparecem. Valem imagens JPG/PNG (até 8 MB) e vídeos MP4/MOV (até 500 MB).</p>}
           </div>
         )}
         {chosen && (
