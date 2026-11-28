@@ -17,6 +17,7 @@ import { confirmar } from "@/lib/confirmStore.ts";
 import { DrivePicker } from "./DrivePicker.tsx";
 import { TargetingPicker } from "./TargetingPicker.tsx";
 import { IgPostPicker } from "./IgPostPicker.tsx";
+import { SaveTemplateModal } from "./Templates.tsx";
 import { toast } from "@/lib/toastStore.ts";
 
 type SaveState = "salvo" | "salvando" | "pendente" | "erro" | "conflito" | "somente-leitura";
@@ -465,6 +466,7 @@ export function DraftEditorPage() {
   const saving = useRef(false);
   const latest = useRef<{ name: string; draft: CampaignDraft | null }>({ name: "", draft: null });
   const canEdit = perms.data?.editar === true;
+  const [saveTemplate, setSaveTemplate] = useState(false);
 
   useEffect(() => {
     if (!loaded.data || draft || isEsteira(loaded.data.data)) return;
@@ -538,10 +540,12 @@ export function DraftEditorPage() {
         <div className="flex items-center gap-3">
           <span className="text-xs text-slate-500" data-testid="cb-estado" role="status">{canEdit ? stateText[state] : stateText["somente-leitura"]}</span>
           {canEdit && <Button variant="secondary" onClick={() => void flush()} disabled={state === "salvando" || state === "salvo" || state === "conflito"}>Salvar agora</Button>}
+          {perms.data?.criar && <Button variant="ghost" onClick={() => setSaveTemplate(true)} data-testid="cb-salvar-modelo">Salvar como modelo</Button>}
         </div>
       </div>
 
       {!canEdit && <Alert tone="info">Você pode ver este rascunho, mas não tem permissão para editar.</Alert>}
+      {saveTemplate && <SaveTemplateModal open={saveTemplate} draft={draft} defaultName={name} onClose={() => setSaveTemplate(false)} />}
       {saveError && (
         <Alert tone="error">
           {saveError}

@@ -2,7 +2,7 @@
 const findSecret = (text) => /EAA[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.|(senha|password|token|secret|api[_-]?key)\s*[:=]\s*\S{4,}/i.test(text);
 
 export function seedCampaignBuilder() {
-  return { builderPerms: {}, builderDrafts: [], builderCopySets: [], metaBuilder: {} };
+  return { builderPerms: {}, builderDrafts: [], builderCopySets: [], builderTemplates: [], metaBuilder: {} };
 }
 
 export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
@@ -55,6 +55,16 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
     if (b.action === "ad_template") {
       return res(200, { data: db.metaBuilder.template ?? { pageId: "328104960376244", instagramId: "17841402908048736", bodies: ["Revenda moda masculina que gira rápido!", "Sua loja merece vender mais!", "Lojista, renove seu estoque!"],
         titles: ["Moda Masculina no Atacado", "Renove o estoque", "Converse conosco"], description: "", link: "https://api.whatsapp.com/send", cta: "WHATSAPP_MESSAGE", urlTags: "utm_source=meta&utm_campaign={{campaign.name}}" } });
+    }
+    if (b.action === "campaign_import") {
+      // J.5: o servidor real converte com draftFromMeta (testado no vitest); aqui um resultado fixo do mesmo formato.
+      const set = { id: "imp-s1", name: "CJ-01 | INTERESSES", optimizationGoal: "CONVERSATIONS", billingEvent: "IMPRESSIONS", budgetAmount: null, startDate: "", endDate: "", countries: ["BR"], ageMin: 30, ageMax: 65, gender: "all",
+        pixelId: "", destinationType: "WHATSAPP", audienceIds: ["9001"], customEvent: "", pageId: "328104960376244", interests: [{ id: "6003", name: "Moda masculina" }], cities: [], advantageAudience: true };
+      const ad = { id: "imp-a1", adSetId: "imp-s1", name: "[AD-10] BLACK", pageId: "328104960376244", instagramId: "17841402908048736", primaryText: "Revenda moda masculina", headline: "Atacado", description: "", link: "https://api.whatsapp.com/send",
+        leadFormId: "", imageUrl: "", driveFileId: "", driveFileName: "", driveKind: "image", igMediaId: "", igMediaLabel: "", cta: "WHATSAPP_MESSAGE" };
+      return res(200, { data: { draft: { schema: 1, campaign: { name: "STG | CP-7.6 | ENG | WHATS (cópia)", objective: "OUTCOME_ENGAGEMENT", status: "", specialAdCategories: [], budgetLevel: "campaign", budgetType: "daily", budgetAmount: 150,
+        control: { enhancements: false, multiAdvertiser: false, placements: "manual", urlTags: "" } }, adSets: [set], ads: [ad], advancedJson: "" },
+        notes: ["CJ-01 | INTERESSES: o original usa Público Advantage+ (copiado assim; desligue se quiser).", "1 anúncio(s): a imagem ou o vídeo precisa ser escolhido de novo no Drive.", "O original tem melhorias automáticas do Meta ligadas. A cópia sobe com todas DESLIGADAS (Controle total)."] } });
     }
     if (b.action === "media_prepare") {
       (db.metaBuilder.prepared ??= []).push(b.fileId);
@@ -115,6 +125,14 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
   if (url.includes("/rest/v1/ads?") && url.includes("ad_group_id=eq.") && decodeURIComponent(url).includes("select=external_id,name,effective_status")) {
     const g = new URL(url, "http://x").searchParams.get("ad_group_id")?.replace("eq.", "");
     return res(200, (db.ads ?? []).filter((a) => a.ad_group_id === g).map((a) => ({ external_id: a.external_id, name: a.name, effective_status: a.effective_status ?? "ACTIVE" })));
+  }
+  // Modelos de campanha (J.5) e campanhas da conta.
+  if (url.includes("/rest/v1/builder_templates")) {
+    return res(200, (db.builderTemplates ?? []).filter((x) => !x.archived_at).sort((a, b) => a.name.localeCompare(b.name)));
+  }
+  if (url.includes("/rest/v1/campaigns?") && decodeURIComponent(url).includes("select=external_id,name,effective_status")) {
+    const acc = new URL(url, "http://x").searchParams.get("ad_account_id")?.replace("eq.", "");
+    return res(200, (db.campaigns ?? []).filter((c) => c.ad_account_id === acc).map((c) => ({ external_id: c.external_id, name: c.name, effective_status: c.effective_status ?? "ACTIVE" })));
   }
   // Biblioteca de textos (J.3): leitura direta pela tabela (RLS no banco real).
   if (url.includes("/rest/v1/builder_copy_sets")) {
@@ -203,6 +221,22 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
     const n = { id: crypto.randomUUID(), client_id: client, ...fields, version: 1, archived_at: null };
     list.push(n);
     return res(200, { id: n.id, version: 1 });
+  }
+  if (rpc("builder_template_save")) {
+    if (!can("criar")) return denied("Você não tem permissão para criar modelos de campanha.");
+    const nome = String(p.p_name ?? "").trim();
+    if (nome.length < 2) return bad("Dê um nome ao modelo (2 a 120 letras).");
+    if (db.builderTemplates.some((x) => !x.archived_at && x.name.toLowerCase() === nome.toLowerCase())) return bad("Já existe um modelo com esse nome.");
+    const n = { id: crypto.randomUUID(), name: nome, description: p.p_description ?? "", objective: p.p_data?.campaign?.objective ?? "", source: p.p_source === "meta" ? "meta" : "rascunho", data: p.p_data ?? {}, version: 1, archived_at: null, updated_at: t };
+    db.builderTemplates.push(n);
+    return res(200, { id: n.id, version: 1 });
+  }
+  if (rpc("builder_template_archive")) {
+    if (!can("criar")) return denied("Você não tem permissão para mexer nos modelos de campanha.");
+    const cur = db.builderTemplates.find((x) => x.id === p.p_id);
+    if (!cur) return bad("Modelo não encontrado.");
+    cur.archived_at = p.p_archive ? t : null;
+    return res(204);
   }
   if (rpc("builder_copy_set_archive")) {
     if (!can("editar")) return denied("Você não tem permissão para editar a biblioteca de textos.");

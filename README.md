@@ -97,6 +97,7 @@ O projeto é construído em etapas. A documentação de cada etapa fica em [`doc
   - [Fase J.1 — Controle total: melhorias automáticas do Meta desligadas, posicionamentos escolhidos, UTM e conferência depois de publicar](docs/etapa-35-campaign-builder/35.12-FASE-J1-CONTROLE-TOTAL.md) ✅ 28/11
   - [Fase J.2 — Esteira de criativos: subir criativos (Feed + vertical, até 5 textos e títulos) num conjunto que já existe, pausados e sem automações](docs/etapa-35-campaign-builder/35.13-FASE-J2-ESTEIRA-DE-CRIATIVOS.md) ✅ 28/11
   - [Fase J.3 — Biblioteca de textos: pacotes por cliente (textos, títulos, link, UTM e mensagens de abordagem) usados na esteira](docs/etapa-35-campaign-builder/35.14-FASE-J3-BIBLIOTECA-DE-TEXTOS.md) ✅ 28/11
+  - [Fase J.5 — Modelos de campanha: copiar campanha do Meta para um rascunho e modelos reutilizáveis em qualquer conta](docs/etapa-35-campaign-builder/35.15-FASE-J5-MODELOS-DE-CAMPANHA.md) ✅ 28/11
 - [Etapa 36 — Central de Operações](docs/etapa-36-central-operacoes/36.16-RELATORIO-FINAL.md) ✅ concluída ([auditoria e plano](docs/etapa-36-central-operacoes/36.0-AUDITORIA.md))
   - [36.1 — Setores, equipe e permissões](docs/etapa-36-central-operacoes/36.1-SETORES-EQUIPE.md) ✅ concluída
   - [36.2 — Tarefas: Kanban, lista, Minhas tarefas, comentários, anexos e status](docs/etapa-36-central-operacoes/36.2-TAREFAS.md) ✅ concluída

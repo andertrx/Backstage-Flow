@@ -1,4 +1,4 @@
-import { type AutomationsCheck, type CopySet, type CopySetInput, copySetPayload } from "@backstage/shared";
+import { type AutomationsCheck, type CampaignDraft, type CopySet, type CopySetInput, copySetPayload, type TemplateSource } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
@@ -473,4 +473,65 @@ export function useArchiveCopySet() {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: [...KEY, "pacotes"] }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Fase J.5 — Modelos de campanha
+// ---------------------------------------------------------------------------
+
+export interface BuilderTemplate {
+  id: string; name: string; description: string; objective: string; source: TemplateSource; data: unknown; version: number; archived_at: string | null; updated_at: string;
+}
+
+export function useTemplates() {
+  return useQuery({
+    queryKey: [...KEY, "modelos"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("builder_templates").select("id, name, description, objective, source, data, version, archived_at, updated_at").is("archived_at", null).order("name");
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar os modelos de campanha."));
+      return (data ?? []) as BuilderTemplate[];
+    },
+  });
+}
+
+export function useSaveTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { name: string; description: string; source: TemplateSource; data: unknown }) => {
+      const { data, error } = await supabase.rpc("builder_template_save", { p_id: null, p_version: null, p_name: v.name.trim(), p_description: v.description.trim(), p_source: v.source, p_data: v.data });
+      if (error) throw new FriendlyError(dbError(error, "Não conseguimos salvar o modelo."));
+      return data as { id: string; version: number };
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [...KEY, "modelos"] }),
+  });
+}
+
+export function useArchiveTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; archive: boolean }) => {
+      const { error } = await supabase.rpc("builder_template_archive", { p_id: v.id, p_archive: v.archive });
+      if (error) throw new FriendlyError(dbError(error, "Não conseguimos arquivar o modelo."));
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [...KEY, "modelos"] }),
+  });
+}
+
+/** Campanhas da conta que o CRM sincroniza (para escolher qual copiar). */
+export function useAccountCampaigns(adAccountId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...KEY, "campanhas", adAccountId],
+    enabled: !!adAccountId,
+    staleTime: 2 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("campaigns").select("external_id, name, effective_status").eq("ad_account_id", adAccountId!).order("last_seen_at", { ascending: false }).limit(200);
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar as campanhas da conta."));
+      return (data ?? []) as { external_id: string; name: string; effective_status: string | null }[];
+    },
+  });
+}
+
+/** Lê uma campanha do Meta (só leitura) e devolve o rascunho + o que não deu para copiar. */
+export function useImportCampaign() {
+  return useMutation({ mutationFn: (v: { adAccountId: string; campaignId: string }) => callBuilder<{ draft: CampaignDraft; notes: string[] }>({ action: "campaign_import", ...v }) });
 }

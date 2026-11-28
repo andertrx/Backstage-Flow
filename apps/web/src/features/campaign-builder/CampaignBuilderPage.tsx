@@ -14,6 +14,7 @@ import { formatDateTime } from "@/lib/format.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
 import { toast } from "@/lib/toastStore.ts";
 import { CopySetsCard } from "./CopySets.tsx";
+import { TemplatesCard } from "./Templates.tsx";
 import {
   type BuilderPersonPermission, useArchiveDraft, useUnarchiveDraft, useBuilderDrafts, useBuilderPeople, useBuilderPermissions, useCreateDraft, useSaveBuilderPermission,
 } from "./api.ts";
@@ -204,6 +205,7 @@ export function CampaignBuilderPage() {
         </ul>
       </Card>
 
+      <TemplatesCard canCreate={perms.data?.criar === true} />
       <CopySetsCard canEdit={perms.data?.editar === true} />
       {isAdmin && <PeopleCard />}
       <NewDraftModal open={open} onClose={() => setOpen(false)} />

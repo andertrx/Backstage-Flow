@@ -21,6 +21,7 @@ import { normalizeDraft } from "../../../packages/shared/src/campaign-builder/mo
 import { esteiraPlan, esteiraPublishBlockers, isEsteira, normalizeEsteira } from "../../../packages/shared/src/campaign-builder/esteira.ts";
 import { adSetCheck } from "../../../packages/shared/src/campaign-builder/automations.ts";
 import { runEsteira, templateFromCreative } from "../_shared/platforms/meta/esteira.ts";
+import { draftFromMeta } from "../../../packages/shared/src/campaign-builder/templates.ts";
 import { publishBlockers } from "../../../packages/shared/src/campaign-builder/publish.ts";
 
 const id = z.guid("Identificador inválido.");
@@ -37,6 +38,8 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("adset_info"), adAccountId: id, adSetId: z.string().regex(/^\d{5,30}$/, "Conjunto inválido.") }),
   z.object({ action: z.literal("ad_template"), adAccountId: id, adId: z.string().regex(/^\d{5,30}$/, "Anúncio inválido.") }),
   z.object({ action: z.literal("media_prepare"), draftId: id, fileId: z.string().regex(/^[A-Za-z0-9_-]{10,100}$/, "Arquivo inválido.") }),
+  // Fase J.5 — copiar uma campanha que já existe (só leitura no Meta).
+  z.object({ action: z.literal("campaign_import"), adAccountId: id, campaignId: z.string().regex(/^\d{5,30}$/, "Campanha inválida.") }),
 ]);
 
 interface AccountRow {
@@ -355,6 +358,17 @@ Deno.serve(handle(async (req) => {
       if (e instanceof Error && e.message.startsWith("O Meta")) throw new AppError(400, "PLATFORM_BAD_REQUEST", e.message);
       throw toApp(e);
     }
+  }
+
+  if (input.action === "campaign_import") {
+    // Lê campanha, conjuntos e anúncios (com o criativo) e devolve um rascunho + o que não deu para copiar. Não grava nada.
+    const account = await loadAccount(req, input.adAccountId);
+    const creative = "creative{object_story_spec,asset_feed_spec,degrees_of_freedom_spec}";
+    const got = await graphGet<Record<string, unknown>>(input.campaignId, {
+      fields: `id,name,account_id,objective,special_ad_categories,daily_budget,lifetime_budget,bid_strategy,adsets.limit(50){id,name,optimization_goal,billing_event,daily_budget,lifetime_budget,start_time,end_time,destination_type,promoted_object,targeting},ads.limit(100){id,name,adset_id,${creative}}`,
+    }, await tokenFor(account.connection_id!));
+    if (String(got.account_id ?? "").replace(/^act_/, "") !== account.external_id.replace(/^act_/, "")) throw new AppError(404, "NOT_FOUND", "Essa campanha não é desta conta de anúncio.");
+    return json(req, 200, { data: draftFromMeta(got, account.currency) });
   }
 
   if (input.action === "publish") {
