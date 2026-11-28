@@ -1,4 +1,4 @@
-import type { AutomationsCheck } from "@backstage/shared";
+import { type AutomationsCheck, type CopySet, type CopySetInput, copySetPayload } from "@backstage/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FriendlyError, friendlyDbError, friendlyFunctionError } from "@/lib/errors.ts";
 import { supabase } from "@/lib/supabase.ts";
@@ -427,4 +427,50 @@ export function useAdTemplate() {
 /** Envia UM arquivo do Drive ao Meta (o vídeo espera o processamento, até ~90 s). */
 export function prepareMedia(draftId: string, fileId: string) {
   return callBuilder<{ kind: "video"; id: string; thumbnail: string } | { kind: "image"; hash: string }>({ action: "media_prepare", draftId, fileId });
+}
+
+// ---------------------------------------------------------------------------
+// Fase J.3 — Biblioteca de textos (pacotes por cliente)
+// ---------------------------------------------------------------------------
+
+/** Pacotes de texto de um cliente (pelo RLS). Arquivados só quando pedido. */
+export function useCopySets(clientId: string | null | undefined, archived = false) {
+  return useQuery({
+    queryKey: [...KEY, "pacotes", clientId, archived],
+    enabled: !!clientId,
+    queryFn: async () => {
+      let q = supabase.from("builder_copy_sets")
+        .select("id, client_id, name, bodies, titles, description, link, cta, url_tags, messages, version, archived_at, updated_at")
+        .eq("client_id", clientId!).order("name");
+      q = archived ? q.not("archived_at", "is", null) : q.is("archived_at", null);
+      const { data, error } = await q;
+      if (error) throw new FriendlyError(friendlyDbError(error, "Não conseguimos carregar a biblioteca de textos."));
+      return (data ?? []) as CopySet[];
+    },
+  });
+}
+
+export function useSaveCopySet() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string | null; version: number | null; clientId: string; input: CopySetInput }) => {
+      const { data, error } = await supabase.rpc("builder_copy_set_save", {
+        p_id: v.id, p_version: v.version, p_client: v.id ? null : v.clientId, p_name: v.input.name.trim(), p_data: copySetPayload(v.input),
+      });
+      if (error) throw new FriendlyError(dbError(error, "Não conseguimos salvar o pacote."));
+      return data as { id: string; version: number };
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [...KEY, "pacotes"] }),
+  });
+}
+
+export function useArchiveCopySet() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; archive: boolean }) => {
+      const { error } = await supabase.rpc("builder_copy_set_archive", { p_id: v.id, p_archive: v.archive });
+      if (error) throw new FriendlyError(dbError(error, "Não conseguimos arquivar o pacote."));
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [...KEY, "pacotes"] }),
+  });
 }

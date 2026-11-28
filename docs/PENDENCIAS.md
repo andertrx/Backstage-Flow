@@ -149,6 +149,8 @@
 - [x] **Fase J.0 (sondagem)** feita na Acelera Atacado: `35.11-FASE-J0-SONDAGEM-NO-META.md`. Ficaram 2 criativos de teste na biblioteca da conta ("[TESTE CRM - NAO USAR]"); não são anúncios. Falta confirmar 2 vídeos + 3 textos no mesmo criativo (indicar um anúncio feito assim no Gerenciador, se existir).
 - [x] **Fase J.1 (Controle total)** pronta: `35.12-FASE-J1-CONTROLE-TOTAL.md`. Falta o Ander fazer **uma publicação real de teste (pausada)** para confirmar que o Meta aceita as 84 melhorias desligadas pela API direta.
 - [x] **Fase J.2 (Esteira de criativos)** pronta: `35.13-FASE-J2-ESTEIRA-DE-CRIATIVOS.md`. Pergunta da J.0 respondida pelo anúncio da Vonks (2 vídeos + 3 textos no mesmo criativo). Falta o Ander fazer **a primeira subida real** (pausada) num conjunto, com 1 par de vídeos, e me contar o resultado.
+- [x] **Fase J.3 (Biblioteca de textos)** pronta: `35.14-FASE-J3-BIBLIOTECA-DE-TEXTOS.md`.
+- [ ] **Mensagem de abordagem dentro do anúncio (WhatsApp)**: o Meta guarda essas mensagens na conta do WhatsApp Business (sequência de boas-vindas), não no anúncio. Para o CRM ligar sozinho, precisamos do acesso à conta do WhatsApp Business de cada cliente. Por enquanto a biblioteca guarda as mensagens para copiar. Decisão do Ander: vale buscar esse acesso?
 - [ ] **Ander (2 passos):** (1) Google Cloud, projeto `backstage-flow`: ativar a **Google Drive API**; (2) Drive: compartilhar a pasta principal dos criativos com `crm-leitura@backstage-flow.iam.gserviceaccount.com` como **Leitor**. Depois, no rascunho, "Escolher do Google Drive". Sugestão: adicionar mais uma pessoa como Proprietário do projeto no Google Cloud.
 - [ ] **Vídeo no Criador** (fase própria): envio em partes ao Meta.
 

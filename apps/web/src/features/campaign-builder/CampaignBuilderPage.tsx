@@ -13,6 +13,7 @@ import { errorMessage } from "@/lib/errors.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
 import { toast } from "@/lib/toastStore.ts";
+import { CopySetsCard } from "./CopySets.tsx";
 import {
   type BuilderPersonPermission, useArchiveDraft, useUnarchiveDraft, useBuilderDrafts, useBuilderPeople, useBuilderPermissions, useCreateDraft, useSaveBuilderPermission,
 } from "./api.ts";
@@ -203,6 +204,7 @@ export function CampaignBuilderPage() {
         </ul>
       </Card>
 
+      <CopySetsCard canEdit={perms.data?.editar === true} />
       {isAdmin && <PeopleCard />}
       <NewDraftModal open={open} onClose={() => setOpen(false)} />
       <NewDraftModal esteira open={openEsteira} onClose={() => setOpenEsteira(false)} />

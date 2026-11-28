@@ -1,7 +1,7 @@
 import {
   AD_CTAS, applyPrepared, checkEsteira, checkSummary, type EsteiraDraft, type EsteiraItem, type EsteiraMedia, esteiraPublishBlockers, esteiraSupported,
-  esteiraToWebsite, ESTEIRA_MAX_ITEMS, ESTEIRA_MAX_TEXTS, filledTexts, isEsteira, mediaToPrepare, newEsteiraItem, normalizeEsteira, pairDriveFiles,
-  type ProposedItem, SUGGESTED_URL_TAGS, toMedia, urlTagsProblem, type AdCta,
+  esteiraToWebsite, ESTEIRA_MAX_ITEMS, filledTexts, isEsteira, mediaToPrepare, newEsteiraItem, normalizeEsteira, pairDriveFiles,
+  type ProposedItem, SUGGESTED_URL_TAGS, toMedia, urlTagsProblem, type AdCta, applyCopySet, copySetFromEsteira,
 } from "@backstage/shared";
 import { AlertTriangle, ArrowLeft, ArrowLeftRight, CheckCircle2, CloudUpload, ExternalLink, Film, Folder, Image as ImageIcon, Plus, Rocket, ShieldCheck, Trash2, Wand2, XCircle } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -9,16 +9,17 @@ import { Link, Navigate, useParams } from "react-router";
 import { Alert } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
-import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
+import { Field, Input, Select } from "@/components/ui/field.tsx";
 import { useAccountAssets } from "@/features/ads-builder/api.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
 import { errorMessage } from "@/lib/errors.ts";
 import { toast } from "@/lib/toastStore.ts";
 import {
   type AdSetInfo, prepareMedia, saveDraftData, useAccountAdSets, useAdSetAds, useAdSetInfo, useAdTemplate, useBuilderDraft, useBuilderPermissions,
-  useDraftAccount, useDriveList, useDriveThumb, usePublishDraft, usePublishHistory,
+  useCopySets, useDraftAccount, useDriveList, useDriveThumb, usePublishDraft, usePublishHistory,
 } from "./api.ts";
 import { AutomationsBadge } from "./DraftEditorPage.tsx";
+import { ApproachMessages, CopySetModal, TextList } from "./CopySets.tsx";
 
 type SaveState = "salvo" | "salvando" | "pendente" | "erro" | "conflito";
 const DEST_LABEL: Record<string, string> = { WHATSAPP: "WhatsApp", MESSENGER: "Messenger", INSTAGRAM_DIRECT: "Direct do Instagram", WEBSITE: "Site", "": "Site" };
@@ -35,27 +36,6 @@ function Section({ n, title, hint, children }: { n: number; title: string; hint?
       </div>
       {children}
     </Card>
-  );
-}
-
-/** Lista de textos (ou títulos) com "adicionar mais um" até o limite do Meta. */
-function TextList({ label, values, rows, max, disabled, onChange, testid }: { label: string; values: string[]; rows?: number; max: number; disabled: boolean; onChange: (v: string[]) => void; testid: string }) {
-  const list = values.length ? values : [""];
-  return (
-    <div className="space-y-1.5" data-testid={testid}>
-      <p className="text-sm font-medium text-slate-700">{label}</p>
-      {list.map((v, i) => (
-        <div key={i} className="flex gap-2">
-          {rows ? (
-            <Textarea aria-label={`${label} ${i + 1}`} rows={rows} value={v} disabled={disabled} maxLength={max} onChange={(e) => onChange(list.map((x, k) => (k === i ? e.target.value : x)))} />
-          ) : (
-            <Input aria-label={`${label} ${i + 1}`} value={v} disabled={disabled} maxLength={max} onChange={(e) => onChange(list.map((x, k) => (k === i ? e.target.value : x)))} />
-          )}
-          {list.length > 1 && <Button variant="ghost" className="shrink-0 px-2" disabled={disabled} aria-label={`Tirar ${label} ${i + 1}`} onClick={() => onChange(list.filter((_, k) => k !== i))}><Trash2 className="size-3.5" aria-hidden /></Button>}
-        </div>
-      ))}
-      {list.length < ESTEIRA_MAX_TEXTS && <Button variant="ghost" className="text-xs" disabled={disabled} onClick={() => onChange([...list, ""])}><Plus className="size-3.5" aria-hidden /> Mais uma opção</Button>}
-    </div>
   );
 }
 
@@ -263,6 +243,10 @@ export function EsteiraPage() {
   const [state, setState] = useState<SaveState>("salvo");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [templateAd, setTemplateAd] = useState("");
+  const [packId, setPackId] = useState("");
+  const [savePack, setSavePack] = useState(false);
+  const packs = useCopySets(loaded.data?.client_id);
+  const pack = packs.data?.find((x) => x.id === packId) ?? null;
   const version = useRef(0);
   const dirty = useRef(false);
   const saving = useRef(false);
@@ -434,6 +418,22 @@ export function EsteiraPage() {
               </div>
             )}
             {template.error && <Alert tone="error">{errorMessage(template.error)}</Alert>}
+            <div className="flex flex-wrap items-end gap-2" data-testid="es-pacote">
+              <div className="min-w-0 flex-1">
+                <Field label="Pacote da biblioteca (opcional)" hint={packs.data && packs.data.length === 0 ? "Nenhum pacote para este cliente. Crie em Criar campanhas → Biblioteca, ou salve os textos abaixo como pacote." : undefined}>
+                  {(i) => (
+                    <Select id={i} value={packId} disabled={disabled} onChange={(e) => setPackId(e.target.value)}>
+                      <option value="">Escolha um pacote...</option>
+                      {(packs.data ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </Select>
+                  )}
+                </Field>
+              </div>
+              <Button variant="secondary" disabled={disabled || !pack} onClick={() => { if (pack) { change(applyCopySet(draft, pack)); toast.success(`Textos do pacote "${pack.name}" aplicados aos textos padrão.`); } }} data-testid="es-usar-pacote">Usar pacote</Button>
+              <Button variant="ghost" disabled={disabled} onClick={() => setSavePack(true)} data-testid="es-salvar-pacote">Salvar como pacote</Button>
+            </div>
+            {pack && <ApproachMessages messages={pack.messages} />}
+            {loaded.data && <CopySetModal open={savePack} clientId={loaded.data.client_id} editing={null} initial={copySetFromEsteira(draft, "")} onClose={() => setSavePack(false)} onSaved={(nid) => setPackId(nid)} />}
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Página do Facebook">
                 {(i) => pages.length ? (

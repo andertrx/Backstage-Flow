@@ -2,7 +2,7 @@
 const findSecret = (text) => /EAA[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.|(senha|password|token|secret|api[_-]?key)\s*[:=]\s*\S{4,}/i.test(text);
 
 export function seedCampaignBuilder() {
-  return { builderPerms: {}, builderDrafts: [], metaBuilder: {} };
+  return { builderPerms: {}, builderDrafts: [], builderCopySets: [], metaBuilder: {} };
 }
 
 export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
@@ -116,6 +116,13 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
     const g = new URL(url, "http://x").searchParams.get("ad_group_id")?.replace("eq.", "");
     return res(200, (db.ads ?? []).filter((a) => a.ad_group_id === g).map((a) => ({ external_id: a.external_id, name: a.name, effective_status: a.effective_status ?? "ACTIVE" })));
   }
+  // Biblioteca de textos (J.3): leitura direta pela tabela (RLS no banco real).
+  if (url.includes("/rest/v1/builder_copy_sets")) {
+    const u = new URL(url, "http://x");
+    const client = u.searchParams.get("client_id")?.replace("eq.", "");
+    const archived = (u.searchParams.get("archived_at") ?? "").startsWith("not.");
+    return res(200, (db.builderCopySets ?? []).filter((x) => x.client_id === client && Boolean(x.archived_at) === archived).sort((a, b) => a.name.localeCompare(b.name)));
+  }
   if (url.includes("/rest/v1/publish_operations")) {
     const draftId = new URL(url, "http://x").searchParams.get("draft_id")?.replace("eq.", "");
     return res(200, (db.metaBuilder.ops ?? []).filter((o) => !draftId || o.draft_id === draftId));
@@ -177,6 +184,32 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
     const d = { id: crypto.randomUUID(), client_id: p.p_client, ad_account_id: p.p_account ?? null, name: nome, data: p.p_data ?? {}, version: 1, archived_at: null, created_by: userId, updated_by: userId, created_at: t, updated_at: t };
     db.builderDrafts.push(d);
     return res(200, { id: d.id, version: 1, updated_at: t });
+  }
+  if (rpc("builder_copy_set_save")) {
+    if (!can("editar")) return denied("Você não tem permissão para editar a biblioteca de textos.");
+    const nome = String(p.p_name ?? "").trim();
+    if (nome.length < 2) return bad("Dê um nome ao pacote (2 a 120 letras).");
+    const v = p.p_data ?? {};
+    if (findSecret(JSON.stringify(v) + " " + nome)) return bad("Parece que há uma senha, token ou chave num dos campos.");
+    if (v.link && !/^https:\/\//.test(v.link)) return bad("O link precisa começar com https://.");
+    const list = db.builderCopySets;
+    const cur = p.p_id ? list.find((x) => x.id === p.p_id && !x.archived_at) : null;
+    if (p.p_id && !cur) return bad("Pacote não encontrado.");
+    if (cur && p.p_version !== cur.version) return res(409, { code: "40001", message: "Outra pessoa alterou este pacote. Recarregue antes de salvar." });
+    const client = cur?.client_id ?? p.p_client;
+    if (list.some((x) => x.client_id === client && !x.archived_at && x.name.toLowerCase() === nome.toLowerCase() && x.id !== p.p_id)) return bad("Já existe um pacote com esse nome para este cliente.");
+    const fields = { name: nome, bodies: v.bodies ?? [], titles: v.titles ?? [], description: v.description ?? "", link: v.link ?? "", cta: v.cta ?? "", url_tags: v.url_tags ?? "", messages: v.messages ?? [], updated_at: t };
+    if (cur) { Object.assign(cur, fields, { version: cur.version + 1 }); return res(200, { id: cur.id, version: cur.version }); }
+    const n = { id: crypto.randomUUID(), client_id: client, ...fields, version: 1, archived_at: null };
+    list.push(n);
+    return res(200, { id: n.id, version: 1 });
+  }
+  if (rpc("builder_copy_set_archive")) {
+    if (!can("editar")) return denied("Você não tem permissão para editar a biblioteca de textos.");
+    const cur = db.builderCopySets.find((x) => x.id === p.p_id);
+    if (!cur) return bad("Pacote não encontrado.");
+    cur.archived_at = p.p_archive ? t : null;
+    return res(204);
   }
   if (rpc("builder_draft_unarchive")) {
     if (!can("editar")) return denied("Você não tem permissão para desarquivar rascunhos.");
