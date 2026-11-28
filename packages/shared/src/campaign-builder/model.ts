@@ -40,7 +40,19 @@ export interface DraftAdSet {
   audienceIds: string[];
   customEvent: CustomEvent | "";
   pageId: string;
+  /** Interesses escolhidos na busca do Meta (id e nome que o Meta devolveu). */
+  interests: TargetingInterest[];
+  /** Cidades escolhidas na busca do Meta (chave do Meta, nome e raio em km). Com cidades, o país sozinho não vale. */
+  cities: TargetingCity[];
+  /** Público Advantage+: o Meta pode ampliar o público além do definido. Desligado por padrão. */
+  advantageAudience: boolean;
 }
+export interface TargetingInterest { id: string; name: string }
+export interface TargetingCity { key: string; name: string; radius: number }
+export const CITY_RADIUS_MIN = 17;
+export const CITY_RADIUS_MAX = 80;
+export const MAX_INTERESTS = 25;
+export const MAX_CITIES = 25;
 export interface DraftAd {
   id: string;
   adSetId: string;
@@ -74,7 +86,7 @@ const newId = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUI
 export function newAdSet(over: Partial<DraftAdSet> = {}): DraftAdSet {
   return {
     id: newId(), name: "", optimizationGoal: "", billingEvent: "", budgetAmount: null, startDate: "", endDate: "", countries: ["BR"],
-    ageMin: SPECIAL_AGE_MIN, ageMax: SPECIAL_AGE_MAX, gender: "all", pixelId: "", destinationType: "", audienceIds: [], customEvent: "", pageId: "", ...over,
+    ageMin: SPECIAL_AGE_MIN, ageMax: SPECIAL_AGE_MAX, gender: "all", pixelId: "", destinationType: "", audienceIds: [], customEvent: "", pageId: "", interests: [], cities: [], advantageAudience: false, ...over,
   };
 }
 export function newAd(adSetId: string, over: Partial<DraftAd> = {}): DraftAd {
@@ -122,6 +134,16 @@ export function normalizeDraft(raw: unknown): CampaignDraft {
       destinationType: oneOf(s.destinationType, DESTINATION_TYPES),
       audienceIds: Array.isArray(s.audienceIds) ? s.audienceIds.filter((k): k is string => typeof k === "string" && /^\d{1,40}$/.test(k)).slice(0, 50) : [],
       customEvent: oneOf(s.customEvent, CUSTOM_EVENTS), pageId: str(s.pageId, 40),
+      interests: (Array.isArray(s.interests) ? s.interests : []).flatMap((i): TargetingInterest[] => {
+        const o = (i ?? {}) as Record<string, unknown>;
+        return /^\d{1,30}$/.test(str(o.id, 30)) && str(o.name, 200) ? [{ id: str(o.id, 30), name: str(o.name, 200) }] : [];
+      }).slice(0, MAX_INTERESTS),
+      cities: (Array.isArray(s.cities) ? s.cities : []).flatMap((i): TargetingCity[] => {
+        const o = (i ?? {}) as Record<string, unknown>;
+        const radius = typeof o.radius === "number" && Number.isFinite(o.radius) ? Math.min(CITY_RADIUS_MAX, Math.max(CITY_RADIUS_MIN, Math.round(o.radius))) : CITY_RADIUS_MIN;
+        return /^\d{1,30}$/.test(str(o.key, 30)) && str(o.name, 200) ? [{ key: str(o.key, 30), name: str(o.name, 200), radius }] : [];
+      }).slice(0, MAX_CITIES),
+      advantageAudience: s.advantageAudience === true,
     });
   });
   const ids = new Set(adSets.map((s) => s.id));

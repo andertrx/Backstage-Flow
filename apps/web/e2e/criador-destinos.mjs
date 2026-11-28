@@ -46,6 +46,33 @@ check(soWhats.join(",") === "Escolha...,WhatsApp", "em Cadastros, Conversas só 
 await set.getByLabel("Meta de otimização").selectOption("LEAD_GENERATION");
 await ad.getByLabel("ID do formulário de cadastro").fill("12a3456789012");
 check((await ad.getByLabel("ID do formulário de cadastro").inputValue()) === "123456789012", "o ID do formulário aceita só números");
+// Fase F: lista de formulários da página (cai para o campo manual quando o Meta não libera)
+await ad.getByLabel("Página do Facebook").fill("123456789");
+const formSel = ad.getByLabel("ID do formulário de cadastro");
+await page.waitForTimeout(600);
+const tag = await formSel.evaluate((el) => el.tagName);
+check(tag === "SELECT", `com a página informada, os formulários vêm numa lista para escolher (veio ${tag})`);
+await formSel.selectOption("555566677");
+check((await formSel.inputValue()) === "555566677", "escolher o formulário na lista preenche o ID");
+
+// Fase E: busca de cidades e interesses no Meta, raio e Advantage+
+const cidades = page.getByTestId("cb-busca-city").first();
+await cidades.getByLabel(/Buscar cidades/).fill("fort");
+await cidades.getByRole("button", { name: "Buscar" }).click();
+await page.getByTestId("cb-resultados-city").first().getByRole("button", { name: /Fortaleza/ }).click();
+check((await cidades.getByRole("list", { name: /escolhidos/ }).getByRole("listitem").count()) === 1, "cidade escolhida na busca aparece como etiqueta");
+await cidades.getByLabel("Raio em km").fill("30");
+check((await cidades.getByLabel("Raio em km").inputValue()) === "30", "o raio da cidade é editável");
+const interesses = page.getByTestId("cb-busca-interest").first();
+await interesses.getByLabel(/Buscar interesses/).fill("acad");
+await interesses.getByRole("button", { name: "Buscar" }).click();
+await page.getByTestId("cb-resultados-interest").first().getByRole("button", { name: /Academia/ }).click();
+check((await interesses.getByRole("list", { name: /escolhidos/ }).getByRole("listitem").count()) === 1, "interesse escolhido aparece como etiqueta");
+check(!(await page.getByTestId("cb-advantage").first().locator("input").isChecked()), "Advantage+ vem desligado");
+await page.getByTestId("cb-advantage").first().locator("input").check();
+await page.waitForTimeout(1600);
+const saved = db.builderDrafts[0]?.data?.adSets?.[0];
+check(saved?.cities?.[0]?.key === "2673660" && saved.cities[0].radius === 30 && saved.interests?.[0]?.id === "6003107902433" && saved.advantageAudience === true, "cidades, raio, interesses e Advantage+ foram salvos no rascunho");
 check(errors.length === 0, `sem erros no navegador (${errors.join(" | ")})`);
 await browser.close();
 console.log("criador-destinos: OK");

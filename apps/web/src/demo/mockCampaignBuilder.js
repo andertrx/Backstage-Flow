@@ -18,6 +18,16 @@ export function handleCampaignBuilder({ db, url, parse, userId, role, res }) {
     if (b.action === "validate") {
       return res(200, { data: { ...(db.metaBuilder.validation ?? { ok: true, message: null, code: null, subcode: null, permission: false }), scope: "campaign" } });
     }
+    if (b.action === "targeting_search") {
+      if (db.metaBuilder.searchError) return res(502, { error: { code: "PLATFORM_UNAVAILABLE", message: db.metaBuilder.searchError } });
+      return res(200, { data: { results: b.kind === "city"
+        ? [{ key: "2673660", name: "Fortaleza", detail: "Ceará, Brasil" }, { key: "2673661", name: "Fortim", detail: "Ceará, Brasil" }]
+        : [{ id: "6003107902433", name: "Academia", detail: "público de 1.200.000+" }, { id: "6003107902434", name: "Crossfit" }] } });
+    }
+    if (b.action === "lead_forms") {
+      if (db.metaBuilder.formsError) return res(400, { error: { code: "LEAD_FORMS_UNAVAILABLE", message: db.metaBuilder.formsError } });
+      return res(200, { data: { forms: db.metaBuilder.forms ?? [{ id: "555566677", name: "Cadastro Janeiro", status: "ACTIVE" }, { id: "555566688", name: "Cadastro antigo", status: "ARCHIVED" }] } });
+    }
     if (b.action === "drive_list") {
       if (db.metaBuilder.driveError) return res(400, { error: { code: "DRIVE_NOT_SHARED", message: db.metaBuilder.driveError } });
       const root = { folder: { id: "pastaRaiz1234567", name: "Criativos Excalibur" }, folders: [{ id: "subpasta12345678", name: "Black Friday" }], images: [], others: 1 };

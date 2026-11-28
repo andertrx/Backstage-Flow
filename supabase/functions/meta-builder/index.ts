@@ -12,7 +12,7 @@ import { z } from "npm:zod@4";
 import { adminClient, requireRole, userClient } from "../_shared/auth.ts";
 import { AppError, handle, json } from "../_shared/http.ts";
 import { enforceRateLimit } from "../_shared/ratelimit.ts";
-import { buildCampaignFields, fetchAccountLists, uploadAdImage, validateCampaign } from "../_shared/platforms/meta/builder.ts";
+import { buildCampaignFields, fetchAccountLists, fetchLeadForms, searchTargeting, uploadAdImage, validateCampaign } from "../_shared/platforms/meta/builder.ts";
 import { DriveClient, parseDriveFolderId } from "../_shared/google/drive.ts";
 import { parseServiceAccount, SheetsError } from "../_shared/google/sheets.ts";
 import { graphGet, graphPostRaw } from "../_shared/platforms/meta/client.ts";
@@ -25,6 +25,8 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("account_lists"), adAccountId: id }),
   z.object({ action: z.literal("validate"), draftId: id }),
   z.object({ action: z.literal("publish"), draftId: id, operationKey: z.string().min(8).max(80) }),
+  z.object({ action: z.literal("targeting_search"), adAccountId: id, kind: z.enum(["interest", "city"]), q: z.string().trim().min(2, "Digite pelo menos 2 letras.").max(80) }),
+  z.object({ action: z.literal("lead_forms"), adAccountId: id, pageId: z.string().regex(/^\d{5,30}$/, "ID da página inválido.") }),
   z.object({ action: z.literal("drive_list"), folder: z.string().trim().min(1).max(500) }),
   z.object({ action: z.literal("drive_thumb"), fileId: z.string().regex(/^[A-Za-z0-9_-]{10,100}$/, "Arquivo inválido.") }),
 ]);
@@ -192,6 +194,25 @@ Deno.serve(handle(async (req) => {
     const account = await loadAccount(req, input.adAccountId);
     const lists = await fetchAccountLists(await tokenFor(account.connection_id!), account.external_id);
     return json(req, 200, { data: lists });
+  }
+
+  if (input.action === "targeting_search") {
+    const account = await loadAccount(req, input.adAccountId);
+    const token = await tokenFor(account.connection_id!);
+    const results = input.kind === "interest" ? await searchTargeting(token, "interest", input.q) : await searchTargeting(token, "city", input.q);
+    return json(req, 200, { data: { results } });
+  }
+  if (input.action === "lead_forms") {
+    const account = await loadAccount(req, input.adAccountId);
+    try {
+      return json(req, 200, { data: { forms: await fetchLeadForms(await tokenFor(account.connection_id!), input.pageId) } });
+    } catch (e) {
+      // Sem acesso à página (ou sem formulários liberados): a tela cai para o campo manual em vez de travar.
+      if (e instanceof AppError && (e.code === "PERMISSION_DENIED" || e.code === "PLATFORM_BAD_REQUEST")) {
+        throw new AppError(400, "LEAD_FORMS_UNAVAILABLE", "O Meta não liberou a lista de formulários desta página para o CRM. Digite o ID do formulário.", e.technical);
+      }
+      throw e;
+    }
   }
 
   if (input.action === "drive_list") {

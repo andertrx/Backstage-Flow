@@ -108,14 +108,19 @@ export function adSetFields(s: DraftAdSet, campaignId: string, ctx: PublishCtx):
   const unknown = s.audienceIds.filter((id) => !ctx.audiences.custom.has(id) && !ctx.audiences.saved.has(id));
   if (unknown.length) throw new Error("Um dos públicos escolhidos não existe mais na conta. Atualize a lista e escolha de novo.");
   const targeting: Record<string, unknown> = { ...(saved[0] ? ctx.audiences.saved.get(saved[0])! : {}) };
-  targeting.geo_locations = { countries: s.countries };
+  // Com cidades, só elas valem (país junto ampliaria o alcance ao país inteiro). Raio em km.
+  targeting.geo_locations = s.cities.length
+    ? { cities: s.cities.map((c) => ({ key: c.key, radius: c.radius, distance_unit: "kilometer" })) }
+    : { countries: s.countries };
+  if (s.interests.length && targeting.flexible_spec) throw new Error("O público salvo escolhido já tem interesses. Use os interesses do público salvo OU escolha outros aqui, não os dois.");
+  if (s.interests.length) targeting.flexible_spec = [{ interests: s.interests.map((i) => ({ id: i.id, name: i.name })) }];
   targeting.age_min = s.ageMin;
   targeting.age_max = s.ageMax;
   if (s.gender === "male") targeting.genders = [1];
   else if (s.gender === "female") targeting.genders = [2];
   else delete targeting.genders;
   if (customIds.length) targeting.custom_audiences = customIds.map((id) => ({ id }));
-  targeting.targeting_automation = { advantage_audience: 0 };
+  targeting.targeting_automation = { advantage_audience: s.advantageAudience ? 1 : 0 };
   f.targeting = JSON.stringify(targeting);
 
   // Destino (Meta): mensagens e formulário no anúncio levam destination_type e a página como objeto promovido.

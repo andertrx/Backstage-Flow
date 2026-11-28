@@ -3,7 +3,7 @@
  * Nada aqui cria ou altera algo no Meta: as leituras são GET e a validação usa `execution_options=["validate_only"]`
  * (o Meta confere a campanha e responde sem criar).
  */
-import { graphGetAll, graphPostRaw, type MetaErrorBody } from "./client.ts";
+import { graphGet, graphGetAll, graphPostRaw, type MetaErrorBody } from "./client.ts";
 
 export interface ListItem {
   id: string;
@@ -128,4 +128,34 @@ export async function uploadAdImage(token: string, externalId: string, bytes: Ui
   const hash = Object.values(images)[0]?.hash;
   if (!hash) throw new Error(`O Meta não devolveu o código da imagem "${name}".`);
   return hash;
+}
+
+export interface InterestHit { id: string; name: string; detail?: string }
+export interface CityHit { key: string; name: string; detail?: string }
+
+/** Busca de interesses ou cidades pelo próprio Meta (só leitura). Devolve até 15 resultados já limpos. */
+export async function searchTargeting(token: string, kind: "interest", q: string, fetchImpl?: typeof fetch): Promise<InterestHit[]>;
+export async function searchTargeting(token: string, kind: "city", q: string, fetchImpl?: typeof fetch): Promise<CityHit[]>;
+export async function searchTargeting(token: string, kind: "interest" | "city", q: string, fetchImpl: typeof fetch = fetch): Promise<(InterestHit | CityHit)[]> {
+  const params: Record<string, string> = kind === "interest"
+    ? { type: "adinterest", q, limit: "15", locale: "pt_BR" }
+    : { type: "adgeolocation", q, location_types: JSON.stringify(["city"]), limit: "15", locale: "pt_BR" };
+  const body = await graphGet<{ data?: Record<string, unknown>[] }>("search", params, token, fetchImpl);
+  const rows = Array.isArray(body.data) ? body.data : [];
+  if (kind === "interest") {
+    return rows.filter((r) => typeof r.id === "string" && typeof r.name === "string").map((r) => ({
+      id: String(r.id), name: text(r.name), ...(typeof r.audience_size_lower_bound === "number" ? { detail: `público de ${r.audience_size_lower_bound.toLocaleString("pt-BR")}+` } : {}),
+    }));
+  }
+  return rows.filter((r) => typeof r.key === "string" && typeof r.name === "string").map((r) => ({
+    key: String(r.key), name: text(r.name), detail: [r.region, r.country_name].filter((x) => typeof x === "string").join(", ") || undefined,
+  }));
+}
+
+export interface LeadFormHit { id: string; name: string; status: string }
+
+/** Formulários de cadastro (leadgen_forms) de uma página. O Meta pode recusar se o token não tem acesso à página. */
+export async function fetchLeadForms(token: string, pageId: string, fetchImpl: typeof fetch = fetch): Promise<LeadFormHit[]> {
+  const rows = await graphGetAll<{ id?: string; name?: string; status?: string }>(`${pageId}/leadgen_forms`, { fields: "id,name,status", limit: "100" }, token, fetchImpl);
+  return rows.filter((r) => r.id).map((r) => ({ id: text(r.id, 40), name: text(r.name) || text(r.id, 40), status: text(r.status, 20) }));
 }

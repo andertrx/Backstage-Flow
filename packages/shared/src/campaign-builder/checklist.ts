@@ -65,7 +65,8 @@ export function checkDraft(d: CampaignDraft): CheckItem[] {
     }
     if (!budgetOnCampaign && !(s.budgetAmount && s.budgetAmount > 0)) err("conjunto", `${label}: informe o orçamento do conjunto (maior que zero).`, s.id);
     if (budgetOnCampaign && s.budgetAmount) warn("conjunto", `${label}: o orçamento está na campanha; o do conjunto será ignorado.`, s.id);
-    if (s.countries.length === 0) err("conjunto", `${label}: escolha pelo menos um país.`, s.id);
+    if (s.countries.length === 0 && s.cities.length === 0) err("conjunto", `${label}: escolha pelo menos um país ou uma cidade.`, s.id);
+    if (s.advantageAudience && s.interests.length > 0) warn("conjunto", `${label}: no público Advantage+ os interesses viram só sugestão para o Meta.`, s.id);
     if (s.ageMin < SPECIAL_AGE_MIN || s.ageMax > SPECIAL_AGE_MAX || s.ageMin > s.ageMax) err("conjunto", `${label}: idade deve ficar entre ${SPECIAL_AGE_MIN} e ${SPECIAL_AGE_MAX}, e a mínima não pode passar da máxima.`, s.id);
     if (special && (s.ageMin !== SPECIAL_AGE_MIN || s.ageMax !== SPECIAL_AGE_MAX || s.gender !== "all")) {
       err("conjunto", `${label}: com categoria especial, idade fica 18–65 e gênero "todos".`, s.id);

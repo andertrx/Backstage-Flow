@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { buildCampaignFields, currencyOffset, fetchAccountLists, uploadAdImage, validateCampaign } from "./builder.ts";
+import { buildCampaignFields, currencyOffset, fetchAccountLists, fetchLeadForms, searchTargeting, uploadAdImage, validateCampaign } from "./builder.ts";
 
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -72,4 +72,26 @@ Deno.test("imagem: recusa do Meta vira mensagem clara com o nome do arquivo", as
   let msg = "";
   try { await uploadAdImage("t", "1", new Uint8Array([1]), "pequena.png", f); } catch (e) { msg = (e as Error).message; }
   assertEquals(msg, 'O Meta recusou a imagem "pequena.png": Imagem pequena demais.');
+});
+
+Deno.test("busca de interesses: pede adinterest em pt_BR e devolve só id e nome (com o tamanho do público)", async () => {
+  let url = "";
+  const f = ((u: URL | string) => { url = String(u); return Promise.resolve(reply(200, { data: [{ id: "6003", name: "Academia", audience_size_lower_bound: 1200000 }, { name: "sem id" }] })); }) as typeof fetch;
+  const r = await searchTargeting("TOK", "interest", "acad", f);
+  assertEquals(r.length, 1);
+  assertEquals(r[0].id, "6003");
+  assert(url.includes("type=adinterest") && url.includes("q=acad") && url.includes("locale=pt_BR"));
+});
+
+Deno.test("busca de cidades: só cidades, com região e país", async () => {
+  let url = "";
+  const f = ((u: URL | string) => { url = String(u); return Promise.resolve(reply(200, { data: [{ key: "2673660", name: "Fortaleza", region: "Ceará", country_name: "Brasil" }] })); }) as typeof fetch;
+  const r = await searchTargeting("TOK", "city", "fort", f);
+  assertEquals(r, [{ key: "2673660", name: "Fortaleza", detail: "Ceará, Brasil" }]);
+  assert(url.includes("type=adgeolocation") && decodeURIComponent(url).includes('["city"]'));
+});
+
+Deno.test("formulários da página: id, nome e status", async () => {
+  const f = (() => Promise.resolve(reply(200, { data: [{ id: "555566", name: "Cadastro Janeiro", status: "ACTIVE" }, { name: "x" }] }))) as typeof fetch;
+  assertEquals(await fetchLeadForms("TOK", "1234567", f), [{ id: "555566", name: "Cadastro Janeiro", status: "ACTIVE" }]);
 });

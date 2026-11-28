@@ -301,3 +301,34 @@ export function useDriveThumb(fileId: string | null) {
     },
   });
 }
+
+export interface TargetingHit { id: string; label: string; detail?: string }
+
+/** Busca interesses ou cidades no próprio Meta (só leitura). */
+export function useTargetingSearch(adAccountId: string | null | undefined, kind: "interest" | "city") {
+  return useMutation({
+    mutationFn: async (q: string): Promise<TargetingHit[]> => {
+      const { data, error } = await supabase.functions.invoke("meta-builder", { body: { action: "targeting_search", adAccountId, kind, q } });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      const rows = (data as { data: { results: { id?: string; key?: string; name: string; detail?: string }[] } }).data.results;
+      return rows.map((r) => ({ id: String(r.id ?? r.key), label: r.name, detail: r.detail }));
+    },
+  });
+}
+
+export interface LeadFormOption { id: string; name: string; status: string }
+
+/** Formulários de cadastro de uma página. Se o Meta não liberar, a tela cai para o campo manual. */
+export function useLeadForms(adAccountId: string | null | undefined, pageId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, "formularios", adAccountId, pageId],
+    enabled: enabled && !!adAccountId && /^\d{5,30}$/.test(pageId),
+    staleTime: 5 * 60_000,
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("meta-builder", { body: { action: "lead_forms", adAccountId, pageId } });
+      if (error) throw new FriendlyError(await friendlyFunctionError(error));
+      return (data as { data: { forms: LeadFormOption[] } }).data.forms;
+    },
+  });
+}

@@ -243,3 +243,24 @@ describe("opções iguais às do Meta (28/11/2026)", () => {
   });
 });
 
+
+describe("Fase E — interesses, cidades e Advantage+", () => {
+  it("normalizeDraft guarda só interesses/cidades válidos, limita o raio e mantém Advantage+ desligado por padrão", () => {
+    const d = normalizeDraft({
+      adSets: [{
+        id: "s1", interests: [{ id: "6003", name: "Academia" }, { id: "abc", name: "inválido" }, { id: "7", name: "" }],
+        cities: [{ key: "2673660", name: "Fortaleza", radius: 500 }, { key: "x", name: "ruim", radius: 20 }, { key: "9", name: "Perto", radius: 1 }],
+      }],
+    });
+    expect(d.adSets[0].interests).toEqual([{ id: "6003", name: "Academia" }]);
+    expect(d.adSets[0].cities).toEqual([{ key: "2673660", name: "Fortaleza", radius: 80 }, { key: "9", name: "Perto", radius: 17 }]);
+    expect(d.adSets[0].advantageAudience).toBe(false);
+  });
+
+  it("a conferência aceita cidade sem país, mas exige um dos dois", () => {
+    const base = normalizeDraft({ campaign: { name: "X", objective: "OUTCOME_TRAFFIC", status: "PAUSED" }, adSets: [{ id: "s1", name: "Conj", optimizationGoal: "LINK_CLICKS", budgetAmount: 10, countries: [] }], ads: [] });
+    expect(checkDraft(base).some((i) => i.message.includes("um país ou uma cidade"))).toBe(true);
+    base.adSets[0].cities = [{ key: "2673660", name: "Fortaleza", radius: 17 }];
+    expect(checkDraft(base).some((i) => i.message.includes("um país ou uma cidade"))).toBe(false);
+  });
+});

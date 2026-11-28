@@ -1,7 +1,7 @@
 import {
   AD_CTAS, applyGoal, DESTINATION_LABELS, destinationsFor, leadsToWebsite, PUBLISH_UNSUPPORTED_GOALS, applyObjective, BILLING_LABELS, billingFor, type CampaignDraft, checkDraft, type CheckItem, checkSummary, COUNTRIES, CUSTOM_EVENTS,
   type DraftAd, type DraftAdSet, duplicateAdSet, GOAL_LABELS, GOALS_BY_OBJECTIVE, newAd, newAdSet, normalizeDraft, OBJECTIVE_LABELS, type ObjectiveId,
-  removeAdSet, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES, checkPublishable, publishCounts,
+  removeAdSet, CITY_RADIUS_MAX, CITY_RADIUS_MIN, MAX_CITIES, MAX_INTERESTS, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES, checkPublishable, publishCounts,
 } from "@backstage/shared";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, ExternalLink, Image as ImageIcon, Plus, Rocket, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -12,9 +12,10 @@ import { Card } from "@/components/ui/card.tsx";
 import { Field, Input, Select, Textarea } from "@/components/ui/field.tsx";
 import { useAccountAssets } from "@/features/ads-builder/api.ts";
 import { errorMessage } from "@/lib/errors.ts";
-import { type AccountLists, type PublishOperationRow, saveDraftData, useAccountLists, useBuilderDraft, useBuilderPermissions, useDraftAccount, usePublishDraft, usePublishHistory, useValidateDraft } from "./api.ts";
+import { type AccountLists, type PublishOperationRow, saveDraftData, useAccountLists, useBuilderDraft, useBuilderPermissions, useDraftAccount, usePublishDraft, useLeadForms, usePublishHistory, useValidateDraft } from "./api.ts";
 import { confirmar } from "@/lib/confirmStore.ts";
 import { DrivePicker } from "./DrivePicker.tsx";
+import { TargetingPicker } from "./TargetingPicker.tsx";
 import { toast } from "@/lib/toastStore.ts";
 
 type SaveState = "salvo" | "salvando" | "pendente" | "erro" | "conflito" | "somente-leitura";
@@ -40,12 +41,13 @@ const num = (v: string): number | null => {
   return Number.isFinite(n) && n >= 0 ? n : null;
 };
 
-function AdForm({ ad, destination, pages, instas, disabled, onChange, onRemove }: {
-  ad: DraftAd; destination: DraftAdSet["destinationType"]; pages: { id: string; name: string }[]; instas: { id: string; name: string }[]; disabled: boolean; onChange: (a: DraftAd) => void; onRemove: () => void;
+function AdForm({ ad, adAccountId, destination, pages, instas, disabled, onChange, onRemove }: {
+  adAccountId: string | null | undefined; ad: DraftAd; destination: DraftAdSet["destinationType"]; pages: { id: string; name: string }[]; instas: { id: string; name: string }[]; disabled: boolean; onChange: (a: DraftAd) => void; onRemove: () => void;
 }) {
   const set = (p: Partial<DraftAd>) => onChange({ ...ad, ...p });
   const [picker, setPicker] = useState(false);
   const website = leadsToWebsite(destination);
+  const forms = useLeadForms(adAccountId, ad.pageId, destination === "ON_AD");
   return (
     <div className="space-y-3 rounded-xl bg-slate-50 p-3" data-testid="cb-anuncio">
       <div className="flex items-center justify-between gap-2">
@@ -93,8 +95,13 @@ function AdForm({ ad, destination, pages, instas, disabled, onChange, onRemove }
         </p>
       )}
       {destination === "ON_AD" && (
-        <Field label="ID do formulário de cadastro" hint="O formulário (de leads) que você já criou na página. O botão e o link o Meta monta.">
-          {(id) => <Input id={id} inputMode="numeric" value={ad.leadFormId} disabled={disabled} maxLength={30} onChange={(e) => set({ leadFormId: e.target.value.replace(/\D/g, "") })} />}
+        <Field label="ID do formulário de cadastro" hint={forms.isError ? errorMessage(forms.error) : "O formulário (de leads) que você já criou na página. O botão e o link o Meta monta."}>
+          {(id) => forms.data?.length ? (
+            <Select id={id} value={ad.leadFormId} disabled={disabled} onChange={(e) => set({ leadFormId: e.target.value })}>
+              <option value="">Escolha...</option>
+              {forms.data.map((f) => <option key={f.id} value={f.id}>{f.name}{f.status && f.status !== "ACTIVE" ? ` (${f.status.toLowerCase()})` : ""}</option>)}
+            </Select>
+          ) : <Input id={id} inputMode="numeric" value={ad.leadFormId} disabled={disabled} maxLength={30} onChange={(e) => set({ leadFormId: e.target.value.replace(/\D/g, "") })} />}
         </Field>
       )}
       <div className="space-y-2" data-testid="cb-imagem">
@@ -120,8 +127,8 @@ function AdForm({ ad, destination, pages, instas, disabled, onChange, onRemove }
   );
 }
 
-function AdSetCard({ draft, set, disabled, pages, instas, currency, lists, onChange, onDuplicate, onRemove, onAddAd, onAdChange, onAdRemove }: {
-  draft: CampaignDraft; set: DraftAdSet; disabled: boolean; pages: { id: string; name: string }[]; instas: { id: string; name: string }[]; currency: string; lists: AccountLists | undefined;
+function AdSetCard({ adAccountId, draft, set, disabled, pages, instas, currency, lists, onChange, onDuplicate, onRemove, onAddAd, onAdChange, onAdRemove }: {
+  adAccountId: string | null | undefined; draft: CampaignDraft; set: DraftAdSet; disabled: boolean; pages: { id: string; name: string }[]; instas: { id: string; name: string }[]; currency: string; lists: AccountLists | undefined;
   onChange: (s: DraftAdSet) => void; onDuplicate: () => void; onRemove: () => void; onAddAd: () => void; onAdChange: (a: DraftAd) => void; onAdRemove: (id: string) => void;
 }) {
   const objective = draft.campaign.objective;
@@ -249,10 +256,28 @@ function AdSetCard({ draft, set, disabled, pages, instas, currency, lists, onCha
             </div>
           </fieldset>
         )}
-        <p className="text-xs text-slate-500">Posicionamentos: automáticos (o Meta escolhe). Interesses e locais detalhados entram numa próxima fase.</p>
+        <TargetingPicker adAccountId={adAccountId} kind="city" title="Cidades (opcional)" hint="Digite uma cidade e clique em Buscar" disabled={disabled} max={MAX_CITIES}
+          picked={set.cities.map((c) => ({ id: c.key, label: c.name }))}
+          onAdd={(h) => patch({ cities: [...set.cities, { key: h.id, name: h.detail ? `${h.label} (${h.detail})` : h.label, radius: CITY_RADIUS_MIN }] })}
+          onRemove={(key) => patch({ cities: set.cities.filter((c) => c.key !== key) })}
+          renderPicked={(key) => (
+            <input type="number" min={CITY_RADIUS_MIN} max={CITY_RADIUS_MAX} disabled={disabled} aria-label="Raio em km" title="Raio em km" className="w-12 rounded bg-white px-1 text-xs"
+              value={set.cities.find((c) => c.key === key)?.radius ?? CITY_RADIUS_MIN}
+              onChange={(e) => patch({ cities: set.cities.map((c) => (c.key === key ? { ...c, radius: Math.min(CITY_RADIUS_MAX, Math.max(CITY_RADIUS_MIN, Math.round(Number(e.target.value) || CITY_RADIUS_MIN))) } : c)) })} />
+          )} />
+        {set.cities.length > 0 && <p className="text-xs text-slate-500">Com cidades escolhidas, vale só o raio (em km, de {CITY_RADIUS_MIN} a {CITY_RADIUS_MAX}) em volta delas; o país sozinho não é usado.</p>}
+        <TargetingPicker adAccountId={adAccountId} kind="interest" title="Interesses (opcional)" hint="Digite um interesse e clique em Buscar" disabled={disabled} max={MAX_INTERESTS}
+          picked={set.interests.map((i) => ({ id: i.id, label: i.name }))}
+          onAdd={(h) => patch({ interests: [...set.interests, { id: h.id, name: h.label }] })}
+          onRemove={(iid) => patch({ interests: set.interests.filter((i) => i.id !== iid) })} />
+        <label className="flex items-start gap-2 text-sm" data-testid="cb-advantage">
+          <input type="checkbox" className="mt-0.5" disabled={disabled} checked={set.advantageAudience} onChange={(e) => patch({ advantageAudience: e.target.checked })} />
+          <span><span className="font-medium text-slate-700">Público Advantage+</span><br /><span className="text-xs text-slate-500">O Meta pode ampliar o público além do que você definiu. Desligado por padrão: o público fica como você escolheu.</span></span>
+        </label>
+        <p className="text-xs text-slate-500">Posicionamentos: automáticos (o Meta escolhe).</p>
       </div>
       <div className="space-y-3">
-        {ads.map((a) => <AdForm key={a.id} ad={a} destination={set.destinationType} pages={pages} instas={instas} disabled={disabled} onChange={onAdChange} onRemove={() => onAdRemove(a.id)} />)}
+        {ads.map((a) => <AdForm key={a.id} adAccountId={adAccountId} ad={a} destination={set.destinationType} pages={pages} instas={instas} disabled={disabled} onChange={onAdChange} onRemove={() => onAdRemove(a.id)} />)}
         <Button variant="secondary" disabled={disabled} onClick={onAddAd}><Plus className="size-4" aria-hidden /> Adicionar anúncio</Button>
       </div>
     </div>
@@ -526,6 +551,7 @@ export function DraftEditorPage() {
             {draft.adSets.map((s) => (
               <AdSetCard
                 key={s.id}
+                adAccountId={loaded.data?.ad_account_id}
                 draft={draft}
                 set={s}
                 disabled={disabled}

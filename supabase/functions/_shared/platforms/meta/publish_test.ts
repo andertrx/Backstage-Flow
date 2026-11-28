@@ -150,3 +150,27 @@ Deno.test("formulário no anúncio: destino ON_AD, botão que abre o formulário
   d.ads[0].cta = "WHATSAPP_MESSAGE";
   assertEquals(JSON.parse(creativeFields(d.ads[0], "H", "ON_AD").object_story_spec).link_data.call_to_action.type, "SIGN_UP");
 });
+
+Deno.test("público: cidades (com raio em km) substituem o país; interesses viram flexible_spec; Advantage+ liga só quando escolhido", () => {
+  const d = draft();
+  d.adSets[0] = { ...d.adSets[0], audienceIds: [], interests: [{ id: "6003", name: "Academia" }], cities: [{ key: "2673660", name: "Fortaleza", radius: 25 }], advantageAudience: true };
+  const t = JSON.parse(adSetFields(d.adSets[0], "C1", ctx(d)).targeting);
+  assertEquals(t.geo_locations, { cities: [{ key: "2673660", radius: 25, distance_unit: "kilometer" }] });
+  assertEquals(t.flexible_spec, [{ interests: [{ id: "6003", name: "Academia" }] }]);
+  assertEquals(t.targeting_automation, { advantage_audience: 1 });
+  d.adSets[0] = { ...d.adSets[0], interests: [], cities: [], advantageAudience: false };
+  const u = JSON.parse(adSetFields(d.adSets[0], "C1", ctx(d)).targeting);
+  assertEquals(u.geo_locations, { countries: d.adSets[0].countries });
+  assertEquals(u.flexible_spec, undefined);
+  assertEquals(u.targeting_automation, { advantage_audience: 0 });
+});
+
+Deno.test("público: interesses junto de um público salvo que já tem interesses é recusado com mensagem clara", () => {
+  const d = draft();
+  d.adSets[0] = { ...d.adSets[0], audienceIds: ["9002"], interests: [{ id: "6003", name: "Academia" }] };
+  const c = ctx(d);
+  c.audiences.saved.set("9002", { flexible_spec: [{ interests: [{ id: "1" }] }] });
+  let msg = "";
+  try { adSetFields(d.adSets[0], "C1", c); } catch (e) { msg = (e as Error).message; }
+  assert(msg.includes("já tem interesses"));
+});
