@@ -145,7 +145,8 @@
 - [x] **Fase D pronta** (28/11/2026): opções iguais às do Meta (metas por objetivo, destino WhatsApp/Messenger/Direct, formulário no anúncio). Ver `docs/etapa-35-campaign-builder/35.6-FASE-D-OPCOES-DO-META.md`. **Não testado no Meta de verdade:** na primeira publicação com mensagens ou formulário, conferir o resultado e avisar.
 - [x] **Fases E, F e G prontas** (28/11/2026): cidades com raio, interesses, Advantage+, lista de formulários e vídeo do Drive. Ver `35.7-FASES-E-F-PUBLICOS-E-FORMULARIOS.md` e `35.8-FASE-G-VIDEO.md`. **Nada testado no Meta de verdade**: na primeira publicação com cidade/interesse, formulário ou vídeo, conferir o resultado e avisar.
 - [x] **Fase H pronta** (28/11/2026): post que já existe (Engajamento com a publicação e Visitas ao perfil). Ver `35.9-FASE-H-POST-EXISTENTE.md`. **Não testado no Meta de verdade.**
-- [ ] **Plano da Esteira de criativos** (28/11/2026): `35.10-PLANO-ESTEIRA-DE-CRIATIVOS.md`. Aguarda o Ander: autorizar a Fase J.0 (sondagem numa conta de teste) e confirmar a lista de posicionamentos.
+- [x] **Plano da Esteira de criativos** (28/11/2026): `35.10-PLANO-ESTEIRA-DE-CRIATIVOS.md`. Posicionamentos confirmados pelo Ander.
+- [x] **Fase J.0 (sondagem)** feita na Acelera Atacado: `35.11-FASE-J0-SONDAGEM-NO-META.md`. Ficaram 2 criativos de teste na biblioteca da conta ("[TESTE CRM - NAO USAR]"); não são anúncios. Falta confirmar 2 vídeos + 3 textos no mesmo criativo (indicar um anúncio feito assim no Gerenciador, se existir).
 - [ ] **Ander (2 passos):** (1) Google Cloud, projeto `backstage-flow`: ativar a **Google Drive API**; (2) Drive: compartilhar a pasta principal dos criativos com `crm-leitura@backstage-flow.iam.gserviceaccount.com` como **Leitor**. Depois, no rascunho, "Escolher do Google Drive". Sugestão: adicionar mais uma pessoa como Proprietário do projeto no Google Cloud.
 - [ ] **Vídeo no Criador** (fase própria): envio em partes ao Meta.
 
