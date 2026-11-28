@@ -2,14 +2,21 @@
  * Criador de campanhas, Fase B — o que o "Publicar" já sabe criar no Meta e a conferência que vale SÓ para publicar.
  * Tudo é criado PAUSADO. Nada aqui fala com o Meta (isso é do servidor).
  */
-import { type AdCta, type OptimizationGoal } from "./catalog.ts";
+import { type AdCta, GOAL_LABELS, leadsToWebsite, type OptimizationGoal } from "./catalog.ts";
 import { checkDraft, type CheckItem } from "./checklist.ts";
 import type { CampaignDraft } from "./model.ts";
 
-/** Metas que exigem formulário ou destino de mensagem: o Publicar ainda não monta isso (crie no Gerenciador ou pelo Criador de Anúncios com o Claude). */
-export const PUBLISH_UNSUPPORTED_GOALS: readonly OptimizationGoal[] = ["CONVERSATIONS", "LEAD_GENERATION", "QUALITY_LEAD"];
-/** Botões que exigem destino de mensagem ou telefone. */
-export const PUBLISH_UNSUPPORTED_CTAS: readonly AdCta[] = ["WHATSAPP_MESSAGE", "MESSAGE_PAGE", "CALL_NOW"];
+/**
+ * Metas que o Meta oferece mas o Publicar ainda não monta (exigem vídeo, post existente, evento, ligação, perfil ou dados do CRM).
+ * Conversas (WhatsApp, Messenger, Direct) e Geração de leads (formulário no anúncio) já são publicadas.
+ * Para as demais, crie no Gerenciador ou pelo Criador de Anúncios com o Claude.
+ */
+export const PUBLISH_UNSUPPORTED_GOALS: readonly OptimizationGoal[] = [
+  "QUALITY_LEAD", "QUALITY_CALL", "REMINDERS_SET", "EVENT_RESPONSES", "PAGE_LIKES", "PROFILE_VISIT", "VISIT_INSTAGRAM_PROFILE",
+  "POST_ENGAGEMENT", "THRUPLAY", "TWO_SECOND_CONTINUOUS_VIDEO_VIEWS",
+];
+/** Botões que exigem telefone (o Meta monta os de mensagem e de formulário sozinho a partir do destino). */
+export const PUBLISH_UNSUPPORTED_CTAS: readonly AdCta[] = ["CALL_NOW"];
 
 export const PUBLISH_MAX_ADSETS = 10;
 export const PUBLISH_MAX_ADS = 30;
@@ -32,7 +39,7 @@ export function checkPublishable(d: CampaignDraft): CheckItem[] {
   for (const s of d.adSets) {
     const label = s.name.trim() || "Conjunto sem nome";
     if (s.optimizationGoal && PUBLISH_UNSUPPORTED_GOALS.includes(s.optimizationGoal)) {
-      err("conjunto", `${label}: a meta "${s.optimizationGoal}" (mensagens ou formulário) ainda não é publicada por aqui. Escolha outra meta ou crie no Gerenciador.`, s.id);
+      err("conjunto", `${label}: a meta "${GOAL_LABELS[s.optimizationGoal]}" ainda não é publicada por aqui. Escolha outra meta ou crie no Gerenciador de Anúncios.`, s.id);
     }
   }
   for (const a of d.ads) {
@@ -41,7 +48,8 @@ export function checkPublishable(d: CampaignDraft): CheckItem[] {
       if (!a.imageUrl.trim()) err("anuncio", `${label}: escolha a imagem no Google Drive (ou informe o endereço https:// dela).`, a.id);
       else if (!isHttps(a.imageUrl.trim())) err("anuncio", `${label}: o endereço da imagem precisa começar com https://.`, a.id);
     }
-    if (a.cta && PUBLISH_UNSUPPORTED_CTAS.includes(a.cta)) err("anuncio", `${label}: o botão "${a.cta}" ainda não é publicado por aqui. Escolha outro botão.`, a.id);
+    const toWebsite = leadsToWebsite(d.adSets.find((s) => s.id === a.adSetId)?.destinationType ?? "");
+    if (toWebsite && a.cta && PUBLISH_UNSUPPORTED_CTAS.includes(a.cta)) err("anuncio", `${label}: o botão "${a.cta}" ainda não é publicado por aqui. Escolha outro botão.`, a.id);
   }
   return out;
 }

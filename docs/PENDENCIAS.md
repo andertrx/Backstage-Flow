@@ -142,6 +142,7 @@
 - [x] **Fase B pronta** (27/11/2026): botão "Publicar no Meta (pausado)", função `meta-builder` v2, tabelas `publish_operations` e `publish_items`. Ver `docs/etapa-35-campaign-builder/35.4-FASE-B-PUBLICAR.md`.
 - [ ] **Primeira publicação real (Ander):** escolher uma **conta de teste**, montar um rascunho simples (objetivo Tráfego, meta Cliques no link, 1 conjunto, 1 anúncio com o endereço https de uma imagem) e clicar em Publicar. Conferir no Gerenciador de Anúncios que tudo ficou **Pausado**. Me dizer o resultado (ou o erro do Meta) para eu ajustar os campos.
 - [x] **Fase C pronta** (27/11/2026, imagens JPG/PNG; vídeo fica para depois). Ver `docs/etapa-35-campaign-builder/35.5-FASE-C-GOOGLE-DRIVE.md`. Usa a conta de serviço que **já existe** (a das planilhas).
+- [x] **Fase D pronta** (28/11/2026): opções iguais às do Meta (metas por objetivo, destino WhatsApp/Messenger/Direct, formulário no anúncio). Ver `docs/etapa-35-campaign-builder/35.6-FASE-D-OPCOES-DO-META.md`. **Não testado no Meta de verdade:** na primeira publicação com mensagens ou formulário, conferir o resultado e avisar.
 - [ ] **Ander (2 passos):** (1) Google Cloud, projeto `backstage-flow`: ativar a **Google Drive API**; (2) Drive: compartilhar a pasta principal dos criativos com `crm-leitura@backstage-flow.iam.gserviceaccount.com` como **Leitor**. Depois, no rascunho, "Escolher do Google Drive". Sugestão: adicionar mais uma pessoa como Proprietário do projeto no Google Cloud.
 - [ ] **Vídeo no Criador** (fase própria): envio em partes ao Meta.
 

@@ -118,22 +118,36 @@ export function adSetFields(s: DraftAdSet, campaignId: string, ctx: PublishCtx):
   targeting.targeting_automation = { advantage_audience: 0 };
   f.targeting = JSON.stringify(targeting);
 
-  if ((s.optimizationGoal === "OFFSITE_CONVERSIONS" || s.optimizationGoal === "VALUE") && s.pixelId) {
-    f.promoted_object = JSON.stringify({ pixel_id: s.pixelId, custom_event_type: s.customEvent || "OTHER" });
-  } else if (s.optimizationGoal === "POST_ENGAGEMENT") {
-    const page = d.ads.find((a) => a.adSetId === s.id)?.pageId || s.pageId;
+  // Destino (Meta): mensagens e formulário no anúncio levam destination_type e a página como objeto promovido.
+  const page = d.ads.find((a) => a.adSetId === s.id)?.pageId || s.pageId;
+  if (s.destinationType && s.destinationType !== "WEBSITE") {
+    f.destination_type = s.destinationType;
     if (page) f.promoted_object = JSON.stringify({ page_id: page });
+  } else if ((s.optimizationGoal === "OFFSITE_CONVERSIONS" || s.optimizationGoal === "VALUE") && s.pixelId) {
+    f.promoted_object = JSON.stringify({ pixel_id: s.pixelId, custom_event_type: s.customEvent || "OTHER" });
   }
   return f;
 }
 
-export function creativeFields(a: DraftAd, imageHash?: string): Record<string, string> {
-  const link: Record<string, unknown> = { message: a.primaryText, link: a.link };
+/** Botão e destino de cada tipo de mensagem (o Meta abre a conversa; o link é o genérico do Meta). */
+const MESSAGING_CTA: Record<string, { type: string; app: string }> = {
+  WHATSAPP: { type: "WHATSAPP_MESSAGE", app: "WHATSAPP" },
+  MESSENGER: { type: "MESSAGE_PAGE", app: "MESSENGER" },
+  INSTAGRAM_DIRECT: { type: "INSTAGRAM_MESSAGE", app: "INSTAGRAM_DIRECT" },
+};
+const LEAD_CTAS = ["SIGN_UP", "LEARN_MORE", "APPLY_NOW", "GET_QUOTE", "GET_OFFER", "SUBSCRIBE", "DOWNLOAD", "CONTACT_US", "BOOK_TRAVEL"];
+
+export function creativeFields(a: DraftAd, imageHash?: string, destination: string = ""): Record<string, string> {
+  const messaging = MESSAGING_CTA[destination];
+  const leadForm = destination === "ON_AD";
+  const link: Record<string, unknown> = { message: a.primaryText, link: messaging ? "https://fb.me/" : leadForm ? "http://fb.me/" : a.link };
   if (imageHash) link.image_hash = imageHash;
   else link.picture = a.imageUrl;
   if (a.headline) link.name = a.headline;
   if (a.description) link.description = a.description;
-  if (a.cta && a.cta !== "NO_BUTTON") link.call_to_action = { type: a.cta, value: { link: a.link } };
+  if (messaging) link.call_to_action = { type: messaging.type, value: { app_destination: messaging.app } };
+  else if (leadForm) link.call_to_action = { type: LEAD_CTAS.includes(a.cta) ? a.cta : "SIGN_UP", value: { lead_gen_form_id: a.leadFormId } };
+  else if (a.cta && a.cta !== "NO_BUTTON") link.call_to_action = { type: a.cta, value: { link: a.link } };
   const story: Record<string, unknown> = { page_id: a.pageId, link_data: link };
   if (a.instagramId) story.instagram_user_id = a.instagramId;
   return { name: a.name, object_story_spec: JSON.stringify(story) };
@@ -182,7 +196,7 @@ export async function runPublish(deps: PublishDeps, ctx: PublishCtx, onItem: (po
         path = `${base}/adcreatives`;
         const hash = a.driveFileId ? ctx.imageHashes?.get(a.driveFileId) : undefined;
         if (a.driveFileId && !hash) throw new Error("A imagem do Drive deste anúncio não foi enviada ao Meta.");
-        fields = creativeFields(a, hash);
+        fields = creativeFields(a, hash, d.adSets.find((x) => x.id === a.adSetId)?.destinationType ?? "");
       } else {
         const a = d.ads.find((x) => x.id === item.localId)!;
         path = `${base}/ads`;

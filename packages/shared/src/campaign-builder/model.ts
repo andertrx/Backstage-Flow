@@ -1,6 +1,6 @@
 /** Fase 35.2 — modelo do rascunho de campanha (campanha → conjuntos → anúncios). Guardado em builder_drafts.data. */
 import {
-  AD_CTAS, billingFor, type AdCta, type BillingEvent, type CustomEvent, type ObjectiveId, type OptimizationGoal, type SpecialAdCategory,
+  AD_CTAS, billingFor, DESTINATION_TYPES, destinationsFor, type AdCta, type BillingEvent, type DestinationType, type CustomEvent, type ObjectiveId, type OptimizationGoal, type SpecialAdCategory,
   GOALS_BY_OBJECTIVE, OBJECTIVE_LABELS, SPECIAL_AGE_MAX, SPECIAL_AGE_MIN, CUSTOM_EVENTS, SPECIAL_AD_CATEGORIES,
 } from "./catalog.ts";
 
@@ -34,6 +34,8 @@ export interface DraftAdSet {
   ageMax: number;
   gender: "all" | "male" | "female";
   pixelId: string;
+  /** Para onde o anúncio leva (só quando o Meta oferece escolha para a meta). Vazio = site. */
+  destinationType: DestinationType | "";
   /** Públicos (personalizados ou salvos) da conta, escolhidos na lista que o Meta devolve. */
   audienceIds: string[];
   customEvent: CustomEvent | "";
@@ -49,6 +51,8 @@ export interface DraftAd {
   headline: string;
   description: string;
   link: string;
+  /** ID do formulário de cadastro (só quando o destino é "Formulário no próprio anúncio"). */
+  leadFormId: string;
   /** Endereço https da imagem do anúncio (enquanto o envio direto do Drive não existe). */
   imageUrl: string;
   /** Imagem escolhida no Google Drive (id e nome do arquivo). Tem prioridade sobre o endereço. */
@@ -70,11 +74,11 @@ const newId = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUI
 export function newAdSet(over: Partial<DraftAdSet> = {}): DraftAdSet {
   return {
     id: newId(), name: "", optimizationGoal: "", billingEvent: "", budgetAmount: null, startDate: "", endDate: "", countries: ["BR"],
-    ageMin: SPECIAL_AGE_MIN, ageMax: SPECIAL_AGE_MAX, gender: "all", pixelId: "", audienceIds: [], customEvent: "", pageId: "", ...over,
+    ageMin: SPECIAL_AGE_MIN, ageMax: SPECIAL_AGE_MAX, gender: "all", pixelId: "", destinationType: "", audienceIds: [], customEvent: "", pageId: "", ...over,
   };
 }
 export function newAd(adSetId: string, over: Partial<DraftAd> = {}): DraftAd {
-  return { id: newId(), adSetId, name: "", pageId: "", instagramId: "", primaryText: "", headline: "", description: "", link: "", imageUrl: "", driveFileId: "", driveFileName: "", cta: "", ...over };
+  return { id: newId(), adSetId, name: "", pageId: "", instagramId: "", primaryText: "", headline: "", description: "", link: "", leadFormId: "", imageUrl: "", driveFileId: "", driveFileName: "", cta: "", ...over };
 }
 export function newDraft(): CampaignDraft {
   return {
@@ -115,6 +119,7 @@ export function normalizeDraft(raw: unknown): CampaignDraft {
       countries: Array.isArray(s.countries) ? s.countries.filter((k): k is string => typeof k === "string" && /^[A-Z]{2}$/.test(k)).slice(0, 30) : ["BR"],
       ageMin: typeof s.ageMin === "number" ? s.ageMin : SPECIAL_AGE_MIN, ageMax: typeof s.ageMax === "number" ? s.ageMax : SPECIAL_AGE_MAX,
       gender: s.gender === "male" || s.gender === "female" ? s.gender : "all", pixelId: str(s.pixelId, 40),
+      destinationType: oneOf(s.destinationType, DESTINATION_TYPES),
       audienceIds: Array.isArray(s.audienceIds) ? s.audienceIds.filter((k): k is string => typeof k === "string" && /^\d{1,40}$/.test(k)).slice(0, 50) : [],
       customEvent: oneOf(s.customEvent, CUSTOM_EVENTS), pageId: str(s.pageId, 40),
     });
@@ -127,7 +132,7 @@ export function normalizeDraft(raw: unknown): CampaignDraft {
     if (!ids.has(adSetId)) return [];
     return [newAd(adSetId, {
       id: str(a.id, 80) || newId(), name: str(a.name, 200), pageId: str(a.pageId, 40), instagramId: str(a.instagramId, 40),
-      primaryText: str(a.primaryText, 2000), headline: str(a.headline, 200), description: str(a.description, 400), link: str(a.link, 2000), imageUrl: str(a.imageUrl, 2000),
+      primaryText: str(a.primaryText, 2000), headline: str(a.headline, 200), description: str(a.description, 400), link: str(a.link, 2000), leadFormId: /^\d{5,30}$/.test(str(a.leadFormId, 30)) ? str(a.leadFormId, 30) : "", imageUrl: str(a.imageUrl, 2000),
       driveFileId: /^[A-Za-z0-9_-]{10,100}$/.test(str(a.driveFileId, 100)) ? str(a.driveFileId, 100) : "", driveFileName: str(a.driveFileName, 200),
       cta: oneOf(a.cta, ctas),
     })];
@@ -141,14 +146,17 @@ export function applyObjective(d: CampaignDraft, objective: ObjectiveId | ""): C
   return {
     ...d,
     campaign: { ...d.campaign, objective },
-    adSets: d.adSets.map((s) => (s.optimizationGoal && !allowed.includes(s.optimizationGoal) ? { ...s, optimizationGoal: "", billingEvent: "" } : s)),
+    adSets: d.adSets.map((s) => (s.optimizationGoal && !allowed.includes(s.optimizationGoal) ? { ...s, optimizationGoal: "", billingEvent: "", destinationType: "" } : { ...s, destinationType: destinationsFor(s.optimizationGoal, objective).includes(s.destinationType as DestinationType) ? s.destinationType : (destinationsFor(s.optimizationGoal, objective)[0] ?? "") })),
   };
 }
 
 /** Quando a meta muda, a cobrança volta ao padrão aceito. */
-export function applyGoal(s: DraftAdSet, goal: OptimizationGoal | ""): DraftAdSet {
+export function applyGoal(s: DraftAdSet, goal: OptimizationGoal | "", objective: ObjectiveId | "" = ""): DraftAdSet {
   const billing = goal ? billingFor(goal) : [];
-  return { ...s, optimizationGoal: goal, billingEvent: goal ? (billing.includes(s.billingEvent as BillingEvent) ? s.billingEvent : billing[0]) : "" };
+  // Destino: se o Meta oferece escolha para a meta nova, mantém o atual quando ainda vale; senão, o primeiro (padrão). Sem escolha, volta ao site.
+  const options = destinationsFor(goal, objective);
+  const destinationType = options.length ? (options.includes(s.destinationType as DestinationType) ? s.destinationType : options[0]) : "";
+  return { ...s, optimizationGoal: goal, destinationType, billingEvent: goal ? (billing.includes(s.billingEvent as BillingEvent) ? s.billingEvent : billing[0]) : "" };
 }
 
 /** Duplica um conjunto com os anúncios (novos ids). */

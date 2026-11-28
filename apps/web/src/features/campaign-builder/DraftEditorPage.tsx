@@ -1,5 +1,5 @@
 import {
-  AD_CTAS, applyGoal, applyObjective, BILLING_LABELS, billingFor, type CampaignDraft, checkDraft, type CheckItem, checkSummary, COUNTRIES, CUSTOM_EVENTS,
+  AD_CTAS, applyGoal, DESTINATION_LABELS, destinationsFor, leadsToWebsite, PUBLISH_UNSUPPORTED_GOALS, applyObjective, BILLING_LABELS, billingFor, type CampaignDraft, checkDraft, type CheckItem, checkSummary, COUNTRIES, CUSTOM_EVENTS,
   type DraftAd, type DraftAdSet, duplicateAdSet, GOAL_LABELS, GOALS_BY_OBJECTIVE, newAd, newAdSet, normalizeDraft, OBJECTIVE_LABELS, type ObjectiveId,
   removeAdSet, SPECIAL_AD_CATEGORIES, type SpecialAdCategory, CATALOG_VERSION, GOAL_REQUIRES, checkPublishable, publishCounts,
 } from "@backstage/shared";
@@ -40,11 +40,12 @@ const num = (v: string): number | null => {
   return Number.isFinite(n) && n >= 0 ? n : null;
 };
 
-function AdForm({ ad, pages, instas, disabled, onChange, onRemove }: {
-  ad: DraftAd; pages: { id: string; name: string }[]; instas: { id: string; name: string }[]; disabled: boolean; onChange: (a: DraftAd) => void; onRemove: () => void;
+function AdForm({ ad, destination, pages, instas, disabled, onChange, onRemove }: {
+  ad: DraftAd; destination: DraftAdSet["destinationType"]; pages: { id: string; name: string }[]; instas: { id: string; name: string }[]; disabled: boolean; onChange: (a: DraftAd) => void; onRemove: () => void;
 }) {
   const set = (p: Partial<DraftAd>) => onChange({ ...ad, ...p });
   const [picker, setPicker] = useState(false);
+  const website = leadsToWebsite(destination);
   return (
     <div className="space-y-3 rounded-xl bg-slate-50 p-3" data-testid="cb-anuncio">
       <div className="flex items-center justify-between gap-2">
@@ -55,14 +56,14 @@ function AdForm({ ad, pages, instas, disabled, onChange, onRemove }: {
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Nome do anúncio">{(id) => <Input id={id} value={ad.name} disabled={disabled} maxLength={200} onChange={(e) => set({ name: e.target.value })} />}</Field>
-        <Field label="Botão (CTA)">
+        {website && (<Field label="Botão (CTA)">
           {(id) => (
             <Select id={id} value={ad.cta} disabled={disabled} onChange={(e) => set({ cta: e.target.value as DraftAd["cta"] })}>
               <option value="">Escolha...</option>
               {AD_CTAS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
             </Select>
           )}
-        </Field>
+        </Field>)}
         <Field label="Página do Facebook" hint={pages.length ? "Páginas da conta, lidas do Meta." : "Nenhuma página guardada para esta conta: digite o ID."}>
           {(id) => pages.length ? (
             <Select id={id} value={ad.pageId} disabled={disabled} onChange={(e) => set({ pageId: e.target.value })}>
@@ -85,7 +86,17 @@ function AdForm({ ad, pages, instas, disabled, onChange, onRemove }: {
         <Field label="Título">{(id) => <Input id={id} value={ad.headline} disabled={disabled} maxLength={200} onChange={(e) => set({ headline: e.target.value })} />}</Field>
         <Field label="Descrição">{(id) => <Input id={id} value={ad.description} disabled={disabled} maxLength={400} onChange={(e) => set({ description: e.target.value })} />}</Field>
       </div>
-      <Field label="Link de destino" hint="Precisa começar com https://">{(id) => <Input id={id} type="url" value={ad.link} disabled={disabled} maxLength={2000} placeholder="https://" onChange={(e) => set({ link: e.target.value })} />}</Field>
+      {website && <Field label="Link de destino" hint="Precisa começar com https://">{(id) => <Input id={id} type="url" value={ad.link} disabled={disabled} maxLength={2000} placeholder="https://" onChange={(e) => set({ link: e.target.value })} />}</Field>}
+      {destination && destination !== "WEBSITE" && destination !== "ON_AD" && (
+        <p className="rounded-xl bg-white p-2.5 text-xs text-slate-600 ring-1 ring-slate-200" data-testid="cb-destino-mensagem">
+          O botão e o destino ({DESTINATION_LABELS[destination]}) o Meta monta sozinho, como no Gerenciador de Anúncios. Não precisa de link.
+        </p>
+      )}
+      {destination === "ON_AD" && (
+        <Field label="ID do formulário de cadastro" hint="O formulário (de leads) que você já criou na página. O botão e o link o Meta monta.">
+          {(id) => <Input id={id} inputMode="numeric" value={ad.leadFormId} disabled={disabled} maxLength={30} onChange={(e) => set({ leadFormId: e.target.value.replace(/\D/g, "") })} />}
+        </Field>
+      )}
       <div className="space-y-2" data-testid="cb-imagem">
         <p className="text-sm font-medium text-slate-700">Imagem do anúncio</p>
         {ad.driveFileId ? (
@@ -132,12 +143,22 @@ function AdSetCard({ draft, set, disabled, pages, instas, currency, lists, onCha
         <Field label="Nome do conjunto">{(id) => <Input id={id} value={set.name} disabled={disabled} maxLength={200} onChange={(e) => patch({ name: e.target.value })} />}</Field>
         <Field label="Meta de otimização" hint={objective ? undefined : "Escolha o objetivo da campanha primeiro."}>
           {(id) => (
-            <Select id={id} value={set.optimizationGoal} disabled={disabled || !objective} onChange={(e) => onChange(applyGoal(set, e.target.value as DraftAdSet["optimizationGoal"]))}>
+            <Select id={id} value={set.optimizationGoal} disabled={disabled || !objective} onChange={(e) => onChange(applyGoal(set, e.target.value as DraftAdSet["optimizationGoal"], objective))}>
               <option value="">Escolha...</option>
-              {goals.map((g) => <option key={g} value={g}>{GOAL_LABELS[g]}</option>)}
+              {goals.map((g) => <option key={g} value={g}>{GOAL_LABELS[g]}{PUBLISH_UNSUPPORTED_GOALS.includes(g) ? " (ainda não publica)" : ""}</option>)}
             </Select>
           )}
         </Field>
+        {destinationsFor(set.optimizationGoal, objective).length > 0 && (
+          <Field label="Onde as pessoas continuam" hint="As opções são as do Meta para essa meta.">
+            {(id) => (
+              <Select id={id} value={set.destinationType} disabled={disabled} onChange={(e) => patch({ destinationType: e.target.value as DraftAdSet["destinationType"] })}>
+                <option value="">Escolha...</option>
+                {destinationsFor(set.optimizationGoal, objective).map((d) => <option key={d} value={d}>{DESTINATION_LABELS[d]}</option>)}
+              </Select>
+            )}
+          </Field>
+        )}
         <Field label="Cobrança">
           {(id) => (
             <Select id={id} value={set.billingEvent} disabled={disabled || !set.optimizationGoal} onChange={(e) => patch({ billingEvent: e.target.value as DraftAdSet["billingEvent"] })}>
@@ -231,7 +252,7 @@ function AdSetCard({ draft, set, disabled, pages, instas, currency, lists, onCha
         <p className="text-xs text-slate-500">Posicionamentos: automáticos (o Meta escolhe). Interesses e locais detalhados entram numa próxima fase.</p>
       </div>
       <div className="space-y-3">
-        {ads.map((a) => <AdForm key={a.id} ad={a} pages={pages} instas={instas} disabled={disabled} onChange={onAdChange} onRemove={() => onAdRemove(a.id)} />)}
+        {ads.map((a) => <AdForm key={a.id} ad={a} destination={set.destinationType} pages={pages} instas={instas} disabled={disabled} onChange={onAdChange} onRemove={() => onAdRemove(a.id)} />)}
         <Button variant="secondary" disabled={disabled} onClick={onAddAd}><Plus className="size-4" aria-hidden /> Adicionar anúncio</Button>
       </div>
     </div>

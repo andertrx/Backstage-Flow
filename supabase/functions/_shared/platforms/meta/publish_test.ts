@@ -123,3 +123,30 @@ Deno.test("publicar: anúncio com imagem do Drive sem hash enviado falha ANTES d
   assert(got.get(2)?.errorMessage?.includes("não foi enviada ao Meta"));
   assert(!m.calls.some((c) => c.endsWith("/adcreatives")));
 });
+
+Deno.test("conversa no WhatsApp: destino e página no conjunto; criativo com botão do WhatsApp, sem link do site", () => {
+  const d = draft();
+  d.adSets[0].optimizationGoal = "CONVERSATIONS";
+  d.adSets[0].destinationType = "WHATSAPP";
+  const f = adSetFields(d.adSets[0], "C1", ctx(d));
+  assertEquals(f.destination_type, "WHATSAPP");
+  assertEquals(JSON.parse(f.promoted_object), { page_id: "111" });
+  const l = JSON.parse(creativeFields(d.ads[0], "H", "WHATSAPP").object_story_spec).link_data;
+  assertEquals(l.call_to_action, { type: "WHATSAPP_MESSAGE", value: { app_destination: "WHATSAPP" } });
+  assertEquals(l.link, "https://fb.me/");
+  assertEquals(JSON.parse(creativeFields(d.ads[0], "H", "MESSENGER").object_story_spec).link_data.call_to_action.type, "MESSAGE_PAGE");
+  assertEquals(JSON.parse(creativeFields(d.ads[0], "H", "INSTAGRAM_DIRECT").object_story_spec).link_data.call_to_action.value.app_destination, "INSTAGRAM_DIRECT");
+});
+
+Deno.test("formulário no anúncio: destino ON_AD, botão que abre o formulário e o ID dele", () => {
+  const d = draft();
+  d.adSets[0].optimizationGoal = "LEAD_GENERATION";
+  d.adSets[0].destinationType = "ON_AD";
+  d.ads[0].leadFormId = "123456789012";
+  d.ads[0].cta = "SIGN_UP";
+  assertEquals(adSetFields(d.adSets[0], "C1", ctx(d)).destination_type, "ON_AD");
+  const l = JSON.parse(creativeFields(d.ads[0], "H", "ON_AD").object_story_spec).link_data;
+  assertEquals(l.call_to_action, { type: "SIGN_UP", value: { lead_gen_form_id: "123456789012" } });
+  d.ads[0].cta = "WHATSAPP_MESSAGE";
+  assertEquals(JSON.parse(creativeFields(d.ads[0], "H", "ON_AD").object_story_spec).link_data.call_to_action.type, "SIGN_UP");
+});

@@ -22,22 +22,28 @@ export const OBJECTIVE_LABELS: Record<ObjectiveId, string> = {
 
 export type OptimizationGoal =
   | "REACH" | "IMPRESSIONS" | "AD_RECALL_LIFT" | "LINK_CLICKS" | "LANDING_PAGE_VIEWS" | "POST_ENGAGEMENT" | "THRUPLAY"
-  | "CONVERSATIONS" | "LEAD_GENERATION" | "QUALITY_LEAD" | "OFFSITE_CONVERSIONS" | "VALUE";
+  | "CONVERSATIONS" | "LEAD_GENERATION" | "QUALITY_LEAD" | "OFFSITE_CONVERSIONS" | "VALUE"
+  | "TWO_SECOND_CONTINUOUS_VIDEO_VIEWS" | "EVENT_RESPONSES" | "PAGE_LIKES" | "VISIT_INSTAGRAM_PROFILE" | "PROFILE_VISIT" | "QUALITY_CALL" | "REMINDERS_SET";
 
 export const GOAL_LABELS: Record<OptimizationGoal, string> = {
   REACH: "Alcance", IMPRESSIONS: "Impressões", AD_RECALL_LIFT: "Lembrança do anúncio", LINK_CLICKS: "Cliques no link",
   LANDING_PAGE_VIEWS: "Visualizações da página de destino", POST_ENGAGEMENT: "Engajamento com a publicação", THRUPLAY: "ThruPlay (vídeo)",
   CONVERSATIONS: "Conversas (mensagens)", LEAD_GENERATION: "Geração de leads (formulário)", QUALITY_LEAD: "Leads de qualidade",
   OFFSITE_CONVERSIONS: "Conversões no site", VALUE: "Valor das conversões",
+  TWO_SECOND_CONTINUOUS_VIDEO_VIEWS: "Reproduções de vídeo de 2 segundos", EVENT_RESPONSES: "Respostas ao evento", PAGE_LIKES: "Curtidas na página",
+  VISIT_INSTAGRAM_PROFILE: "Visitas ao perfil do Instagram", PROFILE_VISIT: "Visitas ao perfil", QUALITY_CALL: "Ligações", REMINDERS_SET: "Lembretes definidos",
 };
 
-/** Metas de otimização que cada objetivo aceita. */
+/**
+ * Metas de otimização que cada objetivo aceita. A LISTA É A DO PRÓPRIO META (conferida na ferramenta oficial de anúncios do Meta em 28/11/2026),
+ * na ordem dele (a primeira é a padrão). Algumas o Publicar ainda não monta: ver PUBLISH_UNSUPPORTED_GOALS em publish.ts.
+ */
 export const GOALS_BY_OBJECTIVE: Record<ObjectiveId, OptimizationGoal[]> = {
-  OUTCOME_AWARENESS: ["REACH", "IMPRESSIONS", "AD_RECALL_LIFT", "THRUPLAY"],
-  OUTCOME_TRAFFIC: ["LINK_CLICKS", "LANDING_PAGE_VIEWS", "REACH", "IMPRESSIONS", "CONVERSATIONS"],
-  OUTCOME_ENGAGEMENT: ["POST_ENGAGEMENT", "THRUPLAY", "CONVERSATIONS", "REACH", "IMPRESSIONS"],
-  OUTCOME_LEADS: ["LEAD_GENERATION", "QUALITY_LEAD", "OFFSITE_CONVERSIONS", "CONVERSATIONS", "LINK_CLICKS"],
-  OUTCOME_SALES: ["OFFSITE_CONVERSIONS", "VALUE", "CONVERSATIONS", "LINK_CLICKS", "LANDING_PAGE_VIEWS"],
+  OUTCOME_AWARENESS: ["REACH", "IMPRESSIONS", "AD_RECALL_LIFT", "THRUPLAY", "TWO_SECOND_CONTINUOUS_VIDEO_VIEWS"],
+  OUTCOME_TRAFFIC: ["LINK_CLICKS", "LANDING_PAGE_VIEWS", "OFFSITE_CONVERSIONS", "IMPRESSIONS", "POST_ENGAGEMENT", "REACH", "CONVERSATIONS", "THRUPLAY", "VISIT_INSTAGRAM_PROFILE", "PROFILE_VISIT", "QUALITY_CALL", "REMINDERS_SET"],
+  OUTCOME_ENGAGEMENT: ["THRUPLAY", "POST_ENGAGEMENT", "EVENT_RESPONSES", "PAGE_LIKES", "IMPRESSIONS", "REACH", "TWO_SECOND_CONTINUOUS_VIDEO_VIEWS", "LINK_CLICKS", "CONVERSATIONS", "OFFSITE_CONVERSIONS", "LANDING_PAGE_VIEWS", "QUALITY_CALL"],
+  OUTCOME_LEADS: ["OFFSITE_CONVERSIONS", "LEAD_GENERATION", "QUALITY_LEAD", "LANDING_PAGE_VIEWS", "LINK_CLICKS", "IMPRESSIONS", "REACH", "VALUE", "CONVERSATIONS", "QUALITY_CALL"],
+  OUTCOME_SALES: ["OFFSITE_CONVERSIONS", "VALUE", "LANDING_PAGE_VIEWS", "IMPRESSIONS", "POST_ENGAGEMENT", "REACH", "LINK_CLICKS", "CONVERSATIONS"],
 };
 
 /** O que cada meta exige no conjunto (objeto promovido). */
@@ -48,6 +54,26 @@ export const GOAL_REQUIRES: Partial<Record<OptimizationGoal, { pixel?: boolean; 
   QUALITY_LEAD: { page: true },
   CONVERSATIONS: { page: true },
 };
+
+/** Para onde o anúncio leva a pessoa (destination_type do Meta). Site é o padrão (campo vazio). */
+export type DestinationType = "WEBSITE" | "WHATSAPP" | "MESSENGER" | "INSTAGRAM_DIRECT" | "ON_AD";
+export const DESTINATION_LABELS: Record<DestinationType, string> = {
+  WEBSITE: "Site", WHATSAPP: "WhatsApp", MESSENGER: "Messenger", INSTAGRAM_DIRECT: "Direct do Instagram", ON_AD: "Formulário no próprio anúncio",
+};
+export const DESTINATION_TYPES = Object.keys(DESTINATION_LABELS) as DestinationType[];
+
+/**
+ * Destinos que o Meta oferece para a meta escolhida (só onde há escolha). Regra do Meta: Conversas aceita WhatsApp, Messenger ou Direct do Instagram,
+ * mas em Cadastros (leads) só destinos com WhatsApp; Geração de leads usa o formulário no anúncio. Demais metas: site (sem escolha).
+ */
+export function destinationsFor(goal: OptimizationGoal | "", objective: ObjectiveId | ""): DestinationType[] {
+  if (goal === "CONVERSATIONS") return objective === "OUTCOME_LEADS" ? ["WHATSAPP"] : ["WHATSAPP", "MESSENGER", "INSTAGRAM_DIRECT"];
+  if (goal === "LEAD_GENERATION") return ["ON_AD"];
+  return [];
+}
+
+/** O anúncio leva ao site (precisa de link e botão)? Falso para mensagens e formulário no anúncio. */
+export const leadsToWebsite = (d: DestinationType | ""): boolean => d === "" || d === "WEBSITE";
 
 export type BillingEvent = "IMPRESSIONS" | "LINK_CLICKS" | "THRUPLAY";
 export const BILLING_LABELS: Record<BillingEvent, string> = { IMPRESSIONS: "Impressões", LINK_CLICKS: "Cliques no link", THRUPLAY: "ThruPlay" };

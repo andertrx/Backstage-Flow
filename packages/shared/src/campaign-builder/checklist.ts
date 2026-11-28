@@ -2,7 +2,7 @@
  * Fase 35.2 — lista de conferência do rascunho. Só LÊ o rascunho: não fala com o Meta.
  * "erro" impede de seguir para o Validar; "aviso" só chama atenção. O Meta ainda confirma tudo no Validar (passo 3).
  */
-import { billingFor, GOAL_REQUIRES, GOALS_BY_OBJECTIVE, SPECIAL_AGE_MAX, SPECIAL_AGE_MIN } from "./catalog.ts";
+import { billingFor, DESTINATION_LABELS, destinationsFor, GOAL_REQUIRES, GOALS_BY_OBJECTIVE, leadsToWebsite, SPECIAL_AGE_MAX, SPECIAL_AGE_MIN } from "./catalog.ts";
 import type { CampaignDraft } from "./model.ts";
 
 export type CheckLevel = "erro" | "aviso";
@@ -60,6 +60,8 @@ export function checkDraft(d: CampaignDraft): CheckItem[] {
       if (need?.pixel && !s.pixelId.trim()) err("conjunto", `${label}: informe o pixel (ID) para essa meta.`, s.id);
       if (need?.customEvent && !s.customEvent) err("conjunto", `${label}: escolha o evento de conversão.`, s.id);
       if (need?.page && !s.pageId.trim()) err("conjunto", `${label}: informe a página (ID) para essa meta.`, s.id);
+      const options = destinationsFor(s.optimizationGoal, c.objective);
+      if (options.length && !options.includes(s.destinationType as never)) err("conjunto", `${label}: escolha para onde o anúncio leva (${options.map((o) => DESTINATION_LABELS[o]).join(", ")}).`, s.id);
     }
     if (!budgetOnCampaign && !(s.budgetAmount && s.budgetAmount > 0)) err("conjunto", `${label}: informe o orçamento do conjunto (maior que zero).`, s.id);
     if (budgetOnCampaign && s.budgetAmount) warn("conjunto", `${label}: o orçamento está na campanha; o do conjunto será ignorado.`, s.id);
@@ -82,9 +84,14 @@ export function checkDraft(d: CampaignDraft): CheckItem[] {
     if (a.name.trim().length < 2) err("anuncio", `${label}: dê um nome ao anúncio.`, a.id);
     if (!a.pageId.trim()) err("anuncio", `${label}: informe a página (ID) que publica o anúncio.`, a.id);
     if (!a.primaryText.trim()) err("anuncio", `${label}: escreva o texto principal.`, a.id);
-    if (!a.cta) err("anuncio", `${label}: escolha o botão (CTA).`, a.id);
-    if (!a.link.trim()) err("anuncio", `${label}: informe o link de destino.`, a.id);
-    else if (!isHttps(a.link.trim())) err("anuncio", `${label}: o link precisa começar com https://.`, a.id);
+    const website = leadsToWebsite(set?.destinationType ?? "");
+    if (website && !a.cta) err("anuncio", `${label}: escolha o botão (CTA).`, a.id);
+    if (website) {
+      if (!a.link.trim()) err("anuncio", `${label}: informe o link de destino.`, a.id);
+      else if (!isHttps(a.link.trim())) err("anuncio", `${label}: o link precisa começar com https://.`, a.id);
+    } else if (set?.destinationType === "ON_AD" && !a.leadFormId.trim()) {
+      err("anuncio", `${label}: informe o ID do formulário de cadastro (o botão e o link o Meta monta).`, a.id);
+    }
     if (a.headline.length > 40) warn("anuncio", `${label}: título com mais de 40 letras pode ser cortado.`, a.id);
     if (a.primaryText.length > 125) warn("anuncio", `${label}: texto principal acima de 125 letras será cortado com "ver mais".`, a.id);
     if (!a.instagramId.trim()) warn("anuncio", `${label}: sem Instagram, o anúncio sai só no Facebook.`, a.id);

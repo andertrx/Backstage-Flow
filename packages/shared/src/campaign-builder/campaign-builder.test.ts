@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyGoal, applyObjective, billingFor, checkDraft, checkSummary, duplicateAdSet, GOALS_BY_OBJECTIVE, newAd, newAdSet, newDraft, normalizeDraft, removeAdSet,
-  type CampaignDraft, checkPublishable, publishBlockers, publishCounts,
+  type CampaignDraft, checkPublishable, publishBlockers, publishCounts, destinationsFor, leadsToWebsite,
 } from "../index.ts";
 
 function completo(): CampaignDraft {
@@ -32,7 +32,7 @@ describe("Campaign Builder — rascunho", () => {
 
   it("meta que o objetivo não aceita é recusada; trocar o objetivo desmarca a meta inválida", () => {
     const d = completo();
-    d.adSets[0].optimizationGoal = "THRUPLAY";
+    d.adSets[0].optimizationGoal = "LEAD_GENERATION";
     expect(checkDraft(d).some((i) => /não combina com o objetivo/.test(i.message))).toBe(true);
     const trocado = applyObjective(completo(), "OUTCOME_AWARENESS");
     expect(trocado.adSets[0].optimizationGoal).toBe("");
@@ -159,11 +159,11 @@ describe("publicar (Fase B)", () => {
     d.ads[0].imageUrl = "https://x.com/a.jpg";
     expect(publishBlockers(d)).toEqual([]);
   });
-  it("metas de mensagem/formulário e botões de WhatsApp ainda não são publicados (aviso claro)", () => {
+  it("meta que exige vídeo/post/ligação e o botão de ligar ainda não são publicados (aviso claro)", () => {
     const d = completo();
     d.ads[0].imageUrl = "https://x.com/a.jpg";
-    d.adSets[0].optimizationGoal = "CONVERSATIONS";
-    d.ads[0].cta = "WHATSAPP_MESSAGE";
+    d.adSets[0].optimizationGoal = "THRUPLAY";
+    d.ads[0].cta = "CALL_NOW";
     const msgs = checkPublishable(d).map((i) => i.message).join(" | ");
     expect(msgs).toContain("ainda não é publicada");
     expect(msgs).toContain("ainda não é publicado");
@@ -193,3 +193,53 @@ describe("publicar (Fase B)", () => {
     expect(duplicateAdSet(ok, "s1").ads[1].driveFileName).toBe("ADS-01.png");
   });
 });
+
+describe("opções iguais às do Meta (28/11/2026)", () => {
+  it("as metas de cada objetivo seguem a lista do Meta, na ordem dele (a primeira é a padrão)", () => {
+    expect(GOALS_BY_OBJECTIVE.OUTCOME_TRAFFIC[0]).toBe("LINK_CLICKS");
+    expect(GOALS_BY_OBJECTIVE.OUTCOME_LEADS.slice(0, 2)).toEqual(["OFFSITE_CONVERSIONS", "LEAD_GENERATION"]);
+    expect(GOALS_BY_OBJECTIVE.OUTCOME_SALES).not.toContain("LEAD_GENERATION");
+    expect(GOALS_BY_OBJECTIVE.OUTCOME_AWARENESS).toContain("TWO_SECOND_CONTINUOUS_VIDEO_VIEWS");
+  });
+  it("Conversas: WhatsApp, Messenger ou Direct; em Cadastros só WhatsApp; formulário vai no anúncio", () => {
+    expect(destinationsFor("CONVERSATIONS", "OUTCOME_TRAFFIC")).toEqual(["WHATSAPP", "MESSENGER", "INSTAGRAM_DIRECT"]);
+    expect(destinationsFor("CONVERSATIONS", "OUTCOME_LEADS")).toEqual(["WHATSAPP"]);
+    expect(destinationsFor("LEAD_GENERATION", "OUTCOME_LEADS")).toEqual(["ON_AD"]);
+    expect(destinationsFor("LINK_CLICKS", "OUTCOME_TRAFFIC")).toEqual([]);
+  });
+  it("escolher a meta já põe o destino padrão; trocar para meta sem escolha volta ao site", () => {
+    const s = applyGoal(newAdSet(), "CONVERSATIONS", "OUTCOME_TRAFFIC");
+    expect(s.destinationType).toBe("WHATSAPP");
+    expect(applyGoal({ ...s, destinationType: "MESSENGER" }, "CONVERSATIONS", "OUTCOME_TRAFFIC").destinationType).toBe("MESSENGER");
+    expect(applyGoal(s, "LINK_CLICKS", "OUTCOME_TRAFFIC").destinationType).toBe("");
+  });
+  it("destino de mensagem: o anúncio não precisa de link nem botão; formulário exige o ID", () => {
+    const d = completo();
+    d.adSets[0].optimizationGoal = "CONVERSATIONS";
+    d.adSets[0].destinationType = "WHATSAPP";
+    d.adSets[0].pageId = "123";
+    d.ads[0].link = "";
+    d.ads[0].cta = "";
+    expect(checkDraft(d).filter((i) => i.level === "erro").map((i) => i.message).join("|")).not.toMatch(/link|botão/);
+    d.adSets[0].optimizationGoal = "LEAD_GENERATION";
+    d.adSets[0].destinationType = "ON_AD";
+    expect(checkDraft(d).some((i) => i.message.includes("ID do formulário"))).toBe(true);
+    d.ads[0].leadFormId = "123456789012";
+    expect(checkDraft(d).some((i) => i.message.includes("ID do formulário"))).toBe(false);
+    expect(leadsToWebsite("ON_AD")).toBe(false);
+  });
+  it("Conversas e Geração de leads agora publicam; as metas que exigem vídeo/post/ligação seguem avisando", () => {
+    const d = completo();
+    d.ads[0].imageUrl = "https://x.com/a.jpg";
+    d.adSets[0].optimizationGoal = "CONVERSATIONS";
+    expect(checkPublishable(d).some((i) => i.message.includes("ainda não é publicada"))).toBe(false);
+    d.adSets[0].optimizationGoal = "QUALITY_LEAD";
+    expect(checkPublishable(d).some((i) => i.message.includes("Leads de qualidade"))).toBe(true);
+  });
+  it("destino e ID do formulário só guardam valores válidos", () => {
+    const n = normalizeDraft({ adSets: [{ id: "s1", destinationType: "WHATSAPP" }, { id: "s2", destinationType: "qualquer" }], ads: [{ id: "a1", adSetId: "s1", leadFormId: "12345678; x" }, { id: "a2", adSetId: "s1", leadFormId: "987654321" }] });
+    expect(n.adSets.map((x) => x.destinationType)).toEqual(["WHATSAPP", ""]);
+    expect(n.ads.map((x) => x.leadFormId)).toEqual(["", "987654321"]);
+  });
+});
+
